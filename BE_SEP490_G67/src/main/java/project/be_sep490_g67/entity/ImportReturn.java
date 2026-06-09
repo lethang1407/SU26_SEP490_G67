@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -12,37 +13,31 @@ import java.util.Set;
 @Getter
 @Setter
 @Entity
-@Table(name = "users")
-public class User {
+@Table(name = "import_returns")
+public class ImportReturn {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "role_id", nullable = false)
-    private Role role;
+    @JoinColumn(name = "import_order_id", nullable = false)
+    private ImportOrder importOrder;
 
-    @Column(name = "full_name", length = 100)
-    private String fullName;
+    @Column(name = "return_code", length = 30)
+    private String returnCode;
 
-    @Column(name = "username", length = 50)
-    private String username;
+    @ColumnDefault("0.00")
+    @Column(name = "total_refund", precision = 15, scale = 2)
+    private BigDecimal totalRefund;
 
-    @Column(name = "password_hash")
-    private String passwordHash;
-
-    @Column(name = "phone_number", length = 15)
-    private String phoneNumber;
-
-    @ColumnDefault("'ACTIVE'")
     @Lob
-    @Column(name = "status")
-    private String status;
+    @Column(name = "note")
+    private String note;
 
-    @ColumnDefault("0")
-    @Column(name = "is_removed")
-    private Boolean isRemoved;
+    @ColumnDefault("CURRENT_TIMESTAMP")
+    @Column(name = "return_date")
+    private Instant returnDate;
 
     @ColumnDefault("CURRENT_TIMESTAMP")
     @Column(name = "created_at")
@@ -58,11 +53,8 @@ public class User {
     @Column(name = "updated_by")
     private Integer updatedBy;
 
-    @OneToMany(mappedBy = "user")
-    private Set<AuditLog> auditLogs = new LinkedHashSet<>();
-
-    @OneToMany(mappedBy = "user")
-    private Set<NotificationRecipient> notificationRecipients = new LinkedHashSet<>();
+    @OneToMany(mappedBy = "importReturn")
+    private Set<ImportReturnDetail> importReturnDetails = new LinkedHashSet<>();
 
 
 }

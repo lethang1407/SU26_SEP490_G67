@@ -12,33 +12,29 @@ import java.util.Set;
 @Getter
 @Setter
 @Entity
-@Table(name = "users")
-public class User {
+@Table(name = "notifications")
+public class Notification {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Integer id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "role_id", nullable = false)
-    private Role role;
-
-    @Column(name = "full_name", length = 100)
-    private String fullName;
-
-    @Column(name = "username", length = 50)
-    private String username;
-
-    @Column(name = "password_hash")
-    private String passwordHash;
-
-    @Column(name = "phone_number", length = 15)
-    private String phoneNumber;
-
-    @ColumnDefault("'ACTIVE'")
     @Lob
-    @Column(name = "status")
-    private String status;
+    @Column(name = "notification_type")
+    private String notificationType;
+
+    @Column(name = "title", length = 200)
+    private String title;
+
+    @Lob
+    @Column(name = "message")
+    private String message;
+
+    @Column(name = "reference_type", length = 40)
+    private String referenceType;
+
+    @Column(name = "reference_id")
+    private Integer referenceId;
 
     @ColumnDefault("0")
     @Column(name = "is_removed")
@@ -58,10 +54,7 @@ public class User {
     @Column(name = "updated_by")
     private Integer updatedBy;
 
-    @OneToMany(mappedBy = "user")
-    private Set<AuditLog> auditLogs = new LinkedHashSet<>();
-
-    @OneToMany(mappedBy = "user")
+    @OneToMany(mappedBy = "notification")
     private Set<NotificationRecipient> notificationRecipients = new LinkedHashSet<>();
 
 

@@ -12,33 +12,18 @@ import java.util.Set;
 @Getter
 @Setter
 @Entity
-@Table(name = "users")
-public class User {
+@Table(name = "roles")
+public class Role {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Integer id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "role_id", nullable = false)
-    private Role role;
+    @Column(name = "name", nullable = false, length = 50)
+    private String name;
 
-    @Column(name = "full_name", length = 100)
-    private String fullName;
-
-    @Column(name = "username", length = 50)
-    private String username;
-
-    @Column(name = "password_hash")
-    private String passwordHash;
-
-    @Column(name = "phone_number", length = 15)
-    private String phoneNumber;
-
-    @ColumnDefault("'ACTIVE'")
-    @Lob
-    @Column(name = "status")
-    private String status;
+    @Column(name = "description")
+    private String description;
 
     @ColumnDefault("0")
     @Column(name = "is_removed")
@@ -58,11 +43,11 @@ public class User {
     @Column(name = "updated_by")
     private Integer updatedBy;
 
-    @OneToMany(mappedBy = "user")
-    private Set<AuditLog> auditLogs = new LinkedHashSet<>();
+    @ManyToMany(mappedBy = "roles")
+    private Set<Permission> permissions = new LinkedHashSet<>();
 
-    @OneToMany(mappedBy = "user")
-    private Set<NotificationRecipient> notificationRecipients = new LinkedHashSet<>();
+    @OneToMany(mappedBy = "role")
+    private Set<User> users = new LinkedHashSet<>();
 
 
 }

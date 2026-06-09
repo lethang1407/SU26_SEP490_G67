@@ -12,33 +12,28 @@ import java.util.Set;
 @Getter
 @Setter
 @Entity
-@Table(name = "users")
-public class User {
+@Table(name = "suppliers")
+public class Supplier {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Integer id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "role_id", nullable = false)
-    private Role role;
+    @Column(name = "name", nullable = false, length = 150)
+    private String name;
 
-    @Column(name = "full_name", length = 100)
-    private String fullName;
-
-    @Column(name = "username", length = 50)
-    private String username;
-
-    @Column(name = "password_hash")
-    private String passwordHash;
+    @Column(name = "contact_person", length = 100)
+    private String contactPerson;
 
     @Column(name = "phone_number", length = 15)
     private String phoneNumber;
 
-    @ColumnDefault("'ACTIVE'")
+    @Column(name = "address")
+    private String address;
+
     @Lob
-    @Column(name = "status")
-    private String status;
+    @Column(name = "notes")
+    private String notes;
 
     @ColumnDefault("0")
     @Column(name = "is_removed")
@@ -58,11 +53,11 @@ public class User {
     @Column(name = "updated_by")
     private Integer updatedBy;
 
-    @OneToMany(mappedBy = "user")
-    private Set<AuditLog> auditLogs = new LinkedHashSet<>();
+    @Column(name = "supplier_code", nullable = false, length = 30)
+    private String supplierCode;
 
-    @OneToMany(mappedBy = "user")
-    private Set<NotificationRecipient> notificationRecipients = new LinkedHashSet<>();
+    @OneToMany(mappedBy = "supplier")
+    private Set<ImportOrder> importOrders = new LinkedHashSet<>();
 
 
 }

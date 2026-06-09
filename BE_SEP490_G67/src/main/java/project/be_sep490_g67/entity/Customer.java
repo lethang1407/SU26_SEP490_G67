@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -12,33 +13,26 @@ import java.util.Set;
 @Getter
 @Setter
 @Entity
-@Table(name = "users")
-public class User {
+@Table(name = "customers")
+public class Customer {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Integer id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "role_id", nullable = false)
-    private Role role;
-
-    @Column(name = "full_name", length = 100)
+    @Column(name = "full_name", nullable = false, length = 100)
     private String fullName;
-
-    @Column(name = "username", length = 50)
-    private String username;
-
-    @Column(name = "password_hash")
-    private String passwordHash;
 
     @Column(name = "phone_number", length = 15)
     private String phoneNumber;
 
-    @ColumnDefault("'ACTIVE'")
-    @Lob
-    @Column(name = "status")
-    private String status;
+    @ColumnDefault("0.00")
+    @Column(name = "total_debt", precision = 15, scale = 2)
+    private BigDecimal totalDebt;
+
+    @ColumnDefault("0.00")
+    @Column(name = "total_paid", precision = 15, scale = 2)
+    private BigDecimal totalPaid;
 
     @ColumnDefault("0")
     @Column(name = "is_removed")
@@ -58,11 +52,11 @@ public class User {
     @Column(name = "updated_by")
     private Integer updatedBy;
 
-    @OneToMany(mappedBy = "user")
-    private Set<AuditLog> auditLogs = new LinkedHashSet<>();
+    @OneToMany(mappedBy = "customer")
+    private Set<DebtPayment> debtPayments = new LinkedHashSet<>();
 
-    @OneToMany(mappedBy = "user")
-    private Set<NotificationRecipient> notificationRecipients = new LinkedHashSet<>();
+    @OneToMany(mappedBy = "customer")
+    private Set<SalesOrder> salesOrders = new LinkedHashSet<>();
 
 
 }

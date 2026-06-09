@@ -4,41 +4,33 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
+import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.LinkedHashSet;
-import java.util.Set;
 
 @Getter
 @Setter
 @Entity
-@Table(name = "users")
-public class User {
+@Table(name = "product_units")
+public class ProductUnit {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "role_id", nullable = false)
-    private Role role;
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @JoinColumn(name = "product_id", nullable = false)
+    private Product product;
 
-    @Column(name = "full_name", length = 100)
-    private String fullName;
+    @Column(name = "name", length = 50)
+    private String name;
 
-    @Column(name = "username", length = 50)
-    private String username;
-
-    @Column(name = "password_hash")
-    private String passwordHash;
-
-    @Column(name = "phone_number", length = 15)
-    private String phoneNumber;
-
-    @ColumnDefault("'ACTIVE'")
-    @Lob
-    @Column(name = "status")
-    private String status;
+    @ColumnDefault("1.0000")
+    @Column(name = "unit_base", precision = 10, scale = 4)
+    private BigDecimal unitBase;
 
     @ColumnDefault("0")
     @Column(name = "is_removed")
@@ -57,12 +49,6 @@ public class User {
 
     @Column(name = "updated_by")
     private Integer updatedBy;
-
-    @OneToMany(mappedBy = "user")
-    private Set<AuditLog> auditLogs = new LinkedHashSet<>();
-
-    @OneToMany(mappedBy = "user")
-    private Set<NotificationRecipient> notificationRecipients = new LinkedHashSet<>();
 
 
 }
