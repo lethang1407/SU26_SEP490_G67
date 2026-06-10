@@ -64,6 +64,45 @@
     font-weight: 600;
 }
 
+.header-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-user__info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+.header-user__name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a1a;
+    white-space: nowrap;
+}
+
+.header-user__role {
+    font-size: 12px;
+    font-weight: 500;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.header-btn--profile {
+    border: 1.5px solid #e0e0e0;
+    background: #fff;
+}
+
+.header-btn--active {
+    border-color: #004AC6;
+    color: #004AC6;
+    background: #e8f0fe;
+}
+
 @media (max-width: 768px) {
     .admin-header {
         padding: 15px 20px;
