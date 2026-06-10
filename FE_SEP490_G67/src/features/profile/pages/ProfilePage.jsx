@@ -24,12 +24,7 @@ export default function ProfilePage() {
 				<AdminHeader user={profile} activePage="profile" />
 				<main className="admin-main">
 					<div className="dashboard-container">
-						<nav className="profile-breadcrumb" aria-label="Breadcrumb">
-							<span>Cài đặt</span>
-							<span className="profile-breadcrumb__sep">&gt;</span>
-							<span className="profile-breadcrumb__current">Hồ sơ người dùng</span>
-						</nav>
-
+					
 						<div className="profile-page-header">
 							<h1 className="profile-page-header__title">Hồ sơ người dùng</h1>
 							<div className="profile-page-header__actions">
