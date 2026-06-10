@@ -1,5 +1,5 @@
+
 import AdminDashboard from '../../features/dashboard/pages/AdminDashboard';
-import StaffManagementPage from '../../features/staff/pages/StaffManagementPage';
 
 const adminRoutes = [
     {
@@ -9,6 +9,10 @@ const adminRoutes = [
     {
         path: '/admin/staff',
         element: <StaffManagementPage />,
+    },
+    {
+        path: '/admin/profile',
+        element: <ProfilePage />,
     },
     {
         path: '/admin',
