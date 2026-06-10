@@ -26,13 +26,13 @@ public class User {
     @Column(name = "full_name", length = 100)
     private String fullName;
 
-    @Column(name = "username", length = 50)
+    @Column(name = "username", length = 50, unique = true)
     private String username;
 
     @Column(name = "password_hash")
     private String passwordHash;
 
-    @Column(name = "phone_number", length = 15)
+    @Column(name = "phone_number", length = 15, unique = true)
     private String phoneNumber;
 
     @ColumnDefault("'ACTIVE'")

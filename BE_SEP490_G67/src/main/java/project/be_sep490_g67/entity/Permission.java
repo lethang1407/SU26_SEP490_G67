@@ -49,7 +49,7 @@ public class Permission {
     @Column(name = "updated_by")
     private Integer updatedBy;
 
-    @ManyToMany
+    @ManyToMany(mappedBy = "permissions")
     private Set<Role> roles = new LinkedHashSet<>();
 
 

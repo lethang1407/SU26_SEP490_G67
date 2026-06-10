@@ -19,7 +19,7 @@ public class Role {
     @Column(name = "id", nullable = false)
     private Integer id;
 
-    @Column(name = "name", nullable = false, length = 50)
+    @Column(name = "name", nullable = false, length = 50, unique = true)
     private String name;
 
     @Column(name = "description")
@@ -43,7 +43,12 @@ public class Role {
     @Column(name = "updated_by")
     private Integer updatedBy;
 
-    @ManyToMany(mappedBy = "roles")
+    @ManyToMany
+    @JoinTable(
+            name = "role_permissions",
+            joinColumns = @JoinColumn(name = "role_id"),
+            inverseJoinColumns = @JoinColumn(name = "permission_id")
+    )
     private Set<Permission> permissions = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "role")
