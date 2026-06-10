@@ -48,3 +48,35 @@ export function formatPhoneNumber(phone) {
 
 	return digits;
 }
+
+export function normalizePhoneNumber(phone) {
+	if (!phone) return '';
+
+	let digits = phone.replace(/\D/g, '');
+
+	if (digits.startsWith('84')) {
+		digits = '0' + digits.slice(2);
+	} else if (!digits.startsWith('0')) {
+		digits = '0' + digits;
+	}
+
+	return digits;
+}
+
+export function validatePhoneNumber(phone) {
+	const digits = normalizePhoneNumber(phone);
+
+	if (!digits) {
+		return 'Số điện thoại không được để trống.';
+	}
+
+	if (digits.length === 10 && /^0[35789]/.test(digits)) {
+		return null;
+	}
+
+	if (digits.length === 11 && /^02/.test(digits)) {
+		return null;
+	}
+
+	return 'Số điện thoại không hợp lệ.';
+}

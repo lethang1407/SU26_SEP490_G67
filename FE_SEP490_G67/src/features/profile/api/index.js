@@ -6,6 +6,16 @@ export async function getProfile() {
 		const response = await api.get('/users/me');
 		return response.data;
 	} catch {
-		return MOCK_PROFILE;
+		return { ...MOCK_PROFILE };
+	}
+}
+
+export async function updateProfile(payload) {
+	try {
+		const response = await api.put('/users/me', payload);
+		return response.data;
+	} catch {
+		Object.assign(MOCK_PROFILE, payload);
+		return { ...MOCK_PROFILE };
 	}
 }
