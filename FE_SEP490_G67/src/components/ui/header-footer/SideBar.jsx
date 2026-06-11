@@ -11,9 +11,7 @@ import {
     FileText,
     User,
     HelpCircle,
-    LogOut,
-    Menu,
-    X
+    LogOut
 } from "lucide-react";
 
 import "../../../css/SideBar.css";
