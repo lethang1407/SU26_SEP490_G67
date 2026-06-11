@@ -1,0 +1,117 @@
+/* Import Google Fonts & Icons */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+/* Ghi đè màu gốc của Bootstrap */
+:root {
+  --bs-primary: #2563eb;
+  --bs-primary-rgb: 37, 99, 235;
+  --bs-font-sans-serif: 'Inter', sans-serif;
+  --bs-body-bg: #F8FAFC;
+}
+
+body {
+  font-family: var(--bs-font-sans-serif);
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* --- Hiệu ứng nền mờ (Bootstrap không có sẵn) --- */
+.login-wrapper { position: relative; overflow: hidden; z-index: 1; }
+.bg-decor { position: fixed; z-index: -1; pointer-events: none; border-radius: 50%; }
+.bg-decor-1 { top: -10%; left: -10%; width: 40%; height: 40%; background-color: rgba(219, 225, 255, 0.4); filter: blur(120px); }
+.bg-decor-2 { bottom: -10%; right: -10%; width: 30%; height: 30%; background-color: rgba(211, 228, 254, 0.3); filter: blur(100px); }
+
+/* --- Tinh chỉnh UI cho giống thiết kế gốc --- */
+.custom-shadow { box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3); }
+.cursor-pointer { cursor: pointer; }
+.hover-dark:hover { color: #191b23 !important; }
+
+/* Làm đẹp InputGroup khi Focus */
+.custom-input-group:focus-within {
+  box-shadow: 0 0 0 0.25rem rgba(37, 99, 235, 0.25);
+  border-radius: var(--bs-border-radius);
+}
+.custom-input-group:focus-within .input-group-text,
+.custom-input-group:focus-within .form-control {
+  border-color: var(--bs-primary);
+}
+.custom-input-group:focus-within .material-symbols-outlined {
+  color: var(--bs-primary) !important;
+}
+
+/* Tinh chỉnh Checkbox của Bootstrap */
+.custom-checkbox .form-check-input:checked {
+  background-color: var(--bs-primary);
+  border-color: var(--bs-primary);
+}
+.custom-btn-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;                 /* Khoảng cách giữa icon và chữ */
+  
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0; /* Viền xám nhạt */
+  border-radius: 12px;       /* Bo góc chuẩn ảnh */
+  padding: 14px 20px;        /* Độ dày bên trong nút */
+  
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+/* Hiệu ứng mượt mà khi hover */
+.custom-btn-card:hover {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+/* Định dạng Icon màu xanh dương */
+.custom-btn-icon {
+  width: 26px;
+  height: 26px;
+  color: #0046c0;            /* Màu xanh gốc của ảnh */
+  flex-shrink: 0;
+}
+
+/* Định dạng chữ */
+.custom-btn-text {
+  color: #000000;
+  font-size: 16px;
+  font-weight: 500;
+  white-space: nowrap;       /* Ngăn chữ bị vỡ dòng xuống dưới */
+}
+.title-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: #333d52;
+  font-family: sans-serif;
+  font-weight: 500;
+}
+
+/* Vẽ thanh ngang bên trái và bên phải */
+.title-divider::before,
+.title-divider::after {
+  content: "";
+  flex-grow: 1;
+  height: 1px;
+  background-color: #b0b8d1;
+}
+
+/* Tạo khoảng cách riêng cho thanh ngang bên trái */
+.title-divider::before {
+  margin-right: 20px;
+}
+
+/* Tạo khoảng cách riêng cho thanh ngang bên phải */
+.title-divider::after {
+  margin-left: 20px;
+}
+
+/* Animations */
+@keyframes spin { 100% { transform: rotate(360deg); } }
+.animate-spin { animation: spin 1s linear infinite; }
+.fade-out { opacity: 0; transition: opacity 0.5s ease-out; }

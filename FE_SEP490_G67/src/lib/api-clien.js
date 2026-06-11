@@ -3,8 +3,17 @@ import Axios from 'axios';
 import { env } from '../config/env';
 
 function authRequestInterceptor(config) {
+  const publicEndpoints = ['/','/auth/token', '/auth/refresh'];
+
   if (config.headers) {
-    config.headers.Accept = 'application/json';
+    config.headers.Accept = 'application/json; charset=utf-8';
+    
+    if (!publicEndpoints.includes(config.url)) {
+      const accessToken = localStorage.getItem('accessToken');
+      if (accessToken) {
+        config.headers.Authorization = `Bearer ${accessToken}`;
+      }
+    }
   }
 
   config.withCredentials = true;
@@ -22,10 +31,10 @@ api.interceptors.response.use(
   },
   (error) => {
     const message = error.response?.data?.message || error.message;
-    // 🆕 Hiển thị thông báo lỗi
+    // Hiển thị thông báo lỗi
     console.error('API Error:', message);
 
-    // 🆕 Kiểm tra env trước khi redirect
+    // Kiểm tra env trước khi redirect
     if (error.response?.status === 401 && env.ENABLE_AUTO_REDIRECT_LOGIN) {
       const searchParams = new URLSearchParams();
       const redirectTo =

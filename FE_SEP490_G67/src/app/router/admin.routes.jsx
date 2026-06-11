@@ -1,6 +1,7 @@
 
 import AdminDashboard from '../../features/dashboard/pages/AdminDashboard';
 import ProfilePage from '../../features/profile/pages/ProfilePage';
+import StaffManagementPage from '../../features/staff/pages/StaffManagementPage';
 const adminRoutes = [
     {
         path: '/admin/dashboard',
