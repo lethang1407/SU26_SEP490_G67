@@ -6,6 +6,7 @@ import {
     AlertTriangle,
     TrendingUp,
     ChevronDown,
+    Landmark,
 } from 'lucide-react';
 
 const expiredProducts = [
@@ -33,7 +34,7 @@ export default function StatCards() {
             subtitleClass: 'stat-card__subtitle--green',
             subtitleIcon: <TrendingUp size={14} />,
             small: '15 đơn hàng',
-            icon: Receipt,
+            icon: Landmark,
             iconBg: '#DCFCE7',
             iconColor: '#16a34a',
             accent: 'green',
