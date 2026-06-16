@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { updateProfile } from '../api';
-import { normalizePhoneNumber, validatePhoneNumber } from '../utils/profileUtils';
+import { PROFILE_ROUTES } from '../constants';
+import { getApiErrorMessage, normalizePhoneNumber, validatePhoneNumber } from '../utils/profileUtils';
 
 export default function ProfileEditForm({
 	profile,
@@ -59,9 +60,12 @@ export default function ProfileEditForm({
 
 		try {
 			await updateProfile(payload);
-			navigate('/admin/profile');
-		} catch {
-			setMessage({ type: 'error', text: 'Không thể cập nhật thông tin. Vui lòng thử lại.' });
+			navigate(PROFILE_ROUTES.view);
+		} catch (err) {
+			setMessage({
+				type: 'error',
+				text: getApiErrorMessage(err, 'Không thể cập nhật thông tin. Vui lòng thử lại.'),
+			});
 		} finally {
 			setSaving(false);
 			onSavingChange?.(false);
@@ -122,7 +126,7 @@ export default function ProfileEditForm({
 						<button
 							type="button"
 							className="profile-action-btn profile-action-btn--outline"
-							onClick={() => navigate('/admin/profile')}
+							onClick={() => navigate(PROFILE_ROUTES.view)}
 							disabled={saving}
 						>
 							Hủy

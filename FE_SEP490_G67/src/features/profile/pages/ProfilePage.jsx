@@ -5,6 +5,8 @@ import SideBar from '../../../components/ui/header-footer/SideBar';
 import AdminHeader from '../../dashboard/components/AdminHeader';
 import ProfileViewCard from '../components/ProfileViewCard';
 import { getProfile } from '../api';
+import { PROFILE_ROUTES } from '../constants';
+import { getApiErrorMessage } from '../utils/profileUtils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Profile.css';
 
@@ -12,10 +14,14 @@ export default function ProfilePage() {
 	const navigate = useNavigate();
 	const [profile, setProfile] = useState(null);
 	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(null);
 
 	useEffect(() => {
 		getProfile()
 			.then(setProfile)
+			.catch((err) => {
+				setError(getApiErrorMessage(err, 'Không thể tải thông tin hồ sơ.'));
+			})
 			.finally(() => setLoading(false));
 	}, []);
 
@@ -43,7 +49,8 @@ export default function ProfilePage() {
 								<button
 									type="button"
 									className="profile-action-btn profile-action-btn--primary"
-									onClick={() => navigate('/admin/profile/edit')}
+									onClick={() => navigate(PROFILE_ROUTES.edit)}
+									disabled={loading || !!error}
 								>
 									<Pencil size={16} />
 									Chỉnh sửa hồ sơ
@@ -56,6 +63,10 @@ export default function ProfilePage() {
 								<div className="profile-loading__spinner" />
 								<p>Đang tải thông tin...</p>
 							</div>
+						) : error ? (
+							<p className="profile-edit-form__message profile-edit-form__message--error">
+								{error}
+							</p>
 						) : (
 							<ProfileViewCard profile={profile} />
 						)}

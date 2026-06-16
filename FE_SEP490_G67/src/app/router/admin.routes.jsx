@@ -1,7 +1,5 @@
 
 import AdminDashboard from '../../features/dashboard/pages/AdminDashboard';
-import ProfilePage from '../../features/profile/pages/ProfilePage';
-import EditProfilePage from '../../features/profile/pages/EditProfilePage';
 import StaffManagementPage from '../../features/staff/pages/StaffManagementPage';
 import StoreInfor from '../../features/store/pages/StoreInfor';
 
@@ -15,14 +13,6 @@ const adminRoutes = [
         element: <StaffManagementPage />,
     },
     {
-        path: '/admin/profile',
-        element: <ProfilePage />,
-    },
-    {
-        path: '/admin/profile/edit',
-        element: <EditProfilePage />,
-    },
-    {
         path: '/admin',
         element: <AdminDashboard />,
     },
@@ -33,3 +23,4 @@ const adminRoutes = [
 ];
 
 export default adminRoutes;
+
