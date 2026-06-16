@@ -1,35 +1,54 @@
-import { MoreVertical } from 'lucide-react';
-
 const products = [
-    { name: 'Nước mắm Nam Ngư 500ml', sold: 120 },
-    { name: 'Mì Hảo Hảo Tôm Chua Cay', sold: 95 },
-    { name: 'Sữa tươi TH True Milk (Thùng)', sold: 82 },
-    { name: 'Gạo ST25 (Bao 5kg)', sold: 45 },
-    { name: 'Dầu ăn Cái Lân 1L', sold: 38 },
+    { name: 'Mì Hảo Hảo Tôm Chua Cay', sold: 42, unit: 'gói' },
+    { name: 'Nước ngọt Pepsi 330ml', sold: 28, unit: 'lon' },
+    { name: 'Bánh Oreo', sold: 15, unit: 'gói' },
+    { name: 'Sữa tươi TH True Milk', sold: 12, unit: 'hộp' },
+    { name: 'Gạo ST25 (Bao 5kg)', sold: 8, unit: 'bao' },
 ];
 
 export default function TopProducts() {
     const maxSold = Math.max(...products.map((p) => p.sold));
 
+    const getRankClass = (index) => {
+        if (index === 0) return 'top-products__rank--1';
+        if (index === 1) return 'top-products__rank--2';
+        if (index === 2) return 'top-products__rank--3';
+        return 'top-products__rank--default';
+    };
+
+    const getBarClass = (index) => {
+        if (index === 0) return 'top-products__bar--1';
+        if (index === 1) return 'top-products__bar--2';
+        if (index === 2) return 'top-products__bar--3';
+        return 'top-products__bar--default';
+    };
+
     return (
         <div className="dashboard-card top-products-card">
             <div className="dashboard-card__header">
-                <h3 className="dashboard-card__title">Sản phẩm bán chạy</h3>
-                <button className="dashboard-card__menu" aria-label="More options">
-                    <MoreVertical size={18} />
+                <h3 className="dashboard-card__title">Sản Phẩm Bán Chạy Hôm Nay</h3>
+                <button className="dashboard-card__link">
+                    Xem báo cáo đầy đủ →
                 </button>
             </div>
             <div className="top-products__list">
                 {products.map((product, index) => (
                     <div key={index} className="top-products__item">
-                        <span className="top-products__name">{product.name}</span>
-                        <div className="top-products__bar-wrapper">
-                            <div
-                                className="top-products__bar"
-                                style={{ width: `${(product.sold / maxSold) * 100}%` }}
-                            />
+                        <span className={`top-products__rank ${getRankClass(index)}`}>
+                            {index + 1}
+                        </span>
+                        <div className="top-products__details">
+                            <span className="top-products__name">{product.name}</span>
+                            <div className="top-products__bar-wrapper">
+                                <div
+                                    className={`top-products__bar ${getBarClass(index)}`}
+                                    style={{ width: `${(product.sold / maxSold) * 100}%` }}
+                                />
+                            </div>
                         </div>
-                        <span className="top-products__count">{product.sold}</span>
+                        <span className="top-products__count">
+                            {product.sold} {product.unit}
+                        </span>
                     </div>
                 ))}
             </div>
