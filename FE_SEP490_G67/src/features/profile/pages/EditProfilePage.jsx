@@ -1,19 +1,21 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { KeyRound, Pencil } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import SideBar from '../../../components/ui/header-footer/SideBar';
 import AdminHeader from '../../dashboard/components/AdminHeader';
-import ProfileViewCard from '../components/ProfileViewCard';
+import ProfileEditForm from '../components/ProfileEditForm';
 import { getProfile } from '../api';
 import { PROFILE_ROUTES } from '../constants';
 import { getApiErrorMessage } from '../utils/profileUtils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Profile.css';
 
-export default function ProfilePage() {
+const PROFILE_EDIT_FORM_ID = 'profile-edit-form';
+
+export default function EditProfilePage() {
 	const navigate = useNavigate();
 	const [profile, setProfile] = useState(null);
 	const [loading, setLoading] = useState(true);
+	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState(null);
 
 	useEffect(() => {
@@ -33,27 +35,31 @@ export default function ProfilePage() {
 				<main className="admin-main">
 					<div className="dashboard-container">
 						<nav className="profile-breadcrumb" aria-label="Breadcrumb">
-							<span className="profile-breadcrumb__current">Hồ sơ người dùng</span>
+							<Link to={PROFILE_ROUTES.view} className="profile-breadcrumb__link">
+								Hồ sơ người dùng
+							</Link>
+							<span className="profile-breadcrumb__sep">&gt;</span>
+							<span className="profile-breadcrumb__current">Chỉnh sửa hồ sơ</span>
 						</nav>
 
 						<div className="profile-page-header">
-							<h1 className="profile-page-header__title">Hồ sơ người dùng</h1>
+							<h1 className="profile-page-header__title">Chỉnh sửa hồ sơ</h1>
 							<div className="profile-page-header__actions">
 								<button
 									type="button"
 									className="profile-action-btn profile-action-btn--outline"
+									onClick={() => navigate(PROFILE_ROUTES.view)}
+									disabled={saving}
 								>
-									<KeyRound size={16} />
-									Đổi mật khẩu
+									Hủy
 								</button>
 								<button
-									type="button"
+									type="submit"
+									form={PROFILE_EDIT_FORM_ID}
 									className="profile-action-btn profile-action-btn--primary"
-									onClick={() => navigate(PROFILE_ROUTES.edit)}
-									disabled={loading || !!error}
+									disabled={saving || loading || !!error}
 								>
-									<Pencil size={16} />
-									Chỉnh sửa hồ sơ
+									{saving ? 'Đang lưu...' : 'Lưu thay đổi'}
 								</button>
 							</div>
 						</div>
@@ -68,7 +74,12 @@ export default function ProfilePage() {
 								{error}
 							</p>
 						) : (
-							<ProfileViewCard profile={profile} />
+							<ProfileEditForm
+								profile={profile}
+								formId={PROFILE_EDIT_FORM_ID}
+								hideActions
+								onSavingChange={setSaving}
+							/>
 						)}
 					</div>
 				</main>
