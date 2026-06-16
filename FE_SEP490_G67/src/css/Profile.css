@@ -213,8 +213,18 @@
 	background: #fff;
 	border-radius: 14px;
 	border: 1px solid #eaedf3;
-	padding: 32px;
-	max-width: 640px;
+	padding: 28px 32px;
+}
+
+.profile-edit-card__header {
+	margin-bottom: 24px;
+}
+
+.profile-edit-card__title {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 700;
+	color: #1a1a1a;
 }
 
 .profile-edit-form {

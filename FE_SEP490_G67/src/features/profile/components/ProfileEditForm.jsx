@@ -3,7 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { updateProfile } from '../api';
 import { normalizePhoneNumber, validatePhoneNumber } from '../utils/profileUtils';
 
-export default function ProfileEditForm({ profile }) {
+export default function ProfileEditForm({
+	profile,
+	formId = 'profile-edit-form',
+	hideActions = false,
+	onSavingChange,
+}) {
 	const navigate = useNavigate();
 	const [form, setForm] = useState({
 		fullName: profile.fullName ?? '',
@@ -44,6 +49,7 @@ export default function ProfileEditForm({ profile }) {
 		if (!validate()) return;
 
 		setSaving(true);
+		onSavingChange?.(true);
 		setMessage(null);
 
 		const payload = {
@@ -58,12 +64,21 @@ export default function ProfileEditForm({ profile }) {
 			setMessage({ type: 'error', text: 'Không thể cập nhật thông tin. Vui lòng thử lại.' });
 		} finally {
 			setSaving(false);
+			onSavingChange?.(false);
 		}
 	};
 
 	return (
 		<div className="profile-edit-card">
-			<form className="profile-edit-form" onSubmit={handleSubmit} noValidate>
+			<div className="profile-edit-card__header">
+				<h2 className="profile-edit-card__title">Thông tin cá nhân</h2>
+			</div>
+			<form
+				id={formId}
+				className="profile-edit-form"
+				onSubmit={handleSubmit}
+				noValidate
+			>
 				<div className="profile-edit-form__field">
 					<label htmlFor="fullName">Họ và tên</label>
 					<input
@@ -96,41 +111,31 @@ export default function ProfileEditForm({ profile }) {
 					)}
 				</div>
 
-				<div className="profile-edit-form__field">
-					<label htmlFor="username">Tên đăng nhập</label>
-					<input
-						id="username"
-						type="text"
-						value={profile.username ?? ''}
-						disabled
-						className="profile-edit-form__input profile-edit-form__input--disabled"
-					/>
-					<span className="profile-edit-form__hint">Tên đăng nhập không thể thay đổi</span>
-				</div>
-
 				{message && (
 					<p className={`profile-edit-form__message profile-edit-form__message--${message.type}`}>
 						{message.text}
 					</p>
 				)}
 
-				<div className="profile-edit-form__actions">
-					<button
-						type="button"
-						className="profile-action-btn profile-action-btn--outline"
-						onClick={() => navigate('/admin/profile')}
-						disabled={saving}
-					>
-						Hủy
-					</button>
-					<button
-						type="submit"
-						className="profile-action-btn profile-action-btn--primary"
-						disabled={saving}
-					>
-						{saving ? 'Đang lưu...' : 'Lưu thay đổi'}
-					</button>
-				</div>
+				{!hideActions && (
+					<div className="profile-edit-form__actions">
+						<button
+							type="button"
+							className="profile-action-btn profile-action-btn--outline"
+							onClick={() => navigate('/admin/profile')}
+							disabled={saving}
+						>
+							Hủy
+						</button>
+						<button
+							type="submit"
+							className="profile-action-btn profile-action-btn--primary"
+							disabled={saving}
+						>
+							{saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+						</button>
+					</div>
+				)}
 			</form>
 		</div>
 	);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import SideBar from '../../../components/ui/header-footer/SideBar';
 import AdminHeader from '../../dashboard/components/AdminHeader';
 import ProfileEditForm from '../components/ProfileEditForm';
@@ -7,9 +7,13 @@ import { getProfile } from '../api';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Profile.css';
 
+const PROFILE_EDIT_FORM_ID = 'profile-edit-form';
+
 export default function EditProfilePage() {
+	const navigate = useNavigate();
 	const [profile, setProfile] = useState(null);
 	const [loading, setLoading] = useState(true);
+	const [saving, setSaving] = useState(false);
 
 	useEffect(() => {
 		getProfile()
@@ -32,13 +36,25 @@ export default function EditProfilePage() {
 							<span className="profile-breadcrumb__current">Chỉnh sửa hồ sơ</span>
 						</nav>
 
-						<div className="profile-page-header profile-page-header--stacked">
-							<div>
-								<h1 className="profile-page-header__title">Chỉnh sửa hồ sơ người dùng</h1>
-								<p className="profile-page-header__desc">
-									Cập nhật thông tin cá nhân của bạn tại đây. Những thay đổi sẽ được áp dụng
-									ngay lập tức.
-								</p>
+						<div className="profile-page-header">
+							<h1 className="profile-page-header__title">Chỉnh sửa hồ sơ</h1>
+							<div className="profile-page-header__actions">
+								<button
+									type="button"
+									className="profile-action-btn profile-action-btn--outline"
+									onClick={() => navigate('/admin/profile')}
+									disabled={saving}
+								>
+									Hủy
+								</button>
+								<button
+									type="submit"
+									form={PROFILE_EDIT_FORM_ID}
+									className="profile-action-btn profile-action-btn--primary"
+									disabled={saving || loading}
+								>
+									{saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+								</button>
 							</div>
 						</div>
 
@@ -48,7 +64,12 @@ export default function EditProfilePage() {
 								<p>Đang tải thông tin...</p>
 							</div>
 						) : (
-							<ProfileEditForm profile={profile} />
+							<ProfileEditForm
+								profile={profile}
+								formId={PROFILE_EDIT_FORM_ID}
+								hideActions
+								onSavingChange={setSaving}
+							/>
 						)}
 					</div>
 				</main>
