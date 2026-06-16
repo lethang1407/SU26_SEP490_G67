@@ -1,0 +1,150 @@
+/* ============================================
+   STAFF MANAGEMENT PAGE
+   ============================================ */
+
+.staff-management-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+}
+
+.staff-management-header__title {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+    color: #1a1a1a;
+    letter-spacing: -0.3px;
+}
+
+.btn-add-staff {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    background: #2563eb;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-add-staff:hover {
+    background: #1d4ed8;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+/* ============================================
+   STAFF TABLE
+   ============================================ */
+
+.staff-table-card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #eaedf3;
+    overflow: hidden;
+}
+
+.staff-table-wrapper {
+    overflow-x: auto;
+}
+
+.staff-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.staff-table__col-spacer {
+    width: 15%;
+}
+
+.staff-table__col-name {
+    width: 30%;
+}
+
+.staff-table__col-gap {
+    width: 10%;
+}
+
+.staff-table__col-phone {
+    width: 30%;
+}
+
+.staff-table thead th {
+    padding: 14px 24px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.staff-table thead .staff-table__col-spacer,
+.staff-table thead .staff-table__col-gap {
+    padding: 14px 0;
+}
+
+.staff-table tbody tr {
+    transition: background 0.15s ease;
+}
+
+.staff-table tbody tr:hover {
+    background: #fafbfd;
+}
+
+.staff-table tbody td {
+    padding: 18px 24px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+
+.staff-table tbody .staff-table__col-spacer,
+.staff-table tbody .staff-table__col-gap {
+    padding: 18px 0;
+}
+
+.staff-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.staff-table__name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1e293b;
+    text-align: left;
+}
+
+.staff-table__phone {
+    font-size: 15px;
+    font-weight: 400;
+    color: #334155;
+    text-align: left;
+}
+
+@media (max-width: 768px) {
+    .staff-management-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+
+    .staff-management-header__title {
+        font-size: 22px;
+    }
+
+    .btn-add-staff {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .staff-table thead th,
+    .staff-table tbody td {
+        padding: 14px 16px;
+    }
+}

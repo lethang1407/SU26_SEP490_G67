@@ -1,0 +1,91 @@
+package project.be_sep490_g67.entity;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.LinkedHashSet;
+import java.util.Set;
+
+@Getter
+@Setter
+@Entity
+@Table(name = "sales_orders")
+public class SalesOrder {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id", nullable = false)
+    private Integer id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @OnDelete(action = OnDeleteAction.SET_NULL)
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
+
+    @Column(name = "created_by")
+    private Integer createdBy;
+
+    @Column(name = "updated_by")
+    private Integer updatedBy;
+
+    @Column(name = "order_code", length = 30)
+    private String orderCode;
+
+    @ColumnDefault("'CASH'")
+    @Lob
+    @Column(name = "payment_method")
+    private String paymentMethod;
+
+    @ColumnDefault("'COMPLETED'")
+    @Lob
+    @Column(name = "order_status")
+    private String orderStatus;
+
+    @ColumnDefault("0.00")
+    @Column(name = "subtotal", precision = 15, scale = 2)
+    private BigDecimal subtotal;
+
+    @ColumnDefault("0.00")
+    @Column(name = "discount_amount", precision = 15, scale = 2)
+    private BigDecimal discountAmount;
+
+    @ColumnDefault("0.00")
+    @Column(name = "total_amount", precision = 15, scale = 2)
+    private BigDecimal totalAmount;
+
+    @ColumnDefault("0")
+    @Column(name = "is_debt")
+    private Boolean isDebt;
+
+    @Column(name = "debt_due_date")
+    private LocalDate debtDueDate;
+
+    @Lob
+    @Column(name = "note")
+    private String note;
+
+    @ColumnDefault("CURRENT_TIMESTAMP")
+    @Column(name = "created_at")
+    private Instant createdAt;
+
+    @ColumnDefault("CURRENT_TIMESTAMP")
+    @Column(name = "updated_at")
+    private Instant updatedAt;
+
+    @OneToMany(mappedBy = "salesOrder")
+    private Set<DebtPayment> debtPayments = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "salesOrder")
+    private Set<ReturnOrder> returnOrders = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "salesOrder")
+    private Set<SalesOrderDetail> salesOrderDetails = new LinkedHashSet<>();
+
+
+}

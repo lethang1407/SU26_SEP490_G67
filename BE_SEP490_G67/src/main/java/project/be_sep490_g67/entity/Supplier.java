@@ -1,0 +1,63 @@
+package project.be_sep490_g67.entity;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
+
+import java.time.Instant;
+import java.util.LinkedHashSet;
+import java.util.Set;
+
+@Getter
+@Setter
+@Entity
+@Table(name = "suppliers")
+public class Supplier {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id", nullable = false)
+    private Integer id;
+
+    @Column(name = "name", nullable = false, length = 150)
+    private String name;
+
+    @Column(name = "contact_person", length = 100)
+    private String contactPerson;
+
+    @Column(name = "phone_number", length = 15)
+    private String phoneNumber;
+
+    @Column(name = "address")
+    private String address;
+
+    @Lob
+    @Column(name = "notes")
+    private String notes;
+
+    @ColumnDefault("0")
+    @Column(name = "is_removed")
+    private Boolean isRemoved;
+
+    @ColumnDefault("CURRENT_TIMESTAMP")
+    @Column(name = "created_at")
+    private Instant createdAt;
+
+    @ColumnDefault("CURRENT_TIMESTAMP")
+    @Column(name = "updated_at")
+    private Instant updatedAt;
+
+    @Column(name = "created_by")
+    private Integer createdBy;
+
+    @Column(name = "updated_by")
+    private Integer updatedBy;
+
+    @Column(name = "supplier_code", nullable = false, length = 30)
+    private String supplierCode;
+
+    @OneToMany(mappedBy = "supplier")
+    private Set<ImportOrder> importOrders = new LinkedHashSet<>();
+
+
+}

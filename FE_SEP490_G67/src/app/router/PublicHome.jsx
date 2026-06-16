@@ -1,8 +1,11 @@
+import React from 'react';
+
 export default function PublicHome() {
+
   return (
     <div>
       <h1>Home</h1>
-      <p>Trang public home dang hoat dong.</p>
+      <p>Welcome to the Home Page</p>
     </div>
   )
 }

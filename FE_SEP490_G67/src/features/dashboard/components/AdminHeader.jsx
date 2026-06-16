@@ -1,4 +1,11 @@
+import { useEffect, useState } from 'react';
 import { Bell, User } from 'lucide-react';
+import { useState } from 'react';
+import { Bell, HelpCircle, User } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { getProfile } from '../../profile/api';
+import { PROFILE_ROUTES } from '../../profile/constants';
+import { getRoleLabel } from '../../profile/utils/profileUtils';
 import '../../../css/AdminHeader.css';
 import { useState } from 'react';
 import { Bell, HelpCircle, User } from 'lucide-react';

@@ -1,0 +1,97 @@
+package project.be_sep490_g67.entity;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.LinkedHashSet;
+import java.util.Set;
+
+@Getter
+@Setter
+@Entity
+@Table(name = "products")
+public class Product {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id", nullable = false)
+    private Integer id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @OnDelete(action = OnDeleteAction.SET_NULL)
+    @JoinColumn(name = "category_id")
+    private Category category;
+
+    @Column(name = "name", length = 200)
+    private String name;
+
+    @Column(name = "barcode", length = 50)
+    private String barcode;
+
+    @ColumnDefault("0.00")
+    @Column(name = "cost_price", precision = 15, scale = 2)
+    private BigDecimal costPrice;
+
+    @ColumnDefault("0.00")
+    @Column(name = "selling_price", precision = 15, scale = 2)
+    private BigDecimal sellingPrice;
+
+    @ColumnDefault("0")
+    @Column(name = "min_stock")
+    private Integer minStock;
+
+    @ColumnDefault("0")
+    @Column(name = "is_removed")
+    private Boolean isRemoved;
+
+    @ColumnDefault("CURRENT_TIMESTAMP")
+    @Column(name = "created_at")
+    private Instant createdAt;
+
+    @ColumnDefault("CURRENT_TIMESTAMP")
+    @Column(name = "updated_at")
+    private Instant updatedAt;
+
+    @Column(name = "created_by")
+    private Integer createdBy;
+
+    @Column(name = "updated_by")
+    private Integer updatedBy;
+
+    @Column(name = "description")
+    private String description;
+
+    @Column(name = "product_img", length = 500)
+    private String productImg;
+
+    @OneToMany(mappedBy = "product")
+    private Set<ImportOrderDetail> importOrderDetails = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "product")
+    private Set<ImportReturnDetail> importReturnDetails = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "product")
+    private Set<ProductAttribute> productAttributes = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "product")
+    private Set<ProductUnit> productUnits = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "product")
+    private Set<ReturnOrderDetail> returnOrderDetails = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "product")
+    private Set<SalesOrderDetail> salesOrderDetails = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "product")
+    private Set<StockAdjustment> stockAdjustments = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "product")
+    private Set<StockBatch> stockBatches = new LinkedHashSet<>();
+
+
+}

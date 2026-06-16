@@ -1,42 +1,42 @@
-import { createContext, useState } from 'react'
+import { createContext, useState, useEffect } from 'react';
 
-export const AuthStateContext = createContext(null)
-export const AuthActionsContext = createContext(null)
+export const AuthContext = createContext(null);
 
 const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null)
-    const [accessToken, setAccessToken] = useState(null)
+    const [accessToken, setAccessToken] = useState(() => localStorage.getItem('accessToken'));
+    const [authenticated, setAuthenticated] = useState(() => !!localStorage.getItem('accessToken'));
 
-    const login = (authResponse) => {
-        const extractInfor = {
-            email: authResponse.email,
-            fullName: authResponse.fullName,
-            roles: authResponse.roles,
+    const login = (authResult) => {
+        if (!authResult || !authResult.token || !authResult.authenticated) {
+            logout();
+            throw new Error('Authentication failed: Invalid response from server.');
         }
-        setUser(extractInfor)
-        setAccessToken(authResponse.accessToken)
-        localStorage.setItem('user', JSON.stringify(extractInfor))
-        localStorage.setItem('accessToken', authResponse.accessToken)
-    }
+
+        const { token } = authResult;
+
+        setAccessToken(token);
+        setAuthenticated(true);
+        localStorage.setItem('accessToken', token);
+    };
 
     const logout = () => {
-        setUser(null)
-        setAccessToken(null)
-        localStorage.removeItem('accessToken')
-        localStorage.removeItem('user')
-        window.location.href = '/'
-    }
+        setAccessToken(null);
+        setAuthenticated(false);
+        localStorage.removeItem('accessToken');
+    };
 
-    const stateValues = { user, accessToken }
-    const actionValues = { login, logout }
+    const contextValue = {
+        accessToken,
+        authenticated,
+        login,
+        logout
+    };
 
     return (
-        <AuthStateContext.Provider value={stateValues}>
-            <AuthActionsContext.Provider value={actionValues}>
-                {children}
-            </AuthActionsContext.Provider>
-        </AuthStateContext.Provider>
-    )
-}
+        <AuthContext.Provider value={contextValue}>
+            {children}
+        </AuthContext.Provider>
+    );
+};
 
-export default AuthProvider
+export default AuthProvider;
