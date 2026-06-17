@@ -189,11 +189,6 @@ const LoginPage = () => {
 
           </Card.Body>
         </Card>
-
-        {/* Copyright */}
-        <p className="position-absolute bottom-0 text-muted" style={{ fontSize: '12px', marginBottom: '20px' }}>
-          © 2024 Đức Thắng POS. Tất cả các quyền được bảo lưu.
-        </p>
       </Container>
     </div>
   );
