@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { KeyRound, Pencil } from 'lucide-react';
 import SideBar from '../../../components/ui/sidebar/SideBar';
-import AdminHeader from '../../dashboard/components/AdminHeader';
+import AdminHeader from '../../../components/ui/header-footer/Header';
 import ProfileViewCard from '../components/ProfileViewCard';
 import ProfileSuccessToast from '../components/ProfileSuccessToast';
 import { getProfile } from '../api';

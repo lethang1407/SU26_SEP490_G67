@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import SideBar from '../../../components/ui/sidebar/SideBar';
-import AdminHeader from '../../dashboard/components/AdminHeader';
+import AdminHeader from '../../../components/ui/header-footer/Header';
 import ProfileEditForm from '../components/ProfileEditForm';
 import { getProfile } from '../api';
 import { PROFILE_ROUTES } from '../constants';
