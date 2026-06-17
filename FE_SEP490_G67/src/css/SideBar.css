@@ -105,36 +105,6 @@
 
 }
 
-/* .collapse-btn {
-
-    border: none;
-
-    background: transparent;
-
-    cursor: pointer;
-
-    width: 36px;
-
-    height: 36px;
-
-    border-radius: 8px;
-
-    display: flex;
-
-    align-items: center;
-
-    justify-content: center;
-
-    transition: .2s;
-
-}
-
-.collapse-btn:hover {
-
-    background: #f3f4f6;
-
-} */
-
 
 /* ===========================
    Body
@@ -211,9 +181,9 @@
 
 .menu-btn.active {
 
-    background: transparent;
+    background: #cfd1d4;
 
-    color: #54647A;
+    color: #1f2937;
 
     font-weight: 600;
 
@@ -285,9 +255,9 @@
 
 .active-sub {
 
-    background: #eff6ff;
+    background: #cfd1d4;
 
-    color: #2563eb;
+    color: #1f2937;
 
     font-weight: 600;
 

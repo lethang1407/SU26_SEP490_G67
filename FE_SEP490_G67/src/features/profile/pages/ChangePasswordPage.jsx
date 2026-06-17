@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import SideBar from '../../../components/ui/header-footer/SideBar';
+import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../dashboard/components/AdminHeader';
 import ChangePasswordForm from '../components/ChangePasswordForm';
 import { getProfile } from '../api';

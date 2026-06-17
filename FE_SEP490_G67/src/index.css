@@ -5,6 +5,6 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f8fafc; /* Thêm màu nền nhẹ nhàng cho body */
-  color: #1e293b; /* Đặt màu chữ mặc định */
+  background-color: #f8fafc;
+  color: #1e293b;
 }

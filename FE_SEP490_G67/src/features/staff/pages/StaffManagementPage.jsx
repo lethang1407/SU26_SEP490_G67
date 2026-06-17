@@ -1,6 +1,6 @@
 import { Plus } from 'lucide-react';
-import SideBar from '../../../components/ui/header-footer/SideBar';
-import AdminHeader from '../../dashboard/components/AdminHeader';
+import SideBar from '../../../components/ui/sidebar/SideBar';
+import AdminHeader from '../../../components/ui/header-footer/Header';
 import StaffTable from '../components/StaffTable';
 import '../../../css/AdminDashboard.css';
 import '../../../css/StaffManagement.css';

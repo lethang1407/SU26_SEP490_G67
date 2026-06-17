@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { KeyRound, Pencil } from 'lucide-react';
-import SideBar from '../../../components/ui/header-footer/SideBar';
+import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../dashboard/components/AdminHeader';
 import ProfileViewCard from '../components/ProfileViewCard';
 import ProfileSuccessToast from '../components/ProfileSuccessToast';
