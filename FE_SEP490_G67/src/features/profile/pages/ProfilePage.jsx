@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { KeyRound, Pencil } from 'lucide-react';
 import SideBar from '../../../components/ui/header-footer/SideBar';
 import AdminHeader from '../../dashboard/components/AdminHeader';
 import ProfileViewCard from '../components/ProfileViewCard';
+import ProfileSuccessToast from '../components/ProfileSuccessToast';
 import { getProfile } from '../api';
 import { PROFILE_ROUTES } from '../constants';
 import { getApiErrorMessage } from '../utils/profileUtils';
@@ -12,9 +13,18 @@ import '../../../css/Profile.css';
 
 export default function ProfilePage() {
 	const navigate = useNavigate();
+	const location = useLocation();
 	const [profile, setProfile] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null);
+	const [successMessage, setSuccessMessage] = useState(null);
+
+	useEffect(() => {
+		if (location.state?.message) {
+			setSuccessMessage(location.state.message);
+			navigate(location.pathname, { replace: true, state: {} });
+		}
+	}, [location.state, location.pathname, navigate]);
 
 	useEffect(() => {
 		getProfile()
@@ -27,6 +37,12 @@ export default function ProfilePage() {
 
 	return (
 		<div className="admin-layout">
+			{successMessage && (
+				<ProfileSuccessToast
+					message={successMessage}
+					onDismiss={() => setSuccessMessage(null)}
+				/>
+			)}
 			<SideBar />
 			<div className="admin-content">
 				<AdminHeader user={profile} activePage="profile" />
@@ -42,6 +58,8 @@ export default function ProfilePage() {
 								<button
 									type="button"
 									className="profile-action-btn profile-action-btn--outline"
+									onClick={() => navigate(PROFILE_ROUTES.changePassword)}
+									disabled={loading || !!error}
 								>
 									<KeyRound size={16} />
 									Đổi mật khẩu
