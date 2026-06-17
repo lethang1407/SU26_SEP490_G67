@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Card, Form, Button } from 'react-bootstrap';
 import { FileText } from 'lucide-react';
-import SideBar from '../../../components/ui/header-footer/SideBar';
-import AdminHeader from '../../dashboard/components/AdminHeader';
-import '../../../css/AdminDashboard.css';
+import SideBar from '../../../components/ui/sidebar/SideBar';
+import Header from '../../../components/ui/header-footer/Header';
 
 function StoreInfo() {
     const [isEditing, setIsEditing] = useState(false);
@@ -13,10 +12,10 @@ function StoreInfo() {
     // Giả lập việc lấy dữ liệu từ API
     useEffect(() => {
         const fetchedData = {
+            storeName: 'Tạp hóa Đức Thắng',
             taxCode: '0312345678',
-            licenseNumber: '41A8012345/GP-HCM',
             legalRepresentative: 'Nguyễn Văn A',
-            address: '123 Lê Lợi, Phường Bến Thành, Quận 1, TP Hồ Chí Minh',
+            address: 'Thôn 3, Thạch Thất, Hòa Lạc, Hà Nội',
         };
         setStoreData(fetchedData);
         setInitialData(fetchedData);
@@ -32,13 +31,13 @@ function StoreInfo() {
             <SideBar />
 
             <div className="admin-content">
-                <AdminHeader />
+                <Header />
 
                 <main className="admin-main">
                     <div className="dashboard-container">
                         <div className="staff-management-header">
                             <div>
-                                <h1 className="staff-management-header__title">
+                                <h1 className="staff-management-header__title text-bold mb-1">
                                     Thông tin cửa hàng
                                 </h1>
                                 <p className="text-muted mb-0">
@@ -52,14 +51,14 @@ function StoreInfo() {
                                         variant="secondary"
                                         onClick={() => {
                                             setIsEditing(false);
-                                            setStoreData(initialData); // Hủy và quay lại dữ liệu ban đầu
+                                            setStoreData(initialData);
                                         }}
                                     >
                                         Hủy
                                     </Button>
                                     <Button
                                         variant="primary"
-                                        onClick={() => setIsEditing(false)} // Sẽ gọi API ở đây
+                                        onClick={() => setIsEditing(false)}
                                     >
                                         Lưu thay đổi
                                     </Button>
@@ -80,20 +79,10 @@ function StoreInfo() {
                             <Card.Body>
                                 <Form>
                                     <Form.Group className="mb-3">
-                                        <Form.Label>Mã số thuế</Form.Label>
+                                        <Form.Label>Tên hộ kinh doanh</Form.Label>
                                         <Form.Control
-                                            name="taxCode"
-                                            value={storeData.taxCode || ''}
-                                            onChange={handleInputChange}
-                                            readOnly={!isEditing}
-                                        />
-                                    </Form.Group>
-
-                                    <Form.Group className="mb-3">
-                                        <Form.Label>Số giấy phép kinh doanh</Form.Label>
-                                        <Form.Control
-                                            name="licenseNumber"
-                                            value={storeData.licenseNumber || ''}
+                                            name="storeName"
+                                            value={storeData.storeName || ''}
                                             onChange={handleInputChange}
                                             readOnly={!isEditing}
                                         />
@@ -109,8 +98,18 @@ function StoreInfo() {
                                         />
                                     </Form.Group>
 
+                                    <Form.Group className="mb-3">
+                                        <Form.Label>Mã số thuế</Form.Label>
+                                        <Form.Control
+                                            name="taxCode"
+                                            value={storeData.taxCode || ''}
+                                            onChange={handleInputChange}
+                                            readOnly={!isEditing}
+                                        />
+                                    </Form.Group>
+
                                     <Form.Group>
-                                        <Form.Label>Địa chỉ chi tiết</Form.Label>
+                                        <Form.Label>Địa chỉ kinh doanh</Form.Label>
                                         <Form.Control
                                             as="textarea"
                                             rows={3}

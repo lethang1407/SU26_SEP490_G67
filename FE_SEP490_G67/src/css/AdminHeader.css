@@ -5,7 +5,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 60px;
+    height: 78px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
     flex-shrink: 0;
 }
@@ -129,6 +129,8 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    position: relative;
+
 }
 
 .header-user__info {
@@ -162,6 +164,92 @@
     border-color: #1D6A4A;
     color: #1D6A4A;
     background: #ecfdf5;
+}
+
+/* User Dropdown */
+.user-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 240px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    z-index: 100;
+    padding: 8px 0;
+    animation: dropdown-in 0.15s ease-out;
+}
+
+@keyframes dropdown-in {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.user-dropdown__header {
+    padding: 8px 16px;
+    display: flex;
+    flex-direction: column;
+}
+
+.user-dropdown__name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #111827;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-dropdown__email {
+    font-size: 12px;
+    color: #6b7280;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-dropdown__divider {
+    height: 1px;
+    background: #f3f4f6;
+    margin: 8px 0;
+}
+
+.user-dropdown__item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.1s;
+}
+
+.user-dropdown__item:hover {
+    background: #f9fafb;
+}
+
+.user-dropdown__item svg {
+    color: #6b7280;
+}
+
+.user-dropdown__item--logout {
+    color: #ef4444;
+}
+.user-dropdown__item--logout:hover {
+    background: #fef2f2;
 }
 
 /* Offline Banner */

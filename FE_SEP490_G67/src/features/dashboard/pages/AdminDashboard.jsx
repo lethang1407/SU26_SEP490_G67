@@ -1,5 +1,5 @@
-import SideBar from '../../../components/ui/header-footer/SideBar';
-import AdminHeader from '../components/AdminHeader';
+import SideBar from '../../../components/ui/sidebar/SideBar';
+import AdminHeader from '../../../components/ui/header-footer/Header';
 import AlertBanner from '../components/AlertBanner';
 import StatCards from '../components/StatCards';
 import RevenueTrendChart from '../components/RevenueTrendChart';
