@@ -5,8 +5,10 @@ import { Row, Col,Alert } from 'react-bootstrap';
 import { AuthContext } from '../../app/providers/AuthProvider';
 import auth from '../auth/api/index.js';
 import { useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 const LoginPage = () => {
+  const location = useLocation();
+  const successMessage = location.state?.message;
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -74,6 +76,15 @@ const LoginPage = () => {
 
             {/* Form */}
             <Form onSubmit={handleSubmit}>
+                {successMessage && (
+                    <Row className="mb-3">
+                        <Col md={12}>
+                            <Alert variant="success" className="mb-0">
+                                {successMessage}
+                            </Alert>
+                        </Col>
+                    </Row>
+                )}
 
               {/* Username */}
               <Form.Group className="mb-4">

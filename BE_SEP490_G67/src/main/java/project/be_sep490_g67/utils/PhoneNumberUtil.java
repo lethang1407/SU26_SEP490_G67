@@ -1,4 +1,4 @@
-package project.be_sep490_g67.util;
+package project.be_sep490_g67.utils;
 
 public final class PhoneNumberUtil {
 

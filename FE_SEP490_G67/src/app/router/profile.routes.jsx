@@ -1,5 +1,6 @@
 import ProfilePage from '../../features/profile/pages/ProfilePage';
 import EditProfilePage from '../../features/profile/pages/EditProfilePage';
+import ChangePasswordPage from '../../features/profile/pages/ChangePasswordPage';
 
 const profileRoutes = [
 	{
@@ -9,6 +10,10 @@ const profileRoutes = [
 	{
 		path: '/profile/edit',
 		element: <EditProfilePage />,
+	},
+	{
+		path: '/profile/change-password',
+		element: <ChangePasswordPage />,
 	},
 ];
 
