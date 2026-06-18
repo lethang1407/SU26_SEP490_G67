@@ -1,21 +1,14 @@
-import { Calendar } from 'lucide-react';
-import SideBar from '../../../components/ui/header-footer/SideBar';
-import AdminHeader from '../components/AdminHeader';
+import SideBar from '../../../components/ui/sidebar/SideBar';
+import AdminHeader from '../../../components/ui/header-footer/Header';
+import AlertBanner from '../components/AlertBanner';
 import StatCards from '../components/StatCards';
 import RevenueTrendChart from '../components/RevenueTrendChart';
+import TodayProblems from '../components/TodayProblems';
 import TopProducts from '../components/TopProducts';
 import RecentActivity from '../components/RecentActivity';
 import '../../../css/AdminDashboard.css';
 
 export default function AdminDashboard() {
-    const today = new Date();
-    const formattedDate = today.toLocaleDateString('vi-VN', {
-        weekday: undefined,
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-    });
-
     return (
         <div className="admin-layout">
             <SideBar />
@@ -23,29 +16,23 @@ export default function AdminDashboard() {
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container">
-                        {/* Page Header */}
-                        <div className="dashboard-header">
-                            <div className="dashboard-header__left">
-                                <h1>Tổng quan Hệ thống</h1>
-                                <p>Hôm nay, {formattedDate}</p>
-                            </div>
-                            <button className="dashboard-header__today-btn">
-                                <Calendar size={16} />
-                                Hôm nay
-                            </button>
-                        </div>
+                        {/* Section 1 — Alert Banner */}
+                        <AlertBanner />
 
-                        {/* Stat Cards Row */}
+                        {/* Section 2 — KPI Cards */}
                         <StatCards />
 
-                        {/* Chart + Top Products Row */}
-                        <div className="dashboard-row dashboard-row--charts">
+                        {/* Section 3 — Revenue Chart + Today's Problems */}
+                        <div className="dashboard-row dashboard-row--section3">
                             <RevenueTrendChart />
-                            <TopProducts />
+                            <TodayProblems />
                         </div>
 
-                        {/* Recent Activity */}
-                        <RecentActivity />
+                        {/* Section 4 — Top Products + Recent Transactions */}
+                        <div className="dashboard-row dashboard-row--section4">
+                            <TopProducts />
+                            <RecentActivity />
+                        </div>
                     </div>
                 </main>
             </div>

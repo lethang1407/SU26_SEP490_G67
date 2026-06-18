@@ -5,8 +5,10 @@ import { Row, Col,Alert } from 'react-bootstrap';
 import { AuthContext } from '../../../app/providers/AuthProvider.jsx';
 import auth from '../api/index.js';
 import { useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 const LoginPage = () => {
+  const location = useLocation();
+  const successMessage = location.state?.message;
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -74,6 +76,15 @@ const LoginPage = () => {
 
             {/* Form */}
             <Form onSubmit={handleSubmit}>
+                {successMessage && (
+                    <Row className="mb-3">
+                        <Col md={12}>
+                            <Alert variant="success" className="mb-0">
+                                {successMessage}
+                            </Alert>
+                        </Col>
+                    </Row>
+                )}
 
               {/* Username */}
               <Form.Group className="mb-4">
@@ -183,11 +194,6 @@ const LoginPage = () => {
 
           </Card.Body>
         </Card>
-
-        {/* Copyright */}
-        <p className="position-absolute bottom-0 text-muted" style={{ fontSize: '12px', marginBottom: '20px' }}>
-          © 2024 Đức Thắng POS. Tất cả các quyền được bảo lưu.
-        </p>
       </Container>
     </div>
   );
