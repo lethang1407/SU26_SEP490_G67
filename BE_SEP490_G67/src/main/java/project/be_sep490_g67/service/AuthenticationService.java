@@ -11,6 +11,7 @@ import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,7 +21,6 @@ import project.be_sep490_g67.dto.request.IntrospectRequest;
 import project.be_sep490_g67.dto.request.LogoutRequest;
 import project.be_sep490_g67.dto.response.AuthenticationResponse;
 import project.be_sep490_g67.dto.response.IntrospectResponse;
-import project.be_sep490_g67.entity.Role;
 import project.be_sep490_g67.entity.User;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
@@ -32,6 +32,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.StringJoiner;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +40,7 @@ import java.util.UUID;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class AuthenticationService {
     UserRepository userRepository;
+    RedisTemplate<String, Object> redisTemplate;
 
     @NonFinal
     @Value("${jwt.secretKey}")
@@ -51,6 +53,8 @@ public class AuthenticationService {
     @NonFinal
     @Value("${jwt.refresh-duration}")
     protected long REFRESHABLE_DURATION;
+
+    private static final String LOGOUT_TOKEN_PREFIX = "logout_token:";
 
     public IntrospectResponse introspect(IntrospectRequest request) throws JOSEException, ParseException {
         var token = request.getToken();
@@ -71,7 +75,7 @@ public class AuthenticationService {
                 .findByUsername(request.getUsername())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
         boolean authenticated = passwordEncoder.matches(request.getPassword(), user.getPasswordHash());
-
+        if (!user.getStatus().equals("ACTIVE")) throw new AppException(ErrorCode.USER_DEACTIVATED);
         if (!authenticated) throw new AppException(ErrorCode.UNAUTHENTICATED);
 
         var token = generateToken(user);
@@ -86,10 +90,12 @@ public class AuthenticationService {
             String jit = signToken.getJWTClaimsSet().getJWTID();
             Date expiryTime = signToken.getJWTClaimsSet().getExpirationTime();
 
-//            InvalidatedToken invalidatedToken =
-//                    InvalidatedToken.builder().id(jit).expiryTime(expiryTime).build();
-//
-//            invalidatedTokenRepository.save(invalidatedToken);
+            String key = LOGOUT_TOKEN_PREFIX + jit;
+            long remainingTime = expiryTime.getTime() - System.currentTimeMillis();
+            if (remainingTime > 0) {
+                redisTemplate.opsForValue().set(key, "logged_out", remainingTime, TimeUnit.MILLISECONDS);
+            }
+
         } catch (AppException exception) {
             log.info("Token already expired");
         }
@@ -139,20 +145,22 @@ public class AuthenticationService {
 
         if (!(verified && expiryTime.after(new Date()))) throw new AppException(ErrorCode.UNAUTHENTICATED);
 
-//        if (invalidatedTokenRepository.existsById(signedJWT.getJWTClaimsSet().getJWTID()))
-//            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        String jit = signedJWT.getJWTClaimsSet().getJWTID();
+        String key = LOGOUT_TOKEN_PREFIX + jit;
+        if (redisTemplate.hasKey(key)) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
 
         return signedJWT;
     }
 
     private String buildScope(User user) {
         StringJoiner stringJoiner = new StringJoiner(" ");
-        Role roleOfUser = user.getRole();
-        stringJoiner.add("ROLE_" + roleOfUser.getName());
-
-// List permission of roles
-//        if (!CollectionUtils.isEmpty(roleOfUser.getPermissions()))
-//            roleOfUser.getPermissions().forEach(permission -> stringJoiner.add(permission.getName()));
+        if (!CollectionUtils.isEmpty(user.getRoles())){
+            user.getRoles().forEach(role -> {
+                stringJoiner.add("ROLE_" + role.getName());
+            });
+        }
         return stringJoiner.toString();
     }
 }

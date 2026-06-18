@@ -2,7 +2,9 @@ package project.be_sep490_g67;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cache.annotation.EnableCaching;
 
+@EnableCaching
 @SpringBootApplication
 public class BeSep490G67Application {
 

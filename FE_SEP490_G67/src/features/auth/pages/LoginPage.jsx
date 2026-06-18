@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Container, Card, Form, InputGroup, Button } from 'react-bootstrap';
-import '../../css/LoginScreen.css';
+import '../../../css/LoginScreen.css';
 import { Row, Col,Alert } from 'react-bootstrap';
-import { AuthContext } from '../../app/providers/AuthProvider';
-import auth from '../auth/api/index.js';
+import { AuthContext } from '../../../app/providers/AuthProvider.jsx';
+import auth from '../api/index.js';
 import { useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 const LoginPage = () => {
@@ -36,8 +36,8 @@ const LoginPage = () => {
 
     try {
       const response = await auth.login({
-        username: formData.username,
-        password: formData.password
+        username: formData.username.trim(),
+        password: formData.password.trim()
       });
       console.log("Login response:", response);
       login(response.result);
@@ -60,7 +60,7 @@ const LoginPage = () => {
       <div className="bg-decor bg-decor-2"></div>
 
       <Container className="d-flex align-items-center justify-content-center min-vh-100">
-        <Card className="border-0 shadow-lg rounded-4 p-3 p-md-4 w-100" style={{ maxWidth: '440px' }}>
+        <Card className="border-1 shadow-lg rounded-4 p-3 p-md-4 w-100" style={{ maxWidth: '440px' }}>
           <Card.Body>
 
             {/* Header */}
@@ -109,7 +109,12 @@ const LoginPage = () => {
               <Form.Group className="mb-4">
                 <div className="d-flex justify-content-between align-items-center">
                   <Form.Label className="fw-medium text-muted small mb-0">Mật khẩu</Form.Label>
-                  <a href="#" className="text-primary text-decoration-none small">Quên mật khẩu?</a>
+                  <a href="#" className="text-primary text-decoration-none small" onClick={(e) => {
+                    e.preventDefault();
+                    navigate('/forgot-password');
+                  }}>
+                    Quên mật khẩu?
+                  </a>
                 </div>
                 <InputGroup className="custom-input-group mt-2">
                   <InputGroup.Text className="bg-light border-end-0">

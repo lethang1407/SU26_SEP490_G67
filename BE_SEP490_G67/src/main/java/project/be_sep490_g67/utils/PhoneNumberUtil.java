@@ -19,6 +19,18 @@ public final class PhoneNumberUtil {
 
         return digits;
     }
+    public static String standardize(String phone) {
+        if (phone == null || phone.isBlank()) {
+            return "";
+        }
+
+        String digits = phone.replaceAll("\\D", "");
+
+        if (digits.startsWith("0")) {
+            digits = "84" + digits.substring(1);
+        }
+        return digits;
+    }
 
     public static boolean isValid(String phone) {
         String digits = normalize(phone);
