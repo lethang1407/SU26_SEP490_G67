@@ -17,8 +17,7 @@ const WEAK_PASSWORDS = new Set([
 ]);
 
 export const PASSWORD_POLICY_HINT =
-	`Từ ${PASSWORD_MIN_LENGTH} đến ${PASSWORD_MAX_LENGTH} ký tự, có ít nhất 1 chữ cái và 1 chữ số, ` +
-	'không trùng mật khẩu hiện tại, không chứa tên đăng nhập, tránh mật khẩu dễ đoán.';
+	`Ít nhất ${PASSWORD_MIN_LENGTH} ký tự, có ít nhất 1 chữ cái và 1 chữ số, `;
 
 function validateNewPassword(newPassword, username) {
 	if (!newPassword) {

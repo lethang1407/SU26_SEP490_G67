@@ -1,4 +1,4 @@
-import { Briefcase, Phone, User } from 'lucide-react';
+import { AtSign, Briefcase, Phone, User } from 'lucide-react';
 import {
 	formatPhoneNumber,
 	getRoleLabel,
@@ -12,7 +12,7 @@ function ProfileField({ label, value, icon: Icon }) {
 			<span className="profile-field__label">{label}</span>
 			<div className="profile-field__value">
 				<Icon size={18} className="profile-field__icon" />
-				<span>{value}</span>
+				<span>{value || '—'}</span>
 			</div>
 		</div>
 	);
@@ -39,6 +39,7 @@ export default function ProfileViewCard({ profile }) {
 					value={getRoleLabel(profile.role)}
 					icon={Briefcase}
 				/>
+				<ProfileField label="Tên đăng nhập" value={profile.username} icon={AtSign} />
 				<ProfileField
 					label="Số điện thoại"
 					value={formatPhoneNumber(profile.phoneNumber)}
