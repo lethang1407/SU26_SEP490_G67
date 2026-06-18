@@ -36,7 +36,7 @@ export default function ProfileViewCard({ profile }) {
 				<ProfileField label="Họ và tên" value={profile.fullName} icon={User} />
 				<ProfileField
 					label="Vai trò hệ thống"
-					value={getRoleLabel(profile.role)}
+					value={getRoleLabel(profile.roles)}
 					icon={Briefcase}
 				/>
 				<ProfileField label="Tên đăng nhập" value={profile.username} icon={AtSign} />
