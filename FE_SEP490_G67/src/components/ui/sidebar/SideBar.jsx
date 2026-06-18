@@ -126,7 +126,7 @@ export default function SideBar() {
             </div>
             <div className="sidebar-footer">
                 <NavLink
-                    to="/admin/help"
+                    to="/help"
                     className="menu-btn"
                 >
                     <div className="menu-left">
