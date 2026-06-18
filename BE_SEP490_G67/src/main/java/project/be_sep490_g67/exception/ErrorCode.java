@@ -12,6 +12,15 @@ public enum ErrorCode {
     UNAUTHENTICATED(1001, "Tài khoản hoặc mật khẩu không đúng", HttpStatus.UNAUTHORIZED),
     UNAUTHORIZED(1002, "You do not have permission", HttpStatus.FORBIDDEN),
     USER_NOT_EXISTED(1003, "User not existed", HttpStatus.NOT_FOUND),
+    PHONE_NUMBER_NOT_FOUND(1004, "Phone number not found", HttpStatus.NOT_FOUND),
+    TOO_MANY_OTP_REQUESTS(1005, "Too many OTP requests. Please try again later.", HttpStatus.TOO_MANY_REQUESTS),
+    INVALID_OTP(1006, "Invalid OTP", HttpStatus.BAD_REQUEST),
+    INVALID_PASSWORD_LENGTH(1007, "Password must be between 8 and 64 characters", HttpStatus.BAD_REQUEST),
+    PASSWORD_MISSING_LETTER_OR_NUMBER(1008, "Password must contain at least one letter and one number", HttpStatus.BAD_REQUEST),
+    PASSWORD_SAME_AS_CURRENT(1009, "New password cannot be the same as the current password", HttpStatus.BAD_REQUEST),
+    PASSWORD_SAME_AS_USERNAME(1010, "New password cannot be the same as your username", HttpStatus.BAD_REQUEST),
+    EASILY_GUESSABLE_PASSWORD(1011, "Password is too easily guessable", HttpStatus.BAD_REQUEST),
+
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

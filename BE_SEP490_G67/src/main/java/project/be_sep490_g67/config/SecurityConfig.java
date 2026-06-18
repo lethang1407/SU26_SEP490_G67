@@ -28,6 +28,7 @@ import static org.springframework.security.config.Customizer.withDefaults;
 public class SecurityConfig {
     private final String[] PUBLIC_ENDPOINTS = {
             "/api/users", "/api/auth/token", "/api/auth/introspect", "/api/auth/logout", "/api/auth/refresh"
+        ,"/api/auth/forgot-password/initiate", "/api/auth/forgot-password/verify-otp", "/api/auth/forgot-password/change-password"
     };
     @Autowired
     private CustomJwtDecoder customJwtDecoder;

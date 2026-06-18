@@ -9,6 +9,7 @@ import project.be_sep490_g67.entity.User;
 import project.be_sep490_g67.repository.UserRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -22,4 +23,11 @@ public class UserService {
         return userRepository.findAll();
     }
 
+    public Optional<User> findByPhoneNumber(String phoneNumber) {
+        return userRepository.findByPhoneNumber(phoneNumber);
+    }
+
+    public User saveUser(User user) {
+        return userRepository.save(user);
+    }
 }
