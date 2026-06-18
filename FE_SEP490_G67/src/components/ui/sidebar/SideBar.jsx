@@ -8,10 +8,12 @@ import {
 
 import "../../../css/SideBar.css";
 import { menus } from "./menuData";
-
+import { AuthContext } from "../../../app/providers/AuthProvider.jsx";
+import { useContext } from "react";
 export default function SideBar() {
     const [expanded, setExpanded] = useState(null);
     const location = useLocation();
+    const { logout } = useContext(AuthContext);
 
     useEffect(() => {
         const activeMenu = menus.find(menu => 
@@ -137,8 +139,9 @@ export default function SideBar() {
                     </div>
                 </NavLink>
                 <NavLink
-                    to="/logout"
+                    to="/login"
                     className="menu-btn logout"
+                    onClick={logout}
                 >
                     <div className="menu-left">
                         <LogOut size={20} />

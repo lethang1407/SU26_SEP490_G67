@@ -19,7 +19,7 @@ public interface UserRepository extends JpaRepository<User, Integer> {
 
     boolean existsByPhoneNumberAndIdNot(String phoneNumber, Integer id);
 
-    @Query("SELECT u FROM User u JOIN FETCH u.role WHERE u.username = :username AND u.isRemoved = false")
+    @Query("SELECT u FROM User u JOIN FETCH u.roles WHERE u.username = :username AND u.isRemoved = false")
     Optional<User> findActiveByUsernameWithRole(@Param("username") String username);
 
     @Query("SELECT u.id FROM User u WHERE u.username = :username AND u.isRemoved = false")

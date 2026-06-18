@@ -9,6 +9,10 @@ const auth = {
 
     return response;
   },
+  logout: async () => {
+    const response = await api.post("/auth/logout");
+    return response;
+  },
   initiatePasswordReset: async (payload) => {
     const response = await api.post("/auth/forgot-password/initiate", {
         phoneNumber: payload.phoneNumber

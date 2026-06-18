@@ -10,11 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import project.be_sep490_g67.constants.ApiPath;
-import project.be_sep490_g67.dto.request.AuthenticationRequest;
-import project.be_sep490_g67.dto.request.ForgotPasswordChangeRequest;
-import project.be_sep490_g67.dto.request.ForgotPasswordInitiateRequest;
-import project.be_sep490_g67.dto.request.ForgotPasswordVerifyOtpRequest;
-import project.be_sep490_g67.dto.request.IntrospectRequest;
+import project.be_sep490_g67.dto.request.*;
 import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.AuthenticationResponse;
 import project.be_sep490_g67.dto.response.IntrospectResponse;
@@ -45,7 +41,11 @@ public class AuthController {
         var result = authenticationService.introspect(request);
         return ApiResponse.<IntrospectResponse>builder().result(result).build();
     }
-
+    @PostMapping("/logout")
+    ApiResponse<Void> logout(@RequestBody LogoutRequest request) throws ParseException, JOSEException {
+        authenticationService.logout(request);
+        return ApiResponse.<Void>builder().build();
+    }
     @PostMapping("/forgot-password/initiate")
     ApiResponse<Void> initiateForgotPassword(@RequestBody ForgotPasswordInitiateRequest request) {
         passwordRestService.initiatePasswordReset(request.getPhoneNumber());

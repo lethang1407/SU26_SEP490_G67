@@ -4,6 +4,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -13,10 +14,9 @@ import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.utils.PhoneNumberUtil;
 
 import java.io.IOException;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 @Service
@@ -26,18 +26,22 @@ import java.util.regex.Pattern;
 public class PasswordRestService {
     UserService userService;
     InfobipService infobipService;
+    RedisTemplate<String, Object> redisTemplate;
     PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
 
-    // In-memory storage for OTPs. In a real application, this would be a more robust solution (e.g., Redis)
-    private final Map<String, String> otpStorage = new ConcurrentHashMap<>();
-    private final Map<String, Long> otpRequestTimestamps = new ConcurrentHashMap<>(); // For rate limiting
+    private static final String OTP_PREFIX = "otp:";
+    private static final String OTP_TIMESTAMP_PREFIX = "otp_ts:";
+    private static final long OTP_EXPIRATION_MINUTES = 5;
     private static final long OTP_REQUEST_COOLDOWN_MILLIS = 60 * 1000; // 1 minute cooldown
 
     public void initiatePasswordReset(String phoneNumber) {
         phoneNumber = PhoneNumberUtil.standardize(phoneNumber);
+        String timestampKey = OTP_TIMESTAMP_PREFIX + phoneNumber;
+
         // Rate limiting check
-        if (otpRequestTimestamps.containsKey(phoneNumber)) {
-            long lastRequestTime = otpRequestTimestamps.get(phoneNumber);
+        Object lastRequestTimeObj = redisTemplate.opsForValue().get(timestampKey);
+        if (lastRequestTimeObj != null) {
+            long lastRequestTime = Long.parseLong(String.valueOf(lastRequestTimeObj));
             if (System.currentTimeMillis() - lastRequestTime < OTP_REQUEST_COOLDOWN_MILLIS) {
                 throw new AppException(ErrorCode.TOO_MANY_OTP_REQUESTS);
             }
@@ -49,10 +53,12 @@ public class PasswordRestService {
         }
 
         String otp = generateOtp();
-        otpStorage.put(phoneNumber, otp);
-        otpRequestTimestamps.put(phoneNumber, System.currentTimeMillis()); // Update timestamp
+        String otpKey = OTP_PREFIX + phoneNumber;
+        redisTemplate.opsForValue().set(otpKey, otp, OTP_EXPIRATION_MINUTES, TimeUnit.MINUTES);
+        redisTemplate.opsForValue().set(timestampKey, String.valueOf(System.currentTimeMillis()));
+
         try {
-            infobipService.sendSms(phoneNumber,userOptional.get().getFullName(), otp);
+            infobipService.sendSms(phoneNumber, userOptional.get().getFullName(), otp);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -61,7 +67,8 @@ public class PasswordRestService {
 
     public boolean verifyOtp(String phoneNumber, String otp) {
         phoneNumber = PhoneNumberUtil.standardize(phoneNumber);
-        String storedOtp = otpStorage.get(phoneNumber);
+        String otpKey = OTP_PREFIX + phoneNumber;
+        String storedOtp = (String) redisTemplate.opsForValue().get(otpKey);
         if (storedOtp == null || !storedOtp.equals(otp)) {
             throw new AppException(ErrorCode.INVALID_OTP);
         }
@@ -81,8 +88,8 @@ public class PasswordRestService {
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userService.saveUser(user); // Assuming a saveUser method exists or will be added
 
-        otpStorage.remove(phoneNumber); // Clear OTP after successful password change
-        otpRequestTimestamps.remove(phoneNumber); // Clear rate limit entry
+        redisTemplate.delete(OTP_PREFIX + phoneNumber); // Clear OTP after successful password change
+        redisTemplate.delete(OTP_TIMESTAMP_PREFIX + phoneNumber); // Clear rate limit entry
         log.info("Password successfully changed for user with phone number {}", phoneNumber);
     }
 

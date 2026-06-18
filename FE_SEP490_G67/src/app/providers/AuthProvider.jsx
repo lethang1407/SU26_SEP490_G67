@@ -1,4 +1,5 @@
 import { createContext, useState, useEffect } from 'react';
+import auth from '@/features/auth/api';
 
 export const AuthContext = createContext(null);
 
@@ -19,10 +20,17 @@ const AuthProvider = ({ children }) => {
         localStorage.setItem('accessToken', token);
     };
 
-    const logout = () => {
-        setAccessToken(null);
-        setAuthenticated(false);
-        localStorage.removeItem('accessToken');
+    const logout = async () => {
+        try {
+            await auth.logout();
+        } catch (error) {
+            console.error('Logout API error:', error);
+        } finally {
+            // delete token and update state regardless of API call success
+            setAccessToken(null);
+            setAuthenticated(false);
+            localStorage.removeItem('accessToken');
+        }
     };
 
     const contextValue = {
