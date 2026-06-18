@@ -154,13 +154,13 @@ public class AuthenticationService {
         return signedJWT;
     }
 
-    private String buildScope(User user) {
-        StringJoiner stringJoiner = new StringJoiner(" ");
-        if (!CollectionUtils.isEmpty(user.getRoles())){
-            user.getRoles().forEach(role -> {
-                stringJoiner.add("ROLE_" + role.getName());
-            });
+    private String[] buildScope(User user) {
+        if (CollectionUtils.isEmpty(user.getRoles())) {
+            return new String[0]; // Trả về mảng rỗng nếu không có role
         }
-        return stringJoiner.toString();
+
+        return user.getRoles().stream()
+                .map(role -> "ROLE_" + role.getName())
+                .toArray(String[]::new);
     }
 }

@@ -3,16 +3,16 @@ import { Bell, User, Store, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getProfile } from '../../../features/profile/api';
 import { PROFILE_ROUTES } from '../../../features/profile/constants';
-import { getRoleLabel } from '../../../features/profile/utils/profileUtils';
+import { getRoleLabel,ROLE_LABELS } from '../../../features/profile/utils/profileUtils';
 import '../../../css/AdminHeader.css';
-
 export default function AdminHeader({ user, activePage}) {
 	const navigate = useNavigate();
 	const [headerUser, setHeaderUser] = useState(user ?? null);
 	const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 	const dropdownRef = useRef(null);
 	const displayName = headerUser?.fullName ?? '—';
-	const displayRole = headerUser?.role ? getRoleLabel(headerUser.role) : '—';
+	const displayRole = headerUser?.roles ? getRoleLabel(headerUser.roles) : '—';
+
 
 	useEffect(() => {
 		if (user) {
@@ -51,7 +51,7 @@ export default function AdminHeader({ user, activePage}) {
 			label: 'Thông tin cửa hàng',
 			icon: <Store size={16} />,
 			onClick: () => navigate('/admin/store'),
-			show: headerUser?.role === 'ADMIN',
+			show: headerUser?.roles?.includes("ADMIN"),
 		},
 		{
 			id: 'settings',
