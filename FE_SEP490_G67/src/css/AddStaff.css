@@ -1,0 +1,410 @@
+
+
+.add-staff-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 20px;
+    
+}
+
+.add-staff-breadcrumb__sep {
+    color: #ccc;
+}
+
+.add-staff-breadcrumb__link {
+    color: #888;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.add-staff-breadcrumb__link:hover {
+    color: #2563eb;
+}
+
+.add-staff-breadcrumb__current {
+    color: #2563eb;
+    font-weight: 500;
+}
+
+.add-staff-page-header {
+    margin-bottom: 28px;
+}
+
+.add-staff-page-header__title {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+    color: #1a1a1a;
+    letter-spacing: -0.3px;
+    
+}
+
+.add-staff-page-header__desc {
+    margin: 8px 0 0;
+    font-size: 14px;
+    color: #64748b;
+    line-height: 1.5;
+    
+}
+
+/* ============================================
+   FORM LAYOUT
+   ============================================ */
+
+.add-staff-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
+    gap: 24px;
+    align-items: start;
+}
+
+.add-staff-main {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.add-staff-sidebar {
+    position: sticky;
+    top: 0;
+}
+
+/* ============================================
+   CARD
+   ============================================ */
+
+.add-staff-card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #eaedf3;
+    padding: 24px;
+}
+
+.add-staff-card--permissions {
+    padding-bottom: 16px;
+}
+
+.add-staff-card__header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.add-staff-card__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+.add-staff-card__icon--user {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.add-staff-card__icon--lock {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.add-staff-card__icon--key {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.add-staff-card__title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #2563eb;
+}
+
+/* ============================================
+   FORM FIELDS
+   ============================================ */
+
+.add-staff-fields {
+    display: grid;
+    gap: 20px;
+}
+
+.add-staff-fields--two-col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.add-staff-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.add-staff-field--full {
+    margin-top: 20px;
+}
+
+.add-staff-field__label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #334155;
+}
+
+.add-staff-field__required {
+    color: #ef4444;
+}
+
+.add-staff-field__input,
+.add-staff-field__select {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 14px;
+    
+    color: #1e293b;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.add-staff-field__input::placeholder {
+    color: #94a3b8;
+}
+
+.add-staff-field__input:focus,
+.add-staff-field__select:focus {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.add-staff-field__input--error {
+    border-color: #fca5a5;
+}
+
+.add-staff-field__error {
+    font-size: 12px;
+    color: #ef4444;
+}
+
+.add-staff-field__hint {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: #94a3b8;
+    line-height: 1.4;
+}
+
+.add-staff-field__password {
+    position: relative;
+}
+
+.add-staff-field__password .add-staff-field__input {
+    padding-right: 44px;
+}
+
+.add-staff-field__toggle-password {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.add-staff-field__toggle-password:hover {
+    color: #64748b;
+}
+
+.add-staff-field__select {
+    appearance: none;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 40px;
+}
+
+/* ============================================
+   PERMISSIONS
+   ============================================ */
+
+.add-staff-permissions {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.add-staff-permission {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.add-staff-permission:hover {
+    border-color: #cbd5e1;
+    background: #fafbfd;
+}
+
+.add-staff-permission--checked {
+    border-color: #bfdbfe;
+    background: #f8fbff;
+}
+
+.add-staff-permission__checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: #2563eb;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.add-staff-permission__content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.add-staff-permission__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.add-staff-permission__desc {
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+.add-staff-permission__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+/* ============================================
+   ACTIONS
+   ============================================ */
+
+.add-staff-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid #eaedf3;
+}
+
+.add-staff-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 22px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.add-staff-action-btn--outline {
+    background: #fff;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+}
+
+.add-staff-action-btn--outline:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.add-staff-action-btn--primary {
+    background: #2563eb;
+    color: #fff;
+    border: 1px solid #2563eb;
+}
+
+.add-staff-action-btn--primary:hover {
+    background: #1d4ed8;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 1024px) {
+    .add-staff-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .add-staff-sidebar {
+        position: static;
+    }
+}
+
+@media (max-width: 768px) {
+    .add-staff-page-header__title {
+        font-size: 22px;
+    }
+
+    .add-staff-fields--two-col {
+        grid-template-columns: 1fr;
+    }
+
+    .add-staff-actions {
+        flex-direction: column-reverse;
+    }
+
+    .add-staff-action-btn {
+        width: 100%;
+    }
+}
+
+.add-staff-not-found {
+    margin: 0 0 12px;
+    font-size: 15px;
+    color: #64748b;
+    
+}
+
+.add-staff-back-link {
+    font-size: 14px;
+    font-weight: 600;
+    color: #2563eb;
+    text-decoration: none;
+    
+}
+
+.add-staff-back-link:hover {
+    text-decoration: underline;
+}
