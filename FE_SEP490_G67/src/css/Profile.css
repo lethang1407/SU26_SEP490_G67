@@ -162,12 +162,12 @@
 
 .profile-view-card__status--active {
 	background: #dcfce7;
-	color: #16A34A;
+	color: #16a34a;
 }
 
 .profile-view-card__body {
 	display: grid;
-	grid-template-columns: 1fr 1fr;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: 24px;
 }
 
@@ -201,11 +201,6 @@
 .profile-field__icon {
 	color: #004AC6;
 	flex-shrink: 0;
-}
-
-.profile-field:last-child {
-	grid-column: 1 / -1;
-	max-width: calc(50% - 12px);
 }
 
 /* Edit Form */
@@ -438,10 +433,6 @@
 
 	.profile-view-card__body {
 		grid-template-columns: 1fr;
-	}
-
-	.profile-field:last-child {
-		max-width: 100%;
 	}
 
 	.profile-edit-card {

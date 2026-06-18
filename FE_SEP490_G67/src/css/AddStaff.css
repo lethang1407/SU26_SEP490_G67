@@ -1,6 +1,4 @@
-/* ============================================
-   ADD STAFF PAGE
-   ============================================ */
+
 
 .add-staff-breadcrumb {
     display: flex;
@@ -9,7 +7,7 @@
     font-size: 14px;
     color: #888;
     margin-bottom: 20px;
-    font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    
 }
 
 .add-staff-breadcrumb__sep {
@@ -41,7 +39,7 @@
     font-weight: 700;
     color: #1a1a1a;
     letter-spacing: -0.3px;
-    font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    
 }
 
 .add-staff-page-header__desc {
@@ -49,16 +47,12 @@
     font-size: 14px;
     color: #64748b;
     line-height: 1.5;
-    font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    
 }
 
 /* ============================================
    FORM LAYOUT
    ============================================ */
-
-.add-staff-form {
-    font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-}
 
 .add-staff-layout {
     display: grid;
@@ -173,7 +167,7 @@
     border-radius: 8px;
     background: #fff;
     font-size: 14px;
-    font-family: inherit;
+    
     color: #1e293b;
     outline: none;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -336,7 +330,7 @@
     border-radius: 8px;
     font-size: 14px;
     font-weight: 600;
-    font-family: inherit;
+    
     cursor: pointer;
     transition: all 0.2s ease;
     white-space: nowrap;
@@ -400,7 +394,7 @@
     margin: 0 0 12px;
     font-size: 15px;
     color: #64748b;
-    font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    
 }
 
 .add-staff-back-link {
@@ -408,7 +402,7 @@
     font-weight: 600;
     color: #2563eb;
     text-decoration: none;
-    font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    
 }
 
 .add-staff-back-link:hover {
