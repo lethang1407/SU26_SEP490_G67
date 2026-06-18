@@ -1,6 +1,8 @@
-const ROLE_LABELS = {
+export  const ROLE_LABELS = {
 	ADMIN: 'Quản trị viên',
-	STAFF: 'Nhân viên',
+	ACCOUNTANT: 'Nhân viên kế toán',
+	WAREHOUSE: 'Nhân viên kho',
+	CASHIER: 'Nhân viên thu ngân',
 };
 
 const STATUS_LABELS = {
@@ -9,8 +11,26 @@ const STATUS_LABELS = {
 	SUSPENDED: 'Tài khoản tạm khóa',
 };
 
-export function getRoleLabel(role) {
-	return ROLE_LABELS[role] ?? role;
+export function getRoleLabel(roles) {
+	// Handle Set, Array, or single string
+	if (!roles) return '—';
+	
+	// If roles is a Set, convert to array
+	let roleArray = roles;
+	if (roles instanceof Set) {
+		roleArray = Array.from(roles);
+	}
+	
+	// If roles is an array, map all roles to labels and join with comma
+	if (Array.isArray(roleArray)) {
+		if (roleArray.length === 0) return '—';
+		// Map all roles to their labels and join with comma
+		const roleLabels = roleArray.map(role => ROLE_LABELS[role] ?? role);
+		return roleLabels.join(', ');
+	}
+	
+	// If roles is a single string
+	return ROLE_LABELS[roles] ?? roles;
 }
 
 export function getStatusLabel(status) {
