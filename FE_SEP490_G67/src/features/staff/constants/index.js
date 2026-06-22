@@ -5,6 +5,7 @@ export const STAFF_ROUTES = {
 };
 
 export const SYSTEM_ROLES = [
+    { value: 'staff', label: 'Nhân viên cửa hàng' },
     { value: 'pos', label: 'Nhân viên bán hàng (POS)' },
     { value: 'warehouse', label: 'Nhân viên kho hàng' },
     { value: 'accountant', label: 'Kế toán' },
@@ -51,3 +52,15 @@ export const DEFAULT_PERMISSIONS = ['pos'];
 export const STAFF_FORM_ID = 'staff-info-form';
 
 export const ADD_STAFF_FORM_ID = 'add-staff-form';
+
+export const ALL_POSITIONS = 'Tất cả vị trí';
+
+export const STAFF_POSITIONS = ['Nhân viên', 'Thu ngân', 'Kiểm kho', 'Kế toán'];
+
+export const NAME_SORT_ASC = 'name-asc';
+export const NAME_SORT_DESC = 'name-desc';
+
+export const NAME_SORT_OPTIONS = [
+    { value: NAME_SORT_ASC, label: 'A → Z' },
+    { value: NAME_SORT_DESC, label: 'Z → A' },
+];

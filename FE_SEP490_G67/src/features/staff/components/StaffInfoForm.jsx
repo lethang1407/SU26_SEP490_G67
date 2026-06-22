@@ -24,7 +24,7 @@ const EMPTY_FORM = {
     phone: '',
     username: '',
     password: '',
-    systemRole: SYSTEM_ROLES[0].value,
+    systemRole: 'staff',
 };
 
 function mapStaffToForm(staff) {
@@ -45,6 +45,7 @@ export default function StaffInfoForm({
     formId,
     initialData,
     isNewStaff = false,
+    isSubmitting = false,
     saveButtonLabel = 'Lưu',
     onSubmit,
     onCancel,
@@ -90,6 +91,9 @@ export default function StaffInfoForm({
         }
         if (isNewStaff && !form.password.trim()) {
             nextErrors.password = 'Vui lòng nhập mật khẩu.';
+        }
+        if (permissions.length === 0) {
+            nextErrors.permissions = 'Vui lòng chọn ít nhất một quyền truy cập.';
         }
 
         setErrors(nextErrors);
@@ -284,6 +288,9 @@ export default function StaffInfoForm({
                                 );
                             })}
                         </ul>
+                        {errors.permissions && (
+                            <span className="add-staff-field__error">{errors.permissions}</span>
+                        )}
                     </section>
                 </aside>
             </div>
@@ -293,11 +300,16 @@ export default function StaffInfoForm({
                     type="button"
                     className="add-staff-action-btn add-staff-action-btn--outline"
                     onClick={onCancel}
+                    disabled={isSubmitting}
                 >
                     Hủy
                 </button>
-                <button type="submit" className="add-staff-action-btn add-staff-action-btn--primary">
-                    {saveButtonLabel}
+                <button
+                    type="submit"
+                    className="add-staff-action-btn add-staff-action-btn--primary"
+                    disabled={isSubmitting}
+                >
+                    {isSubmitting ? 'Đang lưu...' : saveButtonLabel}
                 </button>
             </div>
         </form>

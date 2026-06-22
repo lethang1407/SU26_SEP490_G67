@@ -1,22 +1,36 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Alert } from 'react-bootstrap';
 import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import StaffInfoForm from '../components/StaffInfoForm';
+import { createStaff } from '../api';
 import { ADD_STAFF_FORM_ID, STAFF_ROUTES } from '../constants';
+import { getApiErrorMessage } from '../../../utils/api-utils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/AddStaff.css';
 
 export default function AddStaffPage() {
     const navigate = useNavigate();
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState(null);
 
     const handleCancel = () => {
         navigate(STAFF_ROUTES.list);
     };
 
-    const handleSubmit = (formData) => {
-        // TODO: gọi API tạo nhân viên mới
-        console.log('Create staff:', formData);
-        navigate(STAFF_ROUTES.list);
+    const handleSubmit = async (formData) => {
+        setIsSubmitting(true);
+        setError(null);
+
+        try {
+            await createStaff(formData);
+            navigate(STAFF_ROUTES.list);
+        } catch (submitError) {
+            setError(getApiErrorMessage(submitError, 'Không thể tạo nhân viên. Vui lòng thử lại.'));
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -43,9 +57,16 @@ export default function AddStaffPage() {
                             </div>
                         </div>
 
+                        {error && (
+                            <Alert variant="danger" onClose={() => setError(null)} dismissible>
+                                {error}
+                            </Alert>
+                        )}
+
                         <StaffInfoForm
                             formId={ADD_STAFF_FORM_ID}
                             isNewStaff
+                            isSubmitting={isSubmitting}
                             saveButtonLabel="Lưu nhân viên"
                             onSubmit={handleSubmit}
                             onCancel={handleCancel}

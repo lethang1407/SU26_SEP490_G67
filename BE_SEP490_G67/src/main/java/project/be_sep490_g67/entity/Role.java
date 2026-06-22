@@ -51,6 +51,6 @@ public class Role {
     )
     private Set<Permission> permissions = new LinkedHashSet<>();
 
-    @ManyToMany(mappedBy = "roles")
+    @OneToMany(mappedBy = "role")
     private Set<User> users = new LinkedHashSet<>();
 }

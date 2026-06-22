@@ -15,7 +15,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
 import project.be_sep490_g67.dto.request.AuthenticationRequest;
 import project.be_sep490_g67.dto.request.IntrospectRequest;
 import project.be_sep490_g67.dto.request.LogoutRequest;
@@ -72,7 +71,7 @@ public class AuthenticationService {
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
         var user = userRepository
-                .findByUsername(request.getUsername())
+                .findActiveByUsernameWithRole(request.getUsername())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
         boolean authenticated = passwordEncoder.matches(request.getPassword(), user.getPasswordHash());
         if (!user.getStatus().equals("ACTIVE")) throw new AppException(ErrorCode.USER_DEACTIVATED);
@@ -155,12 +154,10 @@ public class AuthenticationService {
     }
 
     private String[] buildScope(User user) {
-        if (CollectionUtils.isEmpty(user.getRoles())) {
-            return new String[0]; // Trả về mảng rỗng nếu không có role
+        if (user.getRole() == null) {
+            return new String[0];
         }
 
-        return user.getRoles().stream()
-                .map(role -> "ROLE_" + role.getName())
-                .toArray(String[]::new);
+        return new String[] {"ROLE_" + user.getRole().getName()};
     }
 }
