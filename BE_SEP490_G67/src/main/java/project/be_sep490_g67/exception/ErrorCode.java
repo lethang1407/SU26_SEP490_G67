@@ -32,6 +32,7 @@ public enum ErrorCode {
     PASSWORD_CONTAINS_USERNAME(1014, "Mật khẩu không được trùng với tên đăng nhập", HttpStatus.BAD_REQUEST),
     WEAK_PASSWORD(1015, "Mật khẩu quá phổ biến, vui lòng chọn mật khẩu khác", HttpStatus.BAD_REQUEST),
     NOT_FOUND_STORE(1016, "Không tìm thấy thông tin cửa hàng",  HttpStatus.NOT_FOUND),
+    EXISTED_SUPPLIER(1017, "Nhà cung cấp đã tồn tại", HttpStatus.CONFLICT)
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

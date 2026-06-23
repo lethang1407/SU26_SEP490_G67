@@ -56,6 +56,12 @@ public class Supplier {
     @Column(name = "supplier_code", nullable = false, length = 30)
     private String supplierCode;
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "supplier_category",
+            joinColumns = @JoinColumn(name = "supplier_id"),
+            inverseJoinColumns = @JoinColumn(name = "category_id"))
+    private Set<Category> categories;
+
     @OneToMany(mappedBy = "supplier")
     private Set<ImportOrder> importOrders = new LinkedHashSet<>();
 
