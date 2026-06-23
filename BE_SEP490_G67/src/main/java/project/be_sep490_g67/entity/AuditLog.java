@@ -3,7 +3,6 @@ package project.be_sep490_g67.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
@@ -13,7 +12,7 @@ import java.time.Instant;
 @Setter
 @Entity
 @Table(name = "audit_logs")
-public class AuditLog {
+public class AuditLog extends BaseEntity{
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -24,8 +23,7 @@ public class AuditLog {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @Lob
-    @Column(name = "action_type")
+    @Column(name = "action_type", length = 50)
     private String actionType;
 
     @Column(name = "entity_name", length = 60)
@@ -41,10 +39,4 @@ public class AuditLog {
     @Lob
     @Column(name = "new_value")
     private String newValue;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "created_at")
-    private Instant createdAt;
-
-
 }

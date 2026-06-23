@@ -15,7 +15,7 @@ import java.time.LocalDate;
 @Setter
 @Entity
 @Table(name = "import_order_details")
-public class ImportOrderDetail {
+public class ImportOrderDetail extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -41,20 +41,5 @@ public class ImportOrderDetail {
 
     @Column(name = "expiry_date")
     private LocalDate expiryDate;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "created_at")
-    private Instant createdAt;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "updated_at")
-    private Instant updatedAt;
-
-    @Column(name = "created_by")
-    private Integer createdBy;
-
-    @Column(name = "updated_by")
-    private Integer updatedBy;
-
 
 }

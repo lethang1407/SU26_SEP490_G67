@@ -11,7 +11,7 @@ import java.time.Instant;
 @Setter
 @Entity
 @Table(name = "batch_locations")
-public class BatchLocation {
+public class BatchLocation extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -28,24 +28,5 @@ public class BatchLocation {
     @ColumnDefault("0")
     @Column(name = "quantity")
     private Integer quantity;
-
-    @ColumnDefault("0")
-    @Column(name = "is_removed")
-    private Boolean isRemoved;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "created_at")
-    private Instant createdAt;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "updated_at")
-    private Instant updatedAt;
-
-    @Column(name = "created_by")
-    private Integer createdBy;
-
-    @Column(name = "updated_by")
-    private Integer updatedBy;
-
 
 }

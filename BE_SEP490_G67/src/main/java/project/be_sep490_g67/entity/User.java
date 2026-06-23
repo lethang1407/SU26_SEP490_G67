@@ -12,7 +12,7 @@ import java.util.Set;
 @Setter
 @Entity
 @Table(name = "users")
-public class User {
+public class User extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -34,27 +34,8 @@ public class User {
     private String phoneNumber;
 
     @ColumnDefault("'ACTIVE'")
-    @Lob
-    @Column(name = "status")
+    @Column(name = "status", length = 20)
     private String status;
-
-    @ColumnDefault("0")
-    @Column(name = "is_removed")
-    private Boolean isRemoved;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "created_at")
-    private Instant createdAt;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "updated_at")
-    private Instant updatedAt;
-
-    @Column(name = "created_by")
-    private Integer createdBy;
-
-    @Column(name = "updated_by")
-    private Integer updatedBy;
 
     @OneToMany(mappedBy = "user")
     private Set<AuditLog> auditLogs = new LinkedHashSet<>();
