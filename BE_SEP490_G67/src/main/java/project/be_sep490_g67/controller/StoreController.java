@@ -26,6 +26,7 @@ public class StoreController {
         StoreResponse storeInfo = storeService.getStoreInfo();
         return ApiResponse.<StoreResponse>builder()
                 .result(storeInfo)
+                .message("Lấy thông tin pháp lý cửa hàng thành công")
                 .build();
     }
 
