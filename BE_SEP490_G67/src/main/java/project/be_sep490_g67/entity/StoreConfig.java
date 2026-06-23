@@ -12,13 +12,13 @@ import java.time.Instant;
 @Setter
 @Entity
 @Table(name = "store_config")
-public class StoreConfig {
+public class StoreConfig extends BaseEntity{
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Integer id;
 
-    @ColumnDefault("'Cửa hàng Đức Thắng'")
+    @ColumnDefault("'Cửa hàng tạp hóa Đức Thắng'")
     @Column(name = "store_name", nullable = false, length = 200)
     private String storeName;
 
@@ -38,24 +38,4 @@ public class StoreConfig {
     @ColumnDefault("'VND'")
     @Column(name = "currency", length = 10)
     private String currency;
-
-    @ColumnDefault("0")
-    @Column(name = "is_removed", nullable = false)
-    private Boolean isRemoved;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "created_at")
-    private Instant createdAt;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "updated_at")
-    private Instant updatedAt;
-
-    @Column(name = "created_by")
-    private Integer createdBy;
-
-    @Column(name = "updated_by")
-    private Integer updatedBy;
-
-
 }

@@ -17,7 +17,7 @@ import java.util.Set;
 @Setter
 @Entity
 @Table(name = "sales_orders")
-public class SalesOrder {
+public class SalesOrder extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -28,23 +28,15 @@ public class SalesOrder {
     @JoinColumn(name = "customer_id")
     private Customer customer;
 
-    @Column(name = "created_by")
-    private Integer createdBy;
-
-    @Column(name = "updated_by")
-    private Integer updatedBy;
-
     @Column(name = "order_code", length = 30)
     private String orderCode;
 
     @ColumnDefault("'CASH'")
-    @Lob
-    @Column(name = "payment_method")
+    @Column(name = "payment_method", length = 50)
     private String paymentMethod;
 
     @ColumnDefault("'COMPLETED'")
-    @Lob
-    @Column(name = "order_status")
+    @Column(name = "order_status", length = 50)
     private String orderStatus;
 
     @ColumnDefault("0.00")
@@ -63,20 +55,9 @@ public class SalesOrder {
     @Column(name = "is_debt")
     private Boolean isDebt;
 
-    @Column(name = "debt_due_date")
-    private LocalDate debtDueDate;
-
     @Lob
     @Column(name = "note")
     private String note;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "created_at")
-    private Instant createdAt;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "updated_at")
-    private Instant updatedAt;
 
     @OneToMany(mappedBy = "salesOrder")
     private Set<DebtPayment> debtPayments = new LinkedHashSet<>();
@@ -86,6 +67,5 @@ public class SalesOrder {
 
     @OneToMany(mappedBy = "salesOrder")
     private Set<SalesOrderDetail> salesOrderDetails = new LinkedHashSet<>();
-
 
 }

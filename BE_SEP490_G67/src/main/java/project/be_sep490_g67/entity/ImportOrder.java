@@ -9,13 +9,14 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 @Getter
 @Setter
 @Entity
 @Table(name = "import_orders")
-public class ImportOrder {
+public class ImportOrder extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -39,20 +40,6 @@ public class ImportOrder {
     @Column(name = "note")
     private String note;
 
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "created_at")
-    private Instant createdAt;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "updated_at")
-    private Instant updatedAt;
-
-    @Column(name = "created_by")
-    private Integer createdBy;
-
-    @Column(name = "updated_by")
-    private Integer updatedBy;
-
     @OneToMany(mappedBy = "importOrder")
     private Set<ImportOrderDetail> importOrderDetails = new LinkedHashSet<>();
 
@@ -62,5 +49,6 @@ public class ImportOrder {
     @OneToMany(mappedBy = "importOrder")
     private Set<StockBatch> stockBatches = new LinkedHashSet<>();
 
-
+    @OneToMany(mappedBy = "importOrder")
+    private List<SupplierPayment> payments;
 }

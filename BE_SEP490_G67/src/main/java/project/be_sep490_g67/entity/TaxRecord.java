@@ -13,7 +13,7 @@ import java.time.LocalDate;
 @Setter
 @Entity
 @Table(name = "tax_records")
-public class TaxRecord {
+public class TaxRecord extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -39,8 +39,7 @@ public class TaxRecord {
     private BigDecimal taxAmountPaid;
 
     @ColumnDefault("'UNPAID'")
-    @Lob
-    @Column(name = "payment_status")
+    @Column(name = "payment_status", length = 30)
     private String paymentStatus;
 
     @Column(name = "submitted_at")
@@ -49,6 +48,5 @@ public class TaxRecord {
     @Lob
     @Column(name = "notes")
     private String notes;
-
 
 }
