@@ -20,6 +20,7 @@ import project.be_sep490_g67.utils.PhoneNumberUtil;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +34,15 @@ public class UserService {
     public List<User> getUsers() {
         log.info("In method get Users");
         return userRepository.findAll();
+    }
+
+    public Optional<User> findByPhoneNumber(String phoneNumber) {
+        return userRepository.findByPhoneNumber(phoneNumber);
+    }
+    
+    @Transactional
+    public User saveUser(User user) {
+        return userRepository.save(user);
     }
 
     @Transactional(readOnly = true)

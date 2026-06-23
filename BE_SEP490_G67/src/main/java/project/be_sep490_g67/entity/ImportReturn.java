@@ -14,7 +14,7 @@ import java.util.Set;
 @Setter
 @Entity
 @Table(name = "import_returns")
-public class ImportReturn {
+public class ImportReturn extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -34,24 +34,6 @@ public class ImportReturn {
     @Lob
     @Column(name = "note")
     private String note;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "return_date")
-    private Instant returnDate;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "created_at")
-    private Instant createdAt;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "updated_at")
-    private Instant updatedAt;
-
-    @Column(name = "created_by")
-    private Integer createdBy;
-
-    @Column(name = "updated_by")
-    private Integer updatedBy;
 
     @OneToMany(mappedBy = "importReturn")
     private Set<ImportReturnDetail> importReturnDetails = new LinkedHashSet<>();

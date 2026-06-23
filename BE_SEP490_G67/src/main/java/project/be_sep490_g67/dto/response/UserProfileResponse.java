@@ -4,6 +4,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.time.Instant;
+import java.util.Set;
 
 @Data
 @NoArgsConstructor
@@ -15,7 +16,7 @@ public class UserProfileResponse {
     String fullName;
     String username;
     String phoneNumber;
-    String role;
+    Set<String> roles;
     String status;
     Instant createdAt;
 }
