@@ -83,3 +83,16 @@ export function getSupplierDetailById(id, listSuppliers, detailsMap, buildFallba
     }
     return null;
 }
+export function removeVietnameseTones(str) {
+    if (!str) return "";
+    
+    str = str.toLowerCase();
+    
+    str = str.normalize('NFD') 
+           .replace(/[\u0300-\u036f]/g, ''); 
+           
+
+    str = str.replace(/đ/g, 'd');
+    
+    return str.trim();
+}

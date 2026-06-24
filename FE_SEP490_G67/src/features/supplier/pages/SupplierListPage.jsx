@@ -6,8 +6,10 @@ import SupplierSummaryCards from '../components/SupplierSummaryCards';
 import SupplierToolbar from '../components/SupplierToolbar';
 import SupplierTable from '../components/SupplierTable';
 import SupplierPagination from '../components/SupplierPagination';
+import SupplierAddNewModal from '../components/SupplierAddNewModal';
 import { MOCK_SUPPLIERS, SUPPLIER_DEBT_FILTER } from '../constants';
 import { buildSummary, filterSuppliers, paginateItems } from '../utils/supplierUtils';
+import { suppliersApi } from '../api';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Supplier.css';
 
@@ -17,6 +19,7 @@ export default function SupplierListPage() {
     const [keyword, setKeyword] = useState('');
     const [debtFilter, setDebtFilter] = useState(SUPPLIER_DEBT_FILTER.ALL);
     const [page, setPage] = useState(1);
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
     const filteredSuppliers = useMemo(
         () => filterSuppliers(MOCK_SUPPLIERS, { keyword, debtFilter }),
@@ -40,6 +43,20 @@ export default function SupplierListPage() {
         setPage(1);
     };
 
+    const handleAddSupplier = (supplierData) => {
+        suppliersApi
+            .addSupplier(supplierData)
+            .then((response) => {
+                console.log('Supplier added successfully:', response);
+            })
+            .catch((error) => {
+                console.error('Error adding supplier:', error);
+            })
+            .finally(() => {
+                setIsAddModalOpen(false);
+            });
+    };
+
     return (
         <div className="admin-layout">
             <SideBar />
@@ -55,7 +72,11 @@ export default function SupplierListPage() {
                                 </p>
                             </div>
                             <div className="supplier-page__actions">
-                                <button type="button" className="supplier-btn supplier-btn--primary">
+                                <button
+                                    type="button"
+                                    className="supplier-btn supplier-btn--primary"
+                                    onClick={() => setIsAddModalOpen(true)}
+                                >
                                     <Plus size={20} />
                                     Thêm nhà cung cấp
                                 </button>
@@ -80,6 +101,12 @@ export default function SupplierListPage() {
                             endIndex={pagination.endIndex}
                             totalItems={pagination.totalItems}
                             onPageChange={setPage}
+                        />
+
+                        <SupplierAddNewModal
+                            open={isAddModalOpen}
+                            onClose={() => setIsAddModalOpen(false)}
+                            onSubmit={handleAddSupplier}
                         />
                     </div>
                 </main>
