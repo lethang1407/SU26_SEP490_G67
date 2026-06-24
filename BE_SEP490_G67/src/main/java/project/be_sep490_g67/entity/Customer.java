@@ -26,6 +26,14 @@ public class Customer extends BaseEntity {
     @Column(name = "phone_number", length = 15)
     private String phoneNumber;
 
+    @ColumnDefault("1")
+    @Column(name = "is_debt")
+    private Boolean isDebt = true;
+
+    @Lob
+    @Column(name = "note")
+    private String note;
+
     @ColumnDefault("0.00")
     @Column(name = "total_debt", precision = 15, scale = 2)
     private BigDecimal totalDebt;
