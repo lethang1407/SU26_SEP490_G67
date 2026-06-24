@@ -24,15 +24,15 @@ public interface UserRepository extends JpaRepository<User, Integer> {
 
     boolean existsByUsernameAndIdNotAndIsRemovedFalse(String username, Integer id);
 
-    @Query("SELECT u FROM User u JOIN FETCH u.role WHERE u.username = :username AND u.isRemoved = false")
+    @Query("SELECT u FROM User u JOIN FETCH u.roles WHERE u.username = :username AND u.isRemoved = false")
     Optional<User> findActiveByUsernameWithRole(@Param("username") String username);
 
     @Query("SELECT u.id FROM User u WHERE u.username = :username AND u.isRemoved = false")
     Optional<Integer> findIdByUsername(@Param("username") String username);
 
     @Query("""
-            SELECT u FROM User u
-            JOIN FETCH u.role r
+            SELECT DISTINCT u FROM User u
+            JOIN FETCH u.roles r
             WHERE u.isRemoved = false
             AND UPPER(r.name) = 'STAFF'
             """)
@@ -40,9 +40,9 @@ public interface UserRepository extends JpaRepository<User, Integer> {
 
     @Query("""
             SELECT u FROM User u
-            JOIN FETCH u.role r
+            JOIN FETCH u.roles r
             LEFT JOIN FETCH r.permissions
             WHERE u.id = :id AND u.isRemoved = false
             """)
-    Optional<User> findActiveStaffByIdWithRole(@Param("id") Integer id);
+    Optional<User> findActiveStaffByIdWithRoles(@Param("id") Integer id);
 }

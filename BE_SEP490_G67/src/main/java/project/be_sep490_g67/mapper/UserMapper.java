@@ -8,18 +8,21 @@ import project.be_sep490_g67.entity.Role;
 import project.be_sep490_g67.entity.User;
 
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Mapper(componentModel = "spring")
 public interface UserMapper {
 
-    @Mapping(source = "role", target = "roles", qualifiedByName = "roleToRoleNames")
+    @Mapping(source = "roles", target = "roles", qualifiedByName = "rolesToRoleNames")
     UserProfileResponse toProfileResponse(User user);
 
-    @Named("roleToRoleNames")
-    default Set<String> roleToRoleNames(Role role) {
-        if (role == null) {
+    @Named("rolesToRoleNames")
+    default Set<String> rolesToRoleNames(Set<Role> roles) {
+        if (roles == null) {
             return null;
         }
-        return Set.of(role.getName());
+        return roles.stream()
+                .map(Role::getName)
+                .collect(Collectors.toSet());
     }
 }

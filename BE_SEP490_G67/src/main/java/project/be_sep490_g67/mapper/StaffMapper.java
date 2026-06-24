@@ -35,17 +35,18 @@ public class StaffMapper {
                 .position("Nhân viên")
                 .username(user.getUsername())
                 .systemRole(StaffConstants.STAFF_ROLE_NAME.toLowerCase(Locale.ROOT))
-                .permissions(mapRolePermissionsToFeGroups(user.getRole()))
+                .permissions(mapRolePermissionsToFeGroups(user.getRoles()))
                 .status(user.getStatus())
                 .build();
     }
 
-    public List<String> mapRolePermissionsToFeGroups(Role role) {
-        if (role == null || role.getPermissions() == null) {
+    public List<String> mapRolePermissionsToFeGroups(Set<Role> roles) {
+        if (roles == null || roles.isEmpty()) {
             return List.of();
         }
 
-        Set<String> dbCodes = role.getPermissions().stream()
+        Set<String> dbCodes = roles.stream()
+                .flatMap(role -> role.getPermissions().stream())
                 .map(Permission::getCode)
                 .filter(code -> code != null && !code.isBlank())
                 .map(code -> code.toUpperCase(Locale.ROOT))

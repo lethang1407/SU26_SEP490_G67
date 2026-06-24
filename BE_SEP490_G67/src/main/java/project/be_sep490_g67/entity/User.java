@@ -18,9 +18,8 @@ public class User {
     @Column(name = "id", nullable = false)
     private Integer id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "role_id", nullable = false)
-    private Role role;
+    @ManyToMany(fetch = FetchType.LAZY)
+    private Set<Role> roles;
 
     @Column(name = "full_name", length = 100)
     private String fullName;

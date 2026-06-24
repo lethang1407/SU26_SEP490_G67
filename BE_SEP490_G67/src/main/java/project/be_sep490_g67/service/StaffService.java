@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -52,10 +53,10 @@ public class StaffService {
     @Transactional(readOnly = true)
     public StaffDetailResponse getStaffById(Integer staffId) {
         User user = userRepository
-                .findActiveStaffByIdWithRole(staffId)
+                .findActiveStaffByIdWithRoles(staffId)
                 .orElseThrow(() -> new AppException(ErrorCode.STAFF_NOT_FOUND));
 
-        if (isAdmin(user)) {
+        if (isAdminOnly(user)) {
             throw new AppException(ErrorCode.STAFF_NOT_FOUND);
         }
 
@@ -93,7 +94,7 @@ public class StaffService {
         user.setUpdatedAt(Instant.now());
         user.setCreatedBy(actorId);
         user.setUpdatedBy(actorId);
-        user.setRole(getStaffRole());
+        user.setRoles(Set.of(getStaffRole()));
 
         User savedUser = userRepository.save(user);
         log.info("Created staff with id={}", savedUser.getId());
@@ -104,10 +105,10 @@ public class StaffService {
     @Transactional
     public StaffDetailResponse updateStaff(Integer staffId, UpdateStaffRequest request, String actorUsername) {
         User user = userRepository
-                .findActiveStaffByIdWithRole(staffId)
+                .findActiveStaffByIdWithRoles(staffId)
                 .orElseThrow(() -> new AppException(ErrorCode.STAFF_NOT_FOUND));
 
-        if (isAdmin(user)) {
+        if (isAdminOnly(user)) {
             throw new AppException(ErrorCode.STAFF_NOT_FOUND);
         }
 
@@ -136,7 +137,7 @@ public class StaffService {
         user.setFullName(request.getFullName().trim());
         user.setPhoneNumber(normalizedPhone);
         user.setUsername(username);
-        user.setRole(getStaffRole());
+        user.setRoles(Set.of(getStaffRole()));
         user.setUpdatedAt(Instant.now());
         user.setUpdatedBy(actorId);
 
@@ -186,7 +187,6 @@ public class StaffService {
             return true;
         }
 
-        // DB hiện chỉ có role STAFF, chưa lưu vị trí riêng từng nhân viên.
         return "Nhân viên".equalsIgnoreCase(position.trim());
     }
 
@@ -201,8 +201,12 @@ public class StaffService {
                 User::getFullName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
     }
 
-    private boolean isAdmin(User user) {
-        return user.getRole() != null
-                && StaffConstants.ADMIN_ROLE_NAME.equalsIgnoreCase(user.getRole().getName());
+    private boolean isAdminOnly(User user) {
+        if (user.getRoles() == null || user.getRoles().isEmpty()) {
+            return false;
+        }
+
+        return user.getRoles().stream()
+                .allMatch(role -> StaffConstants.ADMIN_ROLE_NAME.equalsIgnoreCase(role.getName()));
     }
 }
