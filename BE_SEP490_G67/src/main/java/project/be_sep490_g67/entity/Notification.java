@@ -13,14 +13,13 @@ import java.util.Set;
 @Setter
 @Entity
 @Table(name = "notifications")
-public class Notification {
+public class Notification extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Integer id;
 
-    @Lob
-    @Column(name = "notification_type")
+    @Column(name = "notification_type", length = 100)
     private String notificationType;
 
     @Column(name = "title", length = 200)
@@ -36,26 +35,7 @@ public class Notification {
     @Column(name = "reference_id")
     private Integer referenceId;
 
-    @ColumnDefault("0")
-    @Column(name = "is_removed")
-    private Boolean isRemoved;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "created_at")
-    private Instant createdAt;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "updated_at")
-    private Instant updatedAt;
-
-    @Column(name = "created_by")
-    private Integer createdBy;
-
-    @Column(name = "updated_by")
-    private Integer updatedBy;
-
     @OneToMany(mappedBy = "notification")
     private Set<NotificationRecipient> notificationRecipients = new LinkedHashSet<>();
-
 
 }

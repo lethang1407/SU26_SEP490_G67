@@ -11,7 +11,7 @@ import { MOCK_SUPPLIERS, SUPPLIER_STATUS_FILTER } from '../constants';
 import { buildSummary, filterSuppliers, paginateItems } from '../utils/supplierUtils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Supplier.css';
-import suppliers from '../api';
+import {suppliersApi} from '../api';
 const PAGE_SIZE = 10;
 
 export default function SupplierListPage() {
@@ -43,7 +43,7 @@ export default function SupplierListPage() {
     };
 
     const handleAddSupplier = (supplierData) => {
-        suppliers.addSupplier(supplierData)
+        suppliersApi.addSupplier(supplierData)
             .then((response) => {
                 console.log('Supplier added successfully:', response);
             })

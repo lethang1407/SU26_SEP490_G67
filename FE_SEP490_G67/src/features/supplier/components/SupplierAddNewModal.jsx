@@ -1,15 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, ChevronDown, Search } from 'lucide-react';
 import { removeVietnameseTones } from '../utils/supplierUtils';
-import suppliersApi from '../api';
-// Mock categories data - extracted from existing suppliers
-import { SUPPLIER_CATEGORIES } from '../constants/mockSuplierGroup';
-
+import {suppliersApi} from '../api';
+import {categoriesApi} from '../../category/api';
 export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
     const [formData, setFormData] = useState({
         name: '',
         supplierCode: '',
-        supplierGroups: '',
+        categories: '',
         contactPerson: '',
         phoneNumber: '',
         address: '',
@@ -22,8 +20,19 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
         selectedCategories: [], // Changed to array for multiple selection
     });
 
+    const [categories, setCategories] = useState([]);
+    const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+    const [categoriesError, setCategoriesError] = useState(null);
+
     const dropdownRef = useRef(null);
     const searchInputRef = useRef(null);
+
+    // Fetch categories when modal opens
+    useEffect(() => {
+        if (open && categories.length === 0) {
+            fetchCategories();
+        }
+    }, [open]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -46,6 +55,20 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
         }
     }, [categoryDropdown.isOpen]);
 
+    const fetchCategories = async () => {
+        setIsLoadingCategories(true);
+        setCategoriesError(null);
+        try {
+            const response = await categoriesApi.getAllCategories();
+            setCategories(response);
+        } catch (error) {
+            console.error('Error fetching categories:', error);
+            setCategoriesError('Không thể tải danh sách mặt hàng');
+        } finally {
+            setIsLoadingCategories(false);
+        }
+    };
+
     if (!open) {
         return null;
     }
@@ -61,7 +84,7 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
         onSubmit({
             name: formData.name,
             supplierCode: formData.supplierCode,
-            supplierGroups: categoryDropdown.selectedCategories.map(cat => ({ id: cat.id })),
+            categories: categoryDropdown.selectedCategories.map(cat => ({ id: cat.id })),
             contactPerson: formData.contactPerson,
             phoneNumber: formData.phoneNumber,
             address: formData.address,
@@ -71,7 +94,7 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
         setFormData({
             name: '',
             supplierCode: '',
-            supplierGroups: '',
+            categories: '',
             contactPerson: '',
             phoneNumber: '',
             address: '',
@@ -128,24 +151,11 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
         }));
     };
 
-    // Filter categories based on search term
-    const filteredCategories = SUPPLIER_CATEGORIES.filter((category) => {
+    // Filter categories based on search term (only search by name)
+    const filteredCategories = categories.filter((category) => {
         const searchLower = removeVietnameseTones(categoryDropdown.searchTerm);
-
-        return (
-            removeVietnameseTones(category.name.toLowerCase()).includes(searchLower) ||
-            removeVietnameseTones(category.group.toLowerCase()).includes(searchLower)
-        );
+        return removeVietnameseTones(category.name.toLowerCase()).includes(searchLower);
     });
-
-    // Group filtered categories by group
-    const groupedCategories = filteredCategories.reduce((acc, category) => {
-        if (!acc[category.group]) {
-            acc[category.group] = [];
-        }
-        acc[category.group].push(category);
-        return acc;
-    }, {});
 
     return (
         <div className="supplier-modal-overlay" onClick={onClose} role="presentation">
@@ -267,37 +277,62 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
                                         </div>
 
                                         <div className="supplier-dropdown__list">
-                                            {Object.keys(groupedCategories).length > 0 ? (
-                                                Object.entries(groupedCategories).map(([group, categories]) => (
-                                                    <div key={group} className="supplier-dropdown__group">
-                                                        <div className="supplier-dropdown__group-label">
-                                                            Mặt hàng: {group}
-                                                        </div>
-                                                        {categories.map((category) => (
-                                                            <button
-                                                                key={category.id}
-                                                                type="button"
-                                                                className={`supplier-dropdown__item ${categoryDropdown.selectedCategories.some(
-                                                                    cat => cat.id === category.id
-                                                                )
-                                                                    ? 'supplier-dropdown__item--selected'
-                                                                    : ''
-                                                                    }`}
-                                                                onClick={() => handleCategorySelect(category)}
-                                                            >
-                                                                <span className="supplier-dropdown__item-checkbox">
-                                                                    {categoryDropdown.selectedCategories.some(
-                                                                        cat => cat.id === category.id
-                                                                    ) && '✓'}
+                                            {isLoadingCategories ? (
+                                                <div className="supplier-dropdown__empty">
+                                                    Đang tải danh sách mặt hàng...
+                                                </div>
+                                            ) : categoriesError ? (
+                                                <div className="supplier-dropdown__empty" style={{ color: '#dc2626' }}>
+                                                    {categoriesError}
+                                                    <button
+                                                        type="button"
+                                                        onClick={fetchCategories}
+                                                        style={{
+                                                            display: 'block',
+                                                            margin: '8px auto 0',
+                                                            padding: '6px 12px',
+                                                            border: '1px solid #e2e8f0',
+                                                            borderRadius: '6px',
+                                                            background: '#fff',
+                                                            color: '#2563eb',
+                                                            fontSize: '13px',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        Thử lại
+                                                    </button>
+                                                </div>
+                                            ) : filteredCategories.length > 0 ? (
+                                                filteredCategories.map((category) => (
+                                                    <button
+                                                        key={category.id}
+                                                        type="button"
+                                                        className={`supplier-dropdown__item ${categoryDropdown.selectedCategories.some(
+                                                            cat => cat.id === category.id
+                                                        )
+                                                            ? 'supplier-dropdown__item--selected'
+                                                            : ''
+                                                            }`}
+                                                        onClick={() => handleCategorySelect(category)}
+                                                    >
+                                                        <span className="supplier-dropdown__item-checkbox">
+                                                            {categoryDropdown.selectedCategories.some(
+                                                                cat => cat.id === category.id
+                                                            ) && '✓'}
+                                                        </span>
+                                                        <span>
+                                                            {category.name}
+                                                            {category.description && (
+                                                                <span style={{ marginLeft: '6px', color: '#94a3b8', fontSize: '12px' }}>
+                                                                    ({category.description})
                                                                 </span>
-                                                                {category.name}
-                                                            </button>
-                                                        ))}
-                                                    </div>
+                                                            )}
+                                                        </span>
+                                                    </button>
                                                 ))
                                             ) : (
                                                 <div className="supplier-dropdown__empty">
-                                                    Không tìm thấy kết quả
+                                                    {categoryDropdown.searchTerm ? 'Không tìm thấy kết quả' : 'Không có mặt hàng nào'}
                                                 </div>
                                             )}
                                         </div>

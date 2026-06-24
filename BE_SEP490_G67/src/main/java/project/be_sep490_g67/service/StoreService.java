@@ -30,7 +30,7 @@ public class StoreService {
         StoreConfig store = storeRepository
                 .findById(1)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_STORE));
-        log.info("Get Store Config by store id = 1");
+        log.info("Get Store Config by store id {}", store.getId());
 
         return StoreResponse.builder()
                 .id(store.getId())
@@ -60,11 +60,8 @@ public class StoreService {
         store.setTaxCode(request.getTaxCode());
         store.setAddress(request.getAddress());
 
-        store.setUpdatedBy(userId);
-        store.setUpdatedAt(Instant.now());
-
         storeRepository.save(store);
-        log.info("Update store config by store id = 1");
+        log.info("Update store config by store id {}", store.getId());
 
         return StoreResponse.builder()
                 .id(store.getId())

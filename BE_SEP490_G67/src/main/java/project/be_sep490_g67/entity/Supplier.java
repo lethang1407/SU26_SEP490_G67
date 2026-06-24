@@ -7,13 +7,14 @@ import org.hibernate.annotations.ColumnDefault;
 
 import java.time.Instant;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 @Getter
 @Setter
 @Entity
 @Table(name = "suppliers")
-public class Supplier {
+public class Supplier extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -35,24 +36,6 @@ public class Supplier {
     @Column(name = "notes")
     private String notes;
 
-    @ColumnDefault("0")
-    @Column(name = "is_removed")
-    private Boolean isRemoved;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "created_at")
-    private Instant createdAt;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "updated_at")
-    private Instant updatedAt;
-
-    @Column(name = "created_by")
-    private Integer createdBy;
-
-    @Column(name = "updated_by")
-    private Integer updatedBy;
-
     @Column(name = "supplier_code", nullable = false, length = 30)
     private String supplierCode;
 
@@ -65,5 +48,6 @@ public class Supplier {
     @OneToMany(mappedBy = "supplier")
     private Set<ImportOrder> importOrders = new LinkedHashSet<>();
 
-
+    @OneToMany(mappedBy = "supplier")
+    private List<SupplierPayment> payments;
 }

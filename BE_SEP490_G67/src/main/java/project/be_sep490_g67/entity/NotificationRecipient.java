@@ -11,7 +11,7 @@ import java.time.Instant;
 @Setter
 @Entity
 @Table(name = "notification_recipients")
-public class NotificationRecipient {
+public class NotificationRecipient extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -20,24 +20,6 @@ public class NotificationRecipient {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "notification_id")
     private Notification notification;
-
-    @ColumnDefault("0")
-    @Column(name = "is_removed")
-    private Boolean isRemoved;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "created_at")
-    private Instant createdAt;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "updated_at")
-    private Instant updatedAt;
-
-    @Column(name = "created_by")
-    private Integer createdBy;
-
-    @Column(name = "updated_by")
-    private Integer updatedBy;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
