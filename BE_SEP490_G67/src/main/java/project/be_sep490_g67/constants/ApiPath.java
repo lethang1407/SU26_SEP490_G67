@@ -6,4 +6,5 @@ public class ApiPath {
     public static final String AUTH = BASE_URL_V1 + "/auth";
     public static final String STORE = BASE_URL_V1 + "/store";
     public static final String STAFF = BASE_URL_V1 + "/staff";
+    public static final String CATEGORY = BASE_URL_V1 + "/category";
 }

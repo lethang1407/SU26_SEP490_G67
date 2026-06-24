@@ -16,7 +16,7 @@ import java.util.Set;
 @Setter
 @Entity
 @Table(name = "products")
-public class Product {
+public class Product extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -44,24 +44,6 @@ public class Product {
     @ColumnDefault("0")
     @Column(name = "min_stock")
     private Integer minStock;
-
-    @ColumnDefault("0")
-    @Column(name = "is_removed")
-    private Boolean isRemoved;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "created_at")
-    private Instant createdAt;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "updated_at")
-    private Instant updatedAt;
-
-    @Column(name = "created_by")
-    private Integer createdBy;
-
-    @Column(name = "updated_by")
-    private Integer updatedBy;
 
     @Column(name = "description")
     private String description;
@@ -92,6 +74,5 @@ public class Product {
 
     @OneToMany(mappedBy = "product")
     private Set<StockBatch> stockBatches = new LinkedHashSet<>();
-
 
 }

@@ -17,7 +17,7 @@ import java.util.Set;
 @Setter
 @Entity
 @Table(name = "stock_batches")
-public class StockBatch {
+public class StockBatch extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -46,24 +46,6 @@ public class StockBatch {
 
     @Column(name = "batch_note")
     private String batchNote;
-
-    @ColumnDefault("0")
-    @Column(name = "is_removed")
-    private Boolean isRemoved;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "created_at")
-    private Instant createdAt;
-
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "updated_at")
-    private Instant updatedAt;
-
-    @Column(name = "created_by")
-    private Integer createdBy;
-
-    @Column(name = "updated_by")
-    private Integer updatedBy;
 
     @OneToMany(mappedBy = "batch")
     private Set<BatchLocation> batchLocations = new LinkedHashSet<>();
