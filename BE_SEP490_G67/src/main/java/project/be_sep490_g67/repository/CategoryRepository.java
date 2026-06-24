@@ -24,4 +24,6 @@ public interface CategoryRepository extends JpaRepository<Category, Integer> {
     Page<Category> findAllCategory(
             @Param("search") String search,
             Pageable pageable);
+
+    boolean existsByNameIgnoreCaseAndIdNot(String name, Integer id);
 }

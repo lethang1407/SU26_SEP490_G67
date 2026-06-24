@@ -22,13 +22,14 @@ import java.time.Instant;
 @Slf4j
 public class StoreService {
     StoreConfigRepository storeRepository;
-    UserRepository userRepository;
 
     // View store config
     @Transactional(readOnly = true)
     public StoreResponse getStoreInfo(){
+        Integer storeId = 1;
+
         StoreConfig store = storeRepository
-                .findById(1)
+                .findById(storeId)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_STORE));
         log.info("Get Store Config by store id {}", store.getId());
 
@@ -44,14 +45,10 @@ public class StoreService {
     // Update store config
     @Transactional
     public StoreResponse updateStoreInfo(UpdateStoreRequest request, String username) {
-
-        Integer userId = userRepository
-                .findIdByUsername(username)
-                .orElseThrow(() ->
-                        new AppException(ErrorCode.USER_NOT_EXISTED));
+        Integer storeId = 1;
 
         StoreConfig store = storeRepository
-                .findById(1)
+                .findById(storeId)
                 .orElseThrow(() ->
                         new AppException(ErrorCode.NOT_FOUND_STORE));
 

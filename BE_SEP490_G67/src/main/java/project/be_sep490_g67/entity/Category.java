@@ -28,5 +28,7 @@ public class Category extends BaseEntity {
     @OneToMany(mappedBy = "category")
     private Set<Product> products = new LinkedHashSet<>();
 
+    @ManyToMany(mappedBy = "categories")
+    private Set<Supplier> suppliers = new LinkedHashSet<>();
 
 }

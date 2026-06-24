@@ -6,6 +6,7 @@ import StaffInfoPage from '../../features/staff/pages/StaffInfoPage';
 import StoreInfor from '../../features/store/pages/StoreInfor';
 import SupplierListPage from '../../features/supplier/pages/SupplierListPage';
 import SupplierDetailPage from '../../features/supplier/pages/SupplierDetailPage';
+import POSScreen from '../../features/pos-screen/pages/POS';
 
 const adminRoutes = [
     {
@@ -39,6 +40,10 @@ const adminRoutes = [
     {
         path: '/admin/warehouse/supplier/:id',
         element: <SupplierDetailPage />,
+    },
+    {
+        path: '/admin/pos',
+        element: <POSScreen />,
     },
 ];
 
