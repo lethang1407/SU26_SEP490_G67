@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import SupplierStatusBadge from './SupplierStatusBadge';
+import { Eye } from 'lucide-react';
 import { formatCurrency } from '../utils/supplierUtils';
 
 export default function SupplierTable({ items, loading }) {
@@ -30,28 +30,14 @@ export default function SupplierTable({ items, loading }) {
                             <th>Số điện thoại</th>
                             <th>Địa chỉ</th>
                             <th>Nợ hiện tại</th>
-                            <th>Trạng thái</th>
+                            <th className="supplier-table__actions-col">Thao tác</th>
                         </tr>
                     </thead>
                     <tbody>
                         {items.map((supplier) => (
                             <tr key={supplier.id}>
-                                <td>
-                                    <Link
-                                        to={`/admin/warehouse/supplier/${supplier.id}`}
-                                        className="supplier-table__code"
-                                    >
-                                        {supplier.supplierCode}
-                                    </Link>
-                                </td>
-                                <td className="supplier-table__name">
-                                    <Link
-                                        to={`/admin/warehouse/supplier/${supplier.id}`}
-                                        className="supplier-table__name-link"
-                                    >
-                                        {supplier.name}
-                                    </Link>
-                                </td>
+                                <td className="supplier-table__code-text">{supplier.supplierCode}</td>
+                                <td className="supplier-table__name">{supplier.name}</td>
                                 <td className="supplier-table__phone">{supplier.phoneNumber}</td>
                                 <td className="supplier-table__address" title={supplier.address}>
                                     {supplier.address}
@@ -63,8 +49,15 @@ export default function SupplierTable({ items, loading }) {
                                 >
                                     {formatCurrency(supplier.currentDebt)}
                                 </td>
-                                <td>
-                                    <SupplierStatusBadge status={supplier.status} />
+                                <td className="supplier-table__actions">
+                                    <Link
+                                        to={`/admin/warehouse/supplier/${supplier.id}`}
+                                        className="supplier-table__detail-link"
+                                        title={`Xem chi tiết ${supplier.name}`}
+                                    >
+                                        <Eye size={18} aria-hidden="true" />
+                                        Xem chi tiết
+                                    </Link>
                                 </td>
                             </tr>
                         ))}

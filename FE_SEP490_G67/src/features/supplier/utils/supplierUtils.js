@@ -1,11 +1,11 @@
-import { SUPPLIER_STATUS_FILTER } from '../constants';
+import { SUPPLIER_DEBT_FILTER } from '../constants';
 
 export function formatCurrency(value) {
     const amount = Number(value) || 0;
     return `${new Intl.NumberFormat('vi-VN').format(amount)}đ`;
 }
 
-export function filterSuppliers(suppliers, { keyword, statusFilter }) {
+export function filterSuppliers(suppliers, { keyword, debtFilter }) {
     const normalizedKeyword = keyword.trim().toLowerCase();
 
     return suppliers.filter((supplier) => {
@@ -15,11 +15,13 @@ export function filterSuppliers(suppliers, { keyword, statusFilter }) {
             supplier.supplierCode.toLowerCase().includes(normalizedKeyword) ||
             supplier.phoneNumber.replace(/\s/g, '').includes(normalizedKeyword.replace(/\s/g, ''));
 
-        const matchesStatus =
-            statusFilter === SUPPLIER_STATUS_FILTER.ALL ||
-            supplier.status === statusFilter;
+        const debt = Number(supplier.currentDebt) || 0;
+        const matchesDebt =
+            debtFilter === SUPPLIER_DEBT_FILTER.ALL ||
+            (debtFilter === SUPPLIER_DEBT_FILTER.NO_DEBT && debt === 0) ||
+            (debtFilter === SUPPLIER_DEBT_FILTER.HAS_DEBT && debt > 0);
 
-        return matchesKeyword && matchesStatus;
+        return matchesKeyword && matchesDebt;
     });
 }
 
