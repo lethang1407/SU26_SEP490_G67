@@ -6,7 +6,7 @@
     flex-direction: column;
     height: 100vh;
     background-color: #f3f4f6;
-    font-family: sans-serif;
+    font-family: inherit;
     font-size: 14px;
 }
 
