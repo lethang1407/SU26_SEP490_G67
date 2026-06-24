@@ -9,6 +9,7 @@ import SupportPage from "../../components/ui/it-help/SupportPage";
 const publicRoutes = [
   { path: "/", element: <Navigate to="/login" replace /> },
   { path: "/login", element: <LoginPage /> },
+  { path: "/logout", element: <LoginPage /> },
   { path: "/help", element: <SupportPage /> },
   { path: '/forgot-password', element: <ForgotPasswordPage /> },
   { path: '/verify-otp', element: <VerifyOtpPage /> },
