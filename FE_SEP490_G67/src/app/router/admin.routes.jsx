@@ -43,10 +43,6 @@ const adminRoutes = [
         element: <SupplierDetailPage />,
     },
     {
-        path: '/admin/settings/notifications',
-        element: <NotificationSettingsPage />,
-    },
-    {
         path: '/admin/pos',
         element: <POSScreen />,
     },
