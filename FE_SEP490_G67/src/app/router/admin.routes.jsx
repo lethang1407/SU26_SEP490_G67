@@ -10,6 +10,7 @@ import ProductDetailPage from '../../features/product/pages/ProductDetailPage';
 import StoreInfor from '../../features/store/pages/StoreInfor';
 import SupplierListPage from '../../features/supplier/pages/SupplierListPage';
 import SupplierDetailPage from '../../features/supplier/pages/SupplierDetailPage';
+import InventoryListPage from '../../features/inventory/pages/InventoryListPage';
 import POSScreen from '../../features/pos-screen/pages/POS';
 
 const adminRoutes = [
@@ -52,6 +53,10 @@ const adminRoutes = [
     {
         path: '/admin/store',
         element: <StoreInfor />,
+    },
+    {
+        path: '/admin/warehouse/inventory',
+        element: <InventoryListPage />,
     },
     {
         path: '/admin/warehouse/supplier',
