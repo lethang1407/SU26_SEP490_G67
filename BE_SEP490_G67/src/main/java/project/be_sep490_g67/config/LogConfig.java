@@ -21,7 +21,7 @@ public class LogConfig {
 
     @Bean
     public AuditorAware<Integer> auditorProvider() {
-        return new AuditorAwareImpl(userRepository);
+        return new AuditorAwareImpl();
     }
 
     @RequiredArgsConstructor
@@ -41,7 +41,8 @@ public class LogConfig {
             Authentication authentication =
                     SecurityContextHolder.getContext().getAuthentication();
 
-            if (authentication == null || !authentication.isAuthenticated()) {
+            if (authentication == null
+                    || !authentication.isAuthenticated()) {
                 return Optional.empty();
             }
 
@@ -55,6 +56,8 @@ public class LogConfig {
             if (userIdClaim instanceof Number userId) {
                 return Optional.of(userId.intValue());
             }
+            if (principal instanceof Jwt jwt) {
+                Number userId = jwt.getClaim("userId");
 
             String username = jwt.getSubject();
             if (username == null || username.isBlank()) {
@@ -67,6 +70,12 @@ public class LogConfig {
             } finally {
                 RESOLVING_AUDITOR.remove();
             }
+                return userId == null
+                        ? Optional.empty()
+                        : Optional.of(userId.intValue());
+            }
+
+            return Optional.empty();
         }
     }
 }

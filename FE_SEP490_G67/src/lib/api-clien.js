@@ -1,9 +1,10 @@
 import Axios from 'axios';
 
 import { env } from '../config/env';
+import publicRoutes from '../app/router/public.routes';
 
 function authRequestInterceptor(config) {
-  const publicEndpoints = ['/','/auth/token', '/auth/refresh'];
+  const publicEndpoints = publicRoutes.map(route => route.path);
 
   if (config.headers) {
     config.headers.Accept = 'application/json; charset=utf-8';
