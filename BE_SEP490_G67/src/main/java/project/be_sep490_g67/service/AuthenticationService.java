@@ -157,7 +157,7 @@ public class AuthenticationService {
 
     private String[] buildScope(User user) {
         if (CollectionUtils.isEmpty(user.getRoles())) {
-            return new String[0]; // Trả về mảng rỗng nếu không có role
+            return new String[0];
         }
 
         return user.getRoles().stream()
