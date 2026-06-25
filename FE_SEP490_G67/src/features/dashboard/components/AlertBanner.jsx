@@ -17,16 +17,9 @@ const alerts = [
         link: '/admin/warehouse/inventory?filter=low-stock',
     },
     {
-        id: 'overdue-debt',
-        icon: <CreditCard size={14} />,
-        label: '2 khoản nợ QUÁ HẠN',
-        variant: 'critical',
-        link: '/admin/customer?filter=overdue',
-    },
-    {
         id: 'expiring-soon',
         icon: <Clock size={14} />,
-        label: '7 sản phẩm SẮP HẾT HẠN (7 ngày)',
+        label: '7 sản phẩm SẮP HẾT HẠN',
         variant: 'caution',
         link: '/admin/warehouse/inventory?filter=expiring-soon',
     },
