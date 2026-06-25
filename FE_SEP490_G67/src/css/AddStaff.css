@@ -237,6 +237,19 @@
     border-color: #fca5a5;
 }
 
+.add-staff-field__input--readonly,
+.add-staff-field__input:read-only {
+    background: #f8fafc;
+    color: #64748b;
+    cursor: not-allowed;
+}
+
+.add-staff-field__input--readonly:focus,
+.add-staff-field__input:read-only:focus {
+    border-color: #e2e8f0;
+    box-shadow: none;
+}
+
 .add-staff-field__error {
     font-size: 12px;
     color: #ef4444;

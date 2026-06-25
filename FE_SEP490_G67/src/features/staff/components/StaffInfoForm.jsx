@@ -170,10 +170,11 @@ export default function StaffInfoForm({
                                 id="username"
                                 name="username"
                                 type="text"
-                                className={`add-staff-field__input${errors.username ? ' add-staff-field__input--error' : ''}`}
+                                className={`add-staff-field__input${errors.username ? ' add-staff-field__input--error' : ''}${!isNewStaff ? ' add-staff-field__input--readonly' : ''}`}
                                 placeholder="nv.nguyenvan"
                                 value={form.username}
                                 onChange={handleChange}
+                                readOnly={!isNewStaff}
                             />
                             {errors.username && (
                                 <span className="add-staff-field__error">{errors.username}</span>
