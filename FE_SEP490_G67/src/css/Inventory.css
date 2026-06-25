@@ -317,30 +317,6 @@
     white-space: nowrap;
 }
 
-.inventory-table__actions {
-    text-align: center;
-}
-
-.inventory-table__action-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    background: #fff;
-    color: #64748b;
-    cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-}
-
-.inventory-table__action-btn:hover {
-    background: #eff6ff;
-    border-color: #bfdbfe;
-    color: #2563eb;
-}
-
 /* ============================================
    STOCK STATUS BAR
    ============================================ */
