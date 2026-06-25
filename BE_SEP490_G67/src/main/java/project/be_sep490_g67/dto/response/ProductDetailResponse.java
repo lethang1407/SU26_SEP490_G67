@@ -35,13 +35,9 @@ public class ProductDetailResponse {
 
     String businessStatus;
 
-    String productImg;
-
     ProductBaseUnitResponse baseUnit;
 
     List<ProductConversionUnitResponse> conversionUnits;
-
-    List<ProductImageResponse> images;
 
     List<ProductAttributeResponse> attributes;
 }

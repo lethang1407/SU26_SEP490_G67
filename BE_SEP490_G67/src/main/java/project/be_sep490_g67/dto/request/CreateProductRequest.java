@@ -37,7 +37,5 @@ public class CreateProductRequest {
 
     Boolean isActive;
 
-    String productImg;
-
     List<ProductAttributeRequest> attributes;
 }

@@ -42,7 +42,6 @@ public class SecurityConfig {
                 })
                 .authorizeHttpRequests(request -> request
                         .requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINTS).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                         .anyRequest()
                         .authenticated());
 

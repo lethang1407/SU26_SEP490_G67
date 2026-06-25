@@ -6,7 +6,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.request.CreateProductRequest;
 import project.be_sep490_g67.dto.request.UpdateProductRequest;
@@ -14,7 +13,6 @@ import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.dto.response.ProductBarcodeResponse;
 import project.be_sep490_g67.dto.response.ProductDetailResponse;
-import project.be_sep490_g67.dto.response.ProductImageUploadResponse;
 import project.be_sep490_g67.dto.response.ProductListResponse;
 import project.be_sep490_g67.service.ProductService;
 
@@ -47,14 +45,6 @@ public class ProductController {
         ProductBarcodeResponse result = productService.getProductByBarcode(barcode);
         return ApiResponse.<ProductBarcodeResponse>builder()
                 .result(result)
-                .build();
-    }
-
-    @PostMapping("/image")
-    ApiResponse<ProductImageUploadResponse> uploadProductImage(@RequestParam("file") MultipartFile file) {
-        return ApiResponse.<ProductImageUploadResponse>builder()
-                .result(productService.uploadProductImage(file))
-                .message("Tải ảnh thành công")
                 .build();
     }
 

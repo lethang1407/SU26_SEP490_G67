@@ -4,7 +4,7 @@ import { Alert } from 'react-bootstrap';
 import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import ProductCreateForm from '../components/ProductCreateForm';
-import { buildCreatePayload, createProduct, uploadProductImage } from '../api';
+import { buildCreatePayload, createProduct } from '../api';
 import { ADD_PRODUCT_FORM_ID, PRODUCT_ROUTES } from '../constants';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import '../../../css/AdminDashboard.css';
@@ -24,15 +24,7 @@ export default function AddProductPage() {
         setError(null);
 
         try {
-            let productImg;
-            if (formData.imageFile) {
-                productImg = await uploadProductImage(formData.imageFile);
-            }
-
-            await createProduct({
-                ...buildCreatePayload(formData),
-                productImg,
-            });
+            await createProduct(buildCreatePayload(formData));
             navigate(PRODUCT_ROUTES.list);
         } catch (submitError) {
             setError(getApiErrorMessage(submitError, 'Không thể tạo sản phẩm. Vui lòng thử lại.'));

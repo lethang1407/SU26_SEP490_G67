@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { categoriesApi } from '../../category/api';
 import { PRODUCT_CATEGORIES } from '../constants';
-import { validateProductImageFile } from '../utils/productImageUtils';
 
 const INITIAL_FORM = {
     name: '',
@@ -29,8 +28,6 @@ export default function ProductCreateForm({ formId, isSubmitting = false, onSubm
     const [attributes, setAttributes] = useState([createAttributeRow()]);
     const [errors, setErrors] = useState({});
     const [categories, setCategories] = useState(PRODUCT_CATEGORIES);
-    const [imageFile, setImageFile] = useState(null);
-    const [imagePreview, setImagePreview] = useState(null);
 
     useEffect(() => {
         let isCancelled = false;
@@ -48,47 +45,6 @@ export default function ProductCreateForm({ formId, isSubmitting = false, onSubm
             isCancelled = true;
         };
     }, []);
-
-    useEffect(() => {
-        return () => {
-            if (imagePreview) {
-                URL.revokeObjectURL(imagePreview);
-            }
-        };
-    }, [imagePreview]);
-
-    const handleImageChange = (event) => {
-        const file = event.target.files?.[0];
-        setErrors((prev) => ({ ...prev, image: null }));
-
-        if (!file) {
-            return;
-        }
-
-        const validationMessage = validateProductImageFile(file);
-        if (validationMessage) {
-            setErrors((prev) => ({ ...prev, image: validationMessage }));
-            event.target.value = '';
-            return;
-        }
-
-        if (imagePreview) {
-            URL.revokeObjectURL(imagePreview);
-        }
-
-        setImageFile(file);
-        setImagePreview(URL.createObjectURL(file));
-        event.target.value = '';
-    };
-
-    const handleRemoveImage = () => {
-        if (imagePreview) {
-            URL.revokeObjectURL(imagePreview);
-        }
-        setImageFile(null);
-        setImagePreview(null);
-        setErrors((prev) => ({ ...prev, image: null }));
-    };
 
     const handleChange = (event) => {
         const { name, value, type, checked } = event.target;
@@ -148,7 +104,6 @@ export default function ProductCreateForm({ formId, isSubmitting = false, onSubm
         onSubmit?.({
             ...form,
             attributes: attributes.filter((item) => item.name.trim() || item.value.trim()),
-            imageFile,
         });
     };
 
@@ -325,46 +280,6 @@ export default function ProductCreateForm({ formId, isSubmitting = false, onSubm
                                 </div>
                             ))}
                         </div>
-                    </section>
-
-                    <section className="product-create-card">
-                        <h2 className="product-create-card__title">Hình ảnh sản phẩm</h2>
-                        {imagePreview ? (
-                            <div className="product-image-preview">
-                                <img
-                                    src={imagePreview}
-                                    alt="Xem trước ảnh sản phẩm"
-                                    className="product-image-preview__img"
-                                />
-                                <button
-                                    type="button"
-                                    className="product-create-link-btn"
-                                    onClick={handleRemoveImage}
-                                    disabled={isSubmitting}
-                                >
-                                    Xóa ảnh
-                                </button>
-                            </div>
-                        ) : (
-                            <label className="product-create-upload">
-                                <input
-                                    type="file"
-                                    className="product-create-upload__input"
-                                    accept="image/jpeg,image/png"
-                                    onChange={handleImageChange}
-                                    disabled={isSubmitting}
-                                />
-                                <span className="product-create-upload__title">
-                                    Kéo thả ảnh vào đây hoặc nhấp để tải lên
-                                </span>
-                                <span className="product-create-upload__hint">
-                                    Hỗ trợ JPG, PNG (Tối đa 5MB)
-                                </span>
-                            </label>
-                        )}
-                        {errors.image && (
-                            <span className="product-create-field__error">{errors.image}</span>
-                        )}
                     </section>
                 </div>
 

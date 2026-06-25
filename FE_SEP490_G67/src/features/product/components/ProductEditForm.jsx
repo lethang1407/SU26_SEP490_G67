@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { categoriesApi } from '../../category/api';
 import { PRODUCT_CATEGORIES } from '../constants';
-import { resolveProductImageUrl, validateProductImageFile } from '../utils/productImageUtils';
 
 function createConversionUnit(baseUnitName) {
     return {
@@ -14,11 +13,15 @@ function createConversionUnit(baseUnitName) {
 }
 
 function mapProductToForm(product) {
+    const brand = product.brand;
+    const normalizedBrand = brand && brand !== '—' ? brand : '';
+
     return {
         name: product.name ?? '',
         code: product.code ?? '',
         barcode: product.barcode ?? '',
         category: product.category ?? '',
+        brand: normalizedBrand,
         description: product.description ?? '',
         importPrice: String(product.importPrice ?? ''),
         sellPrice: String(product.sellPrice ?? ''),
@@ -32,7 +35,6 @@ function mapProductToForm(product) {
             ratio: String(unit.ratio ?? ''),
             sellPrice: String(unit.sellPrice ?? ''),
         })),
-        productImg: product.productImg ?? null,
     };
 }
 
@@ -40,13 +42,9 @@ export default function ProductEditForm({ formId, product, isSubmitting = false,
     const [form, setForm] = useState(() => mapProductToForm(product));
     const [errors, setErrors] = useState({});
     const [categories, setCategories] = useState(PRODUCT_CATEGORIES);
-    const [imageFile, setImageFile] = useState(null);
-    const [imagePreview, setImagePreview] = useState(null);
 
     useEffect(() => {
         setForm(mapProductToForm(product));
-        setImageFile(null);
-        setImagePreview(null);
         setErrors({});
     }, [product]);
 
@@ -66,56 +64,6 @@ export default function ProductEditForm({ formId, product, isSubmitting = false,
             isCancelled = true;
         };
     }, []);
-
-    useEffect(() => {
-        return () => {
-            if (imagePreview?.startsWith('blob:')) {
-                URL.revokeObjectURL(imagePreview);
-            }
-        };
-    }, [imagePreview]);
-
-    const currentImageUrl = useMemo(() => {
-        if (imagePreview) {
-            return imagePreview;
-        }
-
-        return resolveProductImageUrl(form.productImg);
-    }, [form.productImg, imagePreview]);
-
-    const handleImageChange = (event) => {
-        const file = event.target.files?.[0];
-        setErrors((prev) => ({ ...prev, image: null }));
-
-        if (!file) {
-            return;
-        }
-
-        const validationMessage = validateProductImageFile(file);
-        if (validationMessage) {
-            setErrors((prev) => ({ ...prev, image: validationMessage }));
-            event.target.value = '';
-            return;
-        }
-
-        if (imagePreview?.startsWith('blob:')) {
-            URL.revokeObjectURL(imagePreview);
-        }
-
-        setImageFile(file);
-        setImagePreview(URL.createObjectURL(file));
-        event.target.value = '';
-    };
-
-    const handleRemoveImage = () => {
-        if (imagePreview?.startsWith('blob:')) {
-            URL.revokeObjectURL(imagePreview);
-        }
-        setImageFile(null);
-        setImagePreview(null);
-        setForm((prev) => ({ ...prev, productImg: null }));
-        setErrors((prev) => ({ ...prev, image: null }));
-    };
 
     const profitMargin = useMemo(() => {
         const sell = Number(form.sellPrice);
@@ -203,7 +151,6 @@ export default function ProductEditForm({ formId, product, isSubmitting = false,
                     ratio: Number(unit.ratio) || 0,
                     sellPrice: Number(unit.sellPrice) || 0,
                 })),
-            imageFile,
         });
     };
 
@@ -263,29 +210,45 @@ export default function ProductEditForm({ formId, product, isSubmitting = false,
                             </div>
                         </div>
 
-                        <div className="product-create-field product-create-field--full">
-                            <label className="product-create-field__label" htmlFor="edit-category">
-                                Danh mục <span className="product-create-field__required">*</span>
-                            </label>
-                            <select
-                                id="edit-category"
-                                name="category"
-                                className={`product-create-field__select${
-                                    errors.category ? ' product-create-field__input--error' : ''
-                                }`}
-                                value={form.category}
-                                onChange={handleChange}
-                            >
-                                <option value="">Chọn danh mục</option>
-                                {categories.map((category) => (
-                                    <option key={category} value={category}>
-                                        {category}
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.category && (
-                                <span className="product-create-field__error">{errors.category}</span>
-                            )}
+                        <div className="product-create-fields product-create-fields--two-col">
+                            <div className="product-create-field">
+                                <label className="product-create-field__label" htmlFor="edit-category">
+                                    Danh mục <span className="product-create-field__required">*</span>
+                                </label>
+                                <select
+                                    id="edit-category"
+                                    name="category"
+                                    className={`product-create-field__select${
+                                        errors.category ? ' product-create-field__input--error' : ''
+                                    }`}
+                                    value={form.category}
+                                    onChange={handleChange}
+                                >
+                                    <option value="">Chọn danh mục</option>
+                                    {categories.map((category) => (
+                                        <option key={category} value={category}>
+                                            {category}
+                                        </option>
+                                    ))}
+                                </select>
+                                {errors.category && (
+                                    <span className="product-create-field__error">{errors.category}</span>
+                                )}
+                            </div>
+                            <div className="product-create-field">
+                                <label className="product-create-field__label" htmlFor="edit-brand">
+                                    Thương hiệu
+                                </label>
+                                <input
+                                    id="edit-brand"
+                                    name="brand"
+                                    type="text"
+                                    className="product-create-field__input"
+                                    placeholder="Nhập thương hiệu"
+                                    value={form.brand}
+                                    onChange={handleChange}
+                                />
+                            </div>
                         </div>
 
                         <div className="product-edit-units">
@@ -414,58 +377,6 @@ export default function ProductEditForm({ formId, product, isSubmitting = false,
                                 onChange={handleChange}
                             />
                         </div>
-                    </section>
-
-                    <section className="product-create-card">
-                        <h2 className="product-create-card__title">Hình ảnh sản phẩm</h2>
-                        <p className="product-edit-images__hint">
-                            Tải lên ảnh sản phẩm chất lượng cao. Hỗ trợ JPG, PNG (Tối đa 5MB).
-                        </p>
-                        <div className="product-edit-images product-edit-images--single">
-                            {currentImageUrl ? (
-                                <div className="product-image-preview product-image-preview--edit">
-                                    <img
-                                        src={currentImageUrl}
-                                        alt="Ảnh sản phẩm"
-                                        className="product-image-preview__img"
-                                    />
-                                    <button
-                                        type="button"
-                                        className="product-create-link-btn"
-                                        onClick={handleRemoveImage}
-                                        disabled={isSubmitting}
-                                    >
-                                        Xóa ảnh
-                                    </button>
-                                </div>
-                            ) : (
-                                <label className="product-edit-image-add">
-                                    <input
-                                        type="file"
-                                        className="product-create-upload__input"
-                                        accept="image/jpeg,image/png"
-                                        onChange={handleImageChange}
-                                        disabled={isSubmitting}
-                                    />
-                                    <span className="product-edit-image-add__text">Thêm ảnh</span>
-                                </label>
-                            )}
-                            {currentImageUrl && (
-                                <label className="product-edit-image-add product-edit-image-add--secondary">
-                                    <input
-                                        type="file"
-                                        className="product-create-upload__input"
-                                        accept="image/jpeg,image/png"
-                                        onChange={handleImageChange}
-                                        disabled={isSubmitting}
-                                    />
-                                    <span className="product-edit-image-add__text">Đổi ảnh</span>
-                                </label>
-                            )}
-                        </div>
-                        {errors.image && (
-                            <span className="product-create-field__error">{errors.image}</span>
-                        )}
                     </section>
                 </div>
 

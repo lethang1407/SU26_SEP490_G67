@@ -42,9 +42,6 @@ public enum ErrorCode {
     PRODUCT_NOT_FOUND(1024, "Không tìm thấy sản phẩm", HttpStatus.NOT_FOUND),
     BARCODE_EXISTED(1025, "Mã vạch đã được sử dụng", HttpStatus.CONFLICT),
     INVALID_PRODUCT_PRICE(1026, "Giá sản phẩm không hợp lệ", HttpStatus.BAD_REQUEST),
-    INVALID_IMAGE_FILE(1027, "File ảnh không hợp lệ. Chỉ hỗ trợ JPG, PNG.", HttpStatus.BAD_REQUEST),
-    IMAGE_FILE_TOO_LARGE(1028, "Ảnh vượt quá dung lượng 5MB", HttpStatus.BAD_REQUEST),
-    IMAGE_UPLOAD_FAILED(1029, "Không thể tải ảnh lên", HttpStatus.INTERNAL_SERVER_ERROR),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

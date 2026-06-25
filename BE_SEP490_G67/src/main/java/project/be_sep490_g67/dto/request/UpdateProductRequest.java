@@ -19,6 +19,8 @@ public class UpdateProductRequest {
 
     String description;
 
+    String brand;
+
     BigDecimal importPrice;
 
     BigDecimal sellPrice;
@@ -28,8 +30,4 @@ public class UpdateProductRequest {
     ProductBaseUnitRequest baseUnit;
 
     List<ProductConversionUnitRequest> conversionUnits;
-
-    String productImg;
-
-    List<ProductImageRequest> images;
 }

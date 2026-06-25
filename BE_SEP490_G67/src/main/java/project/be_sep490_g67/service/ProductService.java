@@ -35,14 +35,6 @@ public class ProductService {
     UserRepository userRepository;
     StockBatchRepository stockBatchRepository;
     ProductMapper productMapper;
-    FileStorageService fileStorageService;
-
-    public ProductImageUploadResponse uploadProductImage(org.springframework.web.multipart.MultipartFile file) {
-        String imagePath = fileStorageService.storeProductImage(file);
-        return ProductImageUploadResponse.builder()
-                .url(imagePath)
-                .build();
-    }
 
     @Transactional(readOnly = true)
     public PageResponse<ProductListResponse> getProductList(
@@ -94,7 +86,6 @@ public class ProductService {
         product.setCostPrice(costPrice);
         product.setSellingPrice(sellingPrice);
         product.setMinStock(0);
-        product.setProductImg(resolveProductImagePath(request.getProductImg()));
         product.setIsRemoved(false);
         product.setCreatedAt(Instant.now());
         product.setUpdatedAt(Instant.now());
@@ -139,15 +130,12 @@ public class ProductService {
             product.setSellingPrice(validatePrice(request.getBaseUnit().getSellPrice()));
         }
 
-        if (request.getProductImg() != null) {
-            String newImagePath = resolveProductImagePath(request.getProductImg());
-            if (!Objects.equals(newImagePath, product.getProductImg())) {
-                fileStorageService.deleteStoredFile(product.getProductImg());
-                product.setProductImg(newImagePath);
-            }
+        syncUnits(product, request, actorId);
+
+        if (request.getBrand() != null) {
+            syncBrandAttribute(product, request.getBrand(), actorId);
         }
 
-        syncUnits(product, request, actorId);
         product.setUpdatedAt(Instant.now());
         product.setUpdatedBy(actorId);
         productRepository.save(product);
@@ -261,16 +249,6 @@ public class ProductService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    private String resolveProductImagePath(String productImg) {
-        String normalized = trimToNull(productImg);
-        if (normalized == null) {
-            return null;
-        }
-
-        fileStorageService.validateProductImagePath(normalized);
-        return normalized;
-    }
-
     private void createBaseUnit(Product product, String unitName, Integer actorId) {
         ProductUnit unit = new ProductUnit();
         unit.setProduct(product);
@@ -297,30 +275,73 @@ public class ProductService {
                 continue;
             }
 
-            Attribute attribute = attributeRepository
-                    .findByNameIgnoreCaseAndIsRemovedFalse(attributeRequest.getName().trim())
-                    .orElseGet(() -> {
-                        Attribute newAttribute = new Attribute();
-                        newAttribute.setName(attributeRequest.getName().trim());
-                        newAttribute.setIsRemoved(false);
-                        newAttribute.setCreatedAt(Instant.now());
-                        newAttribute.setUpdatedAt(Instant.now());
-                        newAttribute.setCreatedBy(actorId);
-                        newAttribute.setUpdatedBy(actorId);
-                        return attributeRepository.save(newAttribute);
-                    });
-
-            ProductAttribute productAttribute = new ProductAttribute();
-            productAttribute.setProduct(product);
-            productAttribute.setAttribute(attribute);
-            productAttribute.setValue(trimToNull(attributeRequest.getValue()));
-            productAttribute.setIsRemoved(false);
-            productAttribute.setCreatedAt(Instant.now());
-            productAttribute.setUpdatedAt(Instant.now());
-            productAttribute.setCreatedBy(actorId);
-            productAttribute.setUpdatedBy(actorId);
-            productAttributeRepository.save(productAttribute);
+            upsertProductAttribute(
+                    product,
+                    attributeRequest.getName().trim(),
+                    trimToNull(attributeRequest.getValue()),
+                    actorId);
         }
+    }
+
+    private void syncBrandAttribute(Product product, String brand, Integer actorId) {
+        upsertProductAttribute(product, "Thương hiệu", trimToNull(brand), actorId);
+    }
+
+    private void upsertProductAttribute(
+            Product product,
+            String attributeName,
+            String value,
+            Integer actorId) {
+        List<ProductAttribute> existingAttributes =
+                productAttributeRepository.findByProduct_IdAndIsRemovedFalse(product.getId());
+
+        ProductAttribute existingAttribute = existingAttributes.stream()
+                .filter(item -> item.getAttribute() != null
+                        && attributeName.equalsIgnoreCase(item.getAttribute().getName()))
+                .findFirst()
+                .orElse(null);
+
+        if (value == null) {
+            if (existingAttribute != null) {
+                existingAttribute.setIsRemoved(true);
+                existingAttribute.setUpdatedAt(Instant.now());
+                existingAttribute.setUpdatedBy(actorId);
+                productAttributeRepository.save(existingAttribute);
+            }
+            return;
+        }
+
+        Attribute attribute = attributeRepository
+                .findByNameIgnoreCaseAndIsRemovedFalse(attributeName)
+                .orElseGet(() -> {
+                    Attribute newAttribute = new Attribute();
+                    newAttribute.setName(attributeName);
+                    newAttribute.setIsRemoved(false);
+                    newAttribute.setCreatedAt(Instant.now());
+                    newAttribute.setUpdatedAt(Instant.now());
+                    newAttribute.setCreatedBy(actorId);
+                    newAttribute.setUpdatedBy(actorId);
+                    return attributeRepository.save(newAttribute);
+                });
+
+        if (existingAttribute != null) {
+            existingAttribute.setValue(value);
+            existingAttribute.setUpdatedAt(Instant.now());
+            existingAttribute.setUpdatedBy(actorId);
+            productAttributeRepository.save(existingAttribute);
+            return;
+        }
+
+        ProductAttribute productAttribute = new ProductAttribute();
+        productAttribute.setProduct(product);
+        productAttribute.setAttribute(attribute);
+        productAttribute.setValue(value);
+        productAttribute.setIsRemoved(false);
+        productAttribute.setCreatedAt(Instant.now());
+        productAttribute.setUpdatedAt(Instant.now());
+        productAttribute.setCreatedBy(actorId);
+        productAttribute.setUpdatedBy(actorId);
+        productAttributeRepository.save(productAttribute);
     }
 
     private void syncUnits(Product product, UpdateProductRequest request, Integer actorId) {

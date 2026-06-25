@@ -1,7 +1,4 @@
 import { api } from '@/lib/api-clien';
-import { resolveProductImageUrl } from '../utils/productImageUtils';
-
-export { resolveProductImageUrl };
 
 export async function getProductList(params = {}) {
     const response = await api.get('/products', { params });
@@ -29,13 +26,6 @@ export async function createProduct(payload) {
 export async function updateProduct(productId, payload) {
     const response = await api.put(`/products/${productId}`, payload);
     return response;
-}
-
-export async function uploadProductImage(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-    const response = await api.post('/products/image', formData);
-    return response.result?.url ?? null;
 }
 
 function findAttributeValue(attributes, names) {
@@ -86,7 +76,6 @@ export function mapProductEditView(detail) {
 
     return {
         ...mapped,
-        productImg: detail.productImg ?? null,
         baseUnit: detail.baseUnit ?? { name: 'Cái', sellPrice: mapped.sellPrice },
         conversionUnits: detail.conversionUnits ?? [],
         businessStatus: detail.businessStatus ?? (mapped.stock > 0 ? 'active' : 'inactive'),
@@ -119,7 +108,6 @@ export function buildCreatePayload(formData) {
         sellPrice: String(formData.sellPrice),
         vat: formData.vat || undefined,
         isActive: formData.isActive,
-        productImg: formData.productImg || undefined,
         attributes,
     };
 }
@@ -129,11 +117,11 @@ export function buildUpdatePayload(formData) {
         name: formData.name,
         category: formData.category,
         description: formData.description,
+        brand: formData.brand ?? '',
         importPrice: formData.importPrice,
         sellPrice: formData.sellPrice,
         businessStatus: formData.businessStatus,
         baseUnit: formData.baseUnit,
         conversionUnits: formData.conversionUnits,
-        productImg: formData.productImg,
     };
 }

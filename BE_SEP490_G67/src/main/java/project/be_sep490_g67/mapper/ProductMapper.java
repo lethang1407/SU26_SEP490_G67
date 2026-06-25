@@ -53,12 +53,10 @@ public class ProductMapper {
                 .stock(stock)
                 .minStock(product.getMinStock() != null ? product.getMinStock() : 0)
                 .businessStatus(resolveBusinessStatus(stock))
-                .productImg(product.getProductImg())
                 .baseUnit(toBaseUnitResponse(baseUnit, product.getSellingPrice()))
                 .conversionUnits(conversionUnits.stream()
                         .map(unit -> toConversionUnitResponse(unit, product.getSellingPrice()))
                         .toList())
-                .images(resolveImages(product))
                 .attributes(attributes.stream().map(this::toAttributeResponse).toList())
                 .build();
     }
@@ -115,18 +113,6 @@ public class ProductMapper {
                         && unit.getUnitBase().compareTo(BigDecimal.ONE) == 0)
                 .findFirst()
                 .orElse(units.isEmpty() ? null : units.getFirst());
-    }
-
-    private List<ProductImageResponse> resolveImages(Product product) {
-        if (product.getProductImg() == null || product.getProductImg().isBlank()) {
-            return List.of();
-        }
-
-        return List.of(ProductImageResponse.builder()
-                .id("main")
-                .isMain(true)
-                .url(product.getProductImg())
-                .build());
     }
 
     private String resolveCategoryName(Product product) {

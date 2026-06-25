@@ -4,7 +4,7 @@ import { Alert, Spinner } from 'react-bootstrap';
 import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import ProductEditForm from '../components/ProductEditForm';
-import { buildUpdatePayload, getProductById, mapProductEditView, updateProduct, uploadProductImage } from '../api';
+import { buildUpdatePayload, getProductById, mapProductEditView, updateProduct } from '../api';
 import { EDIT_PRODUCT_FORM_ID, PRODUCT_ROUTES } from '../constants';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import '../../../css/AdminDashboard.css';
@@ -59,17 +59,7 @@ export default function EditProductPage() {
         setSubmitError(null);
 
         try {
-            let productImg = formData.productImg;
-            if (formData.imageFile) {
-                productImg = await uploadProductImage(formData.imageFile);
-            } else if (productImg === null) {
-                productImg = '';
-            }
-
-            await updateProduct(productId, {
-                ...buildUpdatePayload(formData),
-                productImg,
-            });
+            await updateProduct(productId, buildUpdatePayload(formData));
             navigate(PRODUCT_ROUTES.detail(productId));
         } catch (updateError) {
             setSubmitError(
