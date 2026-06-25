@@ -27,10 +27,16 @@ public class LogConfig {
     @RequiredArgsConstructor
     public static class AuditorAwareImpl implements AuditorAware<Integer> {
 
+        private static final ThreadLocal<Boolean> RESOLVING_AUDITOR =
+                ThreadLocal.withInitial(() -> Boolean.FALSE);
+
         private final UserRepository userRepository;
 
         @Override
         public Optional<Integer> getCurrentAuditor() {
+            if (Boolean.TRUE.equals(RESOLVING_AUDITOR.get())) {
+                return Optional.empty();
+            }
 
             Authentication authentication =
                     SecurityContextHolder.getContext().getAuthentication();
@@ -41,16 +47,26 @@ public class LogConfig {
 
             Object principal = authentication.getPrincipal();
 
-            if (principal instanceof Jwt jwt) {
-
-                String username = jwt.getSubject();
-
-                return userRepository
-                        .findByUsername(username)
-                        .map(user -> user.getId());
+            if (!(principal instanceof Jwt jwt)) {
+                return Optional.empty();
             }
 
-            return Optional.empty();
+            Object userIdClaim = jwt.getClaim("userId");
+            if (userIdClaim instanceof Number userId) {
+                return Optional.of(userId.intValue());
+            }
+
+            String username = jwt.getSubject();
+            if (username == null || username.isBlank()) {
+                return Optional.empty();
+            }
+
+            RESOLVING_AUDITOR.set(true);
+            try {
+                return userRepository.findIdByUsername(username);
+            } finally {
+                RESOLVING_AUDITOR.remove();
+            }
         }
     }
 }

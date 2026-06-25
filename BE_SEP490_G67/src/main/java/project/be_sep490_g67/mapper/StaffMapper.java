@@ -4,12 +4,12 @@ import org.springframework.stereotype.Component;
 import project.be_sep490_g67.constants.StaffConstants;
 import project.be_sep490_g67.dto.response.StaffDetailResponse;
 import project.be_sep490_g67.dto.response.StaffListResponse;
-import project.be_sep490_g67.entity.Permission;
 import project.be_sep490_g67.entity.Role;
 import project.be_sep490_g67.entity.User;
 import project.be_sep490_g67.utils.PhoneNumberUtil;
 
-import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -23,7 +23,7 @@ public class StaffMapper {
                 .id(user.getId())
                 .name(user.getFullName())
                 .phone(PhoneNumberUtil.formatDisplay(user.getPhoneNumber()))
-                .position("Nhân viên")
+                .position(resolvePositionsLabel(user.getRoles()))
                 .build();
     }
 
@@ -32,35 +32,47 @@ public class StaffMapper {
                 .id(user.getId())
                 .name(user.getFullName())
                 .phone(PhoneNumberUtil.formatDisplay(user.getPhoneNumber()))
-                .position("Nhân viên")
+                .position(resolvePositionsLabel(user.getRoles()))
                 .username(user.getUsername())
-                .systemRole(StaffConstants.STAFF_ROLE_NAME.toLowerCase(Locale.ROOT))
-                .permissions(mapRolePermissionsToFeGroups(user.getRoles()))
+                .roles(resolveStaffRoleNames(user.getRoles()))
                 .status(user.getStatus())
                 .build();
     }
 
-    public List<String> mapRolePermissionsToFeGroups(Set<Role> roles) {
+    public List<String> resolveStaffRoleNames(Set<Role> roles) {
         if (roles == null || roles.isEmpty()) {
             return List.of();
         }
 
-        Set<String> dbCodes = roles.stream()
-                .flatMap(role -> role.getPermissions().stream())
-                .map(Permission::getCode)
-                .filter(code -> code != null && !code.isBlank())
-                .map(code -> code.toUpperCase(Locale.ROOT))
-                .collect(Collectors.toSet());
+        return roles.stream()
+                .map(Role::getName)
+                .map(name -> name.toLowerCase(Locale.ROOT))
+                .filter(StaffConstants.STAFF_ROLE_NAMES::contains)
+                .sorted()
+                .toList();
+    }
 
-        List<String> fePermissions = new ArrayList<>();
+    public String resolvePositionsLabel(Set<Role> roles) {
+        List<String> labels = resolveStaffRoleNames(roles).stream()
+                .map(StaffConstants::resolvePosition)
+                .collect(Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .sorted(Comparator.comparingInt(this::positionOrder))
+                .toList();
 
-        StaffConstants.FE_PERMISSION_TO_DB_CODES.forEach((feGroup, requiredCodes) -> {
-            boolean hasGroup = requiredCodes.stream().anyMatch(dbCodes::contains);
-            if (hasGroup) {
-                fePermissions.add(feGroup);
-            }
-        });
+        if (labels.isEmpty()) {
+            return "Nhân viên";
+        }
 
-        return fePermissions;
+        return String.join(", ", labels);
+    }
+
+    private int positionOrder(String position) {
+        return switch (position) {
+            case "Thu ngân" -> 0;
+            case "Kiểm kho" -> 1;
+            case "Kế toán" -> 2;
+            default -> 99;
+        };
     }
 }

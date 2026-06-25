@@ -29,9 +29,6 @@ public class CreateStaffRequest {
     @NotBlank(message = "Mật khẩu không được để trống")
     String password;
 
-    @NotBlank(message = "Vai trò hệ thống không được để trống")
-    String systemRole;
-
-    @NotEmpty(message = "Phải chọn ít nhất một quyền truy cập")
-    List<String> permissions;
+    @NotEmpty(message = "Phải chọn ít nhất một vai trò")
+    List<String> roles;
 }

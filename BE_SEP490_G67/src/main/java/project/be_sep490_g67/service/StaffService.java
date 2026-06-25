@@ -24,9 +24,11 @@ import project.be_sep490_g67.utils.PhoneNumberUtil;
 
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -44,7 +46,7 @@ public class StaffService {
 
         return staffMembers.stream()
                 .filter(user -> matchesKeyword(user, keyword))
-                .filter(user -> matchesPosition(position))
+                .filter(user -> matchesPosition(user, position))
                 .sorted(resolveComparator(sort))
                 .map(staffMapper::toListResponse)
                 .toList();
@@ -77,7 +79,6 @@ public class StaffService {
         }
 
         PasswordValidator.validateNewPassword(request.getPassword(), username);
-        validateFePermissionGroups(request.getPermissions());
 
         Integer actorId = userRepository
                 .findIdByUsername(actorUsername)
@@ -94,7 +95,7 @@ public class StaffService {
         user.setUpdatedAt(Instant.now());
         user.setCreatedBy(actorId);
         user.setUpdatedBy(actorId);
-        user.setRoles(Set.of(getStaffRole()));
+        user.setRoles(new LinkedHashSet<>(resolveStaffRoles(request.getRoles())));
 
         User savedUser = userRepository.save(user);
         log.info("Created staff with id={}", savedUser.getId());
@@ -105,7 +106,7 @@ public class StaffService {
     @Transactional
     public StaffDetailResponse updateStaff(Integer staffId, UpdateStaffRequest request, String actorUsername) {
         User user = userRepository
-                .findActiveStaffByIdWithRoles(staffId)
+                .findActiveById(staffId)
                 .orElseThrow(() -> new AppException(ErrorCode.STAFF_NOT_FOUND));
 
         if (isAdminOnly(user)) {
@@ -128,8 +129,6 @@ public class StaffService {
             user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         }
 
-        validateFePermissionGroups(request.getPermissions());
-
         Integer actorId = userRepository
                 .findIdByUsername(actorUsername)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
@@ -137,7 +136,7 @@ public class StaffService {
         user.setFullName(request.getFullName().trim());
         user.setPhoneNumber(normalizedPhone);
         user.setUsername(username);
-        user.setRoles(Set.of(getStaffRole()));
+        assignRoles(user, request.getRoles());
         user.setUpdatedAt(Instant.now());
         user.setUpdatedBy(actorId);
 
@@ -147,19 +146,43 @@ public class StaffService {
         return getStaffById(staffId);
     }
 
-    private Role getStaffRole() {
-        return roleRepository
-                .findByNameIgnoreCaseAndIsRemovedFalse(StaffConstants.STAFF_ROLE_NAME)
-                .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+    private void assignRoles(User user, List<String> requestedRoles) {
+        Set<Role> newRoles = resolveStaffRoles(requestedRoles);
+
+        if (user.getRoles() == null) {
+            user.setRoles(new LinkedHashSet<>(newRoles));
+            return;
+        }
+
+        user.getRoles().clear();
+        user.getRoles().addAll(newRoles);
     }
 
-    private void validateFePermissionGroups(List<String> requestedPermissions) {
-        for (String permission : requestedPermissions) {
-            String normalized = permission.trim().toLowerCase(Locale.ROOT);
-            if (!StaffConstants.FE_PERMISSION_TO_DB_CODES.containsKey(normalized)) {
-                throw new AppException(ErrorCode.INVALID_PERMISSION);
-            }
+    private Set<Role> resolveStaffRoles(List<String> requestedRoles) {
+        List<String> normalizedRoles = requestedRoles.stream()
+                .map(role -> role.trim().toLowerCase(Locale.ROOT))
+                .distinct()
+                .toList();
+
+        if (normalizedRoles.isEmpty()) {
+            throw new AppException(ErrorCode.ROLE_NOT_FOUND);
         }
+
+        LinkedHashSet<Role> roles = new LinkedHashSet<>();
+
+        for (String roleName : normalizedRoles) {
+            if (!StaffConstants.STAFF_ROLE_NAMES.contains(roleName)) {
+                throw new AppException(ErrorCode.ROLE_NOT_FOUND);
+            }
+
+            Role role = roleRepository
+                    .findByNameIgnoreCaseAndIsRemovedFalse(roleName)
+                    .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+
+            roles.add(role);
+        }
+
+        return roles;
     }
 
     private String normalizeAndValidatePhone(String phone) {
@@ -182,12 +205,20 @@ public class StaffService {
                 && user.getFullName().toLowerCase(Locale.ROOT).contains(normalizedKeyword);
     }
 
-    private boolean matchesPosition(String position) {
+    private boolean matchesPosition(User user, String position) {
         if (position == null || position.isBlank() || "Tất cả vị trí".equalsIgnoreCase(position.trim())) {
             return true;
         }
 
-        return "Nhân viên".equalsIgnoreCase(position.trim());
+        Set<String> allowedRoles = StaffConstants.POSITION_TO_ROLES.get(position.trim());
+        if (allowedRoles == null) {
+            return true;
+        }
+
+        Set<String> userRoles = staffMapper.resolveStaffRoleNames(user.getRoles()).stream()
+                .collect(Collectors.toSet());
+
+        return userRoles.stream().anyMatch(allowedRoles::contains);
     }
 
     private Comparator<User> resolveComparator(String sort) {

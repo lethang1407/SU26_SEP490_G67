@@ -16,7 +16,6 @@ public class StaffDetailResponse {
     String phone;
     String position;
     String username;
-    String systemRole;
-    List<String> permissions;
+    List<String> roles;
     String status;
 }
