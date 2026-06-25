@@ -1,12 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Alert, Spinner } from 'react-bootstrap';
 import { Plus } from 'lucide-react';
 import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import StaffFilters from '../components/StaffFilters';
 import StaffTable from '../components/StaffTable';
-import { ALL_POSITIONS, NAME_SORT_ASC, STAFF_LIST } from '../api/staffMockData';
-import { STAFF_ROUTES } from '../constants';
+import { getStaffList } from '../api';
+import { ALL_POSITIONS, NAME_SORT_ASC, STAFF_ROUTES } from '../constants';
+import { getApiErrorMessage } from '../../../utils/api-utils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/StaffManagement.css';
 
@@ -15,22 +17,42 @@ export default function StaffManagementPage() {
     const [searchKeyword, setSearchKeyword] = useState('');
     const [positionFilter, setPositionFilter] = useState(ALL_POSITIONS);
     const [nameSort, setNameSort] = useState(NAME_SORT_ASC);
+    const [staffList, setStaffList] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    const filteredStaffList = useMemo(() => {
-        const normalizedKeyword = searchKeyword.trim().toLowerCase();
+    useEffect(() => {
+        let isCancelled = false;
+        const debounceTimer = setTimeout(async () => {
+            setIsLoading(true);
+            setError(null);
 
-        const filtered = STAFF_LIST.filter((staff) => {
-            const matchesName = staff.name.toLowerCase().includes(normalizedKeyword);
-            const matchesPosition =
-                positionFilter === ALL_POSITIONS || staff.position === positionFilter;
+            try {
+                const data = await getStaffList({
+                    keyword: searchKeyword.trim() || undefined,
+                    position: positionFilter === ALL_POSITIONS ? undefined : positionFilter,
+                    sort: nameSort,
+                });
 
-            return matchesName && matchesPosition;
-        });
+                if (!isCancelled) {
+                    setStaffList(data);
+                }
+            } catch (fetchError) {
+                if (!isCancelled) {
+                    setError(getApiErrorMessage(fetchError, 'Không thể tải danh sách nhân viên.'));
+                    setStaffList([]);
+                }
+            } finally {
+                if (!isCancelled) {
+                    setIsLoading(false);
+                }
+            }
+        }, 300);
 
-        return filtered.sort((a, b) => {
-            const compareResult = a.name.localeCompare(b.name, 'vi');
-            return nameSort === NAME_SORT_ASC ? compareResult : -compareResult;
-        });
+        return () => {
+            isCancelled = true;
+            clearTimeout(debounceTimer);
+        };
     }, [searchKeyword, positionFilter, nameSort]);
 
     const handleAddStaff = () => {
@@ -63,7 +85,16 @@ export default function StaffManagementPage() {
                             onPositionChange={setPositionFilter}
                             onNameSortChange={setNameSort}
                         />
-                        <StaffTable staffList={filteredStaffList} />
+                        {error && <Alert variant="danger">{error}</Alert>}
+                        {isLoading ? (
+                            <div className="text-center p-5">
+                                <Spinner animation="border" role="status">
+                                    <span className="visually-hidden">Đang tải...</span>
+                                </Spinner>
+                            </div>
+                        ) : (
+                            <StaffTable staffList={staffList} />
+                        )}
                     </div>
                 </main>
             </div>

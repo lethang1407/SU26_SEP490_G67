@@ -72,6 +72,56 @@
     top: 0;
 }
 
+.add-staff-main--full {
+    max-width: 900px;
+}
+
+.add-staff-roles {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.add-staff-role {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.add-staff-role:hover {
+    border-color: #93c5fd;
+    background: #f8fbff;
+}
+
+.add-staff-role--checked {
+    border-color: #93c5fd;
+    background: #eff6ff;
+}
+
+.add-staff-role__checkbox {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: #2563eb;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.add-staff-role__label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #334155;
+}
+
 /* ============================================
    CARD
    ============================================ */
@@ -185,6 +235,19 @@
 
 .add-staff-field__input--error {
     border-color: #fca5a5;
+}
+
+.add-staff-field__input--readonly,
+.add-staff-field__input:read-only {
+    background: #f8fafc;
+    color: #64748b;
+    cursor: not-allowed;
+}
+
+.add-staff-field__input--readonly:focus,
+.add-staff-field__input:read-only:focus {
+    border-color: #e2e8f0;
+    box-shadow: none;
 }
 
 .add-staff-field__error {

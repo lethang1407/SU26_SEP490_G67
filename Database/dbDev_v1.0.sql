@@ -644,7 +644,11 @@ CREATE TABLE `role_permissions` (
 
 LOCK TABLES `role_permissions` WRITE;
 /*!40000 ALTER TABLE `role_permissions` DISABLE KEYS */;
-INSERT INTO `role_permissions` VALUES (1,1),(2,1);
+INSERT INTO `role_permissions` VALUES
+(1,1),(2,1),
+(1,2),(2,2),
+(1,3),(2,3),
+(1,4),(2,4);
 /*!40000 ALTER TABLE `role_permissions` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -666,7 +670,7 @@ CREATE TABLE `roles` (
   `description` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `UKofx66keruapi6vyqpv6f2or37` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -675,7 +679,11 @@ CREATE TABLE `roles` (
 
 LOCK TABLES `roles` WRITE;
 /*!40000 ALTER TABLE `roles` DISABLE KEYS */;
-INSERT INTO `roles` VALUES (NULL,1,_binary '\0',NULL,NULL,NULL,'ADMIN',NULL),(NULL,2,_binary '\0',NULL,NULL,NULL,'STAFF',NULL);
+INSERT INTO `roles` VALUES
+(NULL,1,_binary '\0',NULL,NULL,NULL,'ADMIN','Store owner – full system access'),
+(NULL,2,_binary '\0',NULL,NULL,NULL,'CASHIER','Thu ngân – bán hàng POS'),
+(NULL,3,_binary '\0',NULL,NULL,NULL,'ACCOUNTANT','Kế toán'),
+(NULL,4,_binary '\0',NULL,NULL,NULL,'WAREHOUSE','Nhân viên kho hàng');
 /*!40000 ALTER TABLE `roles` ENABLE KEYS */;
 UNLOCK TABLES;
 
