@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { resolveProductImageUrl } from '../utils/productImageUtils';
 
 export default function ProductBasicInfoCard({ product }) {
     const [copied, setCopied] = useState(false);
+    const imageUrl = resolveProductImageUrl(product.productImg);
 
     const handleCopyBarcode = async () => {
         try {
@@ -18,18 +20,17 @@ export default function ProductBasicInfoCard({ product }) {
             <h2 className="product-detail-card__title">Thông tin cơ bản</h2>
 
             <div className="product-detail-gallery">
-                <div className="product-detail-gallery__main" />
-                <div className="product-detail-gallery__thumbs">
-                    <button
-                        type="button"
-                        className="product-detail-gallery__thumb product-detail-gallery__thumb--active"
+                {imageUrl ? (
+                    <img
+                        src={imageUrl}
+                        alt={product.name}
+                        className="product-detail-gallery__main product-detail-gallery__main--image"
                     />
-                    <button type="button" className="product-detail-gallery__thumb product-detail-gallery__thumb--empty" />
-                    <button type="button" className="product-detail-gallery__thumb product-detail-gallery__thumb--empty" />
-                    <button type="button" className="product-detail-gallery__thumb product-detail-gallery__thumb--add">
-                        +
-                    </button>
-                </div>
+                ) : (
+                    <div className="product-detail-gallery__main product-detail-gallery__main--empty">
+                        Chưa có ảnh
+                    </div>
+                )}
             </div>
 
             <div className="product-detail-info-grid">

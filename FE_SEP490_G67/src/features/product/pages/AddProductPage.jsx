@@ -1,22 +1,44 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Alert } from 'react-bootstrap';
 import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import ProductCreateForm from '../components/ProductCreateForm';
+import { buildCreatePayload, createProduct, uploadProductImage } from '../api';
 import { ADD_PRODUCT_FORM_ID, PRODUCT_ROUTES } from '../constants';
+import { getApiErrorMessage } from '../../../utils/api-utils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Product.css';
 
 export default function AddProductPage() {
     const navigate = useNavigate();
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState(null);
 
     const handleCancel = () => {
         navigate(PRODUCT_ROUTES.list);
     };
 
-    const handleSubmit = (formData) => {
-        // TODO: gọi API tạo sản phẩm mới
-        console.log('Create product:', formData);
-        navigate(PRODUCT_ROUTES.list);
+    const handleSubmit = async (formData) => {
+        setIsSubmitting(true);
+        setError(null);
+
+        try {
+            let productImg;
+            if (formData.imageFile) {
+                productImg = await uploadProductImage(formData.imageFile);
+            }
+
+            await createProduct({
+                ...buildCreatePayload(formData),
+                productImg,
+            });
+            navigate(PRODUCT_ROUTES.list);
+        } catch (submitError) {
+            setError(getApiErrorMessage(submitError, 'Không thể tạo sản phẩm. Vui lòng thử lại.'));
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -45,6 +67,7 @@ export default function AddProductPage() {
                                     type="button"
                                     className="product-btn product-btn--secondary"
                                     onClick={handleCancel}
+                                    disabled={isSubmitting}
                                 >
                                     Hủy
                                 </button>
@@ -52,13 +75,24 @@ export default function AddProductPage() {
                                     type="submit"
                                     form={ADD_PRODUCT_FORM_ID}
                                     className="product-btn product-btn--primary"
+                                    disabled={isSubmitting}
                                 >
-                                    Lưu sản phẩm
+                                    {isSubmitting ? 'Đang lưu...' : 'Lưu sản phẩm'}
                                 </button>
                             </div>
                         </div>
 
-                        <ProductCreateForm formId={ADD_PRODUCT_FORM_ID} onSubmit={handleSubmit} />
+                        {error && (
+                            <Alert variant="danger" onClose={() => setError(null)} dismissible>
+                                {error}
+                            </Alert>
+                        )}
+
+                        <ProductCreateForm
+                            formId={ADD_PRODUCT_FORM_ID}
+                            isSubmitting={isSubmitting}
+                            onSubmit={handleSubmit}
+                        />
                     </div>
                 </main>
             </div>

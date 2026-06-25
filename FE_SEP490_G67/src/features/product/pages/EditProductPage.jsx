@@ -1,32 +1,102 @@
-import { useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Alert, Spinner } from 'react-bootstrap';
 import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import ProductEditForm from '../components/ProductEditForm';
-import { MOCK_PRODUCTS } from '../api/productMockData';
-import { getProductEditById } from '../api/mockProductDetails';
+import { buildUpdatePayload, getProductById, mapProductEditView, updateProduct, uploadProductImage } from '../api';
 import { EDIT_PRODUCT_FORM_ID, PRODUCT_ROUTES } from '../constants';
+import { getApiErrorMessage } from '../../../utils/api-utils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Product.css';
 
 export default function EditProductPage() {
     const { productId } = useParams();
     const navigate = useNavigate();
+    const [product, setProduct] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState(null);
+    const [submitError, setSubmitError] = useState(null);
 
-    const product = useMemo(
-        () => getProductEditById(productId, MOCK_PRODUCTS),
-        [productId],
-    );
+    useEffect(() => {
+        let isCancelled = false;
+
+        const fetchProduct = async () => {
+            setIsLoading(true);
+            setError(null);
+
+            try {
+                const data = await getProductById(productId);
+                if (!isCancelled) {
+                    setProduct(mapProductEditView(data));
+                }
+            } catch (fetchError) {
+                if (!isCancelled) {
+                    setProduct(null);
+                    setError(getApiErrorMessage(fetchError, 'Không tìm thấy sản phẩm.'));
+                }
+            } finally {
+                if (!isCancelled) {
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        fetchProduct();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [productId]);
 
     const handleBack = () => {
         navigate(PRODUCT_ROUTES.detail(productId));
     };
 
-    const handleSubmit = (formData) => {
-        // TODO: gọi API cập nhật sản phẩm
-        console.log('Update product:', { productId, ...formData });
-        navigate(PRODUCT_ROUTES.detail(productId));
+    const handleSubmit = async (formData) => {
+        setIsSubmitting(true);
+        setSubmitError(null);
+
+        try {
+            let productImg = formData.productImg;
+            if (formData.imageFile) {
+                productImg = await uploadProductImage(formData.imageFile);
+            } else if (productImg === null) {
+                productImg = '';
+            }
+
+            await updateProduct(productId, {
+                ...buildUpdatePayload(formData),
+                productImg,
+            });
+            navigate(PRODUCT_ROUTES.detail(productId));
+        } catch (updateError) {
+            setSubmitError(
+                getApiErrorMessage(updateError, 'Không thể cập nhật sản phẩm. Vui lòng thử lại.'),
+            );
+        } finally {
+            setIsSubmitting(false);
+        }
     };
+
+    if (isLoading) {
+        return (
+            <div className="admin-layout">
+                <SideBar />
+                <div className="admin-content">
+                    <AdminHeader />
+                    <main className="admin-main">
+                        <div className="dashboard-container product-page text-center p-5">
+                            <Spinner animation="border" role="status">
+                                <span className="visually-hidden">Đang tải...</span>
+                            </Spinner>
+                        </div>
+                    </main>
+                </div>
+            </div>
+        );
+    }
 
     if (!product) {
         return (
@@ -37,7 +107,7 @@ export default function EditProductPage() {
                     <main className="admin-main">
                         <div className="dashboard-container product-page">
                             <div className="product-table-card product-table-card--empty">
-                                <p>Không tìm thấy sản phẩm.</p>
+                                <p>{error ?? 'Không tìm thấy sản phẩm.'}</p>
                                 <Link to={PRODUCT_ROUTES.list} className="product-detail-back-link">
                                     Quay lại danh sách
                                 </Link>
@@ -77,6 +147,7 @@ export default function EditProductPage() {
                                     type="button"
                                     className="product-btn product-btn--secondary"
                                     onClick={handleBack}
+                                    disabled={isSubmitting}
                                 >
                                     Quay lại
                                 </button>
@@ -84,16 +155,24 @@ export default function EditProductPage() {
                                     type="submit"
                                     form={EDIT_PRODUCT_FORM_ID}
                                     className="product-btn product-btn--primary"
+                                    disabled={isSubmitting}
                                 >
-                                    Lưu thay đổi
+                                    {isSubmitting ? 'Đang lưu...' : 'Lưu thay đổi'}
                                 </button>
                             </div>
                         </div>
+
+                        {submitError && (
+                            <Alert variant="danger" onClose={() => setSubmitError(null)} dismissible>
+                                {submitError}
+                            </Alert>
+                        )}
 
                         <ProductEditForm
                             key={productId}
                             formId={EDIT_PRODUCT_FORM_ID}
                             product={product}
+                            isSubmitting={isSubmitting}
                             onSubmit={handleSubmit}
                         />
                     </div>

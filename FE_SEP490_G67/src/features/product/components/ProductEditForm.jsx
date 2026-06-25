@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { categoriesApi } from '../../category/api';
 import { PRODUCT_CATEGORIES } from '../constants';
+import { resolveProductImageUrl, validateProductImageFile } from '../utils/productImageUtils';
 
 function createConversionUnit(baseUnitName) {
     return {
@@ -30,13 +32,90 @@ function mapProductToForm(product) {
             ratio: String(unit.ratio ?? ''),
             sellPrice: String(unit.sellPrice ?? ''),
         })),
-        images: product.images ?? [],
+        productImg: product.productImg ?? null,
     };
 }
 
-export default function ProductEditForm({ formId, product, onSubmit }) {
+export default function ProductEditForm({ formId, product, isSubmitting = false, onSubmit }) {
     const [form, setForm] = useState(() => mapProductToForm(product));
     const [errors, setErrors] = useState({});
+    const [categories, setCategories] = useState(PRODUCT_CATEGORIES);
+    const [imageFile, setImageFile] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
+
+    useEffect(() => {
+        setForm(mapProductToForm(product));
+        setImageFile(null);
+        setImagePreview(null);
+        setErrors({});
+    }, [product]);
+
+    useEffect(() => {
+        let isCancelled = false;
+
+        categoriesApi
+            .getAllCategories()
+            .then((items) => {
+                if (!isCancelled && items.length > 0) {
+                    setCategories(items.map((item) => item.name));
+                }
+            })
+            .catch(() => {});
+
+        return () => {
+            isCancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (imagePreview?.startsWith('blob:')) {
+                URL.revokeObjectURL(imagePreview);
+            }
+        };
+    }, [imagePreview]);
+
+    const currentImageUrl = useMemo(() => {
+        if (imagePreview) {
+            return imagePreview;
+        }
+
+        return resolveProductImageUrl(form.productImg);
+    }, [form.productImg, imagePreview]);
+
+    const handleImageChange = (event) => {
+        const file = event.target.files?.[0];
+        setErrors((prev) => ({ ...prev, image: null }));
+
+        if (!file) {
+            return;
+        }
+
+        const validationMessage = validateProductImageFile(file);
+        if (validationMessage) {
+            setErrors((prev) => ({ ...prev, image: validationMessage }));
+            event.target.value = '';
+            return;
+        }
+
+        if (imagePreview?.startsWith('blob:')) {
+            URL.revokeObjectURL(imagePreview);
+        }
+
+        setImageFile(file);
+        setImagePreview(URL.createObjectURL(file));
+        event.target.value = '';
+    };
+
+    const handleRemoveImage = () => {
+        if (imagePreview?.startsWith('blob:')) {
+            URL.revokeObjectURL(imagePreview);
+        }
+        setImageFile(null);
+        setImagePreview(null);
+        setForm((prev) => ({ ...prev, productImg: null }));
+        setErrors((prev) => ({ ...prev, image: null }));
+    };
 
     const profitMargin = useMemo(() => {
         const sell = Number(form.sellPrice);
@@ -124,11 +203,13 @@ export default function ProductEditForm({ formId, product, onSubmit }) {
                     ratio: Number(unit.ratio) || 0,
                     sellPrice: Number(unit.sellPrice) || 0,
                 })),
+            imageFile,
         });
     };
 
     return (
         <form id={formId} className="product-edit-form" onSubmit={handleSubmit} noValidate>
+            <fieldset disabled={isSubmitting} className="product-edit-form__fieldset">
             <div className="product-create-layout">
                 <div className="product-create-main">
                     <section className="product-create-card">
@@ -196,7 +277,7 @@ export default function ProductEditForm({ formId, product, onSubmit }) {
                                 onChange={handleChange}
                             >
                                 <option value="">Chọn danh mục</option>
-                                {PRODUCT_CATEGORIES.map((category) => (
+                                {categories.map((category) => (
                                     <option key={category} value={category}>
                                         {category}
                                     </option>
@@ -340,29 +421,51 @@ export default function ProductEditForm({ formId, product, onSubmit }) {
                         <p className="product-edit-images__hint">
                             Tải lên ảnh sản phẩm chất lượng cao. Hỗ trợ JPG, PNG (Tối đa 5MB).
                         </p>
-                        <div className="product-edit-images">
-                            {form.images.map((image) => (
-                                <div
-                                    key={image.id}
-                                    className={`product-edit-image-item${
-                                        image.isMain ? ' product-edit-image-item--main' : ''
-                                    }`}
-                                >
-                                    <div className="product-edit-image-item__preview" />
-                                    {image.isMain && (
-                                        <span className="product-edit-image-item__badge">Ảnh chính</span>
-                                    )}
+                        <div className="product-edit-images product-edit-images--single">
+                            {currentImageUrl ? (
+                                <div className="product-image-preview product-image-preview--edit">
+                                    <img
+                                        src={currentImageUrl}
+                                        alt="Ảnh sản phẩm"
+                                        className="product-image-preview__img"
+                                    />
+                                    <button
+                                        type="button"
+                                        className="product-create-link-btn"
+                                        onClick={handleRemoveImage}
+                                        disabled={isSubmitting}
+                                    >
+                                        Xóa ảnh
+                                    </button>
                                 </div>
-                            ))}
-                            <label className="product-edit-image-add">
-                                <input
-                                    type="file"
-                                    className="product-create-upload__input"
-                                    accept="image/jpeg,image/png"
-                                />
-                                <span className="product-edit-image-add__text">Thêm ảnh</span>
-                            </label>
+                            ) : (
+                                <label className="product-edit-image-add">
+                                    <input
+                                        type="file"
+                                        className="product-create-upload__input"
+                                        accept="image/jpeg,image/png"
+                                        onChange={handleImageChange}
+                                        disabled={isSubmitting}
+                                    />
+                                    <span className="product-edit-image-add__text">Thêm ảnh</span>
+                                </label>
+                            )}
+                            {currentImageUrl && (
+                                <label className="product-edit-image-add product-edit-image-add--secondary">
+                                    <input
+                                        type="file"
+                                        className="product-create-upload__input"
+                                        accept="image/jpeg,image/png"
+                                        onChange={handleImageChange}
+                                        disabled={isSubmitting}
+                                    />
+                                    <span className="product-edit-image-add__text">Đổi ảnh</span>
+                                </label>
+                            )}
                         </div>
+                        {errors.image && (
+                            <span className="product-create-field__error">{errors.image}</span>
+                        )}
                     </section>
                 </div>
 
@@ -445,6 +548,7 @@ export default function ProductEditForm({ formId, product, onSubmit }) {
                     </section>
                 </aside>
             </div>
+            </fieldset>
         </form>
     );
 }

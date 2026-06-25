@@ -20,4 +20,13 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
         ORDER BY sb.receivedDate ASC
         """)
     List<StockBatch> findAvailableByProductId(@Param("productId") Integer productId);
+
+    @Query("""
+            SELECT sb.product.id, COALESCE(SUM(sb.quantityIn), 0)
+            FROM StockBatch sb
+            WHERE sb.product.id IN :productIds
+              AND sb.isRemoved = false
+            GROUP BY sb.product.id
+            """)
+    List<Object[]> sumStockByProductIds(@Param("productIds") List<Integer> productIds);
 }

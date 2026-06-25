@@ -40,8 +40,9 @@ public class SecurityConfig {
                 .cors((cors) -> {
                     cors.configurationSource(corsConfigurationSource());
                 })
-                .authorizeHttpRequests(request -> request.requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINTS)
-                        .permitAll()
+                .authorizeHttpRequests(request -> request
+                        .requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINTS).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                         .anyRequest()
                         .authenticated());
 
