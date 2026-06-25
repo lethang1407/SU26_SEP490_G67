@@ -40,6 +40,14 @@ public class ImportOrder extends BaseEntity {
     @Column(name = "note")
     private String note;
 
+    @ColumnDefault("'UNPAID'")
+    @Column(name = "payment_status", length = 20)
+    private String paymentStatus;
+
+    @ColumnDefault("0.00")
+    @Column(name = "remaining_debt", precision = 15, scale = 2)
+    private BigDecimal remainingDebt = BigDecimal.ZERO;
+
     @OneToMany(mappedBy = "importOrder")
     private Set<ImportOrderDetail> importOrderDetails = new LinkedHashSet<>();
 

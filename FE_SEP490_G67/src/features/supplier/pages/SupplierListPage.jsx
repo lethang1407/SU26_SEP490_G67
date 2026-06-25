@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
@@ -7,31 +7,42 @@ import SupplierToolbar from '../components/SupplierToolbar';
 import SupplierTable from '../components/SupplierTable';
 import SupplierPagination from '../components/SupplierPagination';
 import SupplierAddNewModal from '../components/SupplierAddNewModal';
-import { MOCK_SUPPLIERS, SUPPLIER_DEBT_FILTER } from '../constants';
-import { buildSummary, filterSuppliers, paginateItems } from '../utils/supplierUtils';
+import { SUPPLIER_DEBT_FILTER } from '../constants';
 import { suppliersApi } from '../api';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Supplier.css';
 
 const PAGE_SIZE = 10;
 
+const EMPTY_PAGE = {
+    content: [],
+    page: 0,
+    size: PAGE_SIZE,
+    totalElements: 0,
+    totalPages: 1,
+    totalDebt: 0,
+};
+
 export default function SupplierListPage() {
     const [keyword, setKeyword] = useState('');
     const [debtFilter, setDebtFilter] = useState(SUPPLIER_DEBT_FILTER.ALL);
     const [page, setPage] = useState(1);
+    const [data, setData] = useState(EMPTY_PAGE);
+    const [loading, setLoading] = useState(false);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-    const filteredSuppliers = useMemo(
-        () => filterSuppliers(MOCK_SUPPLIERS, { keyword, debtFilter }),
-        [keyword, debtFilter],
-    );
+    const fetchSuppliers = useCallback(() => {
+        setLoading(true);
+        suppliersApi
+            .getSuppliers({ page: page - 1, size: PAGE_SIZE, search: keyword, debtFilter })
+            .then((result) => setData(result ?? EMPTY_PAGE))
+            .catch(() => setData(EMPTY_PAGE))
+            .finally(() => setLoading(false));
+    }, [page, keyword, debtFilter]);
 
-    const summary = useMemo(() => buildSummary(MOCK_SUPPLIERS), []);
-
-    const pagination = useMemo(
-        () => paginateItems(filteredSuppliers, page, PAGE_SIZE),
-        [filteredSuppliers, page],
-    );
+    useEffect(() => {
+        fetchSuppliers();
+    }, [fetchSuppliers]);
 
     const handleKeywordChange = (value) => {
         setKeyword(value);
@@ -46,15 +57,24 @@ export default function SupplierListPage() {
     const handleAddSupplier = (supplierData) => {
         suppliersApi
             .addSupplier(supplierData)
-            .then((response) => {
-                console.log('Supplier added successfully:', response);
+            .then(() => {
+                setIsAddModalOpen(false);
+                setPage(1);
+                fetchSuppliers();
             })
             .catch((error) => {
                 console.error('Error adding supplier:', error);
-            })
-            .finally(() => {
-                setIsAddModalOpen(false);
             });
+    };
+
+    const summary = { totalDebt: data.totalDebt ?? 0 };
+
+    const pagination = {
+        page,
+        totalPages: data.totalPages,
+        totalItems: data.totalElements,
+        startIndex: data.totalElements === 0 ? 0 : (page - 1) * PAGE_SIZE + 1,
+        endIndex: Math.min(page * PAGE_SIZE, data.totalElements),
     };
 
     return (
@@ -92,7 +112,7 @@ export default function SupplierListPage() {
                             onDebtFilterChange={handleDebtFilterChange}
                         />
 
-                        <SupplierTable items={pagination.items} loading={false} />
+                        <SupplierTable items={data.content} loading={loading} />
 
                         <SupplierPagination
                             page={pagination.page}
