@@ -1,8 +1,8 @@
 const products = [
-    { name: 'Mì Hảo Hảo Tôm Chua Cay', sold: 42, unit: 'gói' },
-    { name: 'Nước ngọt Pepsi 330ml', sold: 28, unit: 'lon' },
-    { name: 'Bánh Oreo', sold: 15, unit: 'gói' },
-    { name: 'Sữa tươi TH True Milk', sold: 12, unit: 'hộp' },
+    { name: 'Mì Hảo Hảo Tôm Chua Cay', sold: 42, unit: 'Thùng' },
+    { name: 'Nước ngọt Pepsi 330ml', sold: 28, unit: 'Thùng' },
+    { name: 'Bánh Oreo', sold: 15, unit: 'Thùng' },
+    { name: 'Sữa tươi TH True Milk', sold: 12, unit: 'Thùng' },
     { name: 'Gạo ST25 (Bao 5kg)', sold: 8, unit: 'bao' },
 ];
 
@@ -26,9 +26,9 @@ export default function TopProducts() {
     return (
         <div className="dashboard-card top-products-card">
             <div className="dashboard-card__header">
-                <h3 className="dashboard-card__title">Sản Phẩm Bán Chạy Hôm Nay</h3>
+                <h3 className="dashboard-card__title">Sản Phẩm Bán Chạy Trong Tháng</h3>
                 <button className="dashboard-card__link">
-                    Xem báo cáo đầy đủ →
+                    Xem báo cáo đầy đủ
                 </button>
             </div>
             <div className="top-products__list">
