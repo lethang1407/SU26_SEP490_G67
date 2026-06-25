@@ -40,6 +40,10 @@ public class SalesOrder extends BaseEntity {
     private String orderStatus;
 
     @ColumnDefault("0.00")
+    @Column(name = "subtotal", precision = 15, scale = 2)
+    private BigDecimal subtotal;
+
+    @ColumnDefault("0.00")
     @Column(name = "paid_amount", precision = 15, scale = 2)
     private BigDecimal paidAmount;
 

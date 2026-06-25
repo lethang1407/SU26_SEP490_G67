@@ -20,11 +20,17 @@ public class Customer extends BaseEntity {
     @Column(name = "id", nullable = false)
     private Integer id;
 
+    @Column(name = "customer_code", unique = true, length = 20)
+    private String customerCode;
+
     @Column(name = "full_name", nullable = false, length = 100)
     private String fullName;
 
     @Column(name = "phone_number", length = 15)
     private String phoneNumber;
+
+    @Column(name = "address")
+    private String address;
 
     @ColumnDefault("1")
     @Column(name = "is_debt")
@@ -37,10 +43,6 @@ public class Customer extends BaseEntity {
     @ColumnDefault("0.00")
     @Column(name = "total_debt", precision = 15, scale = 2)
     private BigDecimal totalDebt;
-
-    @ColumnDefault("0.00")
-    @Column(name = "total_paid", precision = 15, scale = 2)
-    private BigDecimal totalPaid;
 
     @OneToMany(mappedBy = "customer")
     private Set<DebtPayment> debtPayments = new LinkedHashSet<>();
