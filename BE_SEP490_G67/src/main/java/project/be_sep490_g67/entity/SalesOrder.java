@@ -44,6 +44,10 @@ public class SalesOrder extends BaseEntity {
     private BigDecimal subtotal;
 
     @ColumnDefault("0.00")
+    @Column(name = "paid_amount", precision = 15, scale = 2)
+    private BigDecimal paidAmount;
+
+    @ColumnDefault("0.00")
     @Column(name = "discount_amount", precision = 15, scale = 2)
     private BigDecimal discountAmount;
 

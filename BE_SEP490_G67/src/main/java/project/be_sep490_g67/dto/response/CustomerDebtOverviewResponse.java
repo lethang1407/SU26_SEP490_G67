@@ -6,18 +6,12 @@ import lombok.experimental.FieldDefaults;
 import java.math.BigDecimal;
 
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class CustomerResponse {
-    Integer id;
-    String customerCode;
-    String fullName;
-    String phoneNumber;
-    String address;
-    String debtStatus;
-    Boolean isDebt;
+public class CustomerDebtOverviewResponse {
     BigDecimal totalDebt;
-    String note;
+    Long debtCustomerCount;
+    BigDecimal todayCollectedAmount;
 }
