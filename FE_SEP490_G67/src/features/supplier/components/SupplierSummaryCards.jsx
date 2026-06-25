@@ -15,7 +15,7 @@ export default function SupplierSummaryCards({ summary }) {
                     className="supplier-stat-card__icon"
                     style={{ background: '#FEE2E2', color: '#DC2626' }}
                 >
-                    <Wallet size={26} />
+                    <Wallet size={20} />
                 </div>
             </div>
         </div>
