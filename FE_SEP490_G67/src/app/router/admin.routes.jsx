@@ -7,6 +7,7 @@ import StoreInfor from '../../features/store/pages/StoreInfor';
 import SupplierListPage from '../../features/supplier/pages/SupplierListPage';
 import SupplierDetailPage from '../../features/supplier/pages/SupplierDetailPage';
 import POSScreen from '../../features/pos-screen/pages/POS';
+import CustomerDebtPage from '../../features/customer/pages/CustomerDebtPage';
 
 const adminRoutes = [
     {
@@ -45,6 +46,10 @@ const adminRoutes = [
         path: '/admin/pos',
         element: <POSScreen />,
     },
+    {
+        path: '/admin/customer',
+        element: <CustomerDebtPage />,
+    }
 ];
 
 export default adminRoutes;
