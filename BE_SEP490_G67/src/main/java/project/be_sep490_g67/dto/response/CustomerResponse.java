@@ -12,12 +12,11 @@ import java.math.BigDecimal;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CustomerResponse {
     Integer id;
-    String customerCode;
     String fullName;
     String phoneNumber;
     String address;
     String debtStatus;
-    Boolean isDebt;
+    Boolean allowDebt;
     BigDecimal totalDebt;
     String note;
 }

@@ -68,24 +68,19 @@ public class CustomerService {
         customer.setPhoneNumber(request.getPhoneNumber());
         customer.setNote(request.getNote());
 
-        customer.setIsDebt(true);
+        customer.setAllowDebt(true);
 
         customer.setTotalDebt(BigDecimal.ZERO);
 
         customer = customerRepository.save(customer);
 
-        customer.setCustomerCode(
-                String.format("KH%06d", customer.getId())
-        );
-
         customer = customerRepository.save(customer);
 
         return CustomerResponse.builder()
                 .id(customer.getId())
-                .customerCode(customer.getCustomerCode())
                 .fullName(customer.getFullName())
                 .phoneNumber(customer.getPhoneNumber())
-                .isDebt(customer.getIsDebt())
+                .allowDebt(customer.getAllowDebt())
                 .totalDebt(customer.getTotalDebt())
                 .note(customer.getNote())
                 .build();
@@ -139,12 +134,11 @@ public class CustomerService {
                         .stream()
                         .map(customer -> CustomerResponse.builder()
                                 .id(customer.getId())
-                                .customerCode(customer.getCustomerCode())
                                 .fullName(customer.getFullName())
                                 .phoneNumber(customer.getPhoneNumber())
                                 .address(customer.getAddress())
                                 .totalDebt(customer.getTotalDebt())
-                                .isDebt(customer.getIsDebt())
+                                .allowDebt(customer.getAllowDebt())
                                 .debtStatus(
                                         customer.getTotalDebt()
                                                 .compareTo(BigDecimal.ZERO) > 0
