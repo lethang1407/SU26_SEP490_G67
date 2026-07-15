@@ -1,47 +1,43 @@
-import { Filter, Search } from 'lucide-react';
-import { SUPPLIER_STATUS_FILTER } from '../constants';
+import { Search } from 'lucide-react';
+import { SUPPLIER_DEBT_FILTER } from '../constants';
 
-const STATUS_OPTIONS = [
-    { value: SUPPLIER_STATUS_FILTER.ALL, label: 'Tất cả trạng thái' },
-    { value: SUPPLIER_STATUS_FILTER.ACTIVE, label: 'Đang giao dịch' },
-    { value: SUPPLIER_STATUS_FILTER.HAS_DEBT, label: 'Có công nợ' },
-    { value: SUPPLIER_STATUS_FILTER.PAUSED, label: 'Tạm dừng' },
+const DEBT_FILTER_OPTIONS = [
+    { value: SUPPLIER_DEBT_FILTER.ALL, label: 'Tất cả' },
+    { value: SUPPLIER_DEBT_FILTER.NO_DEBT, label: 'Không nợ' },
+    { value: SUPPLIER_DEBT_FILTER.HAS_DEBT, label: 'Còn nợ' },
 ];
 
-export default function SupplierToolbar({ keyword, statusFilter, onKeywordChange, onStatusChange }) {
+export default function SupplierToolbar({ keyword, debtFilter, onKeywordChange, onDebtFilterChange }) {
     return (
         <div className="supplier-toolbar">
             <div className="supplier-toolbar__search">
-                <Search size={18} className="supplier-toolbar__search-icon" />
+                <Search size={20} className="supplier-toolbar__search-icon" />
                 <input
                     type="text"
                     className="supplier-toolbar__search-input"
                     placeholder="Tìm theo tên hoặc mã nhà cung cấp..."
                     value={keyword}
                     onChange={(event) => onKeywordChange(event.target.value)}
+                    aria-label="Tìm nhà cung cấp"
                 />
             </div>
 
             <div className="supplier-toolbar__filters">
-                <label className="supplier-toolbar__filter-group">
-                    <span className="supplier-toolbar__filter-label">Trạng thái:</span>
-                    <select
-                        className="supplier-toolbar__select"
-                        value={statusFilter}
-                        onChange={(event) => onStatusChange(event.target.value)}
-                    >
-                        {STATUS_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                                {option.label}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-
-                <button type="button" className="supplier-toolbar__filter-btn" disabled title="Sắp có">
-                    <Filter size={16} />
-                    Lọc thêm
-                </button>
+                <span className="supplier-toolbar__filter-label">Lọc theo nợ:</span>
+                <div className="supplier-toolbar__chips" role="group" aria-label="Lọc theo nợ nhà cung cấp">
+                    {DEBT_FILTER_OPTIONS.map((option) => (
+                        <button
+                            key={option.value}
+                            type="button"
+                            className={`supplier-toolbar__chip ${
+                                debtFilter === option.value ? 'supplier-toolbar__chip--active' : ''
+                            }`}
+                            onClick={() => onDebtFilterChange(option.value)}
+                        >
+                            {option.label}
+                        </button>
+                    ))}
+                </div>
             </div>
         </div>
     );
