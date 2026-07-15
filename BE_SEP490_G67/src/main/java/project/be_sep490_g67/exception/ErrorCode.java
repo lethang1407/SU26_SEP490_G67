@@ -35,17 +35,14 @@ public enum ErrorCode {
     EXISTED_SUPPLIER(1017, "Nhà cung cấp đã tồn tại", HttpStatus.CONFLICT),
     NOT_FOUND_CATEGORY(1018, "Không tìm thấy danh mục", HttpStatus.NOT_FOUND),
     CATEGORY_ALREADY_EXISTS(1019, "Danh mục đã tồn tại", HttpStatus.CONFLICT),
-<<<<<<< HEAD
-    NOT_FOUND_SUPPLIER(1020, "Không tìm thấy nhà cung cấp", HttpStatus.NOT_FOUND),
-    NOT_FOUND_IMPORT_ORDER(1021, "Không tìm thấy đơn nhập hàng", HttpStatus.NOT_FOUND),
-    INVALID_PAYMENT_AMOUNT(1022, "Số tiền thanh toán không hợp lệ", HttpStatus.BAD_REQUEST),
-    PAYMENT_EXCEEDS_DEBT(1023, "Số tiền vượt quá số nợ còn lại của đơn hàng", HttpStatus.BAD_REQUEST),
-=======
     USERNAME_EXISTED(1020, "Tên đăng nhập đã được sử dụng", HttpStatus.CONFLICT),
     ROLE_NOT_FOUND(1021, "Vai trò hệ thống không tồn tại", HttpStatus.BAD_REQUEST),
     INVALID_PERMISSION(1022, "Quyền truy cập không hợp lệ", HttpStatus.BAD_REQUEST),
     STAFF_NOT_FOUND(1023, "Không tìm thấy thông tin nhân viên", HttpStatus.NOT_FOUND),
->>>>>>> origin/dev
+    NOT_FOUND_SUPPLIER(1024, "Không tìm thấy nhà cung cấp", HttpStatus.NOT_FOUND),
+    NOT_FOUND_IMPORT_ORDER(1025, "Không tìm thấy đơn nhập hàng", HttpStatus.NOT_FOUND),
+    INVALID_PAYMENT_AMOUNT(1026, "Số tiền thanh toán không hợp lệ", HttpStatus.BAD_REQUEST),
+    PAYMENT_EXCEEDS_DEBT(1027, "Số tiền vượt quá số nợ còn lại của đơn hàng", HttpStatus.BAD_REQUEST),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {
