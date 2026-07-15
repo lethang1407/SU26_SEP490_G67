@@ -6,13 +6,20 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import project.be_sep490_g67.entity.Supplier;
 
-import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface SupplierRepository extends JpaRepository<Supplier, Integer> {
 
     boolean existsSuppliersBySupplierCode(String supplierCode);
+
+    // Lấy 1 NCC còn hoạt động theo id — dùng cho màn chi tiết,
+    // tránh trả về NCC đã bị xoá mềm (isRemoved = true).
+    Optional<Supplier> findByIdAndIsRemovedFalse(Integer id);
+
+    // Kiểm tra tồn tại nhanh, dùng để validate supplierId trước khi lấy lịch sử nhập hàng
+    boolean existsByIdAndIsRemovedFalse(Integer id);
 
     // Lấy tất cả NCC đang hoạt động, lọc theo từ khóa tìm kiếm
     @Query("""
@@ -26,23 +33,7 @@ public interface SupplierRepository extends JpaRepository<Supplier, Integer> {
             """)
     List<Supplier> searchSuppliers(@Param("search") String search);
 
-    // Lấy nợ hiện tại của từng NCC: mỗi phần tử là [supplierId, totalDebt]
-    @Query("""
-            SELECT io.supplier.id, COALESCE(SUM(io.remainingDebt), 0)
-            FROM ImportOrder io
-            WHERE io.isRemoved = false
-              AND io.paymentStatus IN ('UNPAID', 'PARTIAL')
-            GROUP BY io.supplier.id
-            """)
-    List<Object[]> findDebtPerSupplier();
-
-    // Tổng nợ toàn bộ NCC — dùng cho summary card
-    @Query("""
-            SELECT COALESCE(SUM(io.remainingDebt), 0)
-            FROM ImportOrder io
-            WHERE io.isRemoved = false
-              AND io.paymentStatus IN ('UNPAID', 'PARTIAL')
-              AND io.supplier.isRemoved = false
-            """)
-    BigDecimal calculateTotalDebt();
+    // Nợ NCC (currentDebt) không còn lấy từ cột cache trên ImportOrder nữa.
+    // Xem SupplierService.calculateDebtPerSupplier() — tính động từ
+    // ImportOrder.totalCost - SUM(SupplierPayment.amount) để tránh lệch số liệu.
 }

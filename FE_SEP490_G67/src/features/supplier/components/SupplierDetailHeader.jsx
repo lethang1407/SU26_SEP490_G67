@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import { ChevronRight, Pencil, Wallet } from 'lucide-react';
-import SupplierStatusBadge from './SupplierStatusBadge';
 
 export default function SupplierDetailHeader({ supplier, onPayDebt, onEdit }) {
     const canPayDebt = supplier.currentDebt > 0;
@@ -16,8 +15,6 @@ export default function SupplierDetailHeader({ supplier, onPayDebt, onEdit }) {
                     Nhà cung cấp
                 </Link>
                 <ChevronRight size={14} className="supplier-breadcrumb__sep" />
-                <span className="supplier-breadcrumb__link">Chi tiết nhà cung cấp</span>
-                <ChevronRight size={14} className="supplier-breadcrumb__sep" />
                 <span className="supplier-breadcrumb__current">{supplier.name}</span>
             </nav>
 
@@ -25,12 +22,11 @@ export default function SupplierDetailHeader({ supplier, onPayDebt, onEdit }) {
                 <div className="supplier-detail-header__info">
                     <div className="supplier-detail-header__title-row">
                         <h1 className="supplier-detail-header__title">{supplier.name}</h1>
-                        <SupplierStatusBadge status={supplier.status} />
                     </div>
                     <p className="supplier-detail-header__meta">
                         <span>{supplier.supplierCode}</span>
                         <span className="supplier-detail-header__dot">·</span>
-                        <span>{supplier.shortLocation || supplier.address}</span>
+                        <span>{supplier.phoneNumber || '—'}</span>
                     </p>
                 </div>
 

@@ -23,22 +23,34 @@ const EMPTY_PAGE = {
     totalDebt: 0,
 };
 
+const SEARCH_DEBOUNCE_MS = 400;
+
 export default function SupplierListPage() {
     const [keyword, setKeyword] = useState('');
+    const [debouncedKeyword, setDebouncedKeyword] = useState('');
     const [debtFilter, setDebtFilter] = useState(SUPPLIER_DEBT_FILTER.ALL);
     const [page, setPage] = useState(1);
     const [data, setData] = useState(EMPTY_PAGE);
     const [loading, setLoading] = useState(false);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedKeyword(keyword);
+            setPage(1);
+        }, SEARCH_DEBOUNCE_MS);
+
+        return () => clearTimeout(timer);
+    }, [keyword]);
+
     const fetchSuppliers = useCallback(() => {
         setLoading(true);
         suppliersApi
-            .getSuppliers({ page: page - 1, size: PAGE_SIZE, search: keyword, debtFilter })
+            .getSuppliers({ page: page - 1, size: PAGE_SIZE, search: debouncedKeyword, debtFilter })
             .then((result) => setData(result ?? EMPTY_PAGE))
             .catch(() => setData(EMPTY_PAGE))
             .finally(() => setLoading(false));
-    }, [page, keyword, debtFilter]);
+    }, [page, debouncedKeyword, debtFilter]);
 
     useEffect(() => {
         fetchSuppliers();
@@ -46,7 +58,6 @@ export default function SupplierListPage() {
 
     const handleKeywordChange = (value) => {
         setKeyword(value);
-        setPage(1);
     };
 
     const handleDebtFilterChange = (value) => {

@@ -6,7 +6,6 @@ import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -39,15 +38,7 @@ public class ImportOrder extends BaseEntity {
     @Lob
     @Column(name = "note")
     private String note;
-
-    @ColumnDefault("'UNPAID'")
-    @Column(name = "payment_status", length = 20)
-    private String paymentStatus;
-
-    @ColumnDefault("0.00")
-    @Column(name = "remaining_debt", precision = 15, scale = 2)
-    private BigDecimal remainingDebt = BigDecimal.ZERO;
-
+    
     @OneToMany(mappedBy = "importOrder")
     private Set<ImportOrderDetail> importOrderDetails = new LinkedHashSet<>();
 

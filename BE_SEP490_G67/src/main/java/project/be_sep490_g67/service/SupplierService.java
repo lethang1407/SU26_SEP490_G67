@@ -9,16 +9,23 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.be_sep490_g67.dto.request.AddNewSupplierRequest;
 import project.be_sep490_g67.dto.response.AddNewSupplierResponse;
+import project.be_sep490_g67.dto.response.SupplierDetailResponse;
 import project.be_sep490_g67.dto.response.SupplierListItemResponse;
 import project.be_sep490_g67.dto.response.SupplierListPageResponse;
+import project.be_sep490_g67.entity.Category;
+import project.be_sep490_g67.entity.ImportOrder;
 import project.be_sep490_g67.entity.Supplier;
 import project.be_sep490_g67.entity.User;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
+import project.be_sep490_g67.repository.ImportOrderRepository;
+import project.be_sep490_g67.repository.SupplierPaymentRepository;
 import project.be_sep490_g67.repository.SupplierRepository;
 import project.be_sep490_g67.repository.UserRepository;
 
 import java.math.BigDecimal;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -30,6 +37,8 @@ import java.util.stream.Collectors;
 public class SupplierService {
 
     SupplierRepository supplierRepository;
+    ImportOrderRepository importOrderRepository;
+    SupplierPaymentRepository supplierPaymentRepository;
     UserRepository userRepository;
 
     @Transactional(readOnly = true)
@@ -40,14 +49,9 @@ public class SupplierService {
         // Bước 1: Lấy tất cả NCC khớp với từ khóa tìm kiếm
         List<Supplier> suppliers = supplierRepository.searchSuppliers(safeSearch);
 
-        // Bước 2: Lấy nợ của từng NCC trong 1 query, chuyển thành Map { supplierId -> debt }
-        // row[0] = supplierId (Integer), row[1] = totalDebt (BigDecimal)
-        Map<Integer, BigDecimal> debtMap = supplierRepository.findDebtPerSupplier()
-                .stream()
-                .collect(Collectors.toMap(
-                        row -> (Integer) row[0],
-                        row -> (BigDecimal) row[1]
-                ));
+        // Bước 2: Tính nợ hiện tại của từng NCC — derive từ (totalCost - đã trả),
+        // KHÔNG đọc từ cột cache nào để tránh lệch số liệu khi thanh toán mới phát sinh.
+        Map<Integer, BigDecimal> debtMap = calculateDebtPerSupplier();
 
         // Bước 3: Gắn nợ vào từng NCC, tạo danh sách response
         List<SupplierListItemResponse> allItems = suppliers.stream()
@@ -81,7 +85,7 @@ public class SupplierService {
         List<SupplierListItemResponse> pageContent = filtered.subList(from, to);
 
         // Bước 6: Tổng nợ toàn hệ thống (không bị ảnh hưởng bởi filter/search)
-        BigDecimal totalDebt = supplierRepository.calculateTotalDebt();
+        BigDecimal totalDebt = debtMap.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return SupplierListPageResponse.builder()
                 .content(pageContent)
@@ -89,7 +93,55 @@ public class SupplierService {
                 .size(size)
                 .totalElements(totalElements)
                 .totalPages(totalPages)
-                .totalDebt(totalDebt != null ? totalDebt : BigDecimal.ZERO)
+                .totalDebt(totalDebt)
+                .build();
+    }
+
+    private Map<Integer, BigDecimal> calculateDebtPerSupplier() {
+        Map<Integer, BigDecimal> paidPerOrder = supplierPaymentRepository.sumPaidAmountGroupByImportOrder()
+                .stream()
+                .collect(Collectors.toMap(
+                        row -> (Integer) row[0],
+                        row -> (BigDecimal) row[1]
+                ));
+
+        Map<Integer, BigDecimal> debtPerSupplier = new HashMap<>();
+        for (ImportOrder order : importOrderRepository.findAllActiveWithActiveSupplier()) {
+            BigDecimal totalCost = order.getTotalCost() != null ? order.getTotalCost() : BigDecimal.ZERO;
+            BigDecimal paid = paidPerOrder.getOrDefault(order.getId(), BigDecimal.ZERO);
+            BigDecimal remaining = totalCost.subtract(paid).max(BigDecimal.ZERO);
+
+            if (remaining.compareTo(BigDecimal.ZERO) > 0) {
+                debtPerSupplier.merge(order.getSupplier().getId(), remaining, BigDecimal::add);
+            }
+        }
+        return debtPerSupplier;
+    }
+
+    @Transactional(readOnly = true)
+    public SupplierDetailResponse getSupplierDetail(Integer id) {
+        Supplier supplier = supplierRepository.findByIdAndIsRemovedFalse(id)
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
+                
+        BigDecimal currentDebt = calculateDebtPerSupplier().getOrDefault(id, BigDecimal.ZERO);
+
+        List<String> categories = supplier.getCategories() == null
+                ? List.of()
+                : supplier.getCategories().stream()
+                        .map(Category::getName)
+                        .sorted(Comparator.naturalOrder())
+                        .toList();
+
+        return SupplierDetailResponse.builder()
+                .id(supplier.getId())
+                .supplierCode(supplier.getSupplierCode())
+                .name(supplier.getName())
+                .contactPerson(supplier.getContactPerson())
+                .phoneNumber(supplier.getPhoneNumber())
+                .address(supplier.getAddress())
+                .notes(supplier.getNotes())
+                .categories(categories)
+                .currentDebt(currentDebt)
                 .build();
     }
 

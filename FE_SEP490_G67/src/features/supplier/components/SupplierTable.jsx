@@ -29,7 +29,7 @@ export default function SupplierTable({ items, loading }) {
                             <th>Tên nhà cung cấp</th>
                             <th>Số điện thoại</th>
                             <th>Địa chỉ</th>
-                            <th>Nợ hiện tại</th>
+                            <th>Nợ cần trả hiện tại</th>
                             <th className="supplier-table__actions-col">Thao tác</th>
                         </tr>
                     </thead>
