@@ -1,5 +1,5 @@
 import { ChevronDown, Search } from 'lucide-react';
-import { ALL_POSITIONS, NAME_SORT_OPTIONS, STAFF_POSITIONS } from '../api/staffMockData';
+import { ALL_POSITIONS, NAME_SORT_OPTIONS, STAFF_POSITIONS } from '../constants';
 
 export default function StaffFilters({
     searchKeyword,

@@ -19,16 +19,6 @@ const data7days = [
     { day: 'CN', revenue: 2350000, import: 0 },
 ];
 
-const data30days = [
-    { day: '1', revenue: 1500000, import: 500000 },
-    { day: '5', revenue: 2200000, import: 800000 },
-    { day: '10', revenue: 2800000, import: 600000 },
-    { day: '15', revenue: 3100000, import: 1100000 },
-    { day: '20', revenue: 2600000, import: 400000 },
-    { day: '25', revenue: 3500000, import: 900000 },
-    { day: '30', revenue: 2900000, import: 700000 },
-];
-
 const dataMonth = [
     { day: 'Tuần 1', revenue: 12000000, import: 4500000 },
     { day: 'Tuần 2', revenue: 15000000, import: 5200000 },
@@ -36,16 +26,22 @@ const dataMonth = [
     { day: 'Tuần 4', revenue: 16200000, import: 6100000 },
 ];
 
+const dataQuarter = [
+    { day: 'Quý 1', revenue: 15000000, import: 5000000 },
+    { day: 'Quý 2', revenue: 22000000, import: 8000000 },
+    { day: 'Quý 3', revenue: 28000000, import: 6000000 },
+    { day: 'Quý 4', revenue: 31000000, import: 11000000 },
+];
 const datasets = {
     '7days': data7days,
-    '30days': data30days,
     'month': dataMonth,
+    'quarter': dataQuarter,
 };
 
 const periods = [
-    { key: '7days', label: '7 ngày' },
-    { key: '30days', label: '30 ngày' },
-    { key: 'month', label: 'Tháng này' },
+    { key: '7days', label: 'Tuần' },
+    { key: 'month', label: 'Tháng' },
+    { key: 'quarter', label: 'Quý' },
 ];
 
 function formatVND(value) {
@@ -84,7 +80,7 @@ export default function RevenueTrendChart() {
         <div className="dashboard-card chart-card">
             <div className="dashboard-card__header">
                 <h3 className="dashboard-card__title">
-                    Xu Hướng Doanh Thu 7 Ngày Gần Nhất
+                    Xu Hướng Doanh Thu
                 </h3>
                 <div className="chart-card__controls">
                     <div className="chart-period-toggle">
@@ -137,8 +133,8 @@ export default function RevenueTrendChart() {
                             name="Doanh thu"
                             stroke="#3B82F6"
                             strokeWidth={2.5}
-                            dot={false}
-                            activeDot={{ r: 5, fill: '#3B82F6', stroke: '#fff', strokeWidth: 2 }}
+                            dot={{ r: 6, fill: '#3B82F6', stroke: '#fff', strokeWidth: 2 }}
+                            activeDot={{ r: 6, fill: '#3B82F6', stroke: '#fff', strokeWidth: 2.5 }}
                         />
                         <Line
                             type="monotone"
@@ -147,8 +143,8 @@ export default function RevenueTrendChart() {
                             stroke="#F59E0B"
                             strokeWidth={2}
                             strokeDasharray="6 3"
-                            dot={false}
-                            activeDot={{ r: 4, fill: '#F59E0B', stroke: '#fff', strokeWidth: 2 }}
+                            dot={{ r: 6, fill: '#F59E0B', stroke: '#fff', strokeWidth: 2 }}
+                            activeDot={{ r: 6, fill: '#F59E0B', stroke: '#fff', strokeWidth: 2.5 }}
                         />
                     </LineChart>
                 </ResponsiveContainer>
