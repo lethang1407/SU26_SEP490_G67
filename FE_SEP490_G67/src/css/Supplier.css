@@ -934,7 +934,7 @@
     color: #b45309;
 }
 
-.supplier-payment-history__amount {
+.supplier-table tbody td.supplier-payment-history__amount {
     font-weight: 700;
     white-space: nowrap;
     color: #15803d;

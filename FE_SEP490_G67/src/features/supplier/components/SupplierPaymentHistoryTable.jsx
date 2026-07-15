@@ -127,8 +127,8 @@ export default function SupplierPaymentHistoryTable({ supplierId, onViewReferenc
                     <table className="supplier-table supplier-table--detail">
                         <thead>
                             <tr>
-                                <th>Ngày giao dịch</th>
                                 <th>Mã giao dịch</th>
+                                <th>Ngày giao dịch</th>
                                 <th>Mã đơn hàng</th>
                                 <th>Số tiền thanh toán</th>
                                 <th>Số tiền nợ còn lại</th>
@@ -151,8 +151,8 @@ export default function SupplierPaymentHistoryTable({ supplierId, onViewReferenc
                             ) : (
                                 data.content.map((payment) => (
                                     <tr key={payment.id}>
-                                        <td className="supplier-table__nowrap">{formatDateTime(payment.paymentDate)}</td>
                                         <td>{payment.paymentCode}</td>
+                                        <td className="supplier-table__nowrap">{formatDateTime(payment.paymentDate)}</td>
                                         <td>
                                             {payment.orderCode ? (
                                                 <button
