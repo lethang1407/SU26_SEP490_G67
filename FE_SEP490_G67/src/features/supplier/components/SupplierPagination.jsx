@@ -36,13 +36,14 @@ export default function SupplierPagination({
     endIndex,
     totalItems,
     onPageChange,
+    itemLabel = 'nhà cung cấp',
 }) {
     const pageNumbers = buildPageNumbers(page, totalPages);
 
     return (
         <div className="supplier-pagination">
             <p className="supplier-pagination__info">
-                Hiển thị {startIndex} - {endIndex} trong tổng số {totalItems} nhà cung cấp
+                Hiển thị {startIndex} - {endIndex} trong tổng số {totalItems} {itemLabel}
             </p>
 
             <div className="supplier-pagination__controls">

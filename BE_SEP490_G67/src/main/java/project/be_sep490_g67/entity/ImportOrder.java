@@ -38,7 +38,7 @@ public class ImportOrder extends BaseEntity {
     @Lob
     @Column(name = "note")
     private String note;
-
+    
     @OneToMany(mappedBy = "importOrder")
     private Set<ImportOrderDetail> importOrderDetails = new LinkedHashSet<>();
 
