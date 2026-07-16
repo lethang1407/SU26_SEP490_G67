@@ -11,6 +11,10 @@ import StoreInfor from '../../features/store/pages/StoreInfor';
 import SupplierListPage from '../../features/supplier/pages/SupplierListPage';
 import SupplierDetailPage from '../../features/supplier/pages/SupplierDetailPage';
 import InventoryListPage from '../../features/inventory/pages/InventoryListPage';
+import InventoryCheckListPage from '../../features/inventory-check/pages/InventoryCheckListPage';
+import InventoryCheckDetailPage from '../../features/inventory-check/pages/InventoryCheckDetailPage';
+import CreateInventoryCheckPage from '../../features/inventory-check/pages/CreateInventoryCheckPage';
+import StorageLocationListPage from '../../features/storage-location/pages/StorageLocationListPage';
 import POSScreen from '../../features/pos-screen/pages/POS';
 
 const adminRoutes = [
@@ -57,6 +61,22 @@ const adminRoutes = [
     {
         path: '/admin/warehouse/inventory',
         element: <InventoryListPage />,
+    },
+    {
+        path: '/admin/warehouse/locations',
+        element: <StorageLocationListPage />,
+    },
+    {
+        path: '/admin/warehouse/check',
+        element: <InventoryCheckListPage />,
+    },
+    {
+        path: '/admin/warehouse/check/create',
+        element: <CreateInventoryCheckPage />,
+    },
+    {
+        path: '/admin/warehouse/check/:checkId',
+        element: <InventoryCheckDetailPage />,
     },
     {
         path: '/admin/warehouse/supplier',
