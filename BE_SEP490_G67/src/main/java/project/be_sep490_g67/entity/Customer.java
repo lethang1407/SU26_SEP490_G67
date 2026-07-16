@@ -28,6 +28,9 @@ public class Customer extends BaseEntity {
     @Column(name = "address")
     private String address;
 
+    @Column(name = "status", length = 15)
+    private String status;
+
     @ColumnDefault("1")
     @Column(name = "allow_debt")
     private Boolean allowDebt = true;

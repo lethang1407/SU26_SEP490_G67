@@ -4,6 +4,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 @Data
 @Builder
@@ -18,5 +19,8 @@ public class CustomerResponse {
     String debtStatus;
     Boolean allowDebt;
     BigDecimal totalDebt;
+    Instant latestDebtDate;
     String note;
+    Boolean isOverdue;
+    Long totalOrdersInDebt;
 }

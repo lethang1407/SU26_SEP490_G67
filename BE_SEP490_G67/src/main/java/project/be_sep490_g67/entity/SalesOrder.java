@@ -8,6 +8,7 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -60,6 +61,9 @@ public class SalesOrder extends BaseEntity {
     @Lob
     @Column(name = "note")
     private String note;
+
+    @Column(name = "due_date")
+    private Instant dueDate;
 
     @OneToMany(mappedBy = "salesOrder")
     private Set<DebtPayment> debtPayments = new LinkedHashSet<>();
