@@ -64,7 +64,7 @@ export default function RecentActivity() {
             <div className="dashboard-card__header">
                 <h3 className="dashboard-card__title">Giao Dịch Gần Đây</h3>
                 <button className="dashboard-card__link">
-                    Xem tất cả →
+                    Xem tất cả
                 </button>
             </div>
             <div className="recent-tx__table-wrapper">

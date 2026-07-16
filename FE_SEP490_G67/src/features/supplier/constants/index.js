@@ -10,11 +10,10 @@ export const SUPPLIER_STATUS_LABEL = {
     PAUSED: 'Tạm dừng',
 };
 
-export const SUPPLIER_STATUS_FILTER = {
+export const SUPPLIER_DEBT_FILTER = {
     ALL: 'ALL',
-    ACTIVE: 'ACTIVE',
+    NO_DEBT: 'NO_DEBT',
     HAS_DEBT: 'HAS_DEBT',
-    PAUSED: 'PAUSED',
 };
 
 export const MOCK_SUPPLIERS = [
@@ -71,7 +70,7 @@ export const MOCK_SUPPLIERS = [
         contactPerson: 'Hoàng Văn E',
         categories: ['Đồ gỗ'],
         currentDebt: 0,
-        status: SUPPLIER_STATUS.PAUSED,
+        status: SUPPLIER_STATUS.ACTIVE,
     },
     {
         id: 6,

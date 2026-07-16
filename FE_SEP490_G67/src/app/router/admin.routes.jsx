@@ -16,6 +16,7 @@ import InventoryCheckDetailPage from '../../features/inventory-check/pages/Inven
 import CreateInventoryCheckPage from '../../features/inventory-check/pages/CreateInventoryCheckPage';
 import StorageLocationListPage from '../../features/storage-location/pages/StorageLocationListPage';
 import POSScreen from '../../features/pos-screen/pages/POS';
+import CustomerDebtPage from '../../features/customer/pages/CustomerDebtPage';
 
 const adminRoutes = [
     {
@@ -90,6 +91,10 @@ const adminRoutes = [
         path: '/admin/pos',
         element: <POSScreen />,
     },
+    {
+        path: '/admin/customer',
+        element: <CustomerDebtPage />,
+    }
 ];
 
 export default adminRoutes;

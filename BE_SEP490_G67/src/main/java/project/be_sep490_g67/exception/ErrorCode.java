@@ -42,6 +42,10 @@ public enum ErrorCode {
     PRODUCT_NOT_FOUND(1024, "Không tìm thấy sản phẩm", HttpStatus.NOT_FOUND),
     BARCODE_EXISTED(1025, "Mã vạch đã được sử dụng", HttpStatus.CONFLICT),
     INVALID_PRODUCT_PRICE(1026, "Giá sản phẩm không hợp lệ", HttpStatus.BAD_REQUEST),
+    NOT_FOUND_SUPPLIER(1027, "Không tìm thấy nhà cung cấp", HttpStatus.NOT_FOUND),
+    NOT_FOUND_IMPORT_ORDER(1028, "Không tìm thấy đơn nhập hàng", HttpStatus.NOT_FOUND),
+    INVALID_PAYMENT_AMOUNT(1029, "Số tiền thanh toán không hợp lệ", HttpStatus.BAD_REQUEST),
+    PAYMENT_EXCEEDS_DEBT(1030, "Số tiền vượt quá số nợ còn lại của đơn hàng", HttpStatus.BAD_REQUEST),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

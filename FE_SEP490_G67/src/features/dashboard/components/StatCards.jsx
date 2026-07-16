@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import {
-    Receipt,
     Truck,
     Users,
     AlertTriangle,
     TrendingUp,
     ChevronDown,
-    Landmark,
+    Wallet,
 } from 'lucide-react';
 
 const expiredProducts = [
@@ -30,11 +29,10 @@ export default function StatCards() {
             id: 'revenue',
             label: 'Doanh Thu Hôm Nay',
             value: '2.350.000 đ',
-            subtitle: '+12% so với hôm qua',
             subtitleClass: 'stat-card__subtitle--green',
             subtitleIcon: <TrendingUp size={14} />,
             small: '15 đơn hàng',
-            icon: Landmark,
+            icon: Wallet,
             iconBg: '#DCFCE7',
             iconColor: '#16a34a',
             accent: 'green',
@@ -45,7 +43,6 @@ export default function StatCards() {
             value: '850.000 đ',
             subtitle: '3 phiếu nhập',
             subtitleClass: '',
-            small: 'Từ 2 nhà cung cấp',
             icon: Truck,
             iconBg: '#DBEAFE',
             iconColor: '#3B82F6',
@@ -57,7 +54,6 @@ export default function StatCards() {
             value: '4.200.000 đ',
             subtitle: '8 khách đang nợ',
             subtitleClass: '',
-            small: '⚠ 2 khoản quá hạn',
             smallClass: 'stat-card__small--red',
             icon: Users,
             iconBg: '#FEF3C7',
@@ -103,7 +99,7 @@ export default function StatCards() {
                             </span>
                         )}
                         <button className="stat-card__detail-link">
-                            Xem chi tiết →
+                            Xem chi tiết
                         </button>
                     </div>
                 );
@@ -122,16 +118,22 @@ export default function StatCards() {
                     <div className="stat-card__info">
                         <span className="stat-card__label">Hàng Tồn Kho Có Vấn Đề</span>
                         <span className="stat-card__value" style={{ color: '#EF4444' }}>
-                            8 sản phẩm
+                            13 sản phẩm
                         </span>
                         <div className="stat-card__badges">
                             <span className="stat-card__badge stat-card__badge--red">
-                                🔴 3 hết hạn
+                                3 sản phẩm hết hạn
                             </span>
                             <span className="stat-card__badge stat-card__badge--orange">
-                                🟠 5 sắp hết
+                                5 sản phẩm sắp hết hàng
+                            </span>
+                            <span className="stat-card__badge stat-card__badge--orange">
+                                5 sản phẩm sắp hết hạn
                             </span>
                         </div>
+                        <button className="stat-card__detail-link">
+                            Xem chi tiết
+                        </button>
                     </div>
                     <div
                         className="stat-card__icon"
@@ -154,7 +156,7 @@ export default function StatCards() {
                     <div className="stat-card__expanded-inner">
                         {/* Expired Section */}
                         <div className="expanded-section__title expanded-section__title--red">
-                            🔴 Đã Hết Hạn ({expiredProducts.length})
+                            Đã Hết Hạn ({expiredProducts.length})
                         </div>
                         {expiredProducts.map((item, i) => (
                             <div key={i} className="expanded-row">
@@ -172,7 +174,7 @@ export default function StatCards() {
 
                         {/* Low Stock Section */}
                         <div className="expanded-section__title expanded-section__title--orange">
-                            🟠 Sắp Hết Hàng ({lowStockProducts.length + lowStockExtra})
+                            Sắp Hết Hàng ({lowStockProducts.length + lowStockExtra})
                         </div>
                         {lowStockProducts.map((item, i) => (
                             <div key={i} className="expanded-row">
