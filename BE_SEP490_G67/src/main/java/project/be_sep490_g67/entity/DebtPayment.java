@@ -8,7 +8,6 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 
 @Getter
 @Setter
@@ -29,6 +28,7 @@ public class DebtPayment extends BaseEntity {
     @JoinColumn(name = "sales_order_id")
     private SalesOrder salesOrder;
 
+    // Delete this field
     @Column(name = "processed_by")
     private Integer processedBy;
 
@@ -42,8 +42,5 @@ public class DebtPayment extends BaseEntity {
     @Lob
     @Column(name = "notes")
     private String notes;
-
-//    @Column(name = "payment_date", columnDefinition = "datetime(6) default CURRENT_TIMESTAMP(6)")
-//    private Instant paymentDate;
 
 }

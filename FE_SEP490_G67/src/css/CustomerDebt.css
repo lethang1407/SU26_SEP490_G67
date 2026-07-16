@@ -1,0 +1,59 @@
+/* --- Styling cho các cấp độ ưu tiên của khách hàng nợ --- */
+
+/* Cấp 1: Nợ Quá Hạn (Được phép) - Ưu tiên cao nhất */
+.priority-1 {
+    background-color: #fff1f2 !important; /* Nền đỏ rất nhạt */
+    border-left: 4px solid #ef4444; /* Viền đỏ đậm bên trái */
+}
+.priority-1 .fw-medium {
+    font-weight: 600 !important; /* In đậm tên khách hàng */
+}
+.priority-1:hover {
+    background-color: #ffe4e6 !important; /* Đậm hơn khi hover */
+}
+
+/* Cấp 2: Đang Nợ (Trong hạn) */
+.priority-2 {
+    background-color: #fffbeb !important; /* Nền vàng rất nhạt */
+    border-left: 4px solid #f59e0b; /* Viền vàng đậm bên trái */
+}
+.priority-2:hover {
+    background-color: #fef3c7 !important;
+}
+
+/* Cấp 3: Nợ Quá Hạn (Không được phép) - Nghiêm trọng */
+.priority-3 {
+    background-color: #fee2e2 !important; /* Nền đỏ nhạt hơn Cấp 1 */
+    border-left: 4px solid #b91c1c; /* Viền đỏ sẫm */
+    outline: 1px dashed #ef4444; /* Viền đứt nét để tăng cảnh báo */
+    outline-offset: -1px;
+}
+.priority-3:hover {
+    background-color: #fecaca !important;
+}
+
+/* Cấp 4: Đang Nợ (Không được phép) */
+.priority-4 {
+    background-color: #fff7ed !important; /* Nền cam rất nhạt */
+    border-left: 4px solid #f97316; /* Viền cam đậm */
+}
+.priority-4:hover {
+    background-color: #ffedd5 !important;
+}
+
+/* Cấp 5 & 6: Không nợ (Khách tốt & thường) */
+.priority-5, .priority-6 {
+    /* Style mặc định, không cần thay đổi nhiều */
+    border-left: 4px solid transparent; /* Giữ cấu trúc nhưng ẩn viền */
+}
+
+/* Thêm transition để hiệu ứng mượt mà */
+tr.priority-1, tr.priority-2, tr.priority-3, tr.priority-4, tr.priority-5, tr.priority-6 {
+    transition: background-color 0.2s ease-in-out;
+}
+
+/* Lớp mới để làm nổi bật Tên và SĐT của khách hàng vi phạm */
+.text-highlight-critical {
+    color: #b91c1c !important; /* Màu đỏ sẫm, rất nổi bật */
+    font-weight: 700 !important; /* In đậm hơn bình thường */
+}
