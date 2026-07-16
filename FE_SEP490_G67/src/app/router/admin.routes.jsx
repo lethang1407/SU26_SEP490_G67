@@ -20,6 +20,7 @@ import CreateImportOrderPage from '../../features/import-order/pages/CreateImpor
 import ImportOrderDetailPage from '../../features/import-order/pages/ImportOrderDetailPage';
 import POSScreen from '../../features/pos-screen/pages/POS';
 import CustomerDebtPage from '../../features/customer/pages/CustomerDebtPage';
+import CustomerDetailPage from '../../features/customer/pages/CustomerDetailPage';
 
 const adminRoutes = [
     {
@@ -105,6 +106,10 @@ const adminRoutes = [
     {
         path: '/admin/pos',
         element: <POSScreen />,
+    },
+    {
+        path: '/admin/customer/:customerId',
+        element: <CustomerDetailPage />,
     },
     {
         path: '/admin/customer',

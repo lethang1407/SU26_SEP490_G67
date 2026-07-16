@@ -14,7 +14,10 @@ import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.dto.response.ProductBarcodeResponse;
 import project.be_sep490_g67.dto.response.ProductDetailResponse;
 import project.be_sep490_g67.dto.response.ProductListResponse;
+import project.be_sep490_g67.dto.response.ProductSearchResponse;
 import project.be_sep490_g67.service.ProductService;
+
+import java.util.List;
 
 @RestController
 @RequestMapping(ApiPath.PRODUCTS)
@@ -45,6 +48,17 @@ public class ProductController {
         ProductBarcodeResponse result = productService.getProductByBarcode(barcode);
         return ApiResponse.<ProductBarcodeResponse>builder()
                 .result(result)
+                .build();
+    }
+
+    /**
+     * GET /api/products/search?q={query}
+     */
+    @GetMapping("/search")
+    ApiResponse<List<ProductSearchResponse>> searchByName(@RequestParam("q") String query) {
+        List<ProductSearchResponse> results = productService.searchByNameAndBarcode(query);
+        return ApiResponse.<List<ProductSearchResponse>>builder()
+                .result(results)
                 .build();
     }
 

@@ -35,4 +35,18 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     boolean existsByBarcodeAndIsRemovedFalse(String barcode);
 
     boolean existsByBarcodeAndIdNotAndIsRemovedFalse(String barcode, Integer id);
+
+    /**
+     * Find active products by keyword (partial name match, case-insensitive).
+     */
+    @Query("""
+            SELECT p
+            FROM Product p
+            WHERE p.isRemoved = false
+              AND (
+                    lower(p.name) LIKE lower(concat('%', :query, '%'))
+                    OR lower(p.barcode) LIKE lower(concat('%', :query, '%'))
+                  )
+            """)
+    List<Product> searchByNameAndBarcode(@Param("query") String query);
 }

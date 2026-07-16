@@ -16,6 +16,12 @@ import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.mapper.ProductMapper;
 import project.be_sep490_g67.repository.*;
+import project.be_sep490_g67.dto.response.ProductBarcodeResponse;
+import project.be_sep490_g67.dto.response.ProductSearchResponse;
+import project.be_sep490_g67.entity.Product;
+import project.be_sep490_g67.entity.StockBatch;
+import project.be_sep490_g67.repository.ProductRepository;
+import project.be_sep490_g67.repository.StockBatchRepository;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -144,10 +150,6 @@ public class ProductService {
         return getProductById(productId);
     }
 
-    /**
-     * Look up a product by barcode.
-     * Returns full product info + base product unit + available stock batches.
-     */
     @Transactional(readOnly = true)
     public ProductBarcodeResponse getProductByBarcode(String barcode) {
         Product product = productRepository.findByBarcode(barcode)
@@ -158,6 +160,7 @@ public class ProductService {
         List<ProductBarcodeResponse.ProductUnitInfo> unitInfos = productUnitRepository
                 .findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(product.getId())
                 .stream()
+                .filter(u -> Boolean.FALSE.equals(u.getIsRemoved()))
                 .map(u -> ProductBarcodeResponse.ProductUnitInfo.builder()
                         .id(u.getId())
                         .name(u.getName())
@@ -165,13 +168,15 @@ public class ProductService {
                         .build())
                 .toList();
 
+        // Fetch available stock batches
         List<StockBatch> batches = stockBatchRepository.findAvailableByProductId(product.getId());
         List<ProductBarcodeResponse.StockBatchInfo> batchInfos = batches.stream()
                 .map(b -> ProductBarcodeResponse.StockBatchInfo.builder()
                         .id(b.getId())
                         .batchCode("BATCH-" + b.getId())
                         .quantity(b.getQuantityIn())
-                        .expiryDate(b.getExpiryDate() != null ? b.getExpiryDate().toString() : null)
+                        .expiryDate(b.getExpiryDate() != null ? b.getExpiryDate().toString()
+                                : null)
                         .build())
                 .toList();
 
@@ -503,5 +508,33 @@ public class ProductService {
                 .totalElements(totalElements)
                 .totalPages(totalPages)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductSearchResponse> searchByNameAndBarcode(String query) {
+        if (query == null || query.isBlank()) {
+            return List.of();
+        }
+        List<Product> productList = productRepository.searchByNameAndBarcode(query.trim());
+        return productList.stream()
+                .filter(p -> Boolean.FALSE.equals(p.getIsRemoved())) // loại sp đã deactivate
+                .limit(20)
+                .map(product -> ProductSearchResponse.builder()
+                        .id(product.getId())
+                        .name(product.getName())
+                        .barcode(product.getBarcode())
+                        .sellingPrice(product.getSellingPrice())
+                        .productUnits(product.getProductUnits().stream()
+                                .filter(u -> Boolean.FALSE.equals(u.getIsRemoved()))
+                                .map(u -> ProductSearchResponse.ProductUnitInfo
+                                        .builder()
+                                        .id(u.getId())
+                                        .name(u.getName())
+                                        .unitBase(u.getUnitBase())
+                                        .build())
+                                .toList())
+                        .build())
+                .toList();
+
     }
 }

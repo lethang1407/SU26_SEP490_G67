@@ -38,7 +38,7 @@ public interface CustomerRepository extends JpaRepository<Customer, Integer> {
 
     boolean existsByPhoneNumberAndIsRemovedFalse(String phoneNumber);
 
-    @Query("""
+    @Query(value = """
     SELECT c
     FROM Customer c
     WHERE c.isRemoved = false
@@ -52,33 +52,167 @@ public interface CustomerRepository extends JpaRepository<Customer, Integer> {
 
     AND (
         :status IS NULL
-
+        OR (:status = 'IN_DEBT' AND c.totalDebt > 0)
+        OR (:status = 'NO_DEBT' AND c.totalDebt = 0)
         OR (
-            :status = 'IN_DEBT'
-            AND c.totalDebt > 0
+            :status = 'OVERDUE'
+            AND EXISTS (
+                SELECT 1 FROM SalesOrder so
+                WHERE so.customer = c
+                  AND so.isDebt = true
+                  AND so.dueDate < :overdueDate
+                  AND so.totalAmount > (
+                      so.paidAmount + COALESCE((
+                          SELECT SUM(dp.amountPaid) FROM DebtPayment dp
+                          WHERE dp.salesOrder = so
+                      ), 0)
+                  )
+            )
         )
+    )
 
-        OR (
-            :status = 'NO_DEBT'
-            AND c.totalDebt = 0
-        )
+    AND (:allowDebt IS NULL OR c.allowDebt = :allowDebt)
+    AND (:fromDate IS NULL OR c.createdAt >= :fromDate)
+    AND (:toDate IS NULL OR c.createdAt < :toDate)
+    """,
+    countQuery = """
+    SELECT count(c)
+    FROM Customer c
+    WHERE c.isRemoved = false
+
+    AND (
+        :keyword IS NULL
+        OR TRIM(:keyword) = ''
+        OR LOWER(c.fullName) LIKE LOWER(CONCAT('%', :keyword, '%'))
+        OR LOWER(c.phoneNumber) LIKE LOWER(CONCAT('%', :keyword, '%'))
     )
 
     AND (
-        :fromDate IS NULL
-        OR c.createdAt >= :fromDate
+        :status IS NULL
+        OR (:status = 'IN_DEBT' AND c.totalDebt > 0)
+        OR (:status = 'NO_DEBT' AND c.totalDebt = 0)
+        OR (
+            :status = 'OVERDUE'
+            AND EXISTS (
+                SELECT 1 FROM SalesOrder so
+                WHERE so.customer = c
+                  AND so.isDebt = true
+                  AND so.dueDate < :overdueDate
+                  AND so.totalAmount > (
+                      so.paidAmount + COALESCE((
+                          SELECT SUM(dp.amountPaid) FROM DebtPayment dp
+                          WHERE dp.salesOrder = so
+                      ), 0)
+                  )
+            )
+        )
     )
 
-    AND (
-        :toDate IS NULL
-        OR c.createdAt < :toDate
-    )
-""")
+    AND (:allowDebt IS NULL OR c.allowDebt = :allowDebt)
+    AND (:fromDate IS NULL OR c.createdAt >= :fromDate)
+    AND (:toDate IS NULL OR c.createdAt < :toDate)
+    """)
     Page<Customer> searchCustomers(
             @Param("keyword") String keyword,
             @Param("status") String status,
+            @Param("allowDebt") Boolean allowDebt,
             @Param("fromDate") Instant fromDate,
             @Param("toDate") Instant toDate,
+            @Param("overdueDate") Instant overdueDate,
+            Pageable pageable
+    );
+
+    @Query(value = """
+    SELECT c
+    FROM Customer c
+    WHERE c.isRemoved = false
+
+    AND (
+        :keyword IS NULL
+        OR TRIM(:keyword) = ''
+        OR LOWER(c.fullName) LIKE LOWER(CONCAT('%', :keyword, '%'))
+        OR LOWER(c.phoneNumber) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    )
+
+    AND (
+        :status IS NULL
+        OR (:status = 'IN_DEBT' AND c.totalDebt > 0)
+        OR (:status = 'NO_DEBT' AND c.totalDebt = 0)
+        OR (
+            :status = 'OVERDUE'
+            AND EXISTS (
+                SELECT 1 FROM SalesOrder so
+                WHERE so.customer = c
+                  AND so.isDebt = true
+                  AND so.dueDate < :overdueDate
+                  AND so.totalAmount > (
+                      so.paidAmount + COALESCE((
+                          SELECT SUM(dp.amountPaid) FROM DebtPayment dp
+                          WHERE dp.salesOrder = so
+                      ), 0)
+                  )
+            )
+        )
+    )
+
+    AND (:allowDebt IS NULL OR c.allowDebt = :allowDebt)
+    AND (:fromDate IS NULL OR c.createdAt >= :fromDate)
+    AND (:toDate IS NULL OR c.createdAt < :toDate)
+    ORDER BY
+    CASE
+        WHEN c.allowDebt = true AND c.totalDebt > 0 AND EXISTS (SELECT 1 FROM SalesOrder so WHERE so.customer = c AND so.isDebt = true AND so.dueDate < :overdueDate AND so.totalAmount > (so.paidAmount + COALESCE((SELECT SUM(dp.amountPaid) FROM DebtPayment dp WHERE dp.salesOrder = so), 0))) THEN 1
+        WHEN c.allowDebt = true AND c.totalDebt > 0 THEN 2
+        WHEN c.allowDebt = false AND c.totalDebt > 0 AND EXISTS (SELECT 1 FROM SalesOrder so WHERE so.customer = c AND so.isDebt = true AND so.dueDate < :overdueDate AND so.totalAmount > (so.paidAmount + COALESCE((SELECT SUM(dp.amountPaid) FROM DebtPayment dp WHERE dp.salesOrder = so), 0))) THEN 3
+        WHEN c.allowDebt = false AND c.totalDebt > 0 THEN 4
+        WHEN c.totalDebt = 0 AND c.allowDebt = true THEN 5
+        WHEN c.totalDebt = 0 AND c.allowDebt = false THEN 6
+        ELSE 7
+    END, c.createdAt DESC
+    """,
+    countQuery = """
+    SELECT count(c)
+    FROM Customer c
+    WHERE c.isRemoved = false
+
+    AND (
+        :keyword IS NULL
+        OR TRIM(:keyword) = ''
+        OR LOWER(c.fullName) LIKE LOWER(CONCAT('%', :keyword, '%'))
+        OR LOWER(c.phoneNumber) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    )
+
+    AND (
+        :status IS NULL
+        OR (:status = 'IN_DEBT' AND c.totalDebt > 0)
+        OR (:status = 'NO_DEBT' AND c.totalDebt = 0)
+        OR (
+            :status = 'OVERDUE'
+            AND EXISTS (
+                SELECT 1 FROM SalesOrder so
+                WHERE so.customer = c
+                  AND so.isDebt = true
+                  AND so.dueDate < :overdueDate
+                  AND so.totalAmount > (
+                      so.paidAmount + COALESCE((
+                          SELECT SUM(dp.amountPaid) FROM DebtPayment dp
+                          WHERE dp.salesOrder = so
+                      ), 0)
+                  )
+            )
+        )
+    )
+
+    AND (:allowDebt IS NULL OR c.allowDebt = :allowDebt)
+    AND (:fromDate IS NULL OR c.createdAt >= :fromDate)
+    AND (:toDate IS NULL OR c.createdAt < :toDate)
+    """)
+    Page<Customer> searchCustomersAndSortByPriority(
+            @Param("keyword") String keyword,
+            @Param("status") String status,
+            @Param("allowDebt") Boolean allowDebt,
+            @Param("fromDate") Instant fromDate,
+            @Param("toDate") Instant toDate,
+            @Param("overdueDate") Instant overdueDate,
             Pageable pageable
     );
 }
