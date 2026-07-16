@@ -6,13 +6,9 @@ import org.springframework.data.repository.query.Param;
 import project.be_sep490_g67.entity.StockBatch;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface StockBatchRepository extends JpaRepository<StockBatch, Integer> {
 
-    /**
-     * Fetch active (non-removed) stock batches for a product that still have remaining inventory.
-     */
     @Query("""
         SELECT sb FROM StockBatch sb
         WHERE sb.product.id = :productId
