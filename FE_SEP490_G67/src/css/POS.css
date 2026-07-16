@@ -67,6 +67,27 @@
     align-items: center;
     gap: 8px;
     margin-top: 8px;
+    cursor: pointer;
+    border: none;
+}
+
+.tab-inactive {
+    background-color: rgba(255,255,255,0.18);
+    color: rgba(255,255,255,0.85);
+    padding: 6px 16px;
+    border-radius: 6px 6px 0 0;
+    font-weight: 400;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    cursor: pointer;
+    border: none;
+    transition: background 0.15s;
+}
+
+.tab-inactive:hover {
+    background-color: rgba(255,255,255,0.28);
 }
 
 .tab-close {
@@ -74,6 +95,8 @@
     background: none;
     border: none;
     cursor: pointer;
+    display: flex;
+    align-items: center;
 }
 
 .tab-close:hover {
@@ -714,4 +737,110 @@
     .receipt-modal-overlay { position: static; background: none; }
     .receipt-modal { box-shadow: none; max-height: none; width: 100%; }
     .receipt-actions { display: none; }
-}
+}
+
+/* ─── Product Name Search Dropdown ──────────────────────────────────────── */
+.product-search-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    z-index: 2000;
+    max-height: 320px;
+    overflow-y: auto;
+    animation: psdFadeIn 0.15s ease;
+}
+
+@keyframes psdFadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* State rows (loading / empty / error) */
+.psd-state-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 16px;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.psd-state-row.psd-error {
+    color: #b91c1c;
+    background-color: #fef2f2;
+}
+
+.psd-state-row.psd-empty {
+    color: #9ca3af;
+}
+
+/* Spinning loader icon */
+.psd-spinner {
+    animation: psdSpin 0.8s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes psdSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+/* Results list */
+.psd-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.psd-item {
+    padding: 10px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid #f3f4f6;
+    transition: background-color 0.12s;
+}
+
+.psd-item:last-child {
+    border-bottom: none;
+}
+
+.psd-item:hover {
+    background-color: #eff6ff;
+}
+
+.psd-item-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #111827;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.psd-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 3px;
+}
+
+.psd-barcode {
+    font-size: 11px;
+    color: #6b7280;
+    background-color: #f3f4f6;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+.psd-price {
+    font-size: 12px;
+    font-weight: 600;
+    color: #2563eb;
+    margin-left: auto;
+}
+

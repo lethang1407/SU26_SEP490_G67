@@ -7,7 +7,10 @@ import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.ProductBarcodeResponse;
+import project.be_sep490_g67.dto.response.ProductSearchResponse;
 import project.be_sep490_g67.service.ProductService;
+
+import java.util.List;
 
 @RestController
 @RequestMapping(ApiPath.PRODUCTS)
@@ -19,13 +22,23 @@ public class ProductController {
 
     /**
      * GET /api/products/barcode/{barcode}
-     * find product by its barcode. Returns product info + units + available stock batches.
      */
     @GetMapping("/barcode/{barcode}")
     ApiResponse<ProductBarcodeResponse> getByBarcode(@PathVariable String barcode) {
         ProductBarcodeResponse result = productService.getProductByBarcode(barcode);
         return ApiResponse.<ProductBarcodeResponse>builder()
                 .result(result)
+                .build();
+    }
+
+    /**
+     * GET /api/products/search?q={query}
+     */
+    @GetMapping("/search")
+    ApiResponse<List<ProductSearchResponse>> searchByName(@RequestParam("q") String query) {
+        List<ProductSearchResponse> results = productService.searchByNameAndBarcode(query);
+        return ApiResponse.<List<ProductSearchResponse>>builder()
+                .result(results)
                 .build();
     }
 }

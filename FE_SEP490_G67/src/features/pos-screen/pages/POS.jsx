@@ -1,9 +1,10 @@
 import { useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
     Search, X,
     RefreshCcw,
     History,
-    Menu,
+    Home,
     Trash2,
     FileText,
     User,
@@ -17,12 +18,80 @@ import "../../../css/POS.css";
 import { isValidQtyInput, isValidQtyValue, isQtyInvalid, parseQty } from '../utils/validation';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { useCheckout } from '../hooks/useCheckout';
+import { useProductSearch } from '../hooks/useProductSearch';
 import BatchSelectModal from '../components/BatchSelectModal';
 import ReceiptModal from '../components/ReceiptModal';
+import ProductSearchDropdown from '../components/ProductSearchDropdown';
+import SalesOrderHistoryModal from '../components/SalesOrderHistoryModal';
+
+// Tab helpers
+
+let _tabCounter = 1;
+function nextTabId() { return ++_tabCounter; }
+
+function createTab(id = 1) {
+    return {
+        id,
+        label: `Hóa đơn ${id}`,
+        cartItems: [],
+        qtyInputs: {},
+    };
+}
+
+// Component 
 
 const POSScreen = () => {
-    const [cartItems, setCartItems] = useState([]);
-    const [qtyInputs, setQtyInputs] = useState({});
+    const navigate = useNavigate();
+    //  Multi-tab state 
+    const [tabs, setTabs] = useState([createTab(1)]);
+    const [activeTabId, setActiveTabId] = useState(1);
+
+    const activeTab = tabs.find(t => t.id === activeTabId) ?? tabs[0];
+
+    // Helpers that read/write the active tab's cart
+    const cartItems = activeTab.cartItems;
+    const qtyInputs = activeTab.qtyInputs;
+
+    const setCartItems = useCallback((updater) => {
+        setTabs(prev => prev.map(t =>
+            t.id === activeTabId
+                ? { ...t, cartItems: typeof updater === 'function' ? updater(t.cartItems) : updater }
+                : t
+        ));
+    }, [activeTabId]);
+
+    const setQtyInputs = useCallback((updater) => {
+        setTabs(prev => prev.map(t =>
+            t.id === activeTabId
+                ? { ...t, qtyInputs: typeof updater === 'function' ? updater(t.qtyInputs) : updater }
+                : t
+        ));
+    }, [activeTabId]);
+
+    // Add new tab
+    const handleAddTab = useCallback(() => {
+        const id = nextTabId();
+        setTabs(prev => [...prev, createTab(id)]);
+        setActiveTabId(id);
+    }, []);
+
+    // Close tab
+    const handleCloseTab = useCallback((tabId, e) => {
+        e.stopPropagation();
+        setTabs(prev => {
+            if (prev.length === 1) return prev; // keep at least one tab
+            const next = prev.filter(t => t.id !== tabId);
+            if (activeTabId === tabId) {
+                setActiveTabId(next[next.length - 1].id);
+            }
+            return next;
+        });
+    }, [activeTabId]);
+
+    // ── History modal ────────────────────────────────────────────────────
+    const [historyOpen, setHistoryOpen] = useState(false);
+
+    // ── Other state ──────────────────────────────────────────────────────
     const [searchInput, setSearchInput] = useState('');
     const [pendingProduct, setPendingProduct] = useState(null);
     const [paymentMethod, setPaymentMethod] = useState('cash');
@@ -33,26 +102,23 @@ const POSScreen = () => {
             setPendingProduct(product);
             return;
         }
-        // Single batch (or no batch info) — add directly
-        const batchCode = batches[0]?.batchCode ?? '';
-        addProductToCart(product, batchCode);
+        const batchId = batches[0]?.id ?? '';
+        addProductToCart(product, batchId);
     }, []);
 
-    const addProductToCart = useCallback((product, batchCode) => {
+    const addProductToCart = useCallback((product, batchId) => {
         const units = product.productUnits ?? [];
         const unitBase = units.find((u) => Number(u.unitBase) === 1) ?? units[0];
         const newItem = {
-            //check duplicate item
-            id: `${product.id}-${batchCode}`,
+            id: `${product.id}-${batchId}`,
             productId: product.id,
             code: product.barcode ?? product.id,
             name: product.name,
             unit: unitBase?.name ?? '—',
-            batch: batchCode,
+            batch: batchId,
             qty: 1,
             price: product.sellingPrice ?? 0,
         };
-
         setCartItems((prev) => {
             const existing = prev.find((i) => i.id === newItem.id);
             if (existing) {
@@ -60,13 +126,25 @@ const POSScreen = () => {
             }
             return [...prev, newItem];
         });
-    }, []);
+    }, [setCartItems]);
 
-    //Barcode scanner hook
+    // Product name search hook (debounced)
+    const { results: searchResults, loading: searchLoading, error: searchError, clearResults } =
+        useProductSearch(searchInput);
+
+    const showDropdown = searchInput.trim().length >= 2 && (searchLoading || searchError || searchResults.length >= 0);
+
+    const handleSearchSelect = useCallback((product) => {
+        onProductFound(product);
+        setSearchInput('');
+        clearResults();
+    }, [onProductFound, clearResults]);
+
+    // Barcode scanner hook
     const { scanning, error: scanError, clearError: clearScanError } =
         useBarcodeScanner({ onProductFound });
 
-    //Checkout hook
+    // Checkout hook
     const {
         phone, setPhone,
         customer,
@@ -79,7 +157,7 @@ const POSScreen = () => {
         resetCheckout,
     } = useCheckout();
 
-    //Qty editing handlers 
+    // Qty editing handlers
     const handleQtyChange = (id, raw) => {
         if (!isValidQtyInput(raw)) return;
         setQtyInputs((prev) => ({ ...prev, [id]: raw }));
@@ -113,20 +191,22 @@ const POSScreen = () => {
         setQtyInputs((prev) => { const n = { ...prev }; delete n[id]; return n; });
     };
 
-    //Derived values 
+    // Derived values
     const totalAmount = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
     const totalItems = cartItems.reduce((sum, item) => sum + item.qty, 0);
 
-    //New order reset
+    // New order reset (clears active tab's cart)
     const handleNewOrder = () => {
         setCartItems([]);
         setQtyInputs({});
         setSearchInput('');
         setPendingProduct(null);
+        clearResults();
         resetCheckout();
         clearScanError();
     };
 
+    // Render 
     return (
         <div className="pos-container">
             <header className="pos-header">
@@ -142,25 +222,58 @@ const POSScreen = () => {
                             disabled={scanning}
                             autoFocus
                         />
+                        {showDropdown && (
+                            <ProductSearchDropdown
+                                results={searchResults}
+                                loading={searchLoading}
+                                error={searchError}
+                                onSelect={handleSearchSelect}
+                                onClose={() => {
+                                    setSearchInput('');
+                                    clearResults();
+                                }}
+                            />
+                        )}
                     </div>
                 </div>
+
+                {/* ── Order Tabs ── */}
                 <div className="pos-header-center">
-                    <div className="tab-active">
-                        Hóa đơn 1
-                        <button className="tab-close">
-                            <X size={16} strokeWidth={2.5} />
+                    {tabs.map(tab => (
+                        <button
+                            key={tab.id}
+                            className={tab.id === activeTabId ? 'tab-active' : 'tab-inactive'}
+                            onClick={() => setActiveTabId(tab.id)}
+                        >
+                            {tab.label}
+                            <span
+                                className="tab-close"
+                                onClick={(e) => handleCloseTab(tab.id, e)}
+                                title="Đóng hóa đơn này"
+                            >
+                                <X size={14} strokeWidth={2.5} />
+                            </span>
                         </button>
-                    </div>
-                    <button className="btn-add-tab">
+                    ))}
+                    <button className="btn-add-tab" onClick={handleAddTab} title="Tạo hóa đơn mới">
                         <Plus size={24} strokeWidth={3} />
                     </button>
                 </div>
+
                 <div className="pos-header-right">
-                    <button className="icon-btn" onClick={handleNewOrder} title="Tạo đơn mới">
+                    <button className="icon-btn" onClick={handleNewOrder} title="Làm mới đơn hiện tại">
                         <RefreshCcw size={20} />
                     </button>
-                    <button className="icon-btn"><History size={20} /></button>
-                    <button className="icon-btn"><Menu size={24} /></button>
+                    <button
+                        className="icon-btn"
+                        onClick={() => setHistoryOpen(true)}
+                        title="Lịch sử bán hàng"
+                    >
+                        <History size={20} />
+                    </button>
+                    <button className="icon-btn" onClick={() => navigate('/admin/dashboard')} title="Trang chủ POS">
+                        <Home size={24} />
+                    </button>
                 </div>
             </header>
 
@@ -176,6 +289,7 @@ const POSScreen = () => {
                     </button>
                 </div>
             )}
+
             <div className="pos-main">
 
                 {/* LEFT COLUMN - CART */}
@@ -188,7 +302,6 @@ const POSScreen = () => {
                                     <th>MÃ HÀNG</th>
                                     <th>TÊN HÀNG</th>
                                     <th>ĐVT</th>
-                                    <th>LÔ HÀNG</th>
                                     <th className="text-center">SỐ LƯỢNG</th>
                                     <th className="text-right">ĐƠN GIÁ</th>
                                     <th className="text-right">THÀNH TIỀN</th>
@@ -197,7 +310,7 @@ const POSScreen = () => {
                             <tbody>
                                 {cartItems.length === 0 && (
                                     <tr>
-                                        <td colSpan={8} style={{ textAlign: 'center', color: '#9ca3af', padding: '40px 0' }}>
+                                        <td colSpan={7} style={{ textAlign: 'center', color: '#9ca3af', padding: '40px 0' }}>
                                             Quét mã vạch hoặc tìm kiếm để thêm sản phẩm
                                         </td>
                                     </tr>
@@ -206,7 +319,6 @@ const POSScreen = () => {
                                     const rawVal = qtyInputs[item.id];
                                     const displayVal = rawVal !== undefined ? rawVal : item.qty;
                                     const isInvalid = isQtyInvalid(rawVal);
-                                    console.log(item);
                                     return (
                                         <tr key={item.id}>
                                             <td>
@@ -220,7 +332,6 @@ const POSScreen = () => {
                                             <td className="font-bold">{item.code}</td>
                                             <td>{item.name}</td>
                                             <td>{item.unit}</td>
-                                            <td><span className="batch-cell">{item.batch}</span></td>
                                             <td>
                                                 <div className="qty-control">
                                                     <button className="qty-btn" onClick={() => changeQty(item.id, -1)}>-</button>
@@ -371,12 +482,12 @@ const POSScreen = () => {
                 </div>
             </div>
 
-            {/*BATCH SELECT MODAL */}
+            {/* BATCH SELECT MODAL */}
             {pendingProduct && (
                 <BatchSelectModal
                     product={pendingProduct}
-                    onSelect={(batchCode) => {
-                        addProductToCart(pendingProduct, batchCode);
+                    onSelect={(batchId) => {
+                        addProductToCart(pendingProduct, batchId);
                         setPendingProduct(null);
                     }}
                     onClose={() => setPendingProduct(null)}
@@ -387,8 +498,17 @@ const POSScreen = () => {
             {receipt && (
                 <ReceiptModal
                     receipt={receipt}
-                    onClose={() => {
-                        handleNewOrder();
+                    onClose={() => { handleNewOrder(); }}
+                />
+            )}
+
+            {/* HISTORY MODAL */}
+            {historyOpen && (
+                <SalesOrderHistoryModal
+                    onClose={() => setHistoryOpen(false)}
+                    onViewInvoice={(orderId) => {
+                        // Future: open order detail or load into new tab
+                        setHistoryOpen(false);
                     }}
                 />
             )}
