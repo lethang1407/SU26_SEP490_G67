@@ -6,7 +6,6 @@
     flex-direction: column;
     height: 100vh;
     background-color: #f3f4f6;
-    font-family: inherit;
     font-size: 14px;
 }
 
@@ -72,8 +71,8 @@
 }
 
 .tab-inactive {
-    background-color: rgba(255,255,255,0.18);
-    color: rgba(255,255,255,0.85);
+    background-color: rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.85);
     padding: 6px 16px;
     border-radius: 6px 6px 0 0;
     font-weight: 400;
@@ -87,7 +86,7 @@
 }
 
 .tab-inactive:hover {
-    background-color: rgba(255,255,255,0.28);
+    background-color: rgba(255, 255, 255, 0.28);
 }
 
 .tab-close {
@@ -494,8 +493,15 @@
 }
 
 @keyframes fadeInDown {
-    from { opacity: 0; transform: translateY(-6px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* ─── Batch Select Modal ─────────────────────────────────────────────────── */
@@ -733,10 +739,24 @@
 
 /* ─── Print styles ───────────────────────────────────────────────────────── */
 @media print {
-    body > *:not(.receipt-modal-overlay) { display: none !important; }
-    .receipt-modal-overlay { position: static; background: none; }
-    .receipt-modal { box-shadow: none; max-height: none; width: 100%; }
-    .receipt-actions { display: none; }
+    body>*:not(.receipt-modal-overlay) {
+        display: none !important;
+    }
+
+    .receipt-modal-overlay {
+        position: static;
+        background: none;
+    }
+
+    .receipt-modal {
+        box-shadow: none;
+        max-height: none;
+        width: 100%;
+    }
+
+    .receipt-actions {
+        display: none;
+    }
 }
 
 /* ─── Product Name Search Dropdown ──────────────────────────────────────── */
@@ -756,8 +776,15 @@
 }
 
 @keyframes psdFadeIn {
-    from { opacity: 0; transform: translateY(-4px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* State rows (loading / empty / error) */
@@ -786,8 +813,13 @@
 }
 
 @keyframes psdSpin {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Results list */
@@ -834,7 +866,6 @@
     background-color: #f3f4f6;
     padding: 1px 6px;
     border-radius: 3px;
-    font-family: monospace;
 }
 
 .psd-price {
@@ -843,4 +874,3 @@
     color: #2563eb;
     margin-left: auto;
 }
-

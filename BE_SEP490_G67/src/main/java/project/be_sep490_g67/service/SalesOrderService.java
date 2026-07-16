@@ -3,11 +3,14 @@ package project.be_sep490_g67.service;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import project.be_sep490_g67.dto.request.CreateSalesOrderRequest;
+import project.be_sep490_g67.dto.response.SalesOrderListResponse;
 import project.be_sep490_g67.dto.response.SalesOrderResponse;
 import project.be_sep490_g67.entity.*;
 import project.be_sep490_g67.repository.*;
@@ -24,22 +27,18 @@ import java.util.UUID;
 public class SalesOrderService {
 
     SalesOrderRepository salesOrderRepository;
+    SalesOrderDetailRepository salesOrderDetailRepository;
     ProductRepository productRepository;
     StockBatchRepository stockBatchRepository;
+    StockMovementRepository stockMovementRepository;
     CustomerRepository customerRepository;
+    ProductUnitRepository productUnitRepository;
 
-    /**
-     * Create a standard or debt sales order.
-     *
-     * @param request   order payload
-     * @param isDebt    true → debt invoice (customer may or may not be present)
-     * @param createdBy ID of the authenticated staff member
-     */
     @Transactional
     public SalesOrderResponse createOrder(CreateSalesOrderRequest request,
                                           boolean isDebt,
                                           Integer createdBy) {
-        //Resolve customer (optional)
+        // Resolve customer (optional)
         Customer customer = null;
         if (request.getCustomerId() != null) {
             customer = customerRepository.findById(request.getCustomerId())
@@ -47,7 +46,7 @@ public class SalesOrderService {
                             HttpStatus.NOT_FOUND, "Không tìm thấy khách hàng"));
         }
 
-        //Build order header
+        // Build order header
         SalesOrder order = new SalesOrder();
         order.setCustomer(customer);
         order.setOrderCode("SO-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
@@ -64,7 +63,7 @@ public class SalesOrderService {
                 ? request.getDiscountAmount() : BigDecimal.ZERO;
         order.setDiscountAmount(discount);
 
-        //3. Build line items
+        // Build line items
         List<SalesOrderDetail> details = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
 
@@ -74,18 +73,64 @@ public class SalesOrderService {
                             HttpStatus.NOT_FOUND,
                             "Không tìm thấy sản phẩm với mã: " + item.getProductId()));
 
-            StockBatch batch = stockBatchRepository.findById(item.getBatchId())
-                    .orElseThrow(() -> new ResponseStatusException(
-                            HttpStatus.NOT_FOUND,
-                            "Không tìm thấy lô hàng ID: " + item.getBatchId()));
+            Integer resolvedBatchId = item.getBatchId();
+
+            StockBatch batch;
+
+            if (resolvedBatchId == null || resolvedBatchId <= 0) {
+                batch = stockBatchRepository
+                        .findFirstAvailableBatchByProductId(item.getProductId())
+                        .orElseThrow(() -> new ResponseStatusException(
+                                HttpStatus.BAD_REQUEST,
+                                "Không tìm thấy lô hàng khả dụng"));
+
+                resolvedBatchId = batch.getId();
+            } else {
+                batch = stockBatchRepository.findById(resolvedBatchId)
+                        .orElseThrow(() -> new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Không tìm thấy lô hàng"));
+            }
 
             // Deduct stock
-            if (batch.getQuantityIn() < item.getQuantity()) {
+            int currentStock = stockMovementRepository
+                    .sumQuantityDeltaByBatchId(resolvedBatchId);
+            if (currentStock < item.getQuantity()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Lô hàng " + batch.getId() + " không đủ tồn kho");
+                        "Sản phẩm " + product.getName() +
+                                " không đủ tồn kho. Còn lại: " + currentStock);
             }
-            batch.setQuantityIn(batch.getQuantityIn() - item.getQuantity());
-            stockBatchRepository.save(batch);
+
+            StockMovement movement = new StockMovement();
+            movement.setStockBatch(batch);
+            movement.setMovementType("SALE");
+            movement.setReferenceType("SALES_ORDER");
+            movement.setReferenceId(order.getId()); // set sau khi save order
+            movement.setQuantityDelta(-item.getQuantity());
+            movement.setStockAfter(currentStock - item.getQuantity());
+            movement.setCreatedBy(createdBy);
+            movement.setCreatedAt(Instant.now());
+            stockMovementRepository.save(movement);
+
+            ProductUnit resolvedUnit = null;
+            String resolvedUnitName = null;
+
+            if (item.getProductUnitId() != null) {
+                // Cashier explicitly selected a unit
+                resolvedUnit = productUnitRepository.findById(item.getProductUnitId())
+                        .orElseThrow(() -> new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Không tìm thấy đơn vị sản phẩm ID: " + item.getProductUnitId()));
+                resolvedUnitName = resolvedUnit.getName();
+            } else {
+                // Fallback: use base unit (unit_base = 1)
+                resolvedUnitName = product.getProductUnits().stream()
+                        .filter(u -> u.getUnitBase() != null
+                                && u.getUnitBase().compareTo(BigDecimal.ONE) == 0)
+                        .findFirst()
+                        .map(ProductUnit::getName)
+                        .orElse(null);
+            }
 
             BigDecimal lineDiscount = item.getDiscountAmount() != null
                     ? item.getDiscountAmount() : BigDecimal.ZERO;
@@ -96,6 +141,8 @@ public class SalesOrderService {
             SalesOrderDetail detail = new SalesOrderDetail();
             detail.setSalesOrder(order);
             detail.setProduct(product);
+            detail.setProductUnit(resolvedUnit);   // FK for traceability (nullable)
+            detail.setUnitName(resolvedUnitName);  // immutable snapshot
             detail.setQuantity(item.getQuantity());
             detail.setUnitPrice(item.getUnitPrice());
             detail.setDiscountAmount(lineDiscount);
@@ -111,20 +158,18 @@ public class SalesOrderService {
 
         order.setSubtotal(subtotal);
         order.setTotalAmount(subtotal.subtract(discount));
-        order.setSalesOrderDetails(new java.util.LinkedHashSet<>(details));
+        order.setPaidAmount(isDebt ? BigDecimal.ZERO : subtotal.subtract(discount));
 
+        // Save the order header FIRST to get the generated ID
         SalesOrder saved = salesOrderRepository.save(order);
-
-        //4. Map to response
+        details.forEach(d -> d.setSalesOrder(saved));
+        salesOrderDetailRepository.saveAll(details);
         return toResponse(saved, details, request);
     }
 
-    /**
-     * Fetch the receipt for a completed order (same DTO, used as receipt).
-     */
     @Transactional(readOnly = true)
     public SalesOrderResponse getReceipt(Integer orderId) {
-        SalesOrder order = salesOrderRepository.findById(orderId)
+        SalesOrder order = salesOrderRepository.findActiveById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng"));
 
@@ -134,13 +179,19 @@ public class SalesOrderService {
                 .map(d -> SalesOrderResponse.SalesOrderDetailInfo.builder()
                         .productId(d.getProduct().getId())
                         .name(d.getProduct().getName())
-                        .batchCode("—")    // batch not directly on detail entity; extend if needed
+                        .batchCode("—")
+                        .unitName(d.getUnitName())
                         .quantity(d.getQuantity())
                         .unitPrice(d.getUnitPrice())
+                        .discountAmount(d.getDiscountAmount())
                         .lineTotal(d.getLineTotal())
                         .build())
                 .toList();
 
+        return getSalesOrderResponse(order, itemInfos);
+    }
+
+    private SalesOrderResponse getSalesOrderResponse(SalesOrder order, List<SalesOrderResponse.SalesOrderDetailInfo> itemInfos) {
         SalesOrderResponse.CustomerInfo customerInfo = null;
         if (order.getCustomer() != null) {
             customerInfo = SalesOrderResponse.CustomerInfo.builder()
@@ -159,13 +210,15 @@ public class SalesOrderService {
                 .subtotal(order.getSubtotal())
                 .discountAmount(order.getDiscountAmount())
                 .totalAmount(order.getTotalAmount())
+                .paidAmount(order.getPaidAmount())
                 .createdAt(order.getCreatedAt())
                 .customer(customerInfo)
                 .items(itemInfos)
                 .build();
     }
 
-    //Private helpers
+    // ---- Private helpers ----
+
     private SalesOrderResponse toResponse(SalesOrder saved,
                                           List<SalesOrderDetail> details,
                                           CreateSalesOrderRequest request) {
@@ -176,33 +229,54 @@ public class SalesOrderService {
                         .batchCode("BATCH-" + request.getItems().stream()
                                 .filter(i -> i.getProductId().equals(d.getProduct().getId()))
                                 .findFirst().map(i -> String.valueOf(i.getBatchId())).orElse("?"))
+                        .unitName(d.getUnitName())
                         .quantity(d.getQuantity())
                         .unitPrice(d.getUnitPrice())
+                        .discountAmount(d.getDiscountAmount())
                         .lineTotal(d.getLineTotal())
                         .build())
                 .toList();
 
-        SalesOrderResponse.CustomerInfo customerInfo = null;
-        if (saved.getCustomer() != null) {
-            customerInfo = SalesOrderResponse.CustomerInfo.builder()
-                    .id(saved.getCustomer().getId())
-                    .fullName(saved.getCustomer().getFullName())
-                    .phoneNumber(saved.getCustomer().getPhoneNumber())
-                    .build();
-        }
+        return getSalesOrderResponse(saved, itemInfos);
+    }
 
-        return SalesOrderResponse.builder()
-                .id(saved.getId())
-                .orderCode(saved.getOrderCode())
-                .paymentMethod(saved.getPaymentMethod())
-                .orderStatus(saved.getOrderStatus())
-                .isDebt(saved.getIsDebt())
-                .subtotal(saved.getSubtotal())
-                .discountAmount(saved.getDiscountAmount())
-                .totalAmount(saved.getTotalAmount())
-                .createdAt(saved.getCreatedAt())
-                .customer(customerInfo)
-                .items(itemInfos)
+    @Transactional(readOnly = true)
+    public SalesOrderListResponse getOrderHistory(
+            Integer createdByFilter,
+            String search,
+            Instant dateFrom,
+            Instant dateTo,
+            int page,
+            int size
+    ) {
+        int safeSize = Math.min(size, 50);
+        String likeSearch = (search == null || search.isBlank())
+                ? null
+                : "%" + search.toLowerCase() + "%";
+
+        Page<SalesOrder> pg = salesOrderRepository.findHistory(
+                createdByFilter, likeSearch, dateFrom, dateTo,
+                PageRequest.of(page, safeSize)
+        );
+
+        List<SalesOrderListResponse.Item> items = pg.getContent().stream()
+                .map(o -> SalesOrderListResponse.Item.builder()
+                        .id(o.getId())
+                        .orderCode(o.getOrderCode())
+                        .createdAt(o.getCreatedAt())
+                        .customerName(o.getCustomer() != null ? o.getCustomer().getFullName() : null)
+                        .totalAmount(o.getTotalAmount())
+                        .orderStatus(o.getOrderStatus())
+                        .paymentMethod(o.getPaymentMethod())
+                        .build())
+                .toList();
+
+        return SalesOrderListResponse.builder()
+                .content(items)
+                .page(pg.getNumber())
+                .size(pg.getSize())
+                .totalElements(pg.getTotalElements())
+                .totalPages(pg.getTotalPages())
                 .build();
     }
 }
