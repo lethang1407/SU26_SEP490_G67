@@ -20,6 +20,11 @@ public class ImportOrderListItemResponse {
     String orderCode;
     LocalDate receivedDate;
     String createdByName;
+    String supplierName;
+    Integer supplierId;
+    String note;
+    Integer itemCount;
+    Integer totalQuantity;
     BigDecimal totalCost;
     // "DEBT" (đang nợ) hoặc "DONE" (hoàn thành) — derive từ totalCost - tổng đã trả,
     // xem ImportOrderService.resolveStatus()

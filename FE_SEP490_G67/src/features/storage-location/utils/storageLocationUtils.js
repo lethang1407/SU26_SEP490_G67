@@ -35,6 +35,26 @@ export function isNearExpiry(expiryDate, referenceDate = new Date()) {
     return diffDays >= 0 && diffDays <= NEAR_EXPIRY_DAYS;
 }
 
+export function buildLocationLabel({ zone, aisle, shelf, bin }) {
+    if (!zone?.trim()) {
+        return '';
+    }
+
+    const parts = [zone.trim().toUpperCase()];
+
+    if (aisle?.trim()) {
+        parts.push(aisle.trim().padStart(2, '0'));
+    }
+    if (shelf?.trim()) {
+        parts.push(shelf.trim().padStart(2, '0'));
+    }
+    if (bin?.trim()) {
+        parts.push(bin.trim().padStart(2, '0'));
+    }
+
+    return parts.join('-');
+}
+
 export function getLocationProduct(location) {
     const contents = location.contents ?? [];
     if (contents.length === 0) {

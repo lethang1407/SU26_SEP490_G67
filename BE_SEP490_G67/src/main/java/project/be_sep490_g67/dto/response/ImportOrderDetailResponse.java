@@ -21,7 +21,12 @@ public class ImportOrderDetailResponse {
     String orderCode;
     LocalDate receivedDate;
     String createdByName;
+    Integer supplierId;
+    String supplierName;
+    String note;
     BigDecimal totalCost;
     String status;
+    BigDecimal paidAmount;
+    BigDecimal remainingDebt;
     List<ImportOrderItemResponse> items;
 }

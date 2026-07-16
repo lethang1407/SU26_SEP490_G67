@@ -39,8 +39,29 @@ public interface ImportOrderRepository extends JpaRepository<ImportOrder, Intege
             SELECT DISTINCT io FROM ImportOrder io
             LEFT JOIN FETCH io.importOrderDetails iod
             LEFT JOIN FETCH iod.product
+            LEFT JOIN FETCH io.supplier
             WHERE io.id = :id
               AND io.isRemoved = false
             """)
     Optional<ImportOrder> findDetailById(@Param("id") Integer id);
+
+    @Query("""
+            SELECT DISTINCT io FROM ImportOrder io
+            JOIN FETCH io.supplier s
+            WHERE io.isRemoved = false
+              AND (:search IS NULL OR :search = ''
+                   OR LOWER(io.orderCode) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(s.name) LIKE LOWER(CONCAT('%', :search, '%')))
+            ORDER BY io.receivedDate DESC, io.id DESC
+            """)
+    List<ImportOrder> searchAll(@Param("search") String search);
+
+    @Query("""
+            SELECT DISTINCT io FROM ImportOrder io
+            LEFT JOIN FETCH io.stockBatches sb
+            LEFT JOIN FETCH sb.product
+            WHERE io.id = :id
+              AND io.isRemoved = false
+            """)
+    Optional<ImportOrder> findWithBatchesById(@Param("id") Integer id);
 }

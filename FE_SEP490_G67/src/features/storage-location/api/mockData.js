@@ -235,10 +235,81 @@ export const MOCK_STORAGE_LOCATIONS = [
     },
 ];
 
+/**
+ * Lô đã nhập kho nhưng chưa được xếp lên kệ (chưa có batch_locations).
+ * Dùng cho popup Điều chỉnh — kéo thả vào kệ.
+ */
+export const MOCK_UNPLACED_BATCHES = [
+    {
+        id: 'unplaced-1',
+        productCode: 'SP00124',
+        productName: 'Nước giải khát Coca Cola 330ml',
+        unit: 'Lon',
+        batchCode: 'BATCH-130',
+        quantity: 80,
+        importPrice: 10000,
+        expiryDate: '2027-03-15',
+    },
+    {
+        id: 'unplaced-2',
+        productCode: 'SP00089',
+        productName: 'Sữa tươi tiệt trùng Vinamilk 1L',
+        unit: 'Hộp',
+        batchCode: 'BATCH-206',
+        quantity: 50,
+        importPrice: 32000,
+        expiryDate: '2026-10-15',
+    },
+    {
+        id: 'unplaced-3',
+        productCode: 'SP00178',
+        productName: 'Mì Hảo Hảo tôm chua cay',
+        unit: 'Gói',
+        batchCode: 'BATCH-302',
+        quantity: 200,
+        importPrice: 3200,
+        expiryDate: '2026-11-01',
+    },
+    {
+        id: 'unplaced-4',
+        productCode: 'SP00412',
+        productName: "Kem Wall's Magnum Classic",
+        unit: 'Cây',
+        batchCode: 'BATCH-046',
+        quantity: 24,
+        importPrice: 22000,
+        expiryDate: '2026-07-20',
+    },
+    {
+        id: 'unplaced-5',
+        productCode: 'SP00042',
+        productName: 'Gạo ST25 Hạt Ngọc Trời 5kg',
+        unit: 'Bao',
+        batchCode: 'BATCH-313',
+        quantity: 15,
+        importPrice: 125000,
+        expiryDate: '2027-06-30',
+    },
+    {
+        id: 'unplaced-6',
+        productCode: 'SP00331',
+        productName: 'Pepsi 330ml',
+        unit: 'Lon',
+        batchCode: 'BATCH-125',
+        quantity: 96,
+        importPrice: 9500,
+        expiryDate: '2026-12-01',
+    },
+];
+
 export function getStorageLocations() {
     return MOCK_STORAGE_LOCATIONS;
 }
 
 export function getStorageLocationById(id) {
     return MOCK_STORAGE_LOCATIONS.find((item) => item.id === Number(id)) ?? null;
+}
+
+export function getUnplacedBatches() {
+    return MOCK_UNPLACED_BATCHES.map((item) => ({ ...item }));
 }

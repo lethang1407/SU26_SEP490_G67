@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Alert, Spinner } from 'react-bootstrap';
 import { Download, Printer } from 'lucide-react';
 import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
-import { getCheckLinesById, getInventoryCheckById } from '../api/mockData';
+import { getApiErrorMessage } from '../../../utils/api-utils';
+import { fetchInventoryCheckById } from '../api';
 import InventoryCheckLineTable from '../components/InventoryCheckLineTable';
 import InventoryCheckStatusBadge from '../components/InventoryCheckStatusBadge';
 import {
@@ -21,9 +23,61 @@ export default function InventoryCheckDetailPage() {
     const { checkId } = useParams();
     const navigate = useNavigate();
     const [lineKeyword, setLineKeyword] = useState('');
+    const [check, setCheck] = useState(null);
+    const [lines, setLines] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    const check = useMemo(() => getInventoryCheckById(checkId), [checkId]);
-    const lines = useMemo(() => getCheckLinesById(checkId), [checkId]);
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadDetail = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const result = await fetchInventoryCheckById(checkId);
+                if (cancelled) return;
+                setCheck(result);
+                setLines(result?.lines ?? []);
+            } catch (fetchError) {
+                if (!cancelled) {
+                    setCheck(null);
+                    setLines([]);
+                    setError(
+                        getApiErrorMessage(fetchError, 'Không tìm thấy phiếu kiểm kho.'),
+                    );
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            }
+        };
+
+        loadDetail();
+        return () => {
+            cancelled = true;
+        };
+    }, [checkId]);
+
+    if (loading) {
+        return (
+            <div className="admin-layout">
+                <SideBar />
+                <div className="admin-content">
+                    <AdminHeader />
+                    <main className="admin-main">
+                        <div className="dashboard-container inventory-check-page">
+                            <div className="inventory-check-table-card inventory-check-table-card--empty">
+                                <Spinner animation="border" size="sm" className="me-2" />
+                                Đang tải chi tiết phiếu kiểm kho...
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            </div>
+        );
+    }
 
     if (!check) {
         return (
@@ -34,6 +88,7 @@ export default function InventoryCheckDetailPage() {
                     <main className="admin-main">
                         <div className="dashboard-container inventory-check-page">
                             <div className="inventory-check-table-card inventory-check-table-card--empty">
+                                {error && <Alert variant="danger">{error}</Alert>}
                                 <p>Không tìm thấy phiếu kiểm kho.</p>
                                 <Link
                                     to={INVENTORY_CHECK_ROUTES.list}
@@ -94,7 +149,9 @@ export default function InventoryCheckDetailPage() {
                                 <button
                                     type="button"
                                     className="inventory-btn inventory-btn--secondary"
-                                    onClick={() => window.alert('Chức năng in phiếu đang phát triển.')}
+                                    onClick={() =>
+                                        window.alert('Chức năng in phiếu đang phát triển.')
+                                    }
                                 >
                                     <Printer size={18} />
                                     In phiếu
@@ -102,7 +159,9 @@ export default function InventoryCheckDetailPage() {
                                 <button
                                     type="button"
                                     className="inventory-btn inventory-btn--secondary"
-                                    onClick={() => window.alert('Chức năng xuất file đang phát triển.')}
+                                    onClick={() =>
+                                        window.alert('Chức năng xuất file đang phát triển.')
+                                    }
                                 >
                                     <Download size={18} />
                                     Xuất file
@@ -123,7 +182,9 @@ export default function InventoryCheckDetailPage() {
                             <aside className="inventory-check-detail-sidebar">
                                 <InventoryCheckInfoPanel check={check} />
                                 <InventoryCheckSummaryPanel lines={lines} />
-                                <InventoryCheckNotePanel note={check.generalNote} />
+                                <InventoryCheckNotePanel
+                                    note={check.generalNote || check.note}
+                                />
                             </aside>
                         </div>
                     </div>

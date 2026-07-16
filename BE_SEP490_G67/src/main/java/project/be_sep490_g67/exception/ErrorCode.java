@@ -46,6 +46,21 @@ public enum ErrorCode {
     NOT_FOUND_IMPORT_ORDER(1028, "Không tìm thấy đơn nhập hàng", HttpStatus.NOT_FOUND),
     INVALID_PAYMENT_AMOUNT(1029, "Số tiền thanh toán không hợp lệ", HttpStatus.BAD_REQUEST),
     PAYMENT_EXCEEDS_DEBT(1030, "Số tiền vượt quá số nợ còn lại của đơn hàng", HttpStatus.BAD_REQUEST),
+    STORAGE_LOCATION_NOT_FOUND(1031, "Không tìm thấy vị trí kho", HttpStatus.NOT_FOUND),
+    STORAGE_LOCATION_LABEL_EXISTED(1032, "Mã vị trí kho đã tồn tại", HttpStatus.CONFLICT),
+    STOCK_BATCH_NOT_FOUND(1033, "Không tìm thấy lô hàng", HttpStatus.NOT_FOUND),
+    BATCH_LOCATION_NOT_FOUND(1034, "Không tìm thấy phân bổ lô trên kệ", HttpStatus.NOT_FOUND),
+    STORAGE_LOCATION_PRODUCT_MISMATCH(1035, "Kệ đang chứa sản phẩm khác. Mỗi kệ chỉ chứa một loại sản phẩm", HttpStatus.BAD_REQUEST),
+    INSUFFICIENT_UNPLACED_QUANTITY(1036, "Số lượng xếp vượt quá số lượng lô chưa xếp kệ", HttpStatus.BAD_REQUEST),
+    INSUFFICIENT_BATCH_LOCATION_QUANTITY(1037, "Số lượng chuyển vượt quá số lượng đang có trên kệ", HttpStatus.BAD_REQUEST),
+    INVALID_BATCH_LOCATION_MOVE(1038, "Không thể chuyển lô về cùng một kệ", HttpStatus.BAD_REQUEST),
+    IMPORT_ITEMS_EMPTY(1039, "Phiếu nhập phải có ít nhất một dòng sản phẩm", HttpStatus.BAD_REQUEST),
+    INVALID_IMPORT_QUANTITY(1040, "Số lượng nhập phải lớn hơn 0", HttpStatus.BAD_REQUEST),
+    INVALID_IMPORT_COST(1041, "Đơn giá nhập không hợp lệ", HttpStatus.BAD_REQUEST),
+    INVENTORY_CHECK_NOT_FOUND(1042, "Không tìm thấy phiếu kiểm kho", HttpStatus.NOT_FOUND),
+    INVENTORY_CHECK_ITEMS_EMPTY(1043, "Phiếu kiểm kho phải có ít nhất một dòng", HttpStatus.BAD_REQUEST),
+    INVALID_INVENTORY_CHECK_QTY(1044, "Số lượng thực tế kiểm kho không hợp lệ", HttpStatus.BAD_REQUEST),
+    INVENTORY_CHECK_DUPLICATE_LINE(1045, "Không được kiểm trùng một lô tại cùng vị trí trong một phiếu", HttpStatus.BAD_REQUEST),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {
