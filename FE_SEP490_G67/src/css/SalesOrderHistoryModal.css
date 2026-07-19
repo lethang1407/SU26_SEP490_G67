@@ -1,0 +1,357 @@
+/* SalesOrderHistoryModal.css */
+
+/* ── Overlay ── */
+.hist-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: hist-fade-in 0.15s ease;
+}
+
+@keyframes hist-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* ── Modal card ── */
+.hist-modal {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+    width: 860px;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 64px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: hist-slide-up 0.18s ease;
+}
+
+@keyframes hist-slide-up {
+    from { transform: translateY(24px); opacity: 0; }
+    to   { transform: translateY(0);   opacity: 1; }
+}
+
+/* ── Header ── */
+.hist-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 20px 24px 14px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.hist-header-title {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.hist-header-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: #eff6ff;
+    border-radius: 10px;
+    color: #2563eb;
+    flex-shrink: 0;
+}
+
+.hist-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.hist-subtitle {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 2px;
+}
+
+.hist-close-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6b7280;
+    padding: 4px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    transition: background 0.15s, color 0.15s;
+}
+
+.hist-close-btn:hover {
+    background: #f3f4f6;
+    color: #111;
+}
+
+/* ── Toolbar ── */
+.hist-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 24px;
+    border-bottom: 1px solid #f3f4f6;
+    flex-wrap: wrap;
+}
+
+.hist-search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 220px;
+}
+
+.hist-search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9ca3af;
+}
+
+.hist-search-input {
+    width: 100%;
+    padding: 7px 12px 7px 32px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 13px;
+    outline: none;
+    background: #f9fafb;
+    color: #1f2937;
+    transition: border-color 0.15s;
+}
+
+.hist-search-input:focus {
+    border-color: #2563eb;
+    background: #fff;
+}
+
+.hist-date-pills {
+    display: flex;
+    gap: 6px;
+}
+
+.hist-pill {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.hist-pill:hover {
+    border-color: #2563eb;
+    color: #2563eb;
+}
+
+.hist-pill.active {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+}
+
+.hist-custom-dates {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #374151;
+}
+
+.hist-date-input {
+    padding: 5px 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 13px;
+    outline: none;
+}
+
+.hist-date-input:focus {
+    border-color: #2563eb;
+}
+
+/* ── Table ── */
+.hist-table-wrap {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 24px;
+}
+
+.hist-error {
+    padding: 12px;
+    color: #dc2626;
+    font-size: 13px;
+}
+
+.hist-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+}
+
+.hist-table th {
+    padding: 11px 12px;
+    text-align: left;
+    color: #374151;
+    font-weight: 600;
+    font-size: 13px;
+    border-bottom: 1px solid #e5e7eb;
+    white-space: nowrap;
+    background: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.hist-table td {
+    padding: 12px 12px;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
+    color: #1f2937;
+}
+
+.hist-row:hover td {
+    background: #f9fafb;
+}
+
+.hist-order-code {
+    color: #2563eb;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.hist-order-code:hover {
+    text-decoration: underline;
+}
+
+.hist-time {
+    color: #6b7280;
+    white-space: nowrap;
+}
+
+.hist-amount {
+    font-weight: 600;
+    color: #111827;
+    white-space: nowrap;
+}
+
+.hist-empty {
+    text-align: center;
+    color: #9ca3af;
+    padding: 48px 0;
+    font-size: 14px;
+}
+
+/* ── Status badges ── */
+.hist-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.badge-completed { background: #dcfce7; color: #15803d; }
+.badge-cancelled { background: #f3f4f6; color: #6b7280; }
+.badge-returned  { background: #fff7ed; color: #c2410c; }
+.badge-debt      { background: #fef9c3; color: #a16207; }
+.badge-default   { background: #f3f4f6; color: #6b7280; }
+
+/* ── Action buttons ── */
+.hist-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.hist-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #fff;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.hist-action-btn:hover {
+    border-color: #2563eb;
+    color: #2563eb;
+    background: #eff6ff;
+}
+
+/* ── Footer ── */
+.hist-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    border-top: 1px solid #e5e7eb;
+    background: #fafafa;
+}
+
+.hist-count {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.hist-pagination {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.hist-page-btn {
+    min-width: 32px;
+    height: 32px;
+    padding: 0 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #fff;
+    color: #374151;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hist-page-btn:hover:not(:disabled) {
+    border-color: #2563eb;
+    color: #2563eb;
+}
+
+.hist-page-btn.active {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+    font-weight: 700;
+}
+
+.hist-page-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+    .hist-modal { width: 100vw; height: 100vh; border-radius: 0; }
+    .hist-date-pills { flex-wrap: wrap; }
+}
