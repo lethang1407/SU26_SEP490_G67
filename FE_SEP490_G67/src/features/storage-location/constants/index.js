@@ -28,3 +28,23 @@ export const VIEW_MODE = {
 };
 
 export const NEAR_EXPIRY_DAYS = 7;
+
+/** Kích thước ô kệ — ảnh hưởng sức chứa và diện tích trên sơ đồ. */
+export const SHELF_SIZE = {
+    SM: 'sm',
+    MD: 'md',
+    LG: 'lg',
+};
+
+export const SHELF_SIZE_LABEL = {
+    [SHELF_SIZE.SM]: 'Ô nhỏ',
+    [SHELF_SIZE.MD]: 'Ô vừa',
+    [SHELF_SIZE.LG]: 'Ô lớn',
+};
+
+/** Sức chứa ước tính (đơn vị số lượng) theo kích thước ô. */
+export const SHELF_CAPACITY = {
+    [SHELF_SIZE.SM]: 80,
+    [SHELF_SIZE.MD]: 200,
+    [SHELF_SIZE.LG]: 500,
+};

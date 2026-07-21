@@ -10,14 +10,12 @@ import { fetchStorageLocations } from '../api';
 import CreateStorageLocationModal from '../components/CreateStorageLocationModal';
 import StorageLocationDetailDrawer from '../components/StorageLocationDetailDrawer';
 import StorageLocationGrid from '../components/StorageLocationGrid';
-import StorageLocationSummaryCards from '../components/StorageLocationSummaryCards';
 import StorageLocationTable from '../components/StorageLocationTable';
 import StorageLocationToolbar from '../components/StorageLocationToolbar';
 import { INVENTORY_CHECK_ROUTES } from '../../inventory-check/constants';
 import { INVENTORY_ROUTES } from '../../inventory/constants';
 import { LOCATION_STATUS, VIEW_MODE } from '../constants';
 import {
-    buildLocationSummary,
     filterStorageLocations,
     getAisleOptions,
     getZoneOptions,
@@ -49,9 +47,9 @@ export default function StorageLocationListPage() {
     const [selectedLocation, setSelectedLocation] = useState(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showAdjustModal, setShowAdjustModal] = useState(false);
-    const [successMessage, setSuccessMessage] = useState(null);
     const [reloadKey, setReloadKey] = useState(0);
     const [draftLocations, setDraftLocations] = useState(null);
+    const [expandedZones, setExpandedZones] = useState(() => new Set());
 
     useEffect(() => {
         let isCancelled = false;
@@ -92,8 +90,6 @@ export default function StorageLocationListPage() {
 
     const locationsData = draftLocations ?? allLocations;
 
-    const summary = useMemo(() => buildLocationSummary(locationsData), [locationsData]);
-
     const zoneOptions = useMemo(() => getZoneOptions(locationsData), [locationsData]);
     const aisleOptions = useMemo(
         () => getAisleOptions(locationsData, appliedFilters.zoneFilter),
@@ -110,13 +106,53 @@ export default function StorageLocationListPage() {
         [filteredLocations],
     );
 
+    useEffect(() => {
+        if (zoneGroups.length === 0) {
+            return;
+        }
+
+        setExpandedZones((prev) => {
+            const next = new Set();
+            const hasActiveFilter =
+                appliedFilters.zoneFilter !== 'all' ||
+                appliedFilters.aisleFilter !== 'all' ||
+                appliedFilters.statusFilter !== 'all' ||
+                Boolean(appliedFilters.keyword?.trim());
+
+            if (hasActiveFilter) {
+                zoneGroups.forEach((group) => next.add(group.zone));
+            } else {
+                zoneGroups.forEach((group) => {
+                    if (prev.has(group.zone)) {
+                        next.add(group.zone);
+                    }
+                });
+            }
+
+            const prevList = [...prev].sort().join(',');
+            const nextList = [...next].sort().join(',');
+            return prevList === nextList ? prev : next;
+        });
+    }, [zoneGroups, appliedFilters]);
+
+    const handleToggleZone = (zone) => {
+        setExpandedZones((prev) => {
+            const next = new Set(prev);
+            if (next.has(zone)) {
+                next.delete(zone);
+            } else {
+                next.add(zone);
+            }
+            return next;
+        });
+    };
+
     const existingZones = useMemo(
         () => [...new Set(locationsData.map((location) => location.zone).filter(Boolean))],
         [locationsData],
     );
 
     const handleLocationCreated = (createdLocation) => {
-        setSuccessMessage(`Đã thêm vị trí ${createdLocation?.label ?? ''} thành công.`);
         setReloadKey((prev) => prev + 1);
         setSelectedLocation(createdLocation ?? null);
     };
@@ -124,7 +160,6 @@ export default function StorageLocationListPage() {
     const handleAdjustSaved = () => {
         setShowAdjustModal(false);
         setDraftLocations(null);
-        setSuccessMessage('Đã cập nhật vị trí lô hàng.');
         setReloadKey((prev) => prev + 1);
     };
 
@@ -148,14 +183,6 @@ export default function StorageLocationListPage() {
     const handleZoneChange = (value) => {
         setZoneFilter(value);
         setAisleFilter('all');
-    };
-
-    const handleStatFilter = (status) => {
-        setStatusFilter(status);
-        setAppliedFilters((prev) => ({
-            ...prev,
-            statusFilter: status,
-        }));
     };
 
     const handleCheckLocation = (location) => {
@@ -182,10 +209,10 @@ export default function StorageLocationListPage() {
                     >
                         <header className="inventory-page__header">
                             <div>
-                                <h1 className="inventory-page__title">Vị trí kệ hàng</h1>
+                                <h1 className="inventory-page__title">Vị trí hàng hóa</h1>
                                 <p className="inventory-page__subtitle">
-                                    Tra cứu vị trí kệ và hàng hóa đang lưu. Mỗi kệ chỉ chứa một
-                                    loại sản phẩm, có thể có nhiều lô cùng SP.
+                                    Xem sức chứa theo khu trước, rồi mở khu cần xếp hàng. Ô lớn /
+                                    vừa / nhỏ phản ánh khả năng chứa khác nhau trên sơ đồ kho.
                                 </p>
                             </div>
                             <div className="inventory-page__actions">
@@ -208,11 +235,6 @@ export default function StorageLocationListPage() {
                             </div>
                         </header>
 
-                        <StorageLocationSummaryCards
-                            summary={summary}
-                            onFilterStatus={handleStatFilter}
-                        />
-
                         <StorageLocationToolbar
                             keyword={keyword}
                             zoneFilter={zoneFilter}
@@ -230,16 +252,6 @@ export default function StorageLocationListPage() {
                             onReset={handleResetFilters}
                         />
 
-                        {successMessage && (
-                            <Alert
-                                variant="success"
-                                dismissible
-                                onClose={() => setSuccessMessage(null)}
-                            >
-                                {successMessage}
-                            </Alert>
-                        )}
-
                         {error && <Alert variant="danger">{error}</Alert>}
 
                         {isLoading ? (
@@ -255,6 +267,8 @@ export default function StorageLocationListPage() {
                                         groups={zoneGroups}
                                         selectedLocationId={selectedLocation?.id ?? null}
                                         onSelectLocation={setSelectedLocation}
+                                        expandedZones={expandedZones}
+                                        onToggleZone={handleToggleZone}
                                     />
                                 ) : (
                                     <StorageLocationTable

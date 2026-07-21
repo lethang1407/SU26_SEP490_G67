@@ -66,7 +66,7 @@ export const menus = [
                 path: "/admin/warehouse/inventory"
             },
             {
-                title: "Vị trí kho",
+                title: "Vị trí hàng hóa",
                 path: "/admin/warehouse/locations"
             },
             {

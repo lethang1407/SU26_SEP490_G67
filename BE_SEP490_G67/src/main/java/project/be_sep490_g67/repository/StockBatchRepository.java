@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 import project.be_sep490_g67.entity.StockBatch;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface StockBatchRepository extends JpaRepository<StockBatch, Integer> {
 
@@ -27,10 +28,6 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
             """)
     List<Object[]> sumStockByProductIds(@Param("productIds") List<Integer> productIds);
 
-    /**
-     * Lô còn số lượng chưa được xếp hết lên kệ
-     * (quantity_in > tổng quantity trên batch_locations).
-     */
     @Query("""
             SELECT sb FROM StockBatch sb
             JOIN FETCH sb.product p
@@ -52,4 +49,21 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
               AND sb.isRemoved = false
             """)
     Optional<StockBatch> findActiveWithProductById(@Param("id") Integer id);
+
+    @Query("""
+    SELECT sb
+    FROM StockBatch sb
+    JOIN sb.stockMovements sm
+    WHERE sb.product.id = :productId
+      AND sb.isRemoved = false
+      AND (sb.expiryDate IS NULL OR sb.expiryDate >= CURRENT_DATE)
+    GROUP BY sb
+    HAVING COALESCE(SUM(sm.quantityDelta), 0) > 0
+    ORDER BY
+        CASE WHEN sb.expiryDate IS NULL THEN 1 ELSE 0 END,
+        sb.expiryDate ASC,
+        sb.receivedDate ASC
+    LIMIT 1
+    """)
+    Optional<StockBatch> findFirstAvailableBatchByProductId(Integer productId);
 }
