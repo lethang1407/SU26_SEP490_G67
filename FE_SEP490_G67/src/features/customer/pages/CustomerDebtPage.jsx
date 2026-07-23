@@ -101,7 +101,7 @@ export default function CustomerDebtPage() {
   // State for filters
   const [filters, setFilters] = useState({
     page: 1,
-    size: 10,
+    size: 20,
     keyword: "",
     status: "",
     sortBy: "priority",
@@ -183,7 +183,6 @@ export default function CustomerDebtPage() {
     }
 
     setFilters((prev) => ({ ...prev, startDate, endDate, page: 1 }));
-    setFilters((prev) => ({ ...prev, page: 1 }));
   };
 
   const handleStatusFilterChange = (value) => {
@@ -247,7 +246,7 @@ export default function CustomerDebtPage() {
               </Card>
             </Col>
 
-            <Col md={4}>
+            {/* <Col md={4}>
               <Card className="shadow-sm border-0">
                 <Card.Body>
                   <div className="d-flex align-items-center gap-3">
@@ -261,7 +260,7 @@ export default function CustomerDebtPage() {
                   </div>
                 </Card.Body>
               </Card>
-            </Col>
+            </Col> */}
 
             <Col md={4}>
               <Card className="shadow-sm border-0">
@@ -330,57 +329,40 @@ export default function CustomerDebtPage() {
                     <th>Điện thoại</th>
                     <th>Tổng nợ hiện tại</th>
                     <th>Trạng thái</th>
-                    <th className="text-center">Hành động</th>
                   </tr>
                 </thead>
 
                 <tbody>
                   {isLoading ? (
                     <tr>
-                      <td colSpan="6" className="text-center py-5">
+                      <td colSpan="5" className="text-center py-5">
                         Đang tải dữ liệu...
                       </td>
                     </tr>
                   ) : debtData.content.length === 0 ? (
                     <tr>
-                      <td colSpan="6" className="text-center py-5 text-muted">
+                      <td colSpan="5" className="text-center py-5 text-muted">
                         Không tìm thấy dữ liệu phù hợp.
                       </td>
                     </tr>
                   ) : (
                     debtData.content.map((item, index) => {
                       const priority = getPriorityInfo(item);
-                      // Điều kiện mới: Chỉ cần không được phép nợ là làm nổi bật
                       const isCriticalViolation = !item.allowDebt;
                       return (
-                      <tr key={item.id} className={priority.className} title={priority.tooltip}>
+                      <tr key={item.id} className={`${priority.className} customer-row`} title={priority.tooltip} onClick={() => navigate(`/admin/customer/${item.id}`)}>
                         <td>{(filters.page - 1) * filters.size + index + 1}</td>
+                        <td className={`fw-medium ${isCriticalViolation ? 'text-highlight-critical' : ''}`}>{item.fullName}</td>
+                        <td className={`fw-medium ${isCriticalViolation ? 'text-highlight-critical' : ''}`}>{item.phoneNumber || 'N/A'}</td>
                         <td className={`fw-medium ${isCriticalViolation ? 'text-highlight-critical' : ''}`}>
-                          {item.fullName}
+                          {formatCurrency(item.totalDebt)}
+                          {item.totalOrdersInDebt > 0 && ` (${item.totalOrdersInDebt} đơn)`}
+                          {(item.totalOrdersInDebt === null || typeof item.totalOrdersInDebt === 'undefined') && ' (N/A đơn)'}
                         </td>
-                        <td className={isCriticalViolation ? 'text-highlight-critical' : ''}>{item.phoneNumber}</td>
-                        <td>{formatCurrency(item.totalDebt)}</td>
-                        <td>{getStatusBadge(item.debtStatus)}</td>
-
                         <td>
-                          <div className="d-flex justify-content-center gap-3">
-                            {/* <Button
-                              size="sm"
-                              variant="link"
-                              className="p-0 text-primary"
-                            >
-                              <BsArrowCounterclockwise />
-                            </Button> */}
-
-                            <Button
-                              size="sm"
-                              variant="link"
-                              className="p-0 text-success"
-                              onClick={() => navigate(`/admin/customer/${item.id}`)}
-                            >
-                              <BsEye />
-                            </Button>
-                          </div>
+                          {getStatusBadge(item.debtStatus)}
+                          {item.totalOverdueOrders > 0 && ` - (${item.totalOverdueOrders} đơn)`}
+                          {(item.totalOverdueOrders === null || typeof item.totalOverdueOrders === 'undefined') && ' - (N/A đơn)'}
                         </td>
                       </tr>
                       );
@@ -393,7 +375,7 @@ export default function CustomerDebtPage() {
               <div className="d-flex justify-content-between align-items-center mt-4">
                 <small className="text-muted">
                   Hiển thị {debtData.content.length} trong tổng số{" "}
-                  {debtData.totalElements} khách hàng nợ
+                  {debtData.totalElements} khách hàng - <b>({overview?.debtCustomerCount || 0} khách đang nợ)</b>
                 </small>
 
                 <Pagination className="mb-0">

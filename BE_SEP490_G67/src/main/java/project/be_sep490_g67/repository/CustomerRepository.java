@@ -72,8 +72,18 @@ public interface CustomerRepository extends JpaRepository<Customer, Integer> {
     )
 
     AND (:allowDebt IS NULL OR c.allowDebt = :allowDebt)
-    AND (:fromDate IS NULL OR c.createdAt >= :fromDate)
-    AND (:toDate IS NULL OR c.createdAt < :toDate)
+    AND (
+        :fromDate IS NULL OR EXISTS (
+            SELECT 1 FROM SalesOrder so
+            WHERE so.customer = c AND so.isDebt = true AND so.createdAt >= :fromDate
+        )
+    )
+    AND (
+        :toDate IS NULL OR EXISTS (
+            SELECT 1 FROM SalesOrder so
+            WHERE so.customer = c AND so.isDebt = true AND so.createdAt < :toDate
+        )
+    )
     """,
     countQuery = """
     SELECT count(c)
@@ -109,8 +119,18 @@ public interface CustomerRepository extends JpaRepository<Customer, Integer> {
     )
 
     AND (:allowDebt IS NULL OR c.allowDebt = :allowDebt)
-    AND (:fromDate IS NULL OR c.createdAt >= :fromDate)
-    AND (:toDate IS NULL OR c.createdAt < :toDate)
+    AND (
+        :fromDate IS NULL OR EXISTS (
+            SELECT 1 FROM SalesOrder so
+            WHERE so.customer = c AND so.isDebt = true AND so.createdAt >= :fromDate
+        )
+    )
+    AND (
+        :toDate IS NULL OR EXISTS (
+            SELECT 1 FROM SalesOrder so
+            WHERE so.customer = c AND so.isDebt = true AND so.createdAt < :toDate
+        )
+    )
     """)
     Page<Customer> searchCustomers(
             @Param("keyword") String keyword,
@@ -156,8 +176,18 @@ public interface CustomerRepository extends JpaRepository<Customer, Integer> {
     )
 
     AND (:allowDebt IS NULL OR c.allowDebt = :allowDebt)
-    AND (:fromDate IS NULL OR c.createdAt >= :fromDate)
-    AND (:toDate IS NULL OR c.createdAt < :toDate)
+    AND (
+        :fromDate IS NULL OR EXISTS (
+            SELECT 1 FROM SalesOrder so
+            WHERE so.customer = c AND so.isDebt = true AND so.createdAt >= :fromDate
+        )
+    )
+    AND (
+        :toDate IS NULL OR EXISTS (
+            SELECT 1 FROM SalesOrder so
+            WHERE so.customer = c AND so.isDebt = true AND so.createdAt < :toDate
+        )
+    )
     ORDER BY
     CASE
         WHEN c.allowDebt = true AND c.totalDebt > 0 AND EXISTS (SELECT 1 FROM SalesOrder so WHERE so.customer = c AND so.isDebt = true AND so.dueDate < :overdueDate AND so.totalAmount > (so.paidAmount + COALESCE((SELECT SUM(dp.amountPaid) FROM DebtPayment dp WHERE dp.salesOrder = so), 0))) THEN 1
@@ -203,8 +233,18 @@ public interface CustomerRepository extends JpaRepository<Customer, Integer> {
     )
 
     AND (:allowDebt IS NULL OR c.allowDebt = :allowDebt)
-    AND (:fromDate IS NULL OR c.createdAt >= :fromDate)
-    AND (:toDate IS NULL OR c.createdAt < :toDate)
+    AND (
+        :fromDate IS NULL OR EXISTS (
+            SELECT 1 FROM SalesOrder so
+            WHERE so.customer = c AND so.isDebt = true AND so.createdAt >= :fromDate
+        )
+    )
+    AND (
+        :toDate IS NULL OR EXISTS (
+            SELECT 1 FROM SalesOrder so
+            WHERE so.customer = c AND so.isDebt = true AND so.createdAt < :toDate
+        )
+    )
     """)
     Page<Customer> searchCustomersAndSortByPriority(
             @Param("keyword") String keyword,

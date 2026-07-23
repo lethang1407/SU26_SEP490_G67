@@ -57,3 +57,33 @@ tr.priority-1, tr.priority-2, tr.priority-3, tr.priority-4, tr.priority-5, tr.pr
     color: #b91c1c !important; /* Màu đỏ sẫm, rất nổi bật */
     font-weight: 700 !important; /* In đậm hơn bình thường */
 }
+
+/* === Custom Breadcrumb Styling === */
+.custom-breadcrumb {
+  display: flex;
+  align-items: center;
+  font-size: 1rem;
+  color: #6c757d; /* text-muted color */
+}
+
+.custom-breadcrumb__link {
+  color: #0d6efd; /* primary color */
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s ease-in-out;
+}
+
+.custom-breadcrumb__link:hover {
+  color: #0a58ca;
+  text-decoration: underline;
+}
+
+.custom-breadcrumb__sep {
+  margin: 0 0.5rem;
+  color: #adb5bd;
+}
+
+.custom-breadcrumb__current {
+  color: #212529;
+  font-weight: 500;
+}

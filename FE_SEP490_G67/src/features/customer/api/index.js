@@ -12,7 +12,12 @@ export async function getCustomerDebts(params) {
 
 export async function createCustomerDebt(data) {
     const response = await api.post('/customers', data);
-    return response; // Trả về toàn bộ response để kiểm tra message và code
+    return response; 
+}
+
+export async function updateCustomer(customerId, data) {
+    const response = await api.put(`/customers/${customerId}`, data);
+    return response; 
 }
 
 export async function getCustomerDetail(customerId) {
