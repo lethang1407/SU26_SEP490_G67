@@ -23,4 +23,5 @@ public class CustomerResponse {
     String note;
     Boolean isOverdue;
     Long totalOrdersInDebt;
+    Long totalOverdueOrders;
 }

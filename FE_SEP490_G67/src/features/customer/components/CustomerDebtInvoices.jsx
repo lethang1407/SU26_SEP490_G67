@@ -22,26 +22,49 @@ const formatCurrency = (value) => {
 
 const formatDate = (dateString) => {
   if (!dateString) return "N/A";
-  return new Date(dateString).toLocaleDateString("vi-VN");
+  return new Date(dateString).toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 };
 
+const formatDateTime = (dateString) => {
+  if (!dateString) return "N/A";
+  return new Date(dateString).toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 const getStatusBadge = (status) => {
   switch (status) {
     case "PAID":
       return <Badge bg="success">Đã thanh toán</Badge>;
     case "PARTIALLY_PAID":
-      return <Badge bg="warning" text="dark">Thanh toán một phần</Badge>;
+      return (
+        <Badge bg="warning" text="dark">
+          Thanh toán một phần
+        </Badge>
+      );
     case "UNPAID":
       return <Badge bg="danger">Chưa thanh toán</Badge>;
     case "OVERDUE":
-        return <Badge bg="danger">Quá hạn</Badge>;
+      return <Badge bg="danger">Quá hạn</Badge>;
     default:
       return <Badge bg="secondary">{status}</Badge>;
   }
 };
 
-export default function CustomerDebtInvoices({ customerId }) {
-  const [invoices, setInvoices] = useState({ content: [], totalPages: 1, page: 1, totalElements: 0 });
+export default function CustomerDebtInvoices({ customerId, refreshKey }) {
+  const [invoices, setInvoices] = useState({
+    content: [],
+    totalPages: 1,
+    page: 1,
+    totalElements: 0,
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState({
     page: 1,
@@ -75,7 +98,7 @@ export default function CustomerDebtInvoices({ customerId }) {
     };
 
     fetchInvoices();
-  }, [customerId, filters]);
+  }, [customerId, filters, refreshKey]);
 
   const handlePageChange = (newPage) => {
     setFilters((prev) => ({ ...prev, page: newPage }));
@@ -98,7 +121,7 @@ export default function CustomerDebtInvoices({ customerId }) {
           </InputGroup>
         </Col>
         <Col md={3} className="ms-auto">
-          <InputGroup>
+          {/* <InputGroup>
             <InputGroup.Text>
               <FiClock />
             </InputGroup.Text>
@@ -108,7 +131,7 @@ export default function CustomerDebtInvoices({ customerId }) {
               <option>30 ngày</option>
               <option>90 ngày</option>
             </Form.Select>
-          </InputGroup>
+          </InputGroup> */}
         </Col>
       </Row>
 
@@ -118,10 +141,12 @@ export default function CustomerDebtInvoices({ customerId }) {
           <tr>
             <th>Ngày mua</th>
             <th>Mã hóa đơn</th>
-            <th className="text-end">Tổng tiền</th>
-            <th className="text-end">Đã trả</th>
-            <th className="text-end">Còn nợ</th>
-            <th className="text-center">Trạng thái</th>
+            <th>Tổng tiền</th>
+            <th>Đã trả</th>
+            <th>Còn nợ</th>
+            <th>Hạn Nợ</th>
+            <th>Người bán</th>
+            <th>Trạng thái</th>
           </tr>
         </thead>
         <tbody>
@@ -140,12 +165,18 @@ export default function CustomerDebtInvoices({ customerId }) {
           ) : (
             invoices.content.map((invoice) => (
               <tr key={invoice.id}>
-                <td>{formatDate(invoice.orderDate)}</td>
-                <td><a href="#">{invoice.orderCode}</a></td>
-                <td className="text-end">{formatCurrency(invoice.totalAmount)}</td>
-                <td className="text-end">{formatCurrency(invoice.amountPaid)}</td>
-                <td className="text-end text-danger fw-bold">{formatCurrency(invoice.amountRemaining)}</td>
-                <td className="text-center">{getStatusBadge(invoice.status)}</td>
+                <td>{formatDateTime(invoice.orderDate)}</td>
+                <td>
+                  <a href="#">{invoice.orderCode}</a>
+                </td>
+                <td>{formatCurrency(invoice.totalAmount)}</td>
+                <td>{formatCurrency(invoice.amountPaid)}</td>
+                <td className=" text-danger fw-bold">
+                  {formatCurrency(invoice.amountRemaining)}
+                </td>
+                <td>{formatDate(invoice.dueDate)}</td>
+                <td>{invoice.createdBy}</td>
+                <td>{getStatusBadge(invoice.status)}</td>
               </tr>
             ))
           )}
@@ -156,16 +187,27 @@ export default function CustomerDebtInvoices({ customerId }) {
       {invoices.totalPages > 1 && (
         <div className="d-flex justify-content-between align-items-center mt-3">
           <div className="text-muted">
-            Hiển thị {invoices.content.length} / {invoices.totalElements} hóa đơn
+            Hiển thị {invoices.content.length} / {invoices.totalElements} hóa
+            đơn
           </div>
           <Pagination className="mb-0">
-            <Pagination.Prev onClick={() => handlePageChange(filters.page - 1)} disabled={filters.page === 1} />
+            <Pagination.Prev
+              onClick={() => handlePageChange(filters.page - 1)}
+              disabled={filters.page === 1}
+            />
             {[...Array(invoices.totalPages).keys()].map((number) => (
-              <Pagination.Item key={number + 1} active={number + 1 === invoices.page} onClick={() => handlePageChange(number + 1)}>
+              <Pagination.Item
+                key={number + 1}
+                active={number + 1 === invoices.page}
+                onClick={() => handlePageChange(number + 1)}
+              >
                 {number + 1}
               </Pagination.Item>
             ))}
-            <Pagination.Next onClick={() => handlePageChange(filters.page + 1)} disabled={filters.page === invoices.totalPages} />
+            <Pagination.Next
+              onClick={() => handlePageChange(filters.page + 1)}
+              disabled={filters.page === invoices.totalPages}
+            />
           </Pagination>
         </div>
       )}

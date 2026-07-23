@@ -1,7 +1,9 @@
 package project.be_sep490_g67.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -10,8 +12,9 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class CreateCustomerRequest {
+public class UpdateCustomerRequest {
     @NotBlank(message = "Tên khách hàng không được để trống")
+    @Size(max = 100, message = "Tên khách hàng không được vượt quá 100 ký tự")
     String fullName;
 
     @Pattern(
@@ -21,5 +24,9 @@ public class CreateCustomerRequest {
     String phoneNumber;
 
     String address;
+
     String note;
+
+    @NotNull(message = "Trạng thái cho phép nợ là bắt buộc")
+    Boolean allowDebt;
 }

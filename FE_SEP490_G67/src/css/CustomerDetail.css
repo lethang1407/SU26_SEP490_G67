@@ -90,3 +90,37 @@ body{
 .text-primary{
     color:#0d6efd !important;
 }
+
+/* === Custom Breadcrumb Styling === */
+
+/* Breadcrumb */
+.custom-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* Link */
+.custom-breadcrumb__link {
+  color: #64748b;
+  cursor: pointer;
+  transition: color .2s;
+}
+
+.custom-breadcrumb__link:hover {
+  color: #2563eb;
+}
+
+/* Separator */
+.custom-breadcrumb__sep {
+  color: #94a3b8;
+  user-select: none;
+}
+
+/* Current page */
+.custom-breadcrumb__current {
+  color: #2563eb;
+  font-weight: 500;
+}

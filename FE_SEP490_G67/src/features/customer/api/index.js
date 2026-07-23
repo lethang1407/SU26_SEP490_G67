@@ -12,7 +12,12 @@ export async function getCustomerDebts(params) {
 
 export async function createCustomerDebt(data) {
     const response = await api.post('/customers', data);
-    return response; // Trả về toàn bộ response để kiểm tra message và code
+    return response; 
+}
+
+export async function updateCustomer(customerId, data) {
+    const response = await api.put(`/customers/${customerId}`, data);
+    return response; 
 }
 
 export async function getCustomerDetail(customerId) {
@@ -23,4 +28,16 @@ export async function getCustomerDetail(customerId) {
 export async function getCustomerDebtOrders(customerId, params) {
     const response = await api.get(`/customers/${customerId}/debt-orders`, { params });
     return response.result;
+}
+
+
+export async function getDebtPaymentHistory(params) {
+    const response = await api.get('/debt-payments', { params });
+    return response.result;
+}
+
+export async function createDebtPayment(data) {
+    // const response = await api.post('/debt-payments', data);
+    // return response;
+    return null;
 }

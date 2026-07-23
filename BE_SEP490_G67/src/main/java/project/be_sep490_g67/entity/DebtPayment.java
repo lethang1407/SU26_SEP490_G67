@@ -28,7 +28,6 @@ public class DebtPayment extends BaseEntity {
     @JoinColumn(name = "sales_order_id")
     private SalesOrder salesOrder;
 
-    // Delete this field
     @Column(name = "processed_by")
     private Integer processedBy;
 
