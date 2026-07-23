@@ -10,7 +10,7 @@ import {
   Form,
   Breadcrumb,
   Tabs,
-  Tab,  
+  Tab,
   Spinner,
 } from "react-bootstrap";
 
@@ -23,10 +23,15 @@ import {
   FiFileText,
   FiRotateCcw,
 } from "react-icons/fi";
-import { getCustomerDetail } from "../api";
+import { getCustomerDetail, updateCustomer } from "../api";
 import SideBar from "../../../components/ui/sidebar/SideBar";
 import Header from "../../../components/ui/header-footer/Header";
 import CustomerDebtInvoices from "../components/CustomerDebtInvoices";
+import EditCustomerModal from "../components/EditCustomerModal";
+import CreatePaymentModal from "../components/CreatePaymentModal";
+import ConfirmationModal from "../components/ConfirmationModal";
+import CustomerPaymentHistory from "../components/CustomerPaymentHistory";
+import "../../../css/CustomerDetail.css";
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return "0 đ";
@@ -36,35 +41,77 @@ const formatCurrency = (value) => {
   }).format(value);
 };
 
+const getStatusBadge = (status) => {
+  const commonProps = { className: "px-3 py-2" };
+  switch (status) {
+    case "IN_DEBT":
+      return (
+        <Badge bg="warning" {...commonProps}>
+          Đang nợ
+        </Badge>
+      );
+    case "NO_DEBT":
+      return (
+        <Badge bg="primary" {...commonProps}>
+          Không nợ
+        </Badge>
+      );
+    case "OVERDUE":
+      return (
+        <Badge bg="danger" {...commonProps}>
+          Nợ quá hạn
+        </Badge>
+      );
+    default:
+      return (
+        <Badge bg="secondary" {...commonProps}>
+          {status || "Không rõ"}
+        </Badge>
+      );
+  }
+};
+
 export default function CustomerDetailPage() {
   const { customerId } = useParams();
   const navigate = useNavigate();
   const [customer, setCustomer] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false); // For allowDebt switch
+  const [confirmation, setConfirmation] = useState({
+    show: false,
+    message: "",
+    onConfirm: () => {},
+  });
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const fetchCustomer = async () => {
+    setIsLoading(true);
+    try {
+      const data = await getCustomerDetail(customerId);
+      setCustomer(data);
+      setError(null);
+    } catch (err) {
+      setError("Không thể tải dữ liệu khách hàng. Vui lòng thử lại.");
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchCustomer = async () => {
-      setIsLoading(true);
-      try {
-        const data = await getCustomerDetail(customerId);
-        setCustomer(data);
-        setError(null);
-      } catch (err) {
-        setError("Không thể tải dữ liệu khách hàng. Vui lòng thử lại.");
-        console.error(err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     if (customerId) {
       fetchCustomer();
     }
-  }, [customerId]);
+  }, [customerId, refreshKey]);
 
   if (isLoading) {
     // Render loading state within the layout
+    // Avoid re-fetching on modal close by checking if customer data already exists
+    if (!customer) {
+    }
     return (
       <div className="d-flex vh-100">
         <SideBar />
@@ -81,6 +128,62 @@ export default function CustomerDetailPage() {
       </div>
     );
   }
+
+  const handleUpdateSuccess = () => {
+    setShowEditModal(false);
+    fetchCustomer(); // Re-fetch data to show the latest updates
+  };
+
+  const handlePaymentSuccess = () => {
+    setShowPaymentModal(false);
+    // Trigger re-fetch for all components that depend on this key
+    setRefreshKey(prev => prev + 1);
+  };
+
+  const handleAllowDebtChange = async (e) => {
+    const isChecked = e.target.checked;
+
+    const message = isChecked ? (
+      <>
+        Bạn có chắc chắn muốn <strong>CHO PHÉP</strong> khách hàng{" "}
+        <b>"{customer.fullName}"</b> mua nợ không?
+      </>
+    ) : (
+      <>
+        Bạn có chắc chắn muốn <strong>CHẶN</strong> khách hàng{" "}
+        <b>"{customer.fullName}"</b> mua nợ không?
+      </>
+    );
+
+    setConfirmation({
+      show: true,
+      message: message,
+      onConfirm: async () => {
+        await performUpdateAllowDebt(isChecked);
+      },
+    });
+  };
+
+  const performUpdateAllowDebt = async (allow) => {
+    setIsUpdating(true);
+    try {
+      const updateData = {
+        fullName: customer.fullName,
+        phoneNumber: customer.phoneNumber,
+        address: customer.address,
+        note: customer.note,
+        allowDebt: allow,
+      };
+      await updateCustomer(customerId, updateData);
+      setCustomer((prev) => ({ ...prev, allowDebt: allow }));
+      setConfirmation({ show: false }); // Close modal on success
+    } catch (err) {
+      console.error("Failed to update allowDebt status:", err);
+      // Optionally show an error toast. Modal remains open for user to see.
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const renderContent = () => {
     if (error) {
@@ -110,22 +213,27 @@ export default function CustomerDetailPage() {
         {/* ================= HEADER ================= */}
 
         <div className="d-flex justify-content-between align-items-center mb-4">
-          <div>
-            <Breadcrumb listProps={{ className: "mb-0" }}>
-              <Breadcrumb.Item
+          <div className="breadcrumb-wrapper">
+            <nav aria-label="breadcrumb" className="custom-breadcrumb">
+              <span
+                className="custom-breadcrumb__link"
                 onClick={() => navigate("/admin/customer")}
-                style={{ cursor: "pointer" }}
               >
                 Khách hàng
-              </Breadcrumb.Item>
+              </span>
 
-              <Breadcrumb.Item active>{customer.fullName}</Breadcrumb.Item>
-            </Breadcrumb>
+              <span className="custom-breadcrumb__sep">&gt;</span>
+
+              <span className="custom-breadcrumb__current">
+                Chi tiết khách hàng
+              </span>
+            </nav>
           </div>
 
           <Button
             variant="primary"
             className="px-4 d-flex align-items-center gap-2"
+            onClick={() => setShowPaymentModal(true)}
           >
             <FiPlus />
             Tạo phiếu thu nợ
@@ -140,8 +248,12 @@ export default function CustomerDetailPage() {
               {/* Left Column: Customer Info */}
               <Col md={7} className="border-end-md">
                 <div className="d-flex align-items-center mb-4">
-                  <h3 className="fw-bold mb-0">{customer.fullName}</h3>
-                  <Button variant="link" className="text-decoration-none ms-3 p-0">
+                  <h3 className="fw-bold mb-0 me-3">{customer.fullName}</h3>
+                  <Button
+                    variant="link"
+                    className="text-decoration-none p-0"
+                    onClick={() => setShowEditModal(true)}
+                  >
                     <FiEdit2 className="me-1" />
                     Chỉnh sửa
                   </Button>
@@ -151,7 +263,7 @@ export default function CustomerDetailPage() {
                   <Col lg={5}>
                     <div className="d-flex align-items-center">
                       <FiPhone className="text-secondary me-2" />
-                      {customer.phoneNumber}
+                      {customer.phoneNumber || "Chưa có SĐT"}
                     </div>
                   </Col>
 
@@ -163,14 +275,20 @@ export default function CustomerDetailPage() {
                   </Col>
 
                   <Col lg={5} className="mt-4">
-                    <Badge bg="danger" className="px-3 py-2">
-                      {customer.debtStatus || "N/A"}
-                    </Badge>
+                    {getStatusBadge(customer.debtStatus)}
                   </Col>
 
-                  <Col lg={7} className="d-flex justify-content-lg-start align-items-center mt-4">
+                  <Col
+                    lg={7}
+                    className="d-flex justify-content-lg-start align-items-center mt-4"
+                  >
                     <span className="me-2 text-muted">Cho phép nợ</span>
-                    <Form.Check type="switch" checked={customer.allowDebt} readOnly />
+                    <Form.Check
+                      type="switch"
+                      checked={customer.allowDebt}
+                      onChange={handleAllowDebtChange}
+                      disabled={isUpdating}
+                    />
                   </Col>
                 </Row>
               </Col>
@@ -182,7 +300,7 @@ export default function CustomerDetailPage() {
                 </div>
                 <Card className="bg-light border-0">
                   <Card.Body>
-                    <p className="mb-0" style={{ fontSize: '14px' }}>
+                    <p className="mb-0" style={{ fontSize: "14px" }}>
                       {customer.note || "Không có ghi chú."}
                     </p>
                   </Card.Body>
@@ -267,7 +385,7 @@ export default function CustomerDetailPage() {
                   </>
                 }
               >
-                <CustomerDebtInvoices customerId={customerId} />
+                <CustomerDebtInvoices customerId={customerId} refreshKey={refreshKey} />
               </Tab>
 
               {/* ================= LỊCH SỬ THU NỢ ================= */}
@@ -281,42 +399,37 @@ export default function CustomerDetailPage() {
                   </>
                 }
               >
-                {/* <div className="p-4">
-                  <Table hover responsive>
-                    <thead>
-                      <tr>
-                        <th>Ngày thu</th>
-
-                        <th>Mã phiếu</th>
-
-                        <th>Người thu</th>
-
-                        <th className="text-end">Số tiền</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      <tr>
-                        <td>20/10/2023</td>
-
-                        <td>PT0012</td>
-
-                        <td>Nguyễn Văn A</td>
-
-                        <td className="text-end text-success fw-bold">
-                          100.000đ
-                        </td>
-                      </tr>
-                    </tbody>
-                  </Table>
-                </div> */}
+                <CustomerPaymentHistory customerId={customerId} refreshKey={refreshKey} />
               </Tab>
             </Tabs>
           </Card.Body>
         </Card>
+
+        <EditCustomerModal
+          show={showEditModal}
+          onHide={() => setShowEditModal(false)}
+          onSuccess={handleUpdateSuccess}
+          customer={customer}
+        />
+
+        <CreatePaymentModal
+          show={showPaymentModal}
+          onHide={() => setShowPaymentModal(false)}
+          onSuccess={handlePaymentSuccess}
+          customer={customer}
+        />
+
+        <ConfirmationModal
+          show={confirmation.show}
+          onHide={() => !isUpdating && setConfirmation({ show: false })}
+          onConfirm={confirmation.onConfirm}
+          title="Xác nhận thay đổi"
+          body={confirmation.message}
+          isConfirming={isUpdating}
+        />
       </Container>
     );
-  }
+  };
 
   return (
     <div className="d-flex vh-100">

@@ -3,6 +3,7 @@ package project.be_sep490_g67.service;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import project.be_sep490_g67.dto.request.CreateCustomerRequest;
+import project.be_sep490_g67.dto.request.UpdateCustomerRequest;
 import project.be_sep490_g67.dto.response.CustomerResponse;
 import project.be_sep490_g67.dto.response.DebtOrderResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
@@ -36,6 +38,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class CustomerService {
@@ -87,6 +90,7 @@ public class CustomerService {
         customer.setStatus(DebtStatus.NO_DEBT.name());
 
         customer = customerRepository.save(customer);
+        log.info("Create new customer by id {}",customer.getId());
 
         return CustomerResponse.builder()
                 .id(customer.getId())
@@ -136,19 +140,32 @@ public class CustomerService {
 
         List<CustomerResponse> responses = customerPage.getContent().stream().map(customer -> {
 
-            boolean hasOverdue = customer.getSalesOrders().stream().anyMatch(so -> {
-                if (!Boolean.TRUE.equals(so.getIsDebt())) return false;
-                if (so.getDueDate() == null || !so.getDueDate().isBefore(now)) return false;
+            List<SalesOrder> debtOrders = customer.getSalesOrders().stream()
+                    .filter(so -> Boolean.TRUE.equals(so.getIsDebt()))
+                    .toList();
 
-                BigDecimal paid = so.getPaidAmount() != null ? so.getPaidAmount() : BigDecimal.ZERO;
-                BigDecimal subsequent = so.getDebtPayments().stream()
-                        .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-                BigDecimal totalPaid = paid.add(subsequent);
+            long totalOrdersInDebt = debtOrders.stream()
+                    .filter(so -> {
+                        BigDecimal totalPaid = (so.getPaidAmount() != null ? so.getPaidAmount() : BigDecimal.ZERO)
+                                .add(so.getDebtPayments().stream()
+                                        .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
+                                        .reduce(BigDecimal.ZERO, BigDecimal::add));
+                        return (so.getTotalAmount() != null ? so.getTotalAmount() : BigDecimal.ZERO).compareTo(totalPaid) > 0;
+                    })
+                    .count();
 
-                BigDecimal total = so.getTotalAmount() != null ? so.getTotalAmount() : BigDecimal.ZERO;
-                return total.compareTo(totalPaid) > 0;
-            });
+            long totalOverdueOrders = debtOrders.stream()
+                    .filter(so -> {
+                        BigDecimal totalPaid = (so.getPaidAmount() != null ? so.getPaidAmount() : BigDecimal.ZERO)
+                                .add(so.getDebtPayments().stream()
+                                        .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
+                                        .reduce(BigDecimal.ZERO, BigDecimal::add));
+                        boolean isUnpaid = (so.getTotalAmount() != null ? so.getTotalAmount() : BigDecimal.ZERO).compareTo(totalPaid) > 0;
+                        return isUnpaid && so.getDueDate() != null && so.getDueDate().isBefore(now);
+                    })
+                    .count();
+
+            boolean hasOverdue = totalOverdueOrders > 0;
 
             String debtStatus;
             BigDecimal totalDebt = customer.getTotalDebt() != null ? customer.getTotalDebt() : BigDecimal.ZERO;
@@ -160,8 +177,7 @@ public class CustomerService {
                 debtStatus = DebtStatus.NO_DEBT.name();
             }
 
-            Instant latestDebtDate = customer.getSalesOrders().stream()
-                    .filter(so -> Boolean.TRUE.equals(so.getIsDebt()))
+            Instant latestDebtDate = debtOrders.stream()
                     .map(SalesOrder::getCreatedAt)
                     .filter(Objects::nonNull)
                     .max(Instant::compareTo)
@@ -178,6 +194,8 @@ public class CustomerService {
                     .latestDebtDate(latestDebtDate)
                     .note(customer.getNote())
                     .isOverdue(hasOverdue)
+                    .totalOrdersInDebt(totalOrdersInDebt)
+                    .totalOverdueOrders(totalOverdueOrders)
                     .build();
         }).toList();
 
@@ -305,6 +323,39 @@ public class CustomerService {
                 .size(size)
                 .totalElements(salesOrderPage.getTotalElements())
                 .totalPages(salesOrderPage.getTotalPages())
+                .build();
+    }
+
+    // Update customer
+    @Transactional
+    public CustomerResponse updateCustomer(Integer id, UpdateCustomerRequest request) {
+        Customer customer = customerRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
+
+        // Check for phone number uniqueness if it's being changed
+        if (StringUtils.hasText(request.getPhoneNumber()) && !request.getPhoneNumber().equals(customer.getPhoneNumber())) {
+            if (customerRepository.existsByPhoneNumberAndIsRemovedFalse(request.getPhoneNumber())) {
+                throw new AppException(ErrorCode.PHONE_NUMBER_EXISTED);
+            }
+        }
+
+        customer.setFullName(request.getFullName());
+        customer.setPhoneNumber(request.getPhoneNumber());
+        customer.setAddress(request.getAddress());
+        customer.setNote(request.getNote());
+        customer.setAllowDebt(request.getAllowDebt());
+
+        Customer updatedCustomer = customerRepository.save(customer);
+        log.info("Update customer by id {}",customer.getId());
+
+        return CustomerResponse.builder()
+                .id(updatedCustomer.getId())
+                .fullName(updatedCustomer.getFullName())
+                .phoneNumber(updatedCustomer.getPhoneNumber())
+                .address(updatedCustomer.getAddress())
+                .note(updatedCustomer.getNote())
+                .allowDebt(updatedCustomer.getAllowDebt())
+                .totalDebt(updatedCustomer.getTotalDebt())
                 .build();
     }
 }

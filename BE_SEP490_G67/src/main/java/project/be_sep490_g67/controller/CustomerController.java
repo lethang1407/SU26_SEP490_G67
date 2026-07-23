@@ -8,6 +8,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.request.CreateCustomerRequest;
+import project.be_sep490_g67.dto.request.UpdateCustomerRequest;
 import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.CustomerDebtOverviewResponse;
 import project.be_sep490_g67.dto.response.CustomerResponse;
@@ -101,6 +102,14 @@ public class CustomerController {
         return ApiResponse.<PageResponse<DebtOrderResponse>>builder()
                 .result(customerService.getDebtOrdersForCustomer(customerId, keyword, page, size))
                 .message("Lấy danh sách hóa đơn nợ của khách hàng thành công")
+                .build();
+    }
+
+    @PutMapping("/{id}")
+    public ApiResponse<CustomerResponse> updateCustomer(@PathVariable Integer id, @Valid @RequestBody UpdateCustomerRequest request) {
+        return ApiResponse.<CustomerResponse>builder()
+                .result(customerService.updateCustomer(id, request))
+                .message("Cập nhật thông tin khách hàng thành công")
                 .build();
     }
 }
