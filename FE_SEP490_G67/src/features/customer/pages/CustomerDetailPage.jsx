@@ -28,8 +28,10 @@ import SideBar from "../../../components/ui/sidebar/SideBar";
 import Header from "../../../components/ui/header-footer/Header";
 import CustomerDebtInvoices from "../components/CustomerDebtInvoices";
 import EditCustomerModal from "../components/EditCustomerModal";
+import CreatePaymentModal from "../components/CreatePaymentModal";
 import ConfirmationModal from "../components/ConfirmationModal";
-import '../../../css/CustomerDetail.css';
+import CustomerPaymentHistory from "../components/CustomerPaymentHistory";
+import "../../../css/CustomerDetail.css";
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return "0 đ";
@@ -76,12 +78,14 @@ export default function CustomerDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false); // For allowDebt switch
   const [confirmation, setConfirmation] = useState({
     show: false,
     message: "",
     onConfirm: () => {},
   });
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const fetchCustomer = async () => {
     setIsLoading(true);
@@ -101,7 +105,7 @@ export default function CustomerDetailPage() {
     if (customerId) {
       fetchCustomer();
     }
-  }, [customerId]);
+  }, [customerId, refreshKey]);
 
   if (isLoading) {
     // Render loading state within the layout
@@ -128,6 +132,12 @@ export default function CustomerDetailPage() {
   const handleUpdateSuccess = () => {
     setShowEditModal(false);
     fetchCustomer(); // Re-fetch data to show the latest updates
+  };
+
+  const handlePaymentSuccess = () => {
+    setShowPaymentModal(false);
+    // Trigger re-fetch for all components that depend on this key
+    setRefreshKey(prev => prev + 1);
   };
 
   const handleAllowDebtChange = async (e) => {
@@ -223,6 +233,7 @@ export default function CustomerDetailPage() {
           <Button
             variant="primary"
             className="px-4 d-flex align-items-center gap-2"
+            onClick={() => setShowPaymentModal(true)}
           >
             <FiPlus />
             Tạo phiếu thu nợ
@@ -374,7 +385,7 @@ export default function CustomerDetailPage() {
                   </>
                 }
               >
-                <CustomerDebtInvoices customerId={customerId} />
+                <CustomerDebtInvoices customerId={customerId} refreshKey={refreshKey} />
               </Tab>
 
               {/* ================= LỊCH SỬ THU NỢ ================= */}
@@ -388,35 +399,7 @@ export default function CustomerDetailPage() {
                   </>
                 }
               >
-                {/* <div className="p-4">
-                  <Table hover responsive>
-                    <thead>
-                      <tr>
-                        <th>Ngày thu</th>
-
-                        <th>Mã phiếu</th>
-
-                        <th>Người thu</th>
-
-                        <th className="text-end">Số tiền</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      <tr>
-                        <td>20/10/2023</td>
-
-                        <td>PT0012</td>
-
-                        <td>Nguyễn Văn A</td>
-
-                        <td className="text-end text-success fw-bold">
-                          100.000đ
-                        </td>
-                      </tr>
-                    </tbody>
-                  </Table>
-                </div> */}
+                <CustomerPaymentHistory customerId={customerId} refreshKey={refreshKey} />
               </Tab>
             </Tabs>
           </Card.Body>
@@ -426,6 +409,13 @@ export default function CustomerDetailPage() {
           show={showEditModal}
           onHide={() => setShowEditModal(false)}
           onSuccess={handleUpdateSuccess}
+          customer={customer}
+        />
+
+        <CreatePaymentModal
+          show={showPaymentModal}
+          onHide={() => setShowPaymentModal(false)}
+          onSuccess={handlePaymentSuccess}
           customer={customer}
         />
 
