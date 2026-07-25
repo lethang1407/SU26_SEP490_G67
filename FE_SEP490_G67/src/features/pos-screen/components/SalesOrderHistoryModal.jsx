@@ -122,7 +122,7 @@ export default function SalesOrderHistoryModal({ onClose, onViewInvoice }) {
                                 value={customFrom}
                                 onChange={(e) => setCustomFrom(e.target.value)}
                             />
-                            <span>–</span>
+                            <span>-</span>
                             <input
                                 type="date"
                                 className="hist-date-input"
@@ -214,7 +214,7 @@ export default function SalesOrderHistoryModal({ onClose, onViewInvoice }) {
                                 className="hist-page-btn"
                                 disabled={page === 0}
                                 onClick={() => setPage(page - 1)}
-                            >‹</button>
+                            ></button>
 
                             {pageNumbers.map((p) => (
                                 <button
@@ -230,7 +230,7 @@ export default function SalesOrderHistoryModal({ onClose, onViewInvoice }) {
                                 className="hist-page-btn"
                                 disabled={page >= totalPages - 1}
                                 onClick={() => setPage(page + 1)}
-                            >›</button>
+                            ></button>
                         </div>
                     )}
                 </div>

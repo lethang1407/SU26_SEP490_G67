@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     Search, X,
@@ -6,12 +6,12 @@ import {
     History,
     Home,
     Trash2,
-    FileText,
     User,
     UserPlus,
     Pencil,
     Plus,
     AlertCircle,
+    Loader,
     CheckCircle,
 } from "lucide-react";
 import "../../../css/POS.css";
@@ -19,12 +19,12 @@ import { isValidQtyInput, isValidQtyValue, isQtyInvalid, parseQty } from '../uti
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { useCheckout } from '../hooks/useCheckout';
 import { useProductSearch } from '../hooks/useProductSearch';
+import { useCustomerSearch } from '../hooks/useCustomerSearch';
 import BatchSelectModal from '../components/BatchSelectModal';
-import ReceiptModal from '../components/ReceiptModal';
 import ProductSearchDropdown from '../components/ProductSearchDropdown';
+import CustomerSearchDropdown from '../components/CustomerSearchDropdown';
 import SalesOrderHistoryModal from '../components/SalesOrderHistoryModal';
-
-// Tab helpers
+import { createQuickCustomer } from '../api';
 
 let _tabCounter = 1;
 function nextTabId() { return ++_tabCounter; }
@@ -38,17 +38,13 @@ function createTab(id = 1) {
     };
 }
 
-// Component 
-
 const POSScreen = () => {
     const navigate = useNavigate();
-    //  Multi-tab state 
     const [tabs, setTabs] = useState([createTab(1)]);
     const [activeTabId, setActiveTabId] = useState(1);
 
     const activeTab = tabs.find(t => t.id === activeTabId) ?? tabs[0];
 
-    // Helpers that read/write the active tab's cart
     const cartItems = activeTab.cartItems;
     const qtyInputs = activeTab.qtyInputs;
 
@@ -79,7 +75,7 @@ const POSScreen = () => {
     const handleCloseTab = useCallback((tabId, e) => {
         e.stopPropagation();
         setTabs(prev => {
-            if (prev.length === 1) return prev; // keep at least one tab
+            if (prev.length === 1) return prev;
             const next = prev.filter(t => t.id !== tabId);
             if (activeTabId === tabId) {
                 setActiveTabId(next[next.length - 1].id);
@@ -88,13 +84,49 @@ const POSScreen = () => {
         });
     }, [activeTabId]);
 
-    // ── History modal ────────────────────────────────────────────────────
+    //  History modal 
     const [historyOpen, setHistoryOpen] = useState(false);
 
-    // ── Other state ──────────────────────────────────────────────────────
+    //  Other state 
     const [searchInput, setSearchInput] = useState('');
     const [pendingProduct, setPendingProduct] = useState(null);
     const [paymentMethod, setPaymentMethod] = useState('cash');
+
+    //  Quick-add form state 
+    const [showQuickAdd, setShowQuickAdd] = useState(false);
+    const [quickAddName, setQuickAddName] = useState('');
+    const [quickAddLoading, setQuickAddLoading] = useState(false);
+    const [quickAddError, setQuickAddError] = useState(null);
+
+    //  Discount state 
+    const [discountEditing, setDiscountEditing] = useState(false);
+    const discountInputRef = useRef(null);
+
+    const addProductToCart = useCallback((product, batchId) => {
+        const units = product.productUnits ?? [];
+        const defaultUnit = units.find((u) => u.isDefault)
+            ?? units.find((u) => Number(u.unitBase) === 1)
+            ?? units[0];
+        const newItem = {
+            id: `${product.id}-${batchId}`,
+            productId: product.id,
+            code: product.barcode ?? product.id,
+            name: product.name,
+            units,
+            productUnitId: defaultUnit?.id ?? null,
+            unit: defaultUnit?.name ?? '—',
+            batch: batchId,
+            qty: 1,
+            price: defaultUnit?.sellingPrice ?? product.sellingPrice ?? 0,
+        };
+        setCartItems((prev) => {
+            const existing = prev.find((i) => i.id === newItem.id);
+            if (existing) {
+                return prev.map((i) => i.id === newItem.id ? { ...i, qty: i.qty + 1 } : i);
+            }
+            return [...prev, newItem];
+        });
+    }, [setCartItems]);
 
     const onProductFound = useCallback((product) => {
         const batches = product.stockBatches ?? [];
@@ -104,28 +136,24 @@ const POSScreen = () => {
         }
         const batchId = batches[0]?.id ?? '';
         addProductToCart(product, batchId);
-    }, []);
+    }, [addProductToCart]);
 
-    const addProductToCart = useCallback((product, batchId) => {
-        const units = product.productUnits ?? [];
-        const unitBase = units.find((u) => Number(u.unitBase) === 1) ?? units[0];
-        const newItem = {
-            id: `${product.id}-${batchId}`,
-            productId: product.id,
-            code: product.barcode ?? product.id,
-            name: product.name,
-            unit: unitBase?.name ?? '—',
-            batch: batchId,
-            qty: 1,
-            price: product.sellingPrice ?? 0,
-        };
-        setCartItems((prev) => {
-            const existing = prev.find((i) => i.id === newItem.id);
-            if (existing) {
-                return prev.map((i) => i.id === newItem.id ? { ...i, qty: i.qty + 1 } : i);
-            }
-            return [...prev, newItem];
-        });
+    const changeUnit = useCallback((id, productUnitId) => {
+        setCartItems((prev) =>
+            prev.map((item) => {
+                if (item.id !== id) return item;
+                const selectedUnit = (item.units ?? []).find(
+                    (u) => String(u.id) === String(productUnitId)
+                );
+                if (!selectedUnit) return item;
+                return {
+                    ...item,
+                    productUnitId: selectedUnit.id,
+                    unit: selectedUnit.name,
+                    price: selectedUnit.sellingPrice ?? item.price,
+                };
+            })
+        );
     }, [setCartItems]);
 
     // Product name search hook (debounced)
@@ -149,13 +177,61 @@ const POSScreen = () => {
         phone, setPhone,
         customer,
         invoiceType,
+        discount, setDiscount,
         submitting,
-        receipt,
         error: checkoutError,
-        lookupCustomer,
+        attachCustomer,
         submitCheckout,
         resetCheckout,
     } = useCheckout();
+
+    // Customer phone search hook
+    const { results: customerResults, loading: customerSearchLoading, error: customerSearchError, clearResults: clearCustomerResults } =
+        useCustomerSearch(customer ? '' : phone);
+
+    const showCustomerDropdown = !customer && phone.trim().length >= 1 &&
+        (customerSearchLoading || customerSearchError || customerResults.length >= 0);
+
+    const handleCustomerSelect = useCallback((cust) => {
+        attachCustomer(cust);
+        setPhone(cust.phoneNumber);
+        clearCustomerResults();
+    }, [attachCustomer, setPhone, clearCustomerResults]);
+
+    //  Mở form thêm khách hàng mới 
+    const handleUserPlus = useCallback(() => {
+        if (customer || !phone.trim()) return;
+        setShowQuickAdd(true);
+        setQuickAddName('');
+        setQuickAddError(null);
+        setTimeout(() => {
+            document.getElementById('quick-add-name-input')?.focus();
+        }, 50);
+    }, [customer, phone]);
+
+    // Quick-add submit 
+    const handleQuickAddSubmit = useCallback(async () => {
+        const name = quickAddName.trim();
+        if (!name) {
+            setQuickAddError('Vui lòng nhập họ tên khách hàng.');
+            return;
+        }
+        setQuickAddLoading(true);
+        setQuickAddError(null);
+        try {
+            const newCustomer = await createQuickCustomer({
+                fullName: name,
+                phoneNumber: phone.trim(),
+            });
+            attachCustomer(newCustomer);
+            setShowQuickAdd(false);
+        } catch (err) {
+            const msg = err.response?.data?.message ?? 'Không thể thêm khách hàng. Vui lòng thử lại.';
+            setQuickAddError(msg);
+        } finally {
+            setQuickAddLoading(false);
+        }
+    }, [quickAddName, phone, attachCustomer]);
 
     // Qty editing handlers
     const handleQtyChange = (id, raw) => {
@@ -192,10 +268,11 @@ const POSScreen = () => {
     };
 
     // Derived values
-    const totalAmount = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
+    const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
     const totalItems = cartItems.reduce((sum, item) => sum + item.qty, 0);
+    const safeDiscount = Math.min(discount, subtotal);
+    const amountDue = subtotal - safeDiscount;
 
-    // New order reset (clears active tab's cart)
     const handleNewOrder = () => {
         setCartItems([]);
         setQtyInputs({});
@@ -204,6 +281,19 @@ const POSScreen = () => {
         clearResults();
         resetCheckout();
         clearScanError();
+        clearCustomerResults();
+        setShowQuickAdd(false);
+        setQuickAddName('');
+        setQuickAddError(null);
+        setDiscountEditing(false);
+    };
+
+    // Discount editing
+    const handleDiscountEditToggle = () => {
+        setDiscountEditing(prev => !prev);
+        if (!discountEditing) {
+            setTimeout(() => discountInputRef.current?.focus(), 50);
+        }
     };
 
     // Render 
@@ -331,7 +421,23 @@ const POSScreen = () => {
                                             </td>
                                             <td className="font-bold">{item.code}</td>
                                             <td>{item.name}</td>
-                                            <td>{item.unit}</td>
+                                            <td>
+                                                {(item.units ?? []).length > 1 ? (
+                                                    <select
+                                                        className="unit-select"
+                                                        value={item.productUnitId ?? ''}
+                                                        onChange={(e) => changeUnit(item.id, e.target.value)}
+                                                    >
+                                                        {item.units.map((u) => (
+                                                            <option key={u.id} value={u.id}>
+                                                                {u.name}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    item.unit
+                                                )}
+                                            </td>
                                             <td>
                                                 <div className="qty-control">
                                                     <button className="qty-btn" onClick={() => changeQty(item.id, -1)}>-</button>
@@ -361,10 +467,6 @@ const POSScreen = () => {
 
                     {/* LEFT FOOTER */}
                     <div className="cart-footer">
-                        <div className="note-wrapper">
-                            <FileText className="search-icon" size={18} />
-                            <input type="text" placeholder="Nhập ghi chú cho đơn hàng" className="note-input" />
-                        </div>
                         <div className="total-items">
                             Tổng cộng: <span>{totalItems} mặt hàng</span>
                         </div>
@@ -375,63 +477,155 @@ const POSScreen = () => {
                 <div className="pos-payment-section">
                     <div className="payment-content">
 
-                        {/* Customer Search */}
+                        {/* ── Tìm khách hàng ── */}
                         <div className="customer-search">
                             <div className="search-wrapper">
                                 <User className="search-icon" size={18} />
                                 <input
                                     type="text"
-                                    placeholder="Số điện thoại khách hàng"
+                                    placeholder="Tìm khách hàng (số điện thoại)"
                                     className="customer-input"
                                     value={phone}
-                                    onChange={(e) => setPhone(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && phone.trim()) {
-                                            lookupCustomer(phone.trim());
-                                        }
+                                    disabled={!!customer}
+                                    onChange={(e) => {
+                                        setPhone(e.target.value);
+                                        setShowQuickAdd(false);
+                                        setQuickAddError(null);
                                     }}
                                 />
+                                {showCustomerDropdown && (
+                                    <CustomerSearchDropdown
+                                        results={customerResults}
+                                        loading={customerSearchLoading}
+                                        error={customerSearchError}
+                                        onSelect={handleCustomerSelect}
+                                        onAddNew={handleUserPlus}
+                                        onClose={clearCustomerResults}
+                                    />
+                                )}
                             </div>
+
+                            {/* Nút thêm khách hàng mới */}
                             <button
-                                className="btn-add-customer"
-                                title="Tra cứu khách hàng"
-                                onClick={() => phone.trim() && lookupCustomer(phone.trim())}
+                                className={`btn-add-customer${customer ? ' btn-add-customer--found' : ''}`}
+                                title={customer ? 'Đã chọn khách hàng' : 'Thêm khách hàng mới'}
+                                onClick={handleUserPlus}
+                                disabled={!phone.trim() || quickAddLoading || !!customer}
                             >
                                 <UserPlus size={20} />
                             </button>
                         </div>
 
-                        {/* Customer badge */}
-                        {invoiceType === 'standard' && customer && (
-                            <div style={{ marginBottom: '12px' }}>
-                                <span className="customer-badge found">
-                                    <CheckCircle size={13} />
-                                    {customer.fullName}
-                                </span>
-                            </div>
-                        )}
-                        {invoiceType === 'debt' && (
-                            <div style={{ marginBottom: '12px' }}>
-                                <span className="customer-badge debt">
-                                    Không tìm thấy - Bán nợ
-                                </span>
+                        {/* ── Quick-add inline form ── */}
+                        {showQuickAdd && !customer && (
+                            <div className="quick-add-form">
+                                <div className="quick-add-title">
+                                    <UserPlus size={14} />
+                                    Thêm khách hàng mới
+                                </div>
+                                <div className="quick-add-row">
+                                    <input
+                                        id="quick-add-name-input"
+                                        type="text"
+                                        className="customer-input"
+                                        placeholder="Họ và tên khách hàng"
+                                        value={quickAddName}
+                                        onChange={(e) => setQuickAddName(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleQuickAddSubmit();
+                                            if (e.key === 'Escape') {
+                                                setShowQuickAdd(false);
+                                                setQuickAddError(null);
+                                            }
+                                        }}
+                                        disabled={quickAddLoading}
+                                    />
+                                    <button
+                                        className="btn-add-customer btn-add-customer--found"
+                                        onClick={handleQuickAddSubmit}
+                                        disabled={quickAddLoading || !quickAddName.trim()}
+                                        title="Lưu khách hàng"
+                                    >
+                                        {quickAddLoading
+                                            ? <Loader size={16} className="spin-icon" />
+                                            : <CheckCircle size={16} />
+                                        }
+                                    </button>
+                                    <button
+                                        className="btn-add-customer"
+                                        onClick={() => { setShowQuickAdd(false); setQuickAddError(null); }}
+                                        title="Hủy"
+                                        disabled={quickAddLoading}
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                </div>
+                                {quickAddError && (
+                                    <div className="quick-add-error">
+                                        <AlertCircle size={13} /> {quickAddError}
+                                    </div>
+                                )}
+                                <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
+                                    SĐT: {phone.trim()}
+                                </div>
                             </div>
                         )}
 
                         {/* Summary */}
+                        {customer && (
+                            <div className="summary-row">
+                                <span>Khách hàng</span>
+                                <span className="font-bold">{customer.fullName}</span>
+                            </div>
+                        )}
                         <div className="summary-row">
                             <span>Tổng tiền hàng</span>
-                            <span className="font-bold">{totalAmount.toLocaleString()}</span>
+                            <span className="font-bold">{subtotal.toLocaleString()}</span>
                         </div>
+
+                        {/* ── Discount row ── */}
                         <div className="summary-row dashed-border">
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: '#2563eb' }}>
+                            <span
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: '#2563eb' }}
+                                onClick={handleDiscountEditToggle}
+                                title="Nhấn để nhập giảm giá"
+                            >
                                 Giảm giá <Pencil size={14} />
                             </span>
-                            <span className="font-bold">0</span>
+                            {discountEditing ? (
+                                <input
+                                    ref={discountInputRef}
+                                    type="number"
+                                    min={0}
+                                    max={subtotal}
+                                    value={discount || ''}
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value) || 0;
+                                        setDiscount(Math.max(0, val));
+                                    }}
+                                    onBlur={() => setDiscountEditing(false)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === 'Escape') {
+                                            setDiscountEditing(false);
+                                        }
+                                    }}
+                                    className="discount-input"
+                                    placeholder="0"
+                                />
+                            ) : (
+                                <span
+                                    className="font-bold"
+                                    style={{ cursor: 'pointer', color: safeDiscount > 0 ? '#dc2626' : undefined }}
+                                    onClick={handleDiscountEditToggle}
+                                >
+                                    {safeDiscount > 0 ? `- ${safeDiscount.toLocaleString()}` : '0'}
+                                </span>
+                            )}
                         </div>
+
                         <div className="summary-row" style={{ marginTop: '16px' }}>
                             <span className="font-bold">KHÁCH CẦN TRẢ</span>
-                            <span className="text-blue-large">{totalAmount.toLocaleString()}</span>
+                            <span className="text-blue-large">{amountDue.toLocaleString()}</span>
                         </div>
 
                         {/* Payment Methods */}
@@ -456,6 +650,7 @@ const POSScreen = () => {
                                     </label>
                                 ))}
                             </div>
+
                         </div>
 
                         {/* Checkout error */}
@@ -474,7 +669,10 @@ const POSScreen = () => {
                         <button
                             className="btn-checkout"
                             disabled={submitting || cartItems.length === 0}
-                            onClick={() => submitCheckout(cartItems, paymentMethod)}
+                            onClick={async () => {
+                                const ok = await submitCheckout(cartItems, paymentMethod);
+                                if (ok) handleNewOrder();
+                            }}
                         >
                             {submitting ? 'ĐANG XỬ LÝ...' : 'THANH TOÁN'}
                         </button>
@@ -494,20 +692,11 @@ const POSScreen = () => {
                 />
             )}
 
-            {/* RECEIPT MODAL */}
-            {receipt && (
-                <ReceiptModal
-                    receipt={receipt}
-                    onClose={() => { handleNewOrder(); }}
-                />
-            )}
-
             {/* HISTORY MODAL */}
             {historyOpen && (
                 <SalesOrderHistoryModal
                     onClose={() => setHistoryOpen(false)}
                     onViewInvoice={(orderId) => {
-                        // Future: open order detail or load into new tab
                         setHistoryOpen(false);
                     }}
                 />

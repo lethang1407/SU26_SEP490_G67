@@ -48,8 +48,7 @@ public class CustomerService {
     UserRepository userRepository;
 
     /**
-     * Look up a customer by phone number.
-     * Returns empty Optional if not found (caller decides invoice type).
+     * Find customer by phone number
      */
     public Optional<CustomerResponse> findByPhone(String phone) {
         return customerRepository.findByPhoneNumber(phone)

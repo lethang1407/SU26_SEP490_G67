@@ -44,6 +44,7 @@ public enum ErrorCode {
     INVALID_PAYMENT_AMOUNT(1026, "Số tiền thanh toán không hợp lệ", HttpStatus.BAD_REQUEST),
     PAYMENT_EXCEEDS_DEBT(1027, "Số tiền vượt quá số nợ còn lại của đơn hàng", HttpStatus.BAD_REQUEST),
     CUSTOMER_NOT_FOUND(1028, "Không tìm thấy khách hàng", HttpStatus.NOT_FOUND),
+    INSUFFICIENT_STOCK(1029, "Không đủ tồn kho", HttpStatus.BAD_REQUEST),
 
     // Invoice errors (3xxx)
     ORDER_NOT_FOUND(3001, "Không tìm thấy đơn hàng", HttpStatus.NOT_FOUND),

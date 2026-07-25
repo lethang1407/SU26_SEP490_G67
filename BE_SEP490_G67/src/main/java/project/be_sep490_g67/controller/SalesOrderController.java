@@ -5,6 +5,8 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -32,8 +34,8 @@ public class SalesOrderController {
 
     SalesOrderService salesOrderService;
     ExchangeOrderService exchangeOrderService;
-    InvoiceService    invoiceService;
-    UserRepository    userRepository;
+    InvoiceService invoiceService;
+    UserRepository userRepository;
 
     /**
      * GET /api/sales-orders
@@ -42,11 +44,11 @@ public class SalesOrderController {
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     ApiResponse<SalesOrderListResponse> getOrderHistory(
-            @RequestParam(defaultValue = "0")  int page,
+            @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false)    String search,
-            @RequestParam(required = false)    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
-            @RequestParam(required = false)    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo
     ) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User currentUser = userRepository.findActiveByUsernameWithRole(username)
@@ -62,7 +64,7 @@ public class SalesOrderController {
 
         ZoneId vnZone = ZoneId.of("Asia/Ho_Chi_Minh");
         Instant from = dateFrom != null ? dateFrom.atStartOfDay(vnZone).toInstant() : null;
-        Instant to   = dateTo   != null ? dateTo.plusDays(1).atStartOfDay(vnZone).toInstant() : null;
+        Instant to = dateTo != null ? dateTo.plusDays(1).atStartOfDay(vnZone).toInstant() : null;
 
         SalesOrderListResponse result = salesOrderService.getOrderHistory(
                 createdByFilter, search, from, to, page, size);
@@ -74,13 +76,11 @@ public class SalesOrderController {
      * POST /api/sales-orders
      */
     @PostMapping
-    ApiResponse<SalesOrderResponse> createOrder(@Valid @RequestBody CreateSalesOrderRequest request) {
+    public ResponseEntity<ApiResponse<SalesOrderResponse>> createOrder(@Valid @RequestBody CreateSalesOrderRequest request) {
         Integer staffId = resolveStaffId();
         SalesOrderResponse result = salesOrderService.createOrder(request, false, staffId);
-        return ApiResponse.<SalesOrderResponse>builder()
-                .result(result)
-                .message("Tạo đơn hàng thành công")
-                .build();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Tạo đơn hàng thành công", result));
     }
 
     /**
@@ -110,8 +110,8 @@ public class SalesOrderController {
     /**
      * GET /api/sales-orders/{id}/invoice
      * Authorization (IDOR):
-     *   - ADMIN / ACCOUNTANT: can access any order
-     *   - CASHIER: can only access orders they created
+     * - ADMIN / ACCOUNTANT: can access any order
+     * - CASHIER: can only access orders they created
      */
     @GetMapping("/{id}/invoice")
     @PreAuthorize("isAuthenticated()")

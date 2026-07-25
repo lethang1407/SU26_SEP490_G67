@@ -1,85 +1,113 @@
 import { useState, useCallback } from 'react';
-import { getCustomerByPhone, createInvoice, createDebtInvoice, getReceipt } from '../api';
+import { getCustomerByPhone, createInvoice, createDebtInvoice, getInvoiceData } from '../api';
+import { printInvoice } from '../utils/printInvoice';
 
 
 export function useCheckout() {
     const [phone, setPhone] = useState('');
     const [customer, setCustomer] = useState(null);
-    const [invoiceType, setInvoiceType] = useState(null);
+    const [invoiceType, setInvoiceType] = useState(null); // null | 'found' | 'not_found'
+    const [discount, setDiscount] = useState(0);
     const [submitting, setSubmitting] = useState(false);
-    const [receipt, setReceipt] = useState(null);
     const [error, setError] = useState(null);
+
+    /**
+     * Lookup customer by phone. Sets invoiceType to 'found' or 'not_found'.
+     * Returns the customer object or null so the caller can decide next action.
+     */
     const lookupCustomer = useCallback(async (phoneValue) => {
         setError(null);
         try {
             const found = await getCustomerByPhone(phoneValue);
             if (found) {
                 setCustomer(found);
-                setInvoiceType('standard');
+                setInvoiceType('found');
             } else {
                 setCustomer(null);
-                setInvoiceType('debt');
+                setInvoiceType('not_found');
             }
+            return found;
         } catch (err) {
             setError('Lỗi tra cứu khách hàng. Vui lòng thử lại.');
+            return null;
         }
+    }, []);
+
+    /**
+     * Attach a customer object directly (called after quick-add or after confirming found).
+     */
+    const attachCustomer = useCallback((customerObj) => {
+        setCustomer(customerObj);
+        setInvoiceType('found');
     }, []);
 
     const submitCheckout = useCallback(async (cartItems, paymentMethod) => {
         if (!cartItems || cartItems.length === 0) {
             setError('Giỏ hàng trống. Vui lòng thêm sản phẩm.');
-            return;
+            return false;
+        }
+
+        // Debt orders must have an attached customer
+        if (paymentMethod === 'debt' && !customer) {
+            setError('Đơn nợ phải có thông tin khách hàng. Vui lòng tìm hoặc thêm khách hàng.');
+            return false;
         }
 
         setSubmitting(true);
         setError(null);
         try {
+            const discountAmount = discount > 0 ? discount : 0;
             const payload = {
-                paymentMethod,
+                paymentMethod: paymentMethod.toUpperCase(),
+                discountAmount,
                 items: cartItems.map((item) => ({
                     productId: item.productId,
                     batchId: item.batch,
+                    productUnitId: item.productUnitId,
                     quantity: item.qty,
                     unitPrice: item.price,
                 })),
 
-                ...(invoiceType === 'standard' && customer?.id ? { customerId: customer.id } : {}),
+                ...(customer?.id ? { customerId: customer.id } : {}),
             };
 
             let invoice;
-            if (invoiceType === 'debt') {
+            if (paymentMethod === 'debt') {
                 invoice = await createDebtInvoice(payload);
             } else {
                 invoice = await createInvoice(payload);
             }
 
-            const receiptData = await getReceipt(invoice.id);
-            setReceipt(receiptData);
+            const invoiceData = await getInvoiceData(invoice.id);
+            if (invoiceData) printInvoice(invoiceData);
+            return true;
         } catch (err) {
             const message = err.response?.data?.message || 'Thanh toán thất bại. Vui lòng thử lại.';
             setError(message);
+            return false;
         } finally {
             setSubmitting(false);
         }
-    }, [invoiceType, customer]);
+    }, [discount, customer]);
 
     const resetCheckout = useCallback(() => {
         setPhone('');
         setCustomer(null);
         setInvoiceType(null);
+        setDiscount(0);
         setSubmitting(false);
-        setReceipt(null);
         setError(null);
     }, []);
 
     return {
         phone, setPhone,
-        customer,
-        invoiceType,
+        customer, setCustomer,
+        invoiceType, setInvoiceType,
+        discount, setDiscount,
         submitting,
-        receipt,
         error,
         lookupCustomer,
+        attachCustomer,
         submitCheckout,
         resetCheckout,
     };

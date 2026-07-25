@@ -12,7 +12,6 @@ export default function useInvoiceExport() {
             return;
         }
 
-        // Anti-spam: abort if already loading
         if (isLoading) return;
 
         setIsLoading(true);

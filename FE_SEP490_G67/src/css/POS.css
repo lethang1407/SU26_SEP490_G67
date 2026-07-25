@@ -1,5 +1,3 @@
-/* POSScreen.css */
-
 /* Layout tổng thể */
 .pos-container {
     display: flex;
@@ -231,6 +229,22 @@
     outline: none;
 }
 
+.unit-select {
+    width: 80px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    padding: 4px 6px;
+    background: #fff;
+    color: #111827;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.unit-select:focus {
+    outline: none;
+    border-color: #2563eb;
+}
+
 /* Footer của cột trái */
 .cart-footer {
     border-top: 1px solid #e5e7eb;
@@ -260,6 +274,7 @@
 }
 
 .total-items {
+    margin-left: auto;
     color: #374151;
     font-weight: 500;
 }
@@ -288,7 +303,7 @@
 .customer-search {
     display: flex;
     gap: 8px;
-    margin-bottom: 24px;
+    margin-bottom: 8px;
 }
 
 .customer-input {
@@ -467,7 +482,7 @@
     }
 }
 
-/* ─── Scan Error Banner ──────────────────────────────────────────────────── */
+/*  Scan Error Banner  */
 .scan-error-banner {
     display: flex;
     align-items: center;
@@ -504,7 +519,7 @@
     }
 }
 
-/* ─── Batch Select Modal ─────────────────────────────────────────────────── */
+/*  Batch Select Modal  */
 .batch-modal-overlay {
     position: fixed;
     inset: 0;
@@ -593,7 +608,7 @@
     font-size: 14px;
 }
 
-/* ─── Receipt Modal ──────────────────────────────────────────────────────── */
+/*  Receipt Modal  */
 .receipt-modal-overlay {
     position: fixed;
     inset: 0;
@@ -715,7 +730,7 @@
     background-color: #f9fafb;
 }
 
-/* ─── Customer Badge (checkout panel) ───────────────────────────────────── */
+/*  Customer Badge (checkout panel)  */
 .customer-badge {
     display: inline-flex;
     align-items: center;
@@ -737,7 +752,7 @@
     color: #92400e;
 }
 
-/* ─── Print styles ───────────────────────────────────────────────────────── */
+/*  Print styles  */
 @media print {
     body>*:not(.receipt-modal-overlay) {
         display: none !important;
@@ -759,7 +774,7 @@
     }
 }
 
-/* ─── Product Name Search Dropdown ──────────────────────────────────────── */
+/*  Product Name Search Dropdown */
 .product-search-dropdown {
     position: absolute;
     top: calc(100% + 4px);
@@ -873,4 +888,171 @@
     font-weight: 600;
     color: #2563eb;
     margin-left: auto;
+}
+
+.btn-add-customer:hover {
+    background-color: #eff6ff;
+    border-color: #93c5fd;
+}
+
+.btn-add-customer--found {
+    border-color: #2563eb !important;
+    color: #2563eb !important;
+    background-color: #f0fdf4 !important;
+}
+
+.btn-add-customer--found:hover {
+    background-color: #dcfce7 !important;
+}
+
+.btn-add-customer--notfound {
+    border-color: #f59e0b !important;
+    color: #d97706 !important;
+    background-color: #fffbeb !important;
+}
+
+.btn-add-customer--notfound:hover {
+    background-color: #fef3c7 !important;
+}
+
+.btn-add-customer--disabled {
+    opacity: 0.4;
+    cursor: not-allowed !important;
+}
+
+.btn-add-customer:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.quick-add-form {
+    background-color: #f8faff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    animation: fadeInDown 0.15s ease;
+}
+
+.quick-add-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #2563eb;
+    margin-bottom: 8px;
+}
+
+.quick-add-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.quick-add-row .customer-input {
+    padding-left: 10px;
+    font-size: 13px;
+    height: 34px;
+}
+
+.quick-add-error {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: #dc2626;
+    margin-top: 6px;
+}
+
+.discount-input {
+    width: 120px;
+    text-align: right;
+    border: 1px solid #60a5fa;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-weight: 600;
+    color: #dc2626;
+    outline: none;
+    font-size: 14px;
+    background-color: #fff7f7;
+    transition: border-color 0.15s;
+}
+
+.discount-input:focus {
+    border-color: #2563eb;
+    background-color: #eff6ff;
+    color: #1d4ed8;
+}
+
+.spin-icon {
+    animation: psdSpin 0.7s linear infinite;
+}
+
+.customer-info-panel {
+    background-color: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    animation: fadeInDown 0.15s ease;
+    position: relative;
+}
+
+.customer-info-panel--attached {
+    background-color: #eff6ff;
+    border-color: #bfdbfe;
+}
+
+.customer-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 0;
+}
+
+.customer-info-label {
+    font-size: 12px;
+    color: #6b7280;
+    white-space: nowrap;
+    min-width: 110px;
+}
+
+.customer-info-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: #111827;
+    text-align: right;
+}
+
+.customer-notfound-msg {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: #d97706;
+    background-color: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin-bottom: 12px;
+    animation: fadeInDown 0.15s ease;
+}
+
+.customer-detach-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+    background: none;
+    border: none;
+    font-size: 11px;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0;
+}
+
+.customer-detach-btn:hover {
+    color: #dc2626;
 }
