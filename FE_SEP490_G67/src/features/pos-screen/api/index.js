@@ -19,10 +19,29 @@ export async function searchProductsByName(query) {
 
 /**
  * Look up a customer by phone number.
+ * Returns the customer object if found, or null result if not.
  */
 export async function getCustomerByPhone(phone) {
-    const response = await api.get(`/customers`, { params: { phone } });
+    const response = await api.get(`/customers/phone-lookup`, { params: { phone } });
     return response.result ?? null;
+}
+
+/**
+ * Search customers by phone (or name) keyword for the POS customer dropdown.
+ * Returns up to `size` matching customers.
+ */
+export async function searchCustomersByPhone(keyword, size = 8) {
+    const response = await api.get(`/customers/debts`, { params: { keyword, page: 1, size } });
+    return response.result?.content ?? [];
+}
+
+/**
+ * Quick-create a new customer from the POS screen.
+ * Sends { fullName, phoneNumber } to POST /customers.
+ */
+export async function createQuickCustomer(payload) {
+    const response = await api.post('/customers', payload);
+    return response.result;
 }
 
 /**
