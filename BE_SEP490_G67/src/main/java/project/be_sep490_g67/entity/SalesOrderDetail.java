@@ -8,7 +8,6 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 
 @Getter
 @Setter
@@ -29,8 +28,16 @@ public class SalesOrderDetail extends BaseEntity {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @OnDelete(action = OnDeleteAction.SET_NULL)
+    @JoinColumn(name = "product_unit_id")
+    private ProductUnit productUnit;
+
     @Column(name = "quantity")
     private Integer quantity;
+
+    @Column(name = "unit_name", length = 50)
+    private String unitName;
 
     @Column(name = "unit_price", precision = 15, scale = 2)
     private BigDecimal unitPrice;

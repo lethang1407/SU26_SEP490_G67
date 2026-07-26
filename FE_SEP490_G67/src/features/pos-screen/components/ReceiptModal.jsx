@@ -1,45 +1,75 @@
+import { useState } from 'react';
 import { X, Printer } from 'lucide-react';
+import useInvoiceExport from '../hooks/useInvoiceExport';
+import { printInvoice } from '../utils/printInvoice';
 
-/**
- * ReceiptModal
- *
- * Displays the invoice receipt after a successful checkout.
- * "In hóa đơn" triggers window.print().
- */
 export default function ReceiptModal({ receipt, onClose }) {
     if (!receipt) return null;
 
     const items = receipt.items ?? [];
-    const total = receipt.total ?? 0;
+    const total = receipt.totalAmount ?? receipt.total ?? 0;
+
+    // Invoice data hook
+    const { invoiceData, isLoading, error, fetchInvoice, clearInvoice } = useInvoiceExport();
+
+    // Print button handler
+    const handlePrint = async () => {
+        if (receipt?.id == null || isLoading) return;
+
+        let data = invoiceData;
+        if (!data) {
+            data = await fetchInvoice(receipt.id);
+        }
+        if (data) {
+            printInvoice(data);
+        }
+    };
+
+    // Close handler
+    const handleClose = () => {
+        clearInvoice();
+        onClose();
+    };
 
     return (
-        <div className="receipt-modal-overlay" onClick={onClose}>
+        <div className="receipt-modal-overlay" onClick={handleClose}>
             <div className="receipt-modal" onClick={(e) => e.stopPropagation()}>
-                {/* Header */}
+
+                {/*  Header  */}
                 <div className="receipt-modal-header">
-                    <div className="receipt-modal-title">Hóa đơn #{receipt.invoiceCode}</div>
-                    <button className="batch-modal-close" onClick={onClose} title="Đóng">
+                    <div className="receipt-modal-title">
+                        Hóa đơn #{receipt.orderCode ?? receipt.id}
+                    </div>
+                    <button className="batch-modal-close" onClick={handleClose} title="Đóng">
                         <X size={18} />
                     </button>
                 </div>
 
-                {/* Meta */}
+                {/*  Meta  */}
                 <div className="receipt-meta">
-                    <span>Ngày: {receipt.createdAt ? new Date(receipt.createdAt).toLocaleString('vi-VN') : '—'}</span>
-                    {receipt.customer && (
-                        <span>Khách: {receipt.customer.name} – {receipt.customer.phone}</span>
-                    )}
-                    {!receipt.customer && (
+                    <span>
+                        Ngày:{' '}
+                        {receipt.createdAt
+                            ? new Date(receipt.createdAt).toLocaleString('vi-VN', {
+                                timeZone: 'Asia/Ho_Chi_Minh',
+                            })
+                            : '—'}
+                    </span>
+                    {receipt.customer ? (
+                        <span>
+                            Khách: {receipt.customer.fullName} - {receipt.customer.phoneNumber}
+                        </span>
+                    ) : (
                         <span className="receipt-debt-badge">Bán nợ / Khách lẻ</span>
                     )}
                 </div>
 
-                {/* Items */}
+                {/*  Items  */}
                 <table className="receipt-table">
                     <thead>
                         <tr>
                             <th>Tên hàng</th>
-                            <th>Lô</th>
+                            <th>ĐVT</th>
                             <th className="text-right">SL</th>
                             <th className="text-right">Đơn giá</th>
                             <th className="text-right">Thành tiền</th>
@@ -49,11 +79,13 @@ export default function ReceiptModal({ receipt, onClose }) {
                         {items.map((item, idx) => (
                             <tr key={idx}>
                                 <td>{item.name}</td>
-                                <td><span className="batch-cell">{item.batchCode}</span></td>
+                                <td>{item.unitName ?? '—'}</td>
                                 <td className="text-right">{item.quantity}</td>
-                                <td className="text-right">{item.unitPrice?.toLocaleString()}</td>
+                                <td className="text-right">
+                                    {Number(item.unitPrice ?? 0).toLocaleString('vi-VN')}
+                                </td>
                                 <td className="text-right font-bold">
-                                    {(item.unitPrice * item.quantity).toLocaleString()}
+                                    {Number(item.lineTotal ?? item.unitPrice * item.quantity).toLocaleString('vi-VN')}
                                 </td>
                             </tr>
                         ))}
@@ -61,18 +93,42 @@ export default function ReceiptModal({ receipt, onClose }) {
                     <tfoot>
                         <tr>
                             <td colSpan={4} className="receipt-total-label">TỔNG CỘNG</td>
-                            <td className="text-right receipt-total-value">{total.toLocaleString()}</td>
+                            <td className="text-right receipt-total-value">
+                                {Number(total).toLocaleString('vi-VN')}
+                            </td>
                         </tr>
                     </tfoot>
                 </table>
 
-                {/* Actions */}
+                {/*  Invoice-fetch error  */}
+                {error && (
+                    <div style={{
+                        color: '#dc2626',
+                        fontSize: '13px',
+                        marginTop: '8px',
+                        padding: '6px 10px',
+                        background: '#fef2f2',
+                        borderRadius: '4px',
+                        border: '1px solid #fca5a5',
+                    }}>
+                        {error}
+                    </div>
+                )}
+
+                {/*  Actions  */}
                 <div className="receipt-actions">
-                    <button className="btn-checkout" onClick={() => window.print()}>
+                    <button
+                        id="btn-print-invoice"
+                        className="btn-checkout"
+                        onClick={handlePrint}
+                        disabled={isLoading || receipt?.id == null}
+                        title={receipt?.id == null ? 'Đang tải đơn hàng...' : 'In hóa đơn'}
+                    >
                         <Printer size={18} style={{ marginRight: 8 }} />
-                        In hóa đơn
+                        {isLoading ? 'Đang tải...' : 'In hóa đơn'}
                     </button>
-                    <button className="receipt-close-btn" onClick={onClose}>
+
+                    <button className="receipt-close-btn" onClick={handleClose}>
                         Đóng
                     </button>
                 </div>

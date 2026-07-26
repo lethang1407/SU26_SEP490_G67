@@ -13,6 +13,7 @@ import SupplierDetailPage from '../../features/supplier/pages/SupplierDetailPage
 import ImportOrderListPage from '../../features/import-order/pages/ImportOrderListPage';
 import POSScreen from '../../features/pos-screen/pages/POS';
 import CustomerDebtPage from '../../features/customer/pages/CustomerDebtPage';
+import CustomerDetailPage from '../../features/customer/pages/CustomerDetailPage';
 
 const adminRoutes = [
     {
@@ -70,6 +71,10 @@ const adminRoutes = [
     {
         path: '/admin/pos',
         element: <POSScreen />,
+    },
+    {
+        path: '/admin/customer/:customerId',
+        element: <CustomerDetailPage />,
     },
     {
         path: '/admin/customer',

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
+import { getApiErrorMessage } from '../../profile/utils/profileUtils';
 import { createCustomerDebt } from '../api';
 
 export default function CreateCustomerDebtModal({ show, onHide, onSuccess }) {
@@ -10,54 +11,82 @@ export default function CreateCustomerDebtModal({ show, onHide, onSuccess }) {
         note: '',
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [error, setError] = useState(null);
+    const [apiError, setApiError] = useState(null);
+    const [errors, setErrors] = useState({});
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+        // Clear validation error for the field being edited
+        if (errors[name]) {
+            setErrors(prev => ({ ...prev, [name]: null }));
+        }
+    };
+
+    const validateForm = () => {
+        const newErrors = {};
+        const { fullName, phoneNumber } = formData;
+
+        // FullName validation
+        if (!fullName.trim()) {
+            newErrors.fullName = 'Tên khách hàng không được để trống';
+        }
+
+        // PhoneNumber validation
+        const phoneRegex = /^(03[2-9]|05[689]|07[06789]|08[1-689]|09[0-46-9])\d{7}$/;
+        if (phoneNumber && !phoneRegex.test(phoneNumber)) {
+            newErrors.phoneNumber = 'Số điện thoại không hợp lệ';
+        }
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
     };
 
     const handleFormSubmit = async (e) => {
         e.preventDefault();
-        setError(null);
+        setApiError(null);
+
+        if (!validateForm()) {
+            return;
+        }
+
         setIsSubmitting(true);
 
         try {
-            const response = await createCustomerDebt(formData);
-            if (response.code === 1000) {
-                onSuccess(); // Gọi callback thành công từ component cha
-            } else {
-                setError(response.message || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
-            }
+            await createCustomerDebt(formData);
+            onSuccess(); 
         } catch (err) {
-            setError(err.message || 'Không thể kết nối đến máy chủ.');
+            setApiError(getApiErrorMessage(err, 'Đã có lỗi xảy ra. Vui lòng thử lại.'));
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const handleHide = () => {
-        // Reset form khi đóng modal
+        // Reset form and errors when closing modal
         setFormData({ fullName: '', phoneNumber: '', address: '', note: '' });
-        setError(null);
+        setErrors({});
+        setApiError(null);
         onHide();
     }
 
     return (
         <Modal show={show} onHide={handleHide} centered>
             <Modal.Header closeButton>
-                <Modal.Title>Tạo khách nợ mới</Modal.Title>
+                <Modal.Title>Tạo khách hàng mới</Modal.Title>
             </Modal.Header>
             <Form onSubmit={handleFormSubmit}>
                 <Modal.Body>
-                    {error && <Alert variant="danger">{error}</Alert>}
+                    {apiError && <Alert variant="danger">{apiError}</Alert>}
                     <Form.Group className="mb-3" controlId="formCustomerName">
                         <Form.Label>Tên khách hàng <span className="text-danger">*</span></Form.Label>
-                        <Form.Control type="text" name="fullName" value={formData.fullName} onChange={handleChange} placeholder="Nhập tên đầy đủ" required />
+                        <Form.Control type="text" name="fullName" value={formData.fullName} onChange={handleChange} placeholder="Nhập tên đầy đủ" isInvalid={!!errors.fullName} />
+                        <Form.Control.Feedback type="invalid">{errors.fullName}</Form.Control.Feedback>
                     </Form.Group>
                     <Form.Group className="mb-3" controlId="formCustomerPhone">
-                        <Form.Label>Số điện thoại <span className="text-danger">*</span></Form.Label>
-                        <Form.Control type="tel" name="phoneNumber" value={formData.phoneNumber} onChange={handleChange} placeholder="Nhập số điện thoại" required />
+                        <Form.Label>Số điện thoại</Form.Label>
+                        <Form.Control type="tel" name="phoneNumber" value={formData.phoneNumber} onChange={handleChange} placeholder="Nhập số điện thoại" isInvalid={!!errors.phoneNumber} />
+                        <Form.Control.Feedback type="invalid">{errors.phoneNumber}</Form.Control.Feedback>
                     </Form.Group>
                     <Form.Group className="mb-3" controlId="formCustomerAddress">
                         <Form.Label>Địa chỉ</Form.Label>
@@ -78,7 +107,7 @@ export default function CreateCustomerDebtModal({ show, onHide, onSuccess }) {
                                 <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
                                 {' '}Đang lưu...
                             </>
-                        ) : 'Lưu khách hàng'}
+                        ) : 'Lưu'}
                     </Button>
                 </Modal.Footer>
             </Form>

@@ -12,4 +12,5 @@ public class ApiPath {
     public static final String CUSTOMERS = BASE_URL_V1 + "/customers";
     public static final String SALES_ORDERS = BASE_URL_V1 + "/sales-orders";
     public static final String IMPORT_ORDERS = BASE_URL_V1 + "/import-orders";
+    public static final String DEBT_PAYMENTS_CUSTOMER = BASE_URL_V1 + "/debt-payments";
 }

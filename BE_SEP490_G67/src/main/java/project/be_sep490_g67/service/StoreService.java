@@ -12,9 +12,7 @@ import project.be_sep490_g67.entity.StoreConfig;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.StoreConfigRepository;
-import project.be_sep490_g67.repository.UserRepository;
 
-import java.time.Instant;
 
 @Service
 @RequiredArgsConstructor

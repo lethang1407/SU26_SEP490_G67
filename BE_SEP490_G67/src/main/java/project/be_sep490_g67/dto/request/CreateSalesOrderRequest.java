@@ -1,9 +1,13 @@
 package project.be_sep490_g67.dto.request;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
@@ -15,7 +19,6 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CreateSalesOrderRequest {
 
-    /** Present for standard invoice. Null for debt/anonymous invoice. */
     Integer customerId;
 
     @NotNull(message = "Phương thức thanh toán không được để trống")
@@ -34,12 +37,15 @@ public class CreateSalesOrderRequest {
     @AllArgsConstructor
     public static class OrderItemRequest {
         @NotNull(message = "productId không được để trống")
-        Integer productId;
+        private Integer productId;
 
-        @NotNull(message = "batchId không được để trống")
-        Integer batchId;
+        // @NotNull(message = "batchId không được để trống")
+        private Integer batchId;
+
+        Integer productUnitId;
 
         @NotNull(message = "quantity không được để trống")
+        @Min(1)
         Integer quantity;
 
         @NotNull(message = "unitPrice không được để trống")

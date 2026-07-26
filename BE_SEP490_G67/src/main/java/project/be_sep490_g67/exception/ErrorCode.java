@@ -43,6 +43,17 @@ public enum ErrorCode {
     NOT_FOUND_IMPORT_ORDER(1025, "Không tìm thấy đơn nhập hàng", HttpStatus.NOT_FOUND),
     INVALID_PAYMENT_AMOUNT(1026, "Số tiền thanh toán không hợp lệ", HttpStatus.BAD_REQUEST),
     PAYMENT_EXCEEDS_DEBT(1027, "Số tiền vượt quá số nợ còn lại của đơn hàng", HttpStatus.BAD_REQUEST),
+    CUSTOMER_NOT_FOUND(1028, "Không tìm thấy khách hàng", HttpStatus.NOT_FOUND),
+    INSUFFICIENT_STOCK(1029, "Không đủ tồn kho", HttpStatus.BAD_REQUEST),
+
+    // Invoice errors (3xxx)
+    ORDER_NOT_FOUND(3001, "Không tìm thấy đơn hàng", HttpStatus.NOT_FOUND),
+    ORDER_CANCELLED(3002, "Đơn hàng đã bị hủy, không thể xuất hóa đơn", HttpStatus.UNPROCESSABLE_ENTITY),
+    ORDER_EMPTY_DETAILS(3003, "Đơn hàng không có sản phẩm, không thể xuất hóa đơn", HttpStatus.UNPROCESSABLE_ENTITY),
+    STORE_CONFIG_MISSING(3004, "Lỗi cấu hình hệ thống: không tìm thấy cấu hình cửa hàng", HttpStatus.INTERNAL_SERVER_ERROR),
+    ORDER_TOTAL_MISMATCH(3005, "Tổng tiền đơn hàng không khớp, cần kiểm tra lại dữ liệu", HttpStatus.UNPROCESSABLE_ENTITY),
+    INVOICE_ACCESS_DENIED(3006, "Bạn không có quyền truy cập hóa đơn này", HttpStatus.FORBIDDEN),
+    PRODUCT_UNIT_NOT_FOUND(3007, "Không tìm thấy đơn vị sản phẩm", HttpStatus.NOT_FOUND),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

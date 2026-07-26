@@ -15,7 +15,7 @@ public class CreateCustomerRequest {
     String fullName;
 
     @Pattern(
-            regexp = "^(0|\\+84)[0-9]{9,10}$",
+            regexp = "^(03[2-9]|05[689]|07[06789]|08[1-689]|09[0-46-9])\\d{7}$",
             message = "Số điện thoại không hợp lệ"
     )
     String phoneNumber;

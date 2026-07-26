@@ -4,6 +4,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 @Data
 @Builder
@@ -12,12 +13,15 @@ import java.math.BigDecimal;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CustomerResponse {
     Integer id;
-    String customerCode;
     String fullName;
     String phoneNumber;
     String address;
     String debtStatus;
-    Boolean isDebt;
+    Boolean allowDebt;
     BigDecimal totalDebt;
+    Instant latestDebtDate;
     String note;
+    Boolean isOverdue;
+    Long totalOrdersInDebt;
+    Long totalOverdueOrders;
 }

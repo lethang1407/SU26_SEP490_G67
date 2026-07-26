@@ -1,8 +1,5 @@
 import { X } from 'lucide-react';
 
-/**
- * BatchSelectModal
- */
 export default function BatchSelectModal({ product, onSelect, onClose }) {
     if (!product) return null;
 
@@ -34,12 +31,12 @@ export default function BatchSelectModal({ product, onSelect, onClose }) {
                         <tbody>
                             {batches.map((b) => (
                                 <tr
-                                    key={b.batchCode}
+                                    key={b.id}
                                     className="batch-modal-row"
-                                    onClick={() => onSelect(b.batchCode)}
+                                    onClick={() => onSelect(b.id)}
                                 >
                                     <td>
-                                        <span className="batch-cell">{b.batchCode}</span>
+                                        <span className="batch-cell">{b.batchCode ?? b.id}</span>
                                     </td>
                                     <td className="text-right">
                                         {b.quantity.toLocaleString()}
