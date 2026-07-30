@@ -43,12 +43,11 @@ public class SupplierService {
     UserRepository userRepository;
 
     @Transactional(readOnly = true)
-    public SupplierListPageResponse findAllSuppliers(String search, String debtFilter, int page, int size) {
+    public SupplierListPageResponse findAllSuppliers(String search, Integer categoryId, int page, int size) {
         String safeSearch = (search == null || search.isBlank()) ? "" : search.trim();
-        String safeFilter = (debtFilter == null || debtFilter.isBlank()) ? "ALL" : debtFilter.toUpperCase();
 
-        // Bước 1: Lấy tất cả NCC khớp với từ khóa tìm kiếm
-        List<Supplier> suppliers = supplierRepository.searchSuppliers(safeSearch);
+        // Bước 1: Lấy NCC khớp từ khóa + danh mục (nếu có)
+        List<Supplier> suppliers = supplierRepository.searchSuppliers(safeSearch, categoryId);
 
         // Bước 2: Tính nợ hiện tại của từng NCC — derive từ (totalCost - đã trả),
         // KHÔNG đọc từ cột cache nào để tránh lệch số liệu khi thanh toán mới phát sinh.
@@ -66,19 +65,8 @@ public class SupplierService {
                         .build())
                 .toList();
 
-        // Bước 4: Lọc theo debtFilter (ALL / HAS_DEBT / NO_DEBT)
-        List<SupplierListItemResponse> filtered = switch (safeFilter) {
-            case "HAS_DEBT" -> allItems.stream()
-                    .filter(item -> item.getCurrentDebt().compareTo(BigDecimal.ZERO) > 0)
-                    .toList();
-            case "NO_DEBT" -> allItems.stream()
-                    .filter(item -> item.getCurrentDebt().compareTo(BigDecimal.ZERO) == 0)
-                    .toList();
-            default -> allItems;
-        };
-
-        // Bước 5: Sort nợ giảm dần (ưu tiên NCC nợ nhiều), cùng nợ thì theo tên A–Z
-        List<SupplierListItemResponse> sorted = filtered.stream()
+        // Bước 4: Sort nợ giảm dần (ưu tiên NCC nợ nhiều), cùng nợ thì theo tên A–Z
+        List<SupplierListItemResponse> sorted = allItems.stream()
                 .sorted(Comparator
                         .comparing(SupplierListItemResponse::getCurrentDebt,
                                 Comparator.nullsLast(Comparator.reverseOrder()))
@@ -86,7 +74,7 @@ public class SupplierService {
                                 String.CASE_INSENSITIVE_ORDER))
                 .toList();
 
-        // Bước 6: Phân trang thủ công
+        // Bước 5: Phân trang thủ công
         int totalElements = sorted.size();
         int totalPages    = Math.max(1, (int) Math.ceil((double) totalElements / size));
         int safePage      = Math.min(page, totalPages - 1);
@@ -95,7 +83,7 @@ public class SupplierService {
         List<SupplierListItemResponse> pageContent =
                 totalElements == 0 ? List.of() : sorted.subList(from, to);
 
-        // Bước 7: Tổng nợ + số NCC đang nợ toàn hệ thống (không bị ảnh hưởng bởi filter/search)
+        // Bước 6: Tổng nợ + số NCC đang nợ toàn hệ thống (không bị ảnh hưởng bởi filter/search)
         BigDecimal totalDebt = debtMap.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
         long debtSupplierCount = debtMap.values().stream()
                 .filter(debt -> debt.compareTo(BigDecimal.ZERO) > 0)

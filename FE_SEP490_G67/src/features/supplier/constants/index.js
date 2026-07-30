@@ -1,9 +1,3 @@
-export const SUPPLIER_DEBT_FILTER = {
-    ALL: 'ALL',
-    NO_DEBT: 'NO_DEBT',
-    HAS_DEBT: 'HAS_DEBT',
-};
-
 export const IMPORT_ORDER_STATUS = {
     DEBT: 'DEBT',
     DONE: 'DONE',

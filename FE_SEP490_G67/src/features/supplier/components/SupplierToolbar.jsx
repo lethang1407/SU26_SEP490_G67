@@ -1,13 +1,13 @@
 import { Search } from 'lucide-react';
-import { SUPPLIER_DEBT_FILTER } from '../constants';
 
-const DEBT_FILTER_OPTIONS = [
-    { value: SUPPLIER_DEBT_FILTER.ALL, label: 'Tất cả' },
-    { value: SUPPLIER_DEBT_FILTER.NO_DEBT, label: 'Không nợ' },
-    { value: SUPPLIER_DEBT_FILTER.HAS_DEBT, label: 'Còn nợ' },
-];
-
-export default function SupplierToolbar({ keyword, debtFilter, onKeywordChange, onDebtFilterChange }) {
+export default function SupplierToolbar({
+    keyword,
+    categoryId,
+    categories = [],
+    categoriesLoading = false,
+    onKeywordChange,
+    onCategoryChange,
+}) {
     return (
         <div className="supplier-toolbar">
             <div className="supplier-toolbar__search">
@@ -15,7 +15,7 @@ export default function SupplierToolbar({ keyword, debtFilter, onKeywordChange, 
                 <input
                     type="text"
                     className="supplier-toolbar__search-input"
-                    placeholder="Tìm theo tên hoặc mã nhà cung cấp..."
+                    placeholder="Tìm theo tên, mã hoặc số điện thoại"
                     value={keyword}
                     onChange={(event) => onKeywordChange(event.target.value)}
                     aria-label="Tìm nhà cung cấp"
@@ -23,21 +23,27 @@ export default function SupplierToolbar({ keyword, debtFilter, onKeywordChange, 
             </div>
 
             <div className="supplier-toolbar__filters">
-                <span className="supplier-toolbar__filter-label">Lọc theo nợ:</span>
-                <div className="supplier-toolbar__chips" role="group" aria-label="Lọc theo nợ nhà cung cấp">
-                    {DEBT_FILTER_OPTIONS.map((option) => (
-                        <button
-                            key={option.value}
-                            type="button"
-                            className={`supplier-toolbar__chip ${
-                                debtFilter === option.value ? 'supplier-toolbar__chip--active' : ''
-                            }`}
-                            onClick={() => onDebtFilterChange(option.value)}
-                        >
-                            {option.label}
-                        </button>
+                <label className="supplier-toolbar__filter-label" htmlFor="supplier-category-filter">
+                    Danh mục:
+                </label>
+                <select
+                    id="supplier-category-filter"
+                    className="supplier-toolbar__select"
+                    value={categoryId ?? ''}
+                    onChange={(event) => {
+                        const value = event.target.value;
+                        onCategoryChange(value === '' ? null : Number(value));
+                    }}
+                    disabled={categoriesLoading}
+                    aria-label="Lọc theo danh mục"
+                >
+                    <option value="">Tất cả danh mục</option>
+                    {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                            {category.name}
+                        </option>
                     ))}
-                </div>
+                </select>
             </div>
         </div>
     );
