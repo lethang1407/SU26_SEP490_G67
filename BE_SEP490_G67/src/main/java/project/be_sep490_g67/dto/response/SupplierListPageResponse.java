@@ -22,4 +22,5 @@ public class SupplierListPageResponse {
     long totalElements;
     int totalPages;
     BigDecimal totalDebt;
+    long debtSupplierCount;
 }

@@ -1,108 +1,32 @@
-export const SUPPLIER_STATUS = {
-    ACTIVE: 'ACTIVE',
-    HAS_DEBT: 'HAS_DEBT',
-    PAUSED: 'PAUSED',
-};
-
-export const SUPPLIER_STATUS_LABEL = {
-    ACTIVE: 'Đang giao dịch',
-    HAS_DEBT: 'Có công nợ',
-    PAUSED: 'Tạm dừng',
-};
-
 export const SUPPLIER_DEBT_FILTER = {
     ALL: 'ALL',
     NO_DEBT: 'NO_DEBT',
     HAS_DEBT: 'HAS_DEBT',
 };
 
-export const MOCK_SUPPLIERS = [
-    {
-        id: 1,
-        supplierCode: 'NCC001',
-        name: 'Công ty CP Sữa Việt Nam (Vinamilk)',
-        phoneNumber: '028 3930 0358',
-        address: '10 Tân Trào, Phường Tân Phú, Quận 7, TP. HCM',
-        contactPerson: 'Nguyễn Trần Minh Anh',
-        categories: ['Sữa', 'Sữa chua'],
-        currentDebt: 0,
-        status: SUPPLIER_STATUS.ACTIVE,
-    },
-    {
-        id: 2,
-        supplierCode: 'NCC002',
-        name: 'NPP Gia dụng Minh Anh',
-        phoneNumber: '0905 123 456',
-        address: '45 Lê Văn Khương, Quận 12, TP. HCM',
-        contactPerson: 'Trần Văn B',
-        categories: ['Gia dụng'],
-        currentDebt: 45000000,
-        status: SUPPLIER_STATUS.HAS_DEBT,
-    },
-    {
-        id: 3,
-        supplierCode: 'NCC003',
-        name: 'Công ty TNHH Unilever Việt Nam',
-        phoneNumber: '028 3828 8282',
-        address: 'A2-A3, KCN Tân Bình, TP. HCM',
-        contactPerson: 'Lê Thị C',
-        categories: ['Chăm sóc cá nhân', 'Gia vị'],
-        currentDebt: 0,
-        status: SUPPLIER_STATUS.ACTIVE,
-    },
-    {
-        id: 4,
-        supplierCode: 'NCC004',
-        name: 'Công ty CP Masan Consumer',
-        phoneNumber: '028 3821 8888',
-        address: 'Masan Tower, Tân Phú, TP. HCM',
-        contactPerson: 'Phạm Văn D',
-        categories: ['Gia vị', 'Mì ăn liền'],
-        currentDebt: 0,
-        status: SUPPLIER_STATUS.ACTIVE,
-    },
-    {
-        id: 5,
-        supplierCode: 'NCC005',
-        name: 'Đồ gỗ Mỹ nghệ Đông Anh',
-        phoneNumber: '0243 888 999',
-        address: 'Xã Đông Anh, Hà Nội',
-        contactPerson: 'Hoàng Văn E',
-        categories: ['Đồ gỗ'],
-        currentDebt: 0,
-        status: SUPPLIER_STATUS.ACTIVE,
-    },
-    {
-        id: 6,
-        supplierCode: 'NCC006',
-        name: 'NPP Bánh kẹo Phương Nam',
-        phoneNumber: '0918 234 567',
-        address: 'Quận Bình Thạnh, TP. HCM',
-        contactPerson: 'Nguyễn Thị F',
-        categories: ['Bánh kẹo'],
-        currentDebt: 12500000,
-        status: SUPPLIER_STATUS.HAS_DEBT,
-    },
-    {
-        id: 7,
-        supplierCode: 'NCC007',
-        name: 'Công ty Nước giải khát Sài Gòn',
-        phoneNumber: '028 3812 3456',
-        address: 'Quận 4, TP. HCM',
-        contactPerson: 'Võ Văn G',
-        categories: ['Nước giải khát'],
-        currentDebt: 0,
-        status: SUPPLIER_STATUS.ACTIVE,
-    },
-    {
-        id: 8,
-        supplierCode: 'NCC008',
-        name: 'NPP Mì gói Miền Nam',
-        phoneNumber: '0909 876 543',
-        address: 'Quận 8, TP. HCM',
-        contactPerson: 'Đặng Văn H',
-        categories: ['Mì ăn liền'],
-        currentDebt: 8200000,
-        status: SUPPLIER_STATUS.HAS_DEBT,
-    },
-];
+export const IMPORT_ORDER_STATUS = {
+    DEBT: 'DEBT',
+    DONE: 'DONE',
+};
+
+export const IMPORT_ORDER_STATUS_LABEL = {
+    DEBT: 'Đang nợ',
+    DONE: 'Hoàn thành',
+};
+
+export const IMPORT_HISTORY_FILTER = {
+    ALL: 'ALL',
+    DEBT: 'DEBT',
+    DONE: 'DONE',
+};
+
+export const IMPORT_HISTORY_FILTER_LABEL = {
+    [IMPORT_HISTORY_FILTER.ALL]: 'Tất cả',
+    [IMPORT_HISTORY_FILTER.DEBT]: 'Đang nợ',
+    [IMPORT_HISTORY_FILTER.DONE]: 'Hoàn thành',
+};
+
+export const PAYMENT_METHOD_LABEL = {
+    CASH: 'Tiền mặt',
+    QR: 'Chuyển khoản / QR',
+};

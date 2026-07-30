@@ -13,6 +13,16 @@ export const suppliersApi = {
         return response;
     },
 
+    updateSupplier: async (id, payload) => {
+        const response = await api.put(`/suppliers/${id}`, payload);
+        return response.result;
+    },
+
+    deleteSupplier: async (id) => {
+        const response = await api.delete(`/suppliers/${id}`);
+        return response;
+    },
+
     getSupplierById: async (id) => {
         const response = await api.get(`/suppliers/${id}`);
         return response.result;

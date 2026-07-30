@@ -45,6 +45,7 @@ public enum ErrorCode {
     PAYMENT_EXCEEDS_DEBT(1027, "Số tiền vượt quá số nợ còn lại của đơn hàng", HttpStatus.BAD_REQUEST),
     CUSTOMER_NOT_FOUND(1028, "Không tìm thấy khách hàng", HttpStatus.NOT_FOUND),
     INSUFFICIENT_STOCK(1029, "Không đủ tồn kho", HttpStatus.BAD_REQUEST),
+    SUPPLIER_HAS_DEBT(1030, "Không thể xóa nhà cung cấp đang còn công nợ. Vui lòng thanh toán hết trước khi xóa.", HttpStatus.BAD_REQUEST),
 
     // Invoice errors (3xxx)
     ORDER_NOT_FOUND(3001, "Không tìm thấy đơn hàng", HttpStatus.NOT_FOUND),
