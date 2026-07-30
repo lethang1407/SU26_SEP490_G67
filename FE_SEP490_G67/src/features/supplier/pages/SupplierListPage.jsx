@@ -7,8 +7,8 @@ import SupplierToolbar from '../components/SupplierToolbar';
 import SupplierTable from '../components/SupplierTable';
 import SupplierPagination from '../components/SupplierPagination';
 import SupplierAddNewModal from '../components/SupplierAddNewModal';
-import { SUPPLIER_DEBT_FILTER } from '../constants';
 import { suppliersApi } from '../api';
+import { categoriesApi } from '../../category/api';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Supplier.css';
 
@@ -29,7 +29,9 @@ const SEARCH_DEBOUNCE_MS = 400;
 export default function SupplierListPage() {
     const [keyword, setKeyword] = useState('');
     const [debouncedKeyword, setDebouncedKeyword] = useState('');
-    const [debtFilter, setDebtFilter] = useState(SUPPLIER_DEBT_FILTER.ALL);
+    const [categoryId, setCategoryId] = useState(null);
+    const [categories, setCategories] = useState([]);
+    const [categoriesLoading, setCategoriesLoading] = useState(false);
     const [page, setPage] = useState(1);
     const [data, setData] = useState(EMPTY_PAGE);
     const [loading, setLoading] = useState(false);
@@ -47,11 +49,20 @@ export default function SupplierListPage() {
         return () => clearTimeout(timer);
     }, [keyword]);
 
+    useEffect(() => {
+        setCategoriesLoading(true);
+        categoriesApi
+            .getAllCategories()
+            .then((items) => setCategories(Array.isArray(items) ? items : []))
+            .catch(() => setCategories([]))
+            .finally(() => setCategoriesLoading(false));
+    }, []);
+
     const fetchSuppliers = useCallback((options = {}) => {
         const silent = options.silent === true;
         if (!silent) setLoading(true);
         suppliersApi
-            .getSuppliers({ page: page - 1, size: PAGE_SIZE, search: debouncedKeyword, debtFilter })
+            .getSuppliers({ page: page - 1, size: PAGE_SIZE, search: debouncedKeyword, categoryId })
             .then((result) => setData(result ?? EMPTY_PAGE))
             .catch(() => {
                 if (!silent) setData(EMPTY_PAGE);
@@ -59,7 +70,7 @@ export default function SupplierListPage() {
             .finally(() => {
                 if (!silent) setLoading(false);
             });
-    }, [page, debouncedKeyword, debtFilter]);
+    }, [page, debouncedKeyword, categoryId]);
 
     useEffect(() => {
         fetchSuppliers();
@@ -69,8 +80,8 @@ export default function SupplierListPage() {
         setKeyword(value);
     };
 
-    const handleDebtFilterChange = (value) => {
-        setDebtFilter(value);
+    const handleCategoryChange = (value) => {
+        setCategoryId(value);
         setPage(1);
         setExpandedId(null);
     };
@@ -158,9 +169,11 @@ export default function SupplierListPage() {
 
                         <SupplierToolbar
                             keyword={keyword}
-                            debtFilter={debtFilter}
+                            categoryId={categoryId}
+                            categories={categories}
+                            categoriesLoading={categoriesLoading}
                             onKeywordChange={handleKeywordChange}
-                            onDebtFilterChange={handleDebtFilterChange}
+                            onCategoryChange={handleCategoryChange}
                         />
 
                         <SupplierTable
