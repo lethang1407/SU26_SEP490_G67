@@ -63,4 +63,17 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
             ORDER BY loc.label ASC, b.id ASC
             """)
     List<BatchLocation> findActiveAvailableLines(@Param("locationLabel") String locationLabel);
+    @Query(
+            """
+                    SELECT bl from BatchLocation bl
+                    JOIN fetch bl.batch sb
+                    JOIN FETCH bl.location ls
+                    WHERE sb.product.id = :productId AND bl.quantity > 0
+                    AND bl.isRemoved = false
+                    AND  sb.isRemoved = false 
+                    AND ls.isRemoved = false 
+                    ORDER BY sb.expiryDate ASC, sb.receivedDate ASC 
+                    """
+    )
+    List<BatchLocation> findAvailableByProductId(@Param("productId") Integer productId);
 }

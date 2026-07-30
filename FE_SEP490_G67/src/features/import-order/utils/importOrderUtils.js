@@ -1,4 +1,4 @@
-import { IMPORT_ORDER_STATUS } from '../constants';
+import { IMPORT_ORDER_STATUS, ORDER_STATUS_FILTER } from '../constants';
 
 export function formatCurrency(value) {
     const amount = Number(value) || 0;
@@ -55,18 +55,24 @@ export function buildImportSummary(lines) {
     };
 }
 
-export function filterImportOrders(items, { keyword, statusFilter, dateFilter }) {
-    const normalizedKeyword = keyword.trim().toLowerCase();
+export function filterImportOrders(items, { keyword, statusFilter, dateFilter, orderStatusFilter }) {
+    const normalizedKeyword = keyword?.trim().toLowerCase() ?? '';
     const now = new Date();
+    const statusValue = orderStatusFilter ?? statusFilter ?? 'all';
 
     return items.filter((item) => {
         const matchesKeyword =
             !normalizedKeyword ||
-            item.orderCode.toLowerCase().includes(normalizedKeyword) ||
+            item.orderCode?.toLowerCase().includes(normalizedKeyword) ||
+            item.supplierCode?.toLowerCase().includes(normalizedKeyword) ||
             item.supplierName?.toLowerCase().includes(normalizedKeyword) ||
             item.note?.toLowerCase().includes(normalizedKeyword);
 
-        const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
+        const itemStatus = item.orderStatus ?? item.status;
+        const matchesStatus =
+            statusValue === 'all' ||
+            statusValue === ORDER_STATUS_FILTER.ALL ||
+            itemStatus === statusValue;
 
         let matchesDate = true;
         if (dateFilter === 'this_month') {
@@ -84,6 +90,24 @@ export function filterImportOrders(items, { keyword, statusFilter, dateFilter })
 
         return matchesKeyword && matchesStatus && matchesDate;
     });
+}
+
+export function paginateItems(items, page, pageSize) {
+    const totalItems = items.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const safePage = Math.min(Math.max(page, 1), totalPages);
+    const startIndex = (safePage - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, totalItems);
+
+    return {
+        items: items.slice(startIndex, endIndex),
+        page: safePage,
+        pageSize,
+        totalItems,
+        totalPages,
+        startIndex: totalItems === 0 ? 0 : startIndex + 1,
+        endIndex,
+    };
 }
 
 export function searchProducts(products, keyword) {
@@ -180,5 +204,5 @@ export function validateImportForm({ supplierId, lines }) {
 }
 
 export function isReceivedStatus(status) {
-    return status === IMPORT_ORDER_STATUS.RECEIVED;
+    return status === IMPORT_ORDER_STATUS.RECEIVED || status === IMPORT_ORDER_STATUS.DONE;
 }

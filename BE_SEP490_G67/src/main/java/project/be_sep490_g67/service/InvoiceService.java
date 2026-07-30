@@ -8,17 +8,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.be_sep490_g67.dto.response.InvoiceResponse;
 import project.be_sep490_g67.entity.SalesOrder;
-import project.be_sep490_g67.entity.SalesOrderDetail;
 import project.be_sep490_g67.entity.StoreConfig;
-import project.be_sep490_g67.entity.User;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.SalesOrderRepository;
 import project.be_sep490_g67.repository.StoreConfigRepository;
 import project.be_sep490_g67.repository.UserRepository;
-
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;

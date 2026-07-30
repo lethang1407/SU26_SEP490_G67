@@ -55,6 +55,25 @@ public class SupplierController {
                 .build();
     }
 
+    @PutMapping("/{id}")
+    public ApiResponse<SupplierDetailResponse> updateSupplier(
+            @PathVariable Integer id,
+            @RequestBody AddNewSupplierRequest request
+    ) {
+        return ApiResponse.<SupplierDetailResponse>builder()
+                .result(supplierService.updateSupplier(id, request))
+                .message("Cập nhật nhà cung cấp thành công")
+                .build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> deleteSupplier(@PathVariable Integer id) {
+        supplierService.deleteSupplier(id);
+        return ApiResponse.<Void>builder()
+                .message("Xóa nhà cung cấp thành công")
+                .build();
+    }
+
     @GetMapping("/{id}/import-orders")
     public ApiResponse<PageResponse<ImportOrderListItemResponse>> getImportHistory(
             @PathVariable Integer id,

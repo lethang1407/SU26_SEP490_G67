@@ -12,12 +12,12 @@ import java.util.Optional;
 @Repository
 public interface ImportOrderRepository extends JpaRepository<ImportOrder, Integer> {
 
-    // Lấy các đơn nhập còn hiệu lực của NCC còn hoạt động — dùng để tính nợ NCC
-    // (nợ = totalCost - tổng đã trả, tính ở Service, không cache trên entity)
+    // Chỉ đơn IMPORTED mới tính nợ NCC. DRAFT / null không tính công nợ.
     @Query("""
             SELECT io FROM ImportOrder io
             WHERE io.isRemoved = false
               AND io.supplier.isRemoved = false
+              AND io.orderStatus = 'IMPORTED'
             """)
     List<ImportOrder> findAllActiveWithActiveSupplier();
 
@@ -26,6 +26,7 @@ public interface ImportOrderRepository extends JpaRepository<ImportOrder, Intege
     // Với quy mô 1 cửa hàng nhỏ (tối đa vài trăm đơn/NCC) cách này vẫn đủ nhanh.
     @Query("""
             SELECT io FROM ImportOrder io
+            JOIN FETCH io.supplier
             WHERE io.supplier.id = :supplierId
               AND io.isRemoved = false
               AND (:search IS NULL OR :search = ''
@@ -33,6 +34,25 @@ public interface ImportOrderRepository extends JpaRepository<ImportOrder, Intege
             ORDER BY io.receivedDate DESC, io.id DESC
             """)
     List<ImportOrder> searchBySupplier(@Param("supplierId") Integer supplierId, @Param("search") String search);
+
+    // Danh sách đơn nhập toàn cửa hàng — lọc search + orderStatus ở SQL;
+    // remainingDebt vẫn derive ở Service nên pagination cũng cắt ở Service.
+    @Query("""
+            SELECT io FROM ImportOrder io
+            JOIN FETCH io.supplier s
+            WHERE io.isRemoved = false
+              AND s.isRemoved = false
+              AND (:search IS NULL OR :search = ''
+                   OR LOWER(io.orderCode) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(s.supplierCode) LIKE LOWER(CONCAT('%', :search, '%'))
+                   OR LOWER(s.name) LIKE LOWER(CONCAT('%', :search, '%')))
+              AND (:orderStatus IS NULL OR :orderStatus = '' OR :orderStatus = 'ALL'
+                   OR io.orderStatus = :orderStatus)
+            ORDER BY io.receivedDate DESC, io.id DESC
+            """)
+    List<ImportOrder> searchAll(
+            @Param("search") String search,
+            @Param("orderStatus") String orderStatus);
 
     // Lấy 1 đơn nhập kèm chi tiết mặt hàng (JOIN FETCH) cho modal xem chi tiết, tránh N+1
     @Query("""
@@ -44,17 +64,6 @@ public interface ImportOrderRepository extends JpaRepository<ImportOrder, Intege
               AND io.isRemoved = false
             """)
     Optional<ImportOrder> findDetailById(@Param("id") Integer id);
-
-    @Query("""
-            SELECT DISTINCT io FROM ImportOrder io
-            JOIN FETCH io.supplier s
-            WHERE io.isRemoved = false
-              AND (:search IS NULL OR :search = ''
-                   OR LOWER(io.orderCode) LIKE LOWER(CONCAT('%', :search, '%'))
-                   OR LOWER(s.name) LIKE LOWER(CONCAT('%', :search, '%')))
-            ORDER BY io.receivedDate DESC, io.id DESC
-            """)
-    List<ImportOrder> searchAll(@Param("search") String search);
 
     @Query("""
             SELECT DISTINCT io FROM ImportOrder io

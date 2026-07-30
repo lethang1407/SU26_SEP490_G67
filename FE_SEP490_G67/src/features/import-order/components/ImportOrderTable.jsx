@@ -1,58 +1,71 @@
-import { Eye } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { IMPORT_ORDER_ROUTES } from '../constants';
-import { formatCurrency, formatDate } from '../utils/importOrderUtils';
-import ImportOrderStatusBadge from './ImportOrderStatusBadge';
+import { ORDER_STATUS_LABEL } from '../constants';
+import { formatCurrency, formatDateTime } from '../utils/importOrderUtils';
 
-export default function ImportOrderTable({ items }) {
-    const navigate = useNavigate();
+export default function ImportOrderTable({ items, loading }) {
+    if (loading) {
+        return (
+            <div className="supplier-table-card supplier-table-card--empty">
+                <p>Đang tải danh sách đơn nhập hàng...</p>
+            </div>
+        );
+    }
 
     if (items.length === 0) {
         return (
-            <div className="import-order-table-card import-order-table-card--empty">
-                <p>Chưa có đơn nhập hàng phù hợp.</p>
+            <div className="supplier-table-card supplier-table-card--empty">
+                <p>Không tìm thấy đơn nhập hàng phù hợp.</p>
             </div>
         );
     }
 
     return (
-        <div className="import-order-table-card">
-            <div className="import-order-table-wrapper">
-                <table className="import-order-table">
+        <div className="supplier-table-card">
+            <div className="supplier-table-wrapper">
+                <table className="supplier-table import-order-table">
                     <thead>
                         <tr>
-                            <th>Mã đơn nhập</th>
+                            <th>Mã nhập hàng</th>
                             <th>Thời gian</th>
+                            <th>Mã NCC</th>
                             <th>Nhà cung cấp</th>
-                            <th>Tổng tiền</th>
+                            <th>Cần trả NCC</th>
                             <th>Trạng thái</th>
-                            <th className="import-order-table__actions-col">Thao tác</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {items.map((item) => (
-                            <tr key={item.id} className="import-order-table__row">
-                                <td className="import-order-table__code">{item.orderCode}</td>
-                                <td>{formatDate(item.receivedDate)}</td>
-                                <td className="import-order-table__supplier">{item.supplierName}</td>
-                                <td className="import-order-table__amount">
-                                    {formatCurrency(item.totalCost)}
-                                </td>
-                                <td>
-                                    <ImportOrderStatusBadge status={item.status} />
-                                </td>
-                                <td className="import-order-table__actions-col">
-                                    <button
-                                        type="button"
-                                        className="import-order-table__view-btn"
-                                        title="Xem chi tiết"
-                                        onClick={() => navigate(IMPORT_ORDER_ROUTES.detail(item.id))}
+                        {items.map((order) => {
+                            const amountDue = Number(order.remainingDebt ?? order.amountDue) || 0;
+                            const receivedAt = order.receivedAt || order.receivedDate;
+
+                            return (
+                                <tr key={order.id}>
+                                    <td className="supplier-table__code-text">{order.orderCode}</td>
+                                    <td className="supplier-table__nowrap">{formatDateTime(receivedAt)}</td>
+                                    <td>
+                                        <span className="import-order-table__supplier-code">
+                                            {order.supplierCode}
+                                        </span>
+                                    </td>
+                                    <td className="supplier-table__name" title={order.supplierName}>
+                                        {order.supplierName}
+                                    </td>
+                                    <td
+                                        className={`supplier-table__debt ${
+                                            amountDue > 0 ? 'supplier-table__debt--highlight' : ''
+                                        }`}
                                     >
-                                        <Eye size={18} />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
+                                        {formatCurrency(amountDue)}
+                                    </td>
+                                    <td>
+                                        <span
+                                            className={`import-order-status import-order-status--${order.orderStatus?.toLowerCase()}`}
+                                        >
+                                            {ORDER_STATUS_LABEL[order.orderStatus] || order.orderStatus}
+                                        </span>
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>

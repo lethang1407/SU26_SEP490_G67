@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 
 @Data
@@ -19,19 +20,27 @@ public class ImportOrderListItemResponse {
     Integer id;
     String orderCode;
     LocalDate receivedDate;
+    /** Thời điểm ghi nhận phiếu (dùng hiển thị cột Thời gian trên list). */
+    Instant receivedAt;
     String createdByName;
-    String supplierName;
-    Integer supplierId;
-    String note;
-    Integer itemCount;
-    Integer totalQuantity;
     BigDecimal totalCost;
-    // "DEBT" (đang nợ) hoặc "DONE" (hoàn thành) — derive từ totalCost - tổng đã trả,
-    // xem ImportOrderService.resolveStatus()
+
+    Integer supplierId;
+    String supplierCode;
+    String supplierName;
+
+    /**
+     * Trạng thái phiếu: DRAFT | IMPORTED
+     */
+    String orderStatus;
+
+    /**
+     * Trạng thái thanh toán derive: DEBT | DONE
+     * (giữ tên `status` để tương thích lịch sử nhập theo NCC)
+     */
     String status;
-    // paidAmount/remainingDebt cũng derive từ SupplierPayment (không cache) — thêm 2 field
-    // này để modal "Thanh toán nợ" hiển thị đúng số liệu thật khi chọn đơn, thay vì phải
-    // tự bịa ở FE như trước.
+
     BigDecimal paidAmount;
+    /** Số tiền còn phải trả NCC cho đơn này. */
     BigDecimal remainingDebt;
 }

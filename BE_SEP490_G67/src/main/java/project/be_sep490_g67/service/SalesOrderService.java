@@ -29,10 +29,9 @@ public class SalesOrderService {
     SalesOrderRepository salesOrderRepository;
     SalesOrderDetailRepository salesOrderDetailRepository;
     ProductRepository productRepository;
-    StockBatchRepository stockBatchRepository;
-    StockMovementRepository stockMovementRepository;
     CustomerRepository customerRepository;
     ProductUnitRepository productUnitRepository;
+    StockDeductionService stockDeductionService;
 
     @Transactional
     public SalesOrderResponse createOrder(CreateSalesOrderRequest request,
@@ -46,7 +45,7 @@ public class SalesOrderService {
                             HttpStatus.NOT_FOUND, "Không tìm thấy khách hàng"));
         }
 
-        // Build order header
+        // Create sale order
         SalesOrder order = new SalesOrder();
         order.setCustomer(customer);
         order.setOrderCode("SO-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
@@ -63,7 +62,13 @@ public class SalesOrderService {
                 ? request.getDiscountAmount() : BigDecimal.ZERO;
         order.setDiscountAmount(discount);
 
-        // Build line items
+        //Save order
+        order.setSubtotal(BigDecimal.ZERO);
+        order.setTotalAmount(BigDecimal.ZERO);
+        order.setPaidAmount(BigDecimal.ZERO);
+        SalesOrder saved = salesOrderRepository.save(order);
+
+        // Build line items, using FEFO to minus products
         List<SalesOrderDetail> details = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
 
@@ -73,57 +78,25 @@ public class SalesOrderService {
                             HttpStatus.NOT_FOUND,
                             "Không tìm thấy sản phẩm với mã: " + item.getProductId()));
 
-            Integer resolvedBatchId = item.getBatchId();
+            stockDeductionService.deductStock(
+                    item.getProductId(),
+                    item.getQuantity(),
+                    saved.getId(),
+                    createdBy
+            );
 
-            StockBatch batch;
-
-            if (resolvedBatchId == null || resolvedBatchId <= 0) {
-                batch = stockBatchRepository
-                        .findFirstAvailableBatchByProductId(item.getProductId())
-                        .orElseThrow(() -> new ResponseStatusException(
-                                HttpStatus.BAD_REQUEST,
-                                "Không tìm thấy lô hàng khả dụng"));
-
-                resolvedBatchId = batch.getId();
-            } else {
-                batch = stockBatchRepository.findById(resolvedBatchId)
-                        .orElseThrow(() -> new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "Không tìm thấy lô hàng"));
-            }
-
-            // Deduct stock
-            int currentStock = stockMovementRepository
-                    .sumQuantityDeltaByBatchId(resolvedBatchId);
-            if (currentStock < item.getQuantity()) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Sản phẩm " + product.getName() +
-                                " không đủ tồn kho. Còn lại: " + currentStock);
-            }
-
-            StockMovement movement = new StockMovement();
-            movement.setStockBatch(batch);
-            movement.setMovementType("SALE");
-            movement.setReferenceType("SALES_ORDER");
-            movement.setReferenceId(order.getId()); // set sau khi save order
-            movement.setQuantityDelta(-item.getQuantity());
-            movement.setStockAfter(currentStock - item.getQuantity());
-            movement.setCreatedBy(createdBy);
-            movement.setCreatedAt(Instant.now());
-            stockMovementRepository.save(movement);
-
+            //Resolve unit
             ProductUnit resolvedUnit = null;
             String resolvedUnitName = null;
 
             if (item.getProductUnitId() != null) {
-                // Cashier explicitly selected a unit
                 resolvedUnit = productUnitRepository.findById(item.getProductUnitId())
                         .orElseThrow(() -> new ResponseStatusException(
                                 HttpStatus.NOT_FOUND,
-                                "Không tìm thấy đơn vị sản phẩm ID: " + item.getProductUnitId()));
+                                "Không tìm thấy đơn vị sản phẩm ID: "
+                                        + item.getProductUnitId()));
                 resolvedUnitName = resolvedUnit.getName();
             } else {
-                // Fallback: use base unit (unit_base = 1)
                 resolvedUnitName = product.getProductUnits().stream()
                         .filter(u -> u.getUnitBase() != null
                                 && u.getUnitBase().compareTo(BigDecimal.ONE) == 0)
@@ -132,6 +105,7 @@ public class SalesOrderService {
                         .orElse(null);
             }
 
+            // Calculate total
             BigDecimal lineDiscount = item.getDiscountAmount() != null
                     ? item.getDiscountAmount() : BigDecimal.ZERO;
             BigDecimal lineTotal = item.getUnitPrice()
@@ -139,10 +113,10 @@ public class SalesOrderService {
                     .subtract(lineDiscount);
 
             SalesOrderDetail detail = new SalesOrderDetail();
-            detail.setSalesOrder(order);
+            detail.setSalesOrder(saved);
             detail.setProduct(product);
-            detail.setProductUnit(resolvedUnit);   // FK for traceability (nullable)
-            detail.setUnitName(resolvedUnitName);  // immutable snapshot
+            detail.setProductUnit(resolvedUnit);
+            detail.setUnitName(resolvedUnitName);
             detail.setQuantity(item.getQuantity());
             detail.setUnitPrice(item.getUnitPrice());
             detail.setDiscountAmount(lineDiscount);
@@ -159,12 +133,10 @@ public class SalesOrderService {
         order.setSubtotal(subtotal);
         order.setTotalAmount(subtotal.subtract(discount));
         order.setPaidAmount(isDebt ? BigDecimal.ZERO : subtotal.subtract(discount));
+        salesOrderRepository.save(order);
 
-        // Save the order header FIRST to get the generated ID
-        SalesOrder saved = salesOrderRepository.save(order);
-        details.forEach(d -> d.setSalesOrder(saved));
         salesOrderDetailRepository.saveAll(details);
-        return toResponse(saved, details, request);
+        return toResponse(saved, details);
     }
 
     @Transactional(readOnly = true)
@@ -179,7 +151,6 @@ public class SalesOrderService {
                 .map(d -> SalesOrderResponse.SalesOrderDetailInfo.builder()
                         .productId(d.getProduct().getId())
                         .name(d.getProduct().getName())
-                        .batchCode("—")
                         .unitName(d.getUnitName())
                         .quantity(d.getQuantity())
                         .unitPrice(d.getUnitPrice())
@@ -218,17 +189,16 @@ public class SalesOrderService {
     }
 
     // ---- Private helpers ----
-
+    // No batch info here on purpose: FEFO can split one line across several
+    // batches, so a single batch code cannot describe it. The full allocation is
+    // recorded in stock_movements (reference_type = SALES_ORDER) and belongs on
+    // the order-detail view as a list, not on the create response.
     private SalesOrderResponse toResponse(SalesOrder saved,
-                                          List<SalesOrderDetail> details,
-                                          CreateSalesOrderRequest request) {
+                                          List<SalesOrderDetail> details) {
         List<SalesOrderResponse.SalesOrderDetailInfo> itemInfos = details.stream()
                 .map(d -> SalesOrderResponse.SalesOrderDetailInfo.builder()
                         .productId(d.getProduct().getId())
                         .name(d.getProduct().getName())
-                        .batchCode("BATCH-" + request.getItems().stream()
-                                .filter(i -> i.getProductId().equals(d.getProduct().getId()))
-                                .findFirst().map(i -> String.valueOf(i.getBatchId())).orElse("?"))
                         .unitName(d.getUnitName())
                         .quantity(d.getQuantity())
                         .unitPrice(d.getUnitPrice())

@@ -1,9 +1,5 @@
 import invoiceTemplate from '../templates/invoiceTemplate.html?raw';
 
-/**
- * Builds the printable invoice HTML document from an InvoiceResponse payload
- * by filling in the {{PLACEHOLDER}} tokens of templates/invoiceTemplate.html.
- */
 export function buildInvoiceHtml(data) {
     const {
         storeName, storeAddress, taxCode, currency,
@@ -27,7 +23,7 @@ export function buildInvoiceHtml(data) {
     const orderCodeText = escHtml(orderCode ?? String(orderId ?? ''));
 
     const itemRows = items.map((item, idx) => `
-        <tr>
+        <tr>    
             <td>${idx + 1}</td>
             <td>${escHtml(item.productName ?? '')}</td>
             <td>${escHtml(item.unitName ?? '—')}</td>

@@ -43,7 +43,6 @@ public class SalesOrderResponse {
     public static class SalesOrderDetailInfo {
         Integer productId;
         String name;
-        String batchCode;
         /** Snapshot of the unit name chosen by the cashier at sale time (UC-40/41). */
         String unitName;
         Integer quantity;

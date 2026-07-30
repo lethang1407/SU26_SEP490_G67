@@ -1,5 +1,16 @@
 import SupplierContactCard from './SupplierContactCard';
 
+function getCategoryLabel(category) {
+    if (!category) return '';
+    if (typeof category === 'string') return category;
+    return category.name || '';
+}
+
+function getCategoryKey(category, index) {
+    if (typeof category === 'string') return category;
+    return category.id ?? category.name ?? index;
+}
+
 export default function SupplierGeneralInfoTab({ supplier }) {
     return (
         <div className="supplier-detail-tab-content">
@@ -9,9 +20,9 @@ export default function SupplierGeneralInfoTab({ supplier }) {
                 <h3 className="supplier-detail-card__title">Chuyên cung cấp</h3>
                 {supplier.categories?.length > 0 ? (
                     <div className="supplier-tag-list">
-                        {supplier.categories.map((category) => (
-                            <span key={category} className="supplier-tag">
-                                {category}
+                        {supplier.categories.map((category, index) => (
+                            <span key={getCategoryKey(category, index)} className="supplier-tag">
+                                {getCategoryLabel(category)}
                             </span>
                         ))}
                     </div>
