@@ -6,6 +6,7 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.be_sep490_g67.dto.response.CustomerDebtOverviewResponse;
+import project.be_sep490_g67.dto.response.CustomerDebtSummaryResponse;
 import project.be_sep490_g67.repository.CustomerRepository;
 import project.be_sep490_g67.repository.DebtPaymentRepository;
 
@@ -38,7 +39,7 @@ public class CustomerDebtPaymentService {
 
         return CustomerDebtOverviewResponse.builder()
                 .totalDebt(customerRepository.getTotalDebt())
-                .debtCustomerCount(customerRepository.countDebtCustomers())
+                .debtCustomerCount(customerRepository.countInDebtCustomers())
                 .todayCollectedAmount(
                         debtPaymentRepository.getTodayCollectedAmount(
                                 startOfDay,
@@ -46,5 +47,12 @@ public class CustomerDebtPaymentService {
                         )
                 )
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public CustomerDebtSummaryResponse getDebtSummary() {
+        long inDebtCount = customerRepository.countInDebtCustomers();
+        long debtFreeCount = customerRepository.countDebtFreeCustomers();
+        return new CustomerDebtSummaryResponse(inDebtCount, debtFreeCount);
     }
 }

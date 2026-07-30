@@ -5,14 +5,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-import project.be_sep490_g67.dto.request.CreateCustomerRequest;
-import project.be_sep490_g67.dto.request.UpdateCustomerRequest;
+import project.be_sep490_g67.dto.request.CustomerRequest;
 import project.be_sep490_g67.dto.response.CustomerResponse;
 import project.be_sep490_g67.dto.response.DebtOrderResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
@@ -32,6 +32,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -63,7 +64,7 @@ public class CustomerService {
     // Create Customer
     @Transactional
     public CustomerResponse createCustomer(
-            CreateCustomerRequest request
+            CustomerRequest request
     ) {
 
         if (StringUtils.hasText(request.getPhoneNumber())
@@ -109,125 +110,86 @@ public class CustomerService {
             Integer page, Integer size, Boolean isOverdue, String sortBy
     ) {
 
-        Pageable pageable = PageRequest.of(page - 1, size);
-
         ZoneId zoneId = ZoneId.of("Asia/Ho_Chi_Minh");
         Instant from = fromDate != null ? fromDate.atStartOfDay(zoneId).toInstant() : null;
         Instant to = toDate != null ? toDate.plusDays(1).atStartOfDay(zoneId).toInstant() : null;
         Instant now = Instant.now();
 
-        String statusQuery = null;
-        if (Boolean.TRUE.equals(isOverdue)) {
-            statusQuery = DebtStatus.OVERDUE.name();
-        } else if (status != null) {
-            statusQuery = status.name();
-        }
+        String statusQuery = (status != null) ? status.name() : null;
 
+        List<Customer> customers;
         Page<Customer> customerPage;
+
+        // Priority sorting logic
         if ("priority".equalsIgnoreCase(sortBy)) {
-            customerPage = customerRepository.searchCustomersAndSortByPriority(
-                    keyword, statusQuery,
-                    allowDebt, from, to, now, pageable
-            );
-        } else {
-            pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-            customerPage = customerRepository.searchCustomers(
-                    keyword, statusQuery,
-                    allowDebt, from, to, now, pageable
-            );
-        }
+            // Fetch all filtered customers without pagination from DB
+            customers = customerRepository.findFilteredCustomers(keyword, statusQuery, allowDebt, from, to, now, isOverdue);
 
-        List<CustomerResponse> responses = customerPage.getContent().stream().map(customer -> {
+            // Map to DTO and calculate dynamic fields
+            List<CustomerResponse> responses = customers.stream().map(customer -> {
+                boolean hasOverdue = customer.getSalesOrders().stream().anyMatch(so ->
+                        Boolean.TRUE.equals(so.getIsDebt()) &&
+                        so.getDueDate() != null && so.getDueDate().isBefore(now) &&
+                        isOrderUnpaid(so));
+                return buildCustomerResponse(customer, hasOverdue, now);
+            }).collect(Collectors.toList());
 
-            List<SalesOrder> debtOrders = customer.getSalesOrders().stream()
-                    .filter(so -> Boolean.TRUE.equals(so.getIsDebt()))
-                    .toList();
+            // Sort in memory
+            responses.sort(getPriorityComparator());
 
-            long totalOrdersInDebt = debtOrders.stream()
-                    .filter(so -> {
-                        BigDecimal totalPaid = (so.getPaidAmount() != null ? so.getPaidAmount() : BigDecimal.ZERO)
-                                .add(so.getDebtPayments().stream()
-                                        .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
-                                        .reduce(BigDecimal.ZERO, BigDecimal::add));
-                        return (so.getTotalAmount() != null ? so.getTotalAmount() : BigDecimal.ZERO).compareTo(totalPaid) > 0;
-                    })
-                    .count();
+            // Manual pagination
+            int start = (page - 1) * size;
+            int end = Math.min(start + size, responses.size());
+            List<CustomerResponse> paginatedResponses = responses.subList(start, end);
 
-            long totalOverdueOrders = debtOrders.stream()
-                    .filter(so -> {
-                        BigDecimal totalPaid = (so.getPaidAmount() != null ? so.getPaidAmount() : BigDecimal.ZERO)
-                                .add(so.getDebtPayments().stream()
-                                        .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
-                                        .reduce(BigDecimal.ZERO, BigDecimal::add));
-                        boolean isUnpaid = (so.getTotalAmount() != null ? so.getTotalAmount() : BigDecimal.ZERO).compareTo(totalPaid) > 0;
-                        return isUnpaid && so.getDueDate() != null && so.getDueDate().isBefore(now);
-                    })
-                    .count();
-
-            boolean hasOverdue = totalOverdueOrders > 0;
-
-            String debtStatus;
-            BigDecimal totalDebt = customer.getTotalDebt() != null ? customer.getTotalDebt() : BigDecimal.ZERO;
-            if (hasOverdue) {
-                debtStatus = DebtStatus.OVERDUE.name();
-            } else if (totalDebt.compareTo(BigDecimal.ZERO) > 0) {
-                debtStatus = DebtStatus.IN_DEBT.name();
-            } else {
-                debtStatus = DebtStatus.NO_DEBT.name();
-            }
-
-            Instant latestDebtDate = debtOrders.stream()
-                    .map(SalesOrder::getCreatedAt)
-                    .filter(Objects::nonNull)
-                    .max(Instant::compareTo)
-                    .orElse(null);
-
-            return CustomerResponse.builder()
-                    .id(customer.getId())
-                    .fullName(customer.getFullName())
-                    .phoneNumber(customer.getPhoneNumber())
-                    .address(customer.getAddress())
-                    .totalDebt(customer.getTotalDebt())
-                    .allowDebt(customer.getAllowDebt())
-                    .debtStatus(debtStatus)
-                    .latestDebtDate(latestDebtDate)
-                    .note(customer.getNote())
-                    .isOverdue(hasOverdue)
-                    .totalOrdersInDebt(totalOrdersInDebt)
-                    .totalOverdueOrders(totalOverdueOrders)
+            return PageResponse.<CustomerResponse>builder()
+                    .content(paginatedResponses)
+                    .page(page)
+                    .size(size)
+                    .totalElements(responses.size())
+                    .totalPages((int) Math.ceil((double) responses.size() / size))
                     .build();
-        }).toList();
 
-        return PageResponse.<CustomerResponse>builder()
-                .content(responses)
-                .page(page)
-                .size(size)
-                .totalElements(customerPage.getTotalElements())
-                .totalPages(customerPage.getTotalPages())
-                .build();
+        } else {
+            // Default sorting logic
+            Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+            customerPage = customerRepository.findFilteredCustomersWithPaging(
+                    keyword, statusQuery, allowDebt, from, to, now, isOverdue, pageable
+            );
+            
+            List<CustomerResponse> responses = customerPage.getContent().stream().map(customer -> {
+                boolean hasOverdue = customer.getSalesOrders().stream().anyMatch(so ->
+                        Boolean.TRUE.equals(so.getIsDebt()) &&
+                        so.getDueDate() != null && so.getDueDate().isBefore(now) &&
+                        isOrderUnpaid(so));
+                return buildCustomerResponse(customer, hasOverdue, now);
+            }).toList();
+
+            return PageResponse.<CustomerResponse>builder()
+                    .content(responses)
+                    .page(page)
+                    .size(size)
+                    .totalElements(customerPage.getTotalElements())
+                    .totalPages(customerPage.getTotalPages())
+                    .build();
+        }
     }
 
-    // View customer detail
-    @Transactional(readOnly = true)
-    public CustomerResponse getCustomerDetails(Integer id) {
-        Customer customer = customerRepository.findById(id)
-                .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
+    private boolean isOrderUnpaid(SalesOrder so) {
+        BigDecimal totalPaid = (so.getPaidAmount() != null ? so.getPaidAmount() : BigDecimal.ZERO)
+                .add(so.getDebtPayments().stream()
+                        .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add));
+        return (so.getTotalAmount() != null ? so.getTotalAmount() : BigDecimal.ZERO).compareTo(totalPaid) > 0;
+    }
 
-        Instant now = Instant.now();
+    private CustomerResponse buildCustomerResponse(Customer customer, boolean hasOverdue, Instant now) {
+        List<SalesOrder> debtOrders = customer.getSalesOrders().stream()
+                .filter(so -> Boolean.TRUE.equals(so.getIsDebt()))
+                .toList();
 
-        boolean hasOverdue = customer.getSalesOrders().stream().anyMatch(so -> {
-            if (!Boolean.TRUE.equals(so.getIsDebt())) return false;
-            if (so.getDueDate() == null || !so.getDueDate().isBefore(now)) return false;
-
-            BigDecimal paid = so.getPaidAmount() != null ? so.getPaidAmount() : BigDecimal.ZERO;
-            BigDecimal subsequent = so.getDebtPayments().stream()
-                    .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal totalPaid = paid.add(subsequent);
-
-            BigDecimal total = so.getTotalAmount() != null ? so.getTotalAmount() : BigDecimal.ZERO;
-            return total.compareTo(totalPaid) > 0;
-        });
+        long totalOrdersInDebt = debtOrders.stream().filter(this::isOrderUnpaid).count();
+        long totalOverdueOrders = debtOrders.stream().filter(so -> isOrderUnpaid(so) && so.getDueDate() != null && so.getDueDate().isBefore(now)).count();
 
         String debtStatus;
         BigDecimal totalDebt = customer.getTotalDebt() != null ? customer.getTotalDebt() : BigDecimal.ZERO;
@@ -239,21 +201,11 @@ public class CustomerService {
             debtStatus = DebtStatus.NO_DEBT.name();
         }
 
-        Instant latestDebtDate = customer.getSalesOrders().stream()
-                .filter(so -> Boolean.TRUE.equals(so.getIsDebt()))
+        Instant latestDebtDate = debtOrders.stream()
                 .map(SalesOrder::getCreatedAt)
                 .filter(Objects::nonNull)
                 .max(Instant::compareTo)
                 .orElse(null);
-
-        long totalOrdersInDebt = customer.getSalesOrders().stream()
-                .filter(so -> Boolean.TRUE.equals(so.getIsDebt()) &&
-                        (so.getTotalAmount().subtract(so.getPaidAmount()
-                                .add(so.getDebtPayments().stream()
-                                        .map(DebtPayment::getAmountPaid)
-                                        .reduce(BigDecimal.ZERO, BigDecimal::add)))
-                                .compareTo(BigDecimal.ZERO) > 0))
-                .count();
 
         return CustomerResponse.builder()
                 .id(customer.getId())
@@ -267,7 +219,54 @@ public class CustomerService {
                 .note(customer.getNote())
                 .isOverdue(hasOverdue)
                 .totalOrdersInDebt(totalOrdersInDebt)
+                .totalOverdueOrders(totalOverdueOrders)
                 .build();
+    }
+    
+    private Comparator<CustomerResponse> getPriorityComparator() {
+        return (c1, c2) -> {
+            int score1 = calculatePriorityScore(c1);
+            int score2 = calculatePriorityScore(c2);
+            // Higher score comes first
+            return Integer.compare(score2, score1);
+        };
+    }
+
+    private int calculatePriorityScore(CustomerResponse c) {
+        boolean isInDebt = c.getTotalDebt().compareTo(BigDecimal.ZERO) > 0;
+
+        if (isInDebt) {
+            // 1. Đang nợ, có đơn quá hạn, được phép nợ
+            if (c.getIsOverdue() && c.getAllowDebt()) return 6;
+            // 2. Đang nợ, chưa quá hạn, không được phép nợ
+            if (!c.getIsOverdue() && !c.getAllowDebt()) return 5;
+            // 3. Đang nợ, chưa quá hạn, được phép nợ
+            if (!c.getIsOverdue() && c.getAllowDebt()) return 4;
+            // 4. Đang nợ, có đơn quá hạn, không được phép nợ
+            if (c.getIsOverdue() && !c.getAllowDebt()) return 3;
+        } else {
+            // 5. Không nợ, được phép nợ
+            if (c.getAllowDebt()) return 2;
+            // 6. Không nợ, không được phép nợ
+            if (!c.getAllowDebt()) return 1;
+        }
+        // Default case
+        return 0;
+    }
+
+    // View customer detail
+    @Transactional(readOnly = true)
+    public CustomerResponse getCustomerDetails(Integer id) {
+        Customer customer = customerRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
+
+        Instant now = Instant.now();
+        boolean hasOverdue = customer.getSalesOrders().stream().anyMatch(so ->
+                Boolean.TRUE.equals(so.getIsDebt()) &&
+                so.getDueDate() != null && so.getDueDate().isBefore(now) &&
+                isOrderUnpaid(so));
+
+        return buildCustomerResponse(customer, hasOverdue, now);
     }
 
     // View debt order list
@@ -327,11 +326,14 @@ public class CustomerService {
 
     // Update customer
     @Transactional
-    public CustomerResponse updateCustomer(Integer id, UpdateCustomerRequest request) {
+    public CustomerResponse updateCustomer(Integer id, CustomerRequest request) {
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
 
-        // Check for phone number uniqueness if it's being changed
+        if (request.getAllowDebt() == null) {
+            throw new AppException(ErrorCode.ALLOW_DEBT_REQUIRED);
+        }
+
         if (StringUtils.hasText(request.getPhoneNumber()) && !request.getPhoneNumber().equals(customer.getPhoneNumber())) {
             if (customerRepository.existsByPhoneNumberAndIsRemovedFalse(request.getPhoneNumber())) {
                 throw new AppException(ErrorCode.PHONE_NUMBER_EXISTED);
@@ -345,7 +347,7 @@ public class CustomerService {
         customer.setAllowDebt(request.getAllowDebt());
 
         Customer updatedCustomer = customerRepository.save(customer);
-        log.info("Update customer by id {}",customer.getId());
+        log.info("Update customer by id {}", customer.getId());
 
         return CustomerResponse.builder()
                 .id(updatedCustomer.getId())

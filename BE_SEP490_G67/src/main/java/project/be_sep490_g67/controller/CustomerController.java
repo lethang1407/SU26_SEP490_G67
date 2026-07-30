@@ -7,8 +7,7 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
-import project.be_sep490_g67.dto.request.CreateCustomerRequest;
-import project.be_sep490_g67.dto.request.UpdateCustomerRequest;
+import project.be_sep490_g67.dto.request.CustomerRequest;
 import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.CustomerDebtOverviewResponse;
 import project.be_sep490_g67.dto.response.CustomerResponse;
@@ -28,7 +27,7 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class CustomerController {
     CustomerService customerService;
-    CustomerDebtPaymentService debtService;
+    CustomerDebtPaymentService customerDebtPaymentService;
 
     /**
      * GET /api/customers/phone-lookup?phone=...
@@ -45,13 +44,21 @@ public class CustomerController {
     @GetMapping("/overview")
     public ApiResponse<CustomerDebtOverviewResponse> getDebtOverview() {
         return ApiResponse.<CustomerDebtOverviewResponse>builder()
-                .result(debtService.getDebtOverview())
+                .result(customerDebtPaymentService.getDebtOverview())
                 .message("Lấy tổng quan công nợ khách hàng thành công")
                 .build();
     }
 
+    @GetMapping("/debt-summary")
+    public ApiResponse<CustomerDebtSummaryResponse> getDebtSummary() {
+        return ApiResponse.<CustomerDebtSummaryResponse>builder()
+                .result(customerDebtPaymentService.getDebtSummary())
+                .message("Lấy thống kê tóm tắt công nợ khách hàng thành công")
+                .build();
+    }
+
     @PostMapping
-    public ApiResponse<CustomerResponse> createCustomer(@Valid @RequestBody CreateCustomerRequest request) {
+    public ApiResponse<CustomerResponse> createCustomer(@Valid @RequestBody CustomerRequest request) {
 
         return ApiResponse.<CustomerResponse>builder()
                 .result(customerService.createCustomer(request))
@@ -108,7 +115,7 @@ public class CustomerController {
     }
 
     @PutMapping("/{id}")
-    public ApiResponse<CustomerResponse> updateCustomer(@PathVariable Integer id, @Valid @RequestBody UpdateCustomerRequest request) {
+    public ApiResponse<CustomerResponse> updateCustomer(@PathVariable Integer id, @Valid @RequestBody CustomerRequest request) {
         return ApiResponse.<CustomerResponse>builder()
                 .result(customerService.updateCustomer(id, request))
                 .message("Cập nhật thông tin khách hàng thành công")

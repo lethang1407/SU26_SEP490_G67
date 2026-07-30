@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Row,
@@ -9,15 +9,18 @@ import {
   Table,
   Badge,
   Pagination,
+  Accordion,
+  Spinner,
+  Dropdown,
 } from "react-bootstrap";
 import {
-  BsBank,
-  BsPeople,
-  BsCheckCircle,
-  BsEye,
-  BsArrowCounterclockwise,
-  BsPlus, BsExclamationTriangleFill, BsExclamationCircleFill, BsShieldCheck, BsSlashCircleFill
-} from "react-icons/bs";
+  FiDollarSign,
+  FiCheckCircle,
+  FiPlus,
+  FiFilter,
+  FiChevronDown,
+  FiUsers,
+} from "react-icons/fi";
 import SideBar from "../../../components/ui/sidebar/SideBar";
 import Header from "../../../components/ui/header-footer/Header";
 import { getOverviewCustomer, getCustomerDebts } from "../api";
@@ -54,42 +57,34 @@ const getStatusBadge = (status) => {
  * @returns {{className: string, icon: JSX.Element, tooltip: string}}
  */
 const getPriorityInfo = (customer) => {
-  const { allowDebt, totalDebt, isOverdue } = customer;
+  const { allowDebt, debtStatus, isOverdue } = customer;
 
-  // Cấp 1: Nợ Quá Hạn (Được phép)
-  if (allowDebt && totalDebt > 0 && isOverdue) {
-    return { className: 'priority-1', icon: <BsExclamationTriangleFill />, tooltip: 'Nợ quá hạn - Cần xử lý ngay' };
+  if (debtStatus === 'NO_DEBT') {
+    return allowDebt
+      ? { className: 'priority-5', tooltip: 'Khách hàng được phép nợ, hiện không có nợ' }
+      : { className: 'priority-6', tooltip: 'Khách hàng không được phép nợ, hiện không có nợ' };
   }
-  // Cấp 2: Đang Nợ (Trong hạn)
-  if (allowDebt && totalDebt > 0 && !isOverdue) {
-    return { className: 'priority-2', icon: <BsExclamationCircleFill />, tooltip: 'Đang nợ trong hạn' };
-  }
-  // Cấp 3: Nợ Quá Hạn (Không được phép)
-  if (!allowDebt && totalDebt > 0 && isOverdue) { // Trường hợp nghiêm trọng nhất
-    return { className: 'priority-3', icon: <BsSlashCircleFill />, tooltip: 'Nghiêm trọng: Nợ quá hạn và không được phép nợ' };
-  }
-  // Cấp 4: Đang Nợ (Không được phép)
-  if (!allowDebt && totalDebt > 0 && !isOverdue) {
-    return { className: 'priority-4', icon: <BsExclamationCircleFill />, tooltip: 'Cảnh báo: Đang nợ dù không được phép' }; // Style riêng cho cấp 4
-  }
-  // Cấp 5: Khách hàng tốt (Không nợ)
-  if (allowDebt && totalDebt === 0) {
-    return { className: 'priority-5', icon: <BsShieldCheck />, tooltip: 'Khách hàng thông thường, không có nợ' };
-  }
-  // Cấp 6: Khách hàng thường (Không nợ)
-  if (!allowDebt && totalDebt === 0) {
-    return { className: 'priority-6', icon: null, tooltip: 'Khách hàng không cho phép nợ, không có nợ' };
+
+  // Customers with debt
+  if (isOverdue) {
+    return allowDebt
+      ? { className: 'priority-1', tooltip: 'Nợ quá hạn - Cần xử lý ngay' }
+      : { className: 'priority-3', tooltip: 'Nghiêm trọng: Nợ quá hạn và không được phép nợ' };
+  } else {
+    return allowDebt
+      ? { className: 'priority-2', tooltip: 'Đang nợ trong hạn' }
+      : { className: 'priority-4', tooltip: 'Cảnh báo: Đang nợ dù không được phép' };
   }
 
   // Mặc định
-  return { className: 'priority-6', icon: null, tooltip: '' };
+  return { className: 'priority-6', tooltip: '' };
 };
 
 
 export default function CustomerDebtPage() {
   const navigate = useNavigate();
   const [overview, setOverview] = useState(null);
-  const [debtData, setDebtData] = useState({
+  const [debtCustomers, setDebtCustomers] = useState({
     content: [],
     totalPages: 1,
     page: 1,
@@ -97,17 +92,33 @@ export default function CustomerDebtPage() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [activeAccordionKey, setActiveAccordionKey] = useState(["debt"]); // 'debt' or 'no-debt'
 
-  // State for filters
-  const [filters, setFilters] = useState({
+  const [noDebtCustomers, setNoDebtCustomers] = useState({
+    content: [],
+    totalPages: 1,
     page: 1,
+    totalElements: 0,
+  });
+  const [isLoadingDebt, setIsLoadingDebt] = useState(true);
+  const [isLoadingNoDebt, setIsLoadingNoDebt] = useState(true);
+  const [showCustomDateRange, setShowCustomDateRange] = useState(false);
+
+  const [toastMessage, setToastMessage] = useState('');
+  // State for filters
+  const [globalFilters, setGlobalFilters] = useState({
     size: 20,
     keyword: "",
-    status: "",
-    sortBy: "priority",
-    startDate: null,
-    endDate: null,
+    fromDate: null,
+    toDate: null,
+  });
+
+  const [debtFilters, setDebtFilters] = useState({
     isOverdue: null,
+    allowDebt: null,
+  });
+
+  const [noDebtFilters, setNoDebtFilters] = useState({
     allowDebt: null,
   });
 
@@ -115,7 +126,7 @@ export default function CustomerDebtPage() {
   const [searchTerm, setSearchTerm] = useState("");
   useEffect(() => {
     const handler = setTimeout(() => {
-      setFilters((prev) => ({ ...prev, keyword: searchTerm, page: 1 }));
+      setGlobalFilters((prev) => ({ ...prev, keyword: searchTerm }));
     }, 500); // 500ms delay
 
     return () => {
@@ -123,85 +134,215 @@ export default function CustomerDebtPage() {
     };
   }, [searchTerm]);
 
+  const fetchDebtData = useCallback(async (page = 1) => {
+    setIsLoadingDebt(true);
+    const params = { ...globalFilters, ...debtFilters, status: 'IN_DEBT', page, sortBy: 'priority' };
+    Object.keys(params).forEach(key => (params[key] === null || params[key] === '') && delete params[key]);
+    try {
+      const res = await getCustomerDebts(params);
+      setDebtCustomers(res);
+    } catch (error) {
+      console.error("Failed to fetch debt customers:", error);
+    } finally {
+      setIsLoadingDebt(false);
+      setIsLoading(false);
+    }
+  }, [globalFilters, debtFilters]);
+
+  const fetchNoDebtData = useCallback(async (page = 1) => {
+    setIsLoadingNoDebt(true);
+    const params = { ...globalFilters, ...noDebtFilters, status: 'NO_DEBT', page, sortBy: 'priority' };
+    Object.keys(params).forEach(key => (params[key] === null || params[key] === '') && delete params[key]);
+    try {
+      const res = await getCustomerDebts(params);
+      setNoDebtCustomers(res);
+    } catch (error) {
+      console.error("Failed to fetch no-debt customers:", error);
+    } finally {
+      setIsLoadingNoDebt(false);
+      setIsLoading(false);
+    }
+  }, [globalFilters, noDebtFilters]);
+
   useEffect(() => {
-    // Chỉ fetch dữ liệu tổng quan một lần khi component được mount
     const fetchOverview = async () => {
-      const overviewRes = await getOverviewCustomer();
-      setOverview(overviewRes);
+      try {
+        const overviewRes = await getOverviewCustomer();
+        setOverview(overviewRes);
+      } catch (error) {
+        console.error("Failed to fetch overview:", error);
+      }
     };
     fetchOverview();
+    // Initial fetch for both lists
+    fetchDebtData();
+    fetchNoDebtData();
   }, []);
 
+  // When global filters (search, date) change, refetch both lists.
   useEffect(() => {
-    // Fetch danh sách công nợ mỗi khi filters thay đổi (trang, tìm kiếm, trạng thái)
-    const fetchDebts = async () => {
-      setIsLoading(true);
-      const debtRes = await getCustomerDebts(filters);
-      setDebtData(debtRes);
-      setIsLoading(false);
-    };
-    fetchDebts();
-  }, [filters]);
+    fetchDebtData(1);
+    fetchNoDebtData(1);
+  }, [globalFilters]);
 
-  const handlePageChange = (newPage) => {
-    setFilters((prev) => ({ ...prev, page: newPage }));
-  };
+  // When local filters change, only refetch the corresponding list.
+  useEffect(() => {
+    fetchDebtData(1);
+  }, [debtFilters]);
+  useEffect(() => {
+    fetchNoDebtData(1);
+  }, [noDebtFilters]);
 
-  const handleCreationSuccess = () => {
+  const handleCreationSuccess = (newCustomer) => {
     setShowCreateModal(false);
-    // Tải lại danh sách ở trang đầu tiên để thấy khách hàng mới
-    setFilters((prev) => ({ ...prev, page: 1 }));
+    fetchDebtData(1); // Refetch debt customers
+    fetchNoDebtData(1); // Also refetch no-debt customers in case the new customer has no debt
+    // Ensure the debt accordion is open to see the new customer if they have debt
+    setActiveAccordionKey(['debt']);
+
+    setToastMessage(`Đã tạo thành công khách hàng: ${newCustomer.fullName}`);
+    setTimeout(() => setToastMessage(''), 4000);
   };
 
   const handleDateFilterChange = (value) => {
     const today = new Date();
-    const formatDate = (date) => date.toISOString().split("T")[0];
-    let startDate = null;
-    let endDate = null;
+    const formatDate = (date) => date.toISOString().split('T')[0];
+    let fromDate = null;
+    let toDate = null;
 
+    if (value === 'custom') {
+      setShowCustomDateRange(true);
+      return; // Don't set filters yet, wait for user input
+    }
+    setShowCustomDateRange(false);
     switch (value) {
       case "today":
-        startDate = formatDate(today);
-        endDate = formatDate(today);
+        fromDate = formatDate(today);
+        toDate = formatDate(today);
         break;
       case "7days": {
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(today.getDate() - 6); // Bao gồm cả ngày hôm nay
-        startDate = formatDate(sevenDaysAgo);
-        endDate = formatDate(today);
+        fromDate = formatDate(sevenDaysAgo);
+        toDate = formatDate(today);
         break;
       }
       case "30days": {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(today.getDate() - 29); // Bao gồm cả ngày hôm nay
-        startDate = formatDate(thirtyDaysAgo);
-        endDate = formatDate(today);
+        fromDate = formatDate(thirtyDaysAgo);
+        toDate = formatDate(today);
         break;
       }
       default: // "all"
         break;
     }
 
-    setFilters((prev) => ({ ...prev, startDate, endDate, page: 1 }));
+    setGlobalFilters((prev) => ({ ...prev, fromDate, toDate }));
   };
 
-  const handleStatusFilterChange = (value) => {
-    const newFilterState = {
-      status: "",
-      isOverdue: null,
-      allowDebt: null,
-      page: 1,
-    };
+  const handleCustomDateChange = (field, value) => {
+    setGlobalFilters(prev => ({ ...prev, [field]: value }));
+  };
 
-    if (value === "OVERDUE") {
-      newFilterState.isOverdue = true;
-    } else if (value === "NOT_ALLOWED_DEBT") {
-      newFilterState.allowDebt = false;
-    } else if (value) { // IN_DEBT, NO_DEBT
-      newFilterState.status = value;
+  const handleDebtFilterChange = (key) => {
+    const newFilters = { isOverdue: null, allowDebt: null };
+    if (key === 'overdue') newFilters.isOverdue = true;
+    if (key === 'not_overdue') newFilters.isOverdue = false;
+    if (key === 'not_allowed') newFilters.allowDebt = false;
+    setDebtFilters(newFilters);
+  };
+
+  const handleNoDebtFilterChange = (key) => {
+    const newFilters = { allowDebt: null };
+    if (key === 'allowed') { newFilters.allowDebt = true; }
+    if (key === 'not_allowed') { newFilters.allowDebt = false; }
+    setNoDebtFilters(newFilters);
+  };
+
+  const getActiveFilterLabel = (filters, type) => {
+    if (type === 'debt') {
+      if (filters.isOverdue === true) return 'Nợ quá hạn';
+      if (filters.isOverdue === false) return 'Đang trong hạn nợ';
+      if (filters.allowDebt === false) return 'Không được phép nợ';
+      return 'Tất cả đang nợ';
     }
-    setFilters((prev) => ({ ...prev, ...newFilterState }));
+    if (type === 'no-debt') {
+      if (filters.allowDebt === true) return 'Được phép nợ';
+      if (filters.allowDebt === false) return 'Không được phép nợ';
+      return 'Tất cả không nợ';
+    }
   };
+
+  const renderTable = (data, loading, onPageChange, currentPage) => (
+    <div className="table-responsive">
+      <Table hover responsive className="customer-debt-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Khách hàng</th>
+            <th>Điện thoại</th>
+            <th>Tổng nợ hiện tại</th>
+            <th>Trạng thái</th>
+          </tr>
+        </thead>
+        <tbody>
+          {loading ? (
+            <tr><td colSpan="5" className="text-center py-5"><Spinner animation="border" size="sm" /> Đang tải...</td></tr>
+          ) : data.content.length === 0 ? (
+            <tr><td colSpan="5" className="text-center py-5 text-muted">Không tìm thấy dữ liệu.</td></tr>
+          ) : (
+            data.content.map((item, index) => {
+              const priority = getPriorityInfo(item);
+              const highlightClasses = [];
+              if (item.isOverdue) {
+                highlightClasses.push('customer-row--overdue');
+              } else if (item.debtStatus === 'IN_DEBT') {
+                highlightClasses.push('customer-row--in-debt');
+              }
+
+              const overdueAllowedClass = item.isOverdue && item.allowDebt ? 'overdue-allowed-field' : '';
+              const notAllowedFieldClass = !item.allowDebt ? 'not-allowed-field' : '';
+
+              return (
+                <tr key={item.id} className={`${priority.className} customer-row ${highlightClasses.join(' ')}`} title={priority.tooltip} onClick={() => navigate(`/admin/customer/${item.id}`)}>
+                  <td>{(currentPage - 1) * globalFilters.size + index + 1}</td>
+                  <td className={`fw-medium ${notAllowedFieldClass} ${overdueAllowedClass}`}>{item.fullName}</td>
+                  <td className={`${notAllowedFieldClass} ${overdueAllowedClass}`}>{item.phoneNumber || '-'}</td>
+                  <td className="fw-medium">
+                    {formatCurrency(item.totalDebt)}
+                    {item.totalDebt > 0 && item.totalOrdersInDebt > 0 && (
+                      <span className="text-muted ms-1">({item.totalOrdersInDebt} đơn)</span>
+                    )}
+                  </td>
+                  <td>
+                    {getStatusBadge(item.debtStatus)}
+                    {item.totalOverdueOrders > 0 && (
+                      <span className="text-muted ms-1">({item.totalOverdueOrders} đơn)</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </Table>
+      {!loading && data.totalPages > 1 && (
+        <div className="d-flex justify-content-between align-items-center mt-3">
+          <small className="text-muted">Hiển thị {data.content.length} / {data.totalElements} kết quả</small>
+          <Pagination className="mb-0">
+            <Pagination.Prev onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1} />
+            {[...Array(Math.min(data.totalPages, 5)).keys()].map(i => {
+              const pageNum = currentPage > 3 ? currentPage - 2 + i : i + 1;
+              if (pageNum > data.totalPages) return null;
+              return <Pagination.Item key={pageNum} active={pageNum === currentPage} onClick={() => onPageChange(pageNum)}>{pageNum}</Pagination.Item>;
+            })}
+            <Pagination.Next onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === data.totalPages} />
+          </Pagination>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="d-flex vh-100">
@@ -209,6 +350,7 @@ export default function CustomerDebtPage() {
       <div className="flex-grow-1 d-flex flex-column">
         <Header />
         <main className="p-4 flex-grow-1" style={{ overflowY: "auto" }}>
+          {toastMessage && <div className="customer-page__toast">{toastMessage}</div>}
           <div className="d-flex justify-content-between align-items-center mb-4">
             <div>
               <h2 className="fw-bold mb-1">Công nợ khách hàng</h2>
@@ -220,24 +362,24 @@ export default function CustomerDebtPage() {
             <div className="d-flex gap-2">
               <Button
                 variant="primary"
+                className="d-flex align-items-center gap-2"
                 onClick={() => setShowCreateModal(true)}
               >
-                <BsPlus className="me-2" />
-                Tạo khách nợ
+                <FiPlus /> Tạo khách hàng
               </Button>
             </div>
           </div>
 
           {/* Statistic Cards */}
           <Row className="mb-4">
-            <Col md={4}>
-              <Card className="shadow-sm border-0">
+            <Col >
+              <Card className="shadow-sm border-0 h-100">
                 <Card.Body>
                   <div className="d-flex align-items-center gap-3">
-                    <BsBank size={30} className="text-primary" />
+                    <div className="stat-icon bg-primary-soft"><FiDollarSign className="text-primary" size={24} /></div>
                     <div>
                       <small className="text-muted">TỔNG NỢ PHẢI THU</small>
-                      <h3 className="fw-bold text-primary mt-2">
+                      <h3 className="fw-bold text-primary mb-0 mt-1">
                         {formatCurrency(overview?.totalDebt)}
                       </h3>
                     </div>
@@ -246,27 +388,11 @@ export default function CustomerDebtPage() {
               </Card>
             </Col>
 
-            {/* <Col md={4}>
-              <Card className="shadow-sm border-0">
+            <Col >
+              <Card className="shadow-sm border-0 h-100 d-none d-md-block">
                 <Card.Body>
                   <div className="d-flex align-items-center gap-3">
-                    <BsPeople size={30} className="text-secondary" />
-                    <div>
-                      <small className="text-muted">KHÁCH HÀNG ĐANG NỢ</small>
-                      <h3 className="fw-bold mt-2">
-                        {overview?.debtCustomerCount || 0}
-                      </h3>
-                    </div>
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col> */}
-
-            <Col md={4}>
-              <Card className="shadow-sm border-0">
-                <Card.Body>
-                  <div className="d-flex align-items-center gap-3">
-                    <BsCheckCircle size={30} className="text-success" />
+                    <div className="stat-icon bg-success-soft"><FiCheckCircle className="text-success" size={24} /></div>
                     <div>
                       <small className="text-muted">ĐÃ THU HÔM NAY</small>
                       <h3 className="fw-bold text-success mt-2">
@@ -279,130 +405,88 @@ export default function CustomerDebtPage() {
             </Col>
           </Row>
 
-          {/* Table Area */}
-          <Card className="shadow-sm border-0">
+          {/* Filter & Search Area */}
+          <Card className="shadow-sm border-0 mb-4">
             <Card.Body>
-              {/* Filter */}
-              <Row className="mb-4">
-                <Col md={6}>
+              <Row className="g-3 align-items-end">
+                <Col md={5} lg={4}>
+                  <Form.Label>Tìm kiếm</Form.Label>
                   <Form.Control
-                    placeholder="Tìm kiếm tên hoặc số điện thoại khách hàng..."
+                    placeholder="Tên hoặc SĐT khách hàng..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </Col>
-
-                <Col md={3}>
-                  <Form.Select
-                    onChange={(e) => handleDateFilterChange(e.target.value)}
-                    defaultValue=""
-                  >
+                <Col md={4} lg={3}>
+                  <Form.Label>Lọc theo thời gian</Form.Label>
+                  <Form.Select onChange={(e) => handleDateFilterChange(e.target.value)} defaultValue="">
                     <option value="">Tất cả thời gian</option>
                     <option value="today">Hôm nay</option>
                     <option value="7days">7 ngày qua</option>
                     <option value="30days">30 ngày qua</option>
-                    {/* Giả định API sẽ hỗ trợ startDate và endDate */}
-                    {/* Ví dụ: /api/customers/debts?startDate=2023-10-27&endDate=2023-11-26 */}
+                    <option value="custom">Tùy chỉnh...</option>
                   </Form.Select>
                 </Col>
-
-                <Col md={3}>
-                  <Form.Select
-                    onChange={(e) => handleStatusFilterChange(e.target.value)}
-                    // Không dùng value trực tiếp vì một lựa chọn có thể thay đổi nhiều state
-                  >
-                    <option value="">Tất cả trạng thái</option>
-                    <option value="IN_DEBT">Đang nợ</option>
-                    <option value="NO_DEBT">Không nợ</option>
-                    <option value="OVERDUE">Nợ quá hạn</option>
-                    <option value="NOT_ALLOWED_DEBT">Không được phép nợ</option>
-                  </Form.Select>
-                </Col>
+                {showCustomDateRange && (
+                  <>
+                    <Col md={3} lg={2}>
+                      <Form.Label>Từ ngày</Form.Label>
+                      <Form.Control type="date" value={globalFilters.fromDate || ''} onChange={(e) => handleCustomDateChange('fromDate', e.target.value)} />
+                    </Col>
+                    <Col md={3} lg={2}>
+                      <Form.Label>Đến ngày</Form.Label>
+                      <Form.Control type="date" value={globalFilters.toDate || ''} onChange={(e) => handleCustomDateChange('toDate', e.target.value)} />
+                    </Col>
+                  </>
+                )}
               </Row>
-
-              {/* Table */}
-              <Table hover responsive>
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Khách hàng</th>
-                    <th>Điện thoại</th>
-                    <th>Tổng nợ hiện tại</th>
-                    <th>Trạng thái</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {isLoading ? (
-                    <tr>
-                      <td colSpan="5" className="text-center py-5">
-                        Đang tải dữ liệu...
-                      </td>
-                    </tr>
-                  ) : debtData.content.length === 0 ? (
-                    <tr>
-                      <td colSpan="5" className="text-center py-5 text-muted">
-                        Không tìm thấy dữ liệu phù hợp.
-                      </td>
-                    </tr>
-                  ) : (
-                    debtData.content.map((item, index) => {
-                      const priority = getPriorityInfo(item);
-                      const isCriticalViolation = !item.allowDebt;
-                      return (
-                      <tr key={item.id} className={`${priority.className} customer-row`} title={priority.tooltip} onClick={() => navigate(`/admin/customer/${item.id}`)}>
-                        <td>{(filters.page - 1) * filters.size + index + 1}</td>
-                        <td className={`fw-medium ${isCriticalViolation ? 'text-highlight-critical' : ''}`}>{item.fullName}</td>
-                        <td className={`fw-medium ${isCriticalViolation ? 'text-highlight-critical' : ''}`}>{item.phoneNumber || 'N/A'}</td>
-                        <td className={`fw-medium ${isCriticalViolation ? 'text-highlight-critical' : ''}`}>
-                          {formatCurrency(item.totalDebt)}
-                          {item.totalOrdersInDebt > 0 && ` (${item.totalOrdersInDebt} đơn)`}
-                          {(item.totalOrdersInDebt === null || typeof item.totalOrdersInDebt === 'undefined') && ' (N/A đơn)'}
-                        </td>
-                        <td>
-                          {getStatusBadge(item.debtStatus)}
-                          {item.totalOverdueOrders > 0 && ` - (${item.totalOverdueOrders} đơn)`}
-                          {(item.totalOverdueOrders === null || typeof item.totalOverdueOrders === 'undefined') && ' - (N/A đơn)'}
-                        </td>
-                      </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </Table>
-
-              {/* Footer */}
-              <div className="d-flex justify-content-between align-items-center mt-4">
-                <small className="text-muted">
-                  Hiển thị {debtData.content.length} trong tổng số{" "}
-                  {debtData.totalElements} khách hàng - <b>({overview?.debtCustomerCount || 0} khách đang nợ)</b>
-                </small>
-
-                <Pagination className="mb-0">
-                  <Pagination.Prev
-                    onClick={() => handlePageChange(filters.page - 1)}
-                    disabled={filters.page === 1}
-                  />
-                  {[...Array(debtData.totalPages).keys()].map((number) => (
-                    <Pagination.Item
-                      key={number + 1}
-                      active={number + 1 === debtData.page}
-                      onClick={() => handlePageChange(number + 1)}
-                    >
-                      {number + 1}
-                    </Pagination.Item>
-                  ))}
-                  <Pagination.Next
-                    onClick={() => handlePageChange(filters.page + 1)}
-                    disabled={
-                      filters.page === debtData.totalPages ||
-                      debtData.totalPages === 0
-                    }
-                  />
-                </Pagination>
-              </div>
             </Card.Body>
           </Card>
+
+          <Accordion activeKey={activeAccordionKey} onSelect={(k) => setActiveAccordionKey(k)} alwaysOpen>
+            <Accordion.Item eventKey="debt">
+              <Accordion.Header>
+                <div className="d-flex justify-content-between align-items-center w-100 pe-2">
+                  <span className="fw-bold">Khách hàng đang nợ ({debtCustomers.totalElements})</span>
+                  <Dropdown onClick={(e) => e.stopPropagation()} onSelect={handleDebtFilterChange}>
+                    <Dropdown.Toggle variant="outline-secondary" size="sm" id="dropdown-debt-filter">
+                      {getActiveFilterLabel(debtFilters, 'debt')}
+                    </Dropdown.Toggle>
+                    <Dropdown.Menu>
+                      <Dropdown.Item eventKey="all">Tất cả đang nợ</Dropdown.Item>
+                      <Dropdown.Item eventKey="overdue">Nợ quá hạn</Dropdown.Item>
+                      <Dropdown.Item eventKey="not_overdue">Đang trong hạn nợ</Dropdown.Item>
+                      <Dropdown.Item eventKey="not_allowed">Không được phép nợ</Dropdown.Item>
+                    </Dropdown.Menu>
+                  </Dropdown>
+                </div>
+              </Accordion.Header>
+              <Accordion.Body className="p-0">
+                {renderTable(debtCustomers, isLoadingDebt, fetchDebtData, debtCustomers.page)}
+              </Accordion.Body>
+            </Accordion.Item>
+
+            <Accordion.Item eventKey="no-debt">
+              <Accordion.Header>
+                <div className="d-flex justify-content-between align-items-center w-100 pe-2">
+                  <span className="fw-bold">Khách hàng không nợ ({noDebtCustomers.totalElements})</span>
+                  <Dropdown onClick={(e) => e.stopPropagation()} onSelect={handleNoDebtFilterChange}>
+                    <Dropdown.Toggle variant="outline-secondary" size="sm" id="dropdown-no-debt-filter">
+                      {getActiveFilterLabel(noDebtFilters, 'no-debt')}
+                    </Dropdown.Toggle>
+                    <Dropdown.Menu>
+                      <Dropdown.Item eventKey="all">Tất cả không nợ</Dropdown.Item>
+                      <Dropdown.Item eventKey="allowed">Được phép nợ</Dropdown.Item>
+                      <Dropdown.Item eventKey="not_allowed">Không được phép nợ</Dropdown.Item>
+                    </Dropdown.Menu>
+                  </Dropdown>
+                </div>
+              </Accordion.Header>
+              <Accordion.Body className="p-0">
+                {renderTable(noDebtCustomers, isLoadingNoDebt, fetchNoDebtData, noDebtCustomers.page)}
+              </Accordion.Body>
+            </Accordion.Item>
+          </Accordion>
         </main>
 
         <CreateCustomerDebtModal

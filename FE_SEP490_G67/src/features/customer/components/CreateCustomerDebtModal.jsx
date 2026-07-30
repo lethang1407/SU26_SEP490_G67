@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import { getApiErrorMessage } from '../../profile/utils/profileUtils';
 import { createCustomerDebt } from '../api';
+import { validatePhoneNumber } from '../../auth/utils/validation';
 
 export default function CreateCustomerDebtModal({ show, onHide, onSuccess }) {
     const [formData, setFormData] = useState({
@@ -33,9 +34,12 @@ export default function CreateCustomerDebtModal({ show, onHide, onSuccess }) {
         }
 
         // PhoneNumber validation
-        const phoneRegex = /^(03[2-9]|05[689]|07[06789]|08[1-689]|09[0-46-9])\d{7}$/;
-        if (phoneNumber && !phoneRegex.test(phoneNumber)) {
-            newErrors.phoneNumber = 'Số điện thoại không hợp lệ';
+        // Only validate if phone number is not empty
+        if (phoneNumber.trim()) {
+            const phoneValidation = validatePhoneNumber(phoneNumber);
+            if (!phoneValidation.isValid) {
+                newErrors.phoneNumber = phoneValidation.error;
+            }
         }
 
         setErrors(newErrors);
@@ -53,8 +57,8 @@ export default function CreateCustomerDebtModal({ show, onHide, onSuccess }) {
         setIsSubmitting(true);
 
         try {
-            await createCustomerDebt(formData);
-            onSuccess(); 
+            const response = await createCustomerDebt(formData);
+            onSuccess(response.result); 
         } catch (err) {
             setApiError(getApiErrorMessage(err, 'Đã có lỗi xảy ra. Vui lòng thử lại.'));
         } finally {

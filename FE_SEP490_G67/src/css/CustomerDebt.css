@@ -58,6 +58,28 @@ tr.priority-1, tr.priority-2, tr.priority-3, tr.priority-4, tr.priority-5, tr.pr
     font-weight: 700 !important; /* In đậm hơn bình thường */
 }
 
+/* Lớp mới cho các trường của khách hàng không được phép nợ */
+.not-allowed-field {
+    color: #dc3545 !important; /* Màu đỏ cảnh báo */
+    text-decoration: line-through;
+}
+
+/* Lớp mới cho khách hàng nợ quá hạn và được phép nợ (chữ vàng) */
+.overdue-allowed-field {
+    color: rgba(181, 159, 14, 0.904) !important; /* Màu vàng cam để dễ đọc */
+    font-weight: 600 !important;
+}
+
+/* Lớp mới cho khách hàng nợ quá hạn (nền vàng) */
+.customer-row--overdue {
+    background-color: #fffbeb !important;
+}
+
+/* Lớp mới cho khách hàng đang nợ trong hạn (in đậm) */
+.customer-row--in-debt td {
+    font-weight: 600 !important;
+}
+
 /* === Custom Breadcrumb Styling === */
 .custom-breadcrumb {
   display: flex;
@@ -86,4 +108,21 @@ tr.priority-1, tr.priority-2, tr.priority-3, tr.priority-4, tr.priority-5, tr.pr
 .custom-breadcrumb__current {
   color: #212529;
   font-weight: 500;
+}
+
+/* Toast message */
+.customer-page__toast {
+    position: fixed;
+    top: 80px; /* Dưới header */
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #28a745; /* Màu xanh lá cây thành công */
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1050; /* Cao hơn các phần tử khác */
+    font-size: 1rem;
+    font-weight: 500;
+    animation: fadeInOut 4s ease-in-out;
 }
