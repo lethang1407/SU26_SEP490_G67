@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { ORDER_STATUS_LABEL } from '../constants';
 import { formatCurrency, formatDateTime } from '../utils/importOrderUtils';
 
@@ -43,17 +42,9 @@ export default function ImportOrderTable({ items, loading }) {
                                     <td className="supplier-table__code-text">{order.orderCode}</td>
                                     <td className="supplier-table__nowrap">{formatDateTime(receivedAt)}</td>
                                     <td>
-                                        {order.supplierId ? (
-                                            <Link
-                                                to={`/admin/warehouse/supplier/${order.supplierId}`}
-                                                className="import-order-table__supplier-code"
-                                                title={`Xem nhà cung cấp ${order.supplierName}`}
-                                            >
-                                                {order.supplierCode}
-                                            </Link>
-                                        ) : (
-                                            order.supplierCode
-                                        )}
+                                        <span className="import-order-table__supplier-code">
+                                            {order.supplierCode}
+                                        </span>
                                     </td>
                                     <td className="supplier-table__name" title={order.supplierName}>
                                         {order.supplierName}

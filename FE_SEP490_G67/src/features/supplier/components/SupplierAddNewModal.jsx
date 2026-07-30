@@ -1,23 +1,34 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, ChevronDown, Search } from 'lucide-react';
 import { removeVietnameseTones } from '../utils/supplierUtils';
-import {suppliersApi} from '../api';
-import {categoriesApi} from '../../category/api';
-export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
-    const [formData, setFormData] = useState({
-        name: '',
-        supplierCode: '',
-        categories: '',
-        contactPerson: '',
-        phoneNumber: '',
-        address: '',
-        notes: '',
-    });
+import { categoriesApi } from '../../category/api';
+
+const EMPTY_FORM = {
+    name: '',
+    supplierCode: '',
+    categories: '',
+    contactPerson: '',
+    phoneNumber: '',
+    address: '',
+    notes: '',
+};
+
+export default function SupplierAddNewModal({
+    open,
+    onClose,
+    onSubmit,
+    mode = 'create',
+    initialSupplier = null,
+    submitting = false,
+    submitError = '',
+}) {
+    const isEdit = mode === 'edit';
+    const [formData, setFormData] = useState(EMPTY_FORM);
 
     const [categoryDropdown, setCategoryDropdown] = useState({
         isOpen: false,
         searchTerm: '',
-        selectedCategories: [], // Changed to array for multiple selection
+        selectedCategories: [],
     });
 
     const [categories, setCategories] = useState([]);
@@ -27,14 +38,42 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
     const dropdownRef = useRef(null);
     const searchInputRef = useRef(null);
 
-    // Fetch categories when modal opens
     useEffect(() => {
-        if (open && categories.length === 0) {
+        if (open) {
             fetchCategories();
         }
     }, [open]);
 
-    // Close dropdown when clicking outside
+    useEffect(() => {
+        if (!open) return;
+
+        if (isEdit && initialSupplier) {
+            setFormData({
+                name: initialSupplier.name || '',
+                supplierCode: initialSupplier.supplierCode || '',
+                categories: '',
+                contactPerson: initialSupplier.contactPerson || '',
+                phoneNumber: initialSupplier.phoneNumber || '',
+                address: initialSupplier.address || '',
+                notes: initialSupplier.notes || '',
+            });
+            setCategoryDropdown({
+                isOpen: false,
+                searchTerm: '',
+                selectedCategories: (initialSupplier.categories || []).map((cat) =>
+                    typeof cat === 'string' ? { id: cat, name: cat } : { id: cat.id, name: cat.name },
+                ),
+            });
+        } else {
+            setFormData(EMPTY_FORM);
+            setCategoryDropdown({
+                isOpen: false,
+                searchTerm: '',
+                selectedCategories: [],
+            });
+        }
+    }, [open, isEdit, initialSupplier]);
+
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -48,7 +87,6 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
         }
     }, [categoryDropdown.isOpen]);
 
-    // Focus search input when dropdown opens
     useEffect(() => {
         if (categoryDropdown.isOpen && searchInputRef.current) {
             searchInputRef.current.focus();
@@ -80,30 +118,16 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
 
     const handleSubmit = (event) => {
         event.preventDefault();
-        // Send data in the format expected by backend
         onSubmit({
             name: formData.name,
             supplierCode: formData.supplierCode,
-            categories: categoryDropdown.selectedCategories.map(cat => ({ id: cat.id })),
+            categories: categoryDropdown.selectedCategories
+                .filter((cat) => typeof cat.id === 'number')
+                .map((cat) => ({ id: cat.id })),
             contactPerson: formData.contactPerson,
             phoneNumber: formData.phoneNumber,
             address: formData.address,
             notes: formData.notes,
-        });
-        // Reset form
-        setFormData({
-            name: '',
-            supplierCode: '',
-            categories: '',
-            contactPerson: '',
-            phoneNumber: '',
-            address: '',
-            notes: '',
-        });
-        setCategoryDropdown({
-            isOpen: false,
-            searchTerm: '',
-            selectedCategories: [],
         });
     };
 
@@ -117,30 +141,27 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
 
     const handleCategorySelect = (category) => {
         setCategoryDropdown((prev) => {
-            const isAlreadySelected = prev.selectedCategories.some(cat => cat.id === category.id);
+            const isAlreadySelected = prev.selectedCategories.some((cat) => cat.id === category.id);
 
             if (isAlreadySelected) {
-                // Remove if already selected
                 return {
                     ...prev,
-                    selectedCategories: prev.selectedCategories.filter(cat => cat.id !== category.id),
-                    searchTerm: '',
-                };
-            } else {
-                // Add to selection
-                return {
-                    ...prev,
-                    selectedCategories: [...prev.selectedCategories, category],
+                    selectedCategories: prev.selectedCategories.filter((cat) => cat.id !== category.id),
                     searchTerm: '',
                 };
             }
+            return {
+                ...prev,
+                selectedCategories: [...prev.selectedCategories, category],
+                searchTerm: '',
+            };
         });
     };
 
     const handleRemoveCategory = (categoryId) => {
         setCategoryDropdown((prev) => ({
             ...prev,
-            selectedCategories: prev.selectedCategories.filter(cat => cat.id !== categoryId),
+            selectedCategories: prev.selectedCategories.filter((cat) => cat.id !== categoryId),
         }));
     };
 
@@ -151,7 +172,6 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
         }));
     };
 
-    // Filter categories based on search term (only search by name)
     const filteredCategories = categories.filter((category) => {
         const searchLower = removeVietnameseTones(categoryDropdown.searchTerm);
         return removeVietnameseTones(category.name.toLowerCase()).includes(searchLower);
@@ -164,26 +184,11 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
                 onClick={(event) => event.stopPropagation()}
                 role="dialog"
                 aria-modal="true"
-                aria-labelledby="supplier-add-title"
+                aria-labelledby="supplier-form-title"
             >
                 <div className="supplier-modal__header">
-                    <h2 id="supplier-add-title" className="supplier-modal__title">
-                        <svg
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            style={{ marginRight: '8px', verticalAlign: 'middle' }}
-                        >
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="12" y1="16" x2="12" y2="12" />
-                            <line x1="12" y1="8" x2="12.01" y2="8" />
-                        </svg>
-                        Thêm nhà cung cấp mới
+                    <h2 id="supplier-form-title" className="supplier-modal__title">
+                        {isEdit ? 'Sửa nhà cung cấp' : 'Thêm nhà cung cấp mới'}
                     </h2>
                     <button type="button" className="supplier-modal__close" onClick={onClose} aria-label="Đóng">
                         <X size={20} />
@@ -191,6 +196,8 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
                 </div>
 
                 <form className="supplier-modal__body" onSubmit={handleSubmit}>
+                    {submitError && <p className="supplier-modal__error">{submitError}</p>}
+
                     <div className="supplier-modal__form-row">
                         <label className="supplier-modal__field supplier-modal__field--half">
                             <span>
@@ -203,6 +210,7 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
                                 value={formData.name}
                                 onChange={handleInputChange}
                                 required
+                                disabled={submitting}
                             />
                         </label>
 
@@ -217,6 +225,7 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
                                 value={formData.supplierCode}
                                 onChange={handleInputChange}
                                 required
+                                disabled={submitting}
                             />
                         </label>
                     </div>
@@ -231,6 +240,7 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
                                     onClick={toggleDropdown}
                                     aria-haspopup="listbox"
                                     aria-expanded={categoryDropdown.isOpen}
+                                    disabled={submitting}
                                 >
                                     <span className="supplier-dropdown__value">
                                         {categoryDropdown.selectedCategories.length > 0
@@ -253,6 +263,7 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
                                                     className="supplier-dropdown__tag-remove"
                                                     onClick={() => handleRemoveCategory(category.id)}
                                                     aria-label={`Xóa ${category.name}`}
+                                                    disabled={submitting}
                                                 >
                                                     ×
                                                 </button>
@@ -296,7 +307,7 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
                                                             background: '#fff',
                                                             color: '#2563eb',
                                                             fontSize: '13px',
-                                                            cursor: 'pointer'
+                                                            cursor: 'pointer',
                                                         }}
                                                     >
                                                         Thử lại
@@ -307,23 +318,30 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
                                                     <button
                                                         key={category.id}
                                                         type="button"
-                                                        className={`supplier-dropdown__item ${categoryDropdown.selectedCategories.some(
-                                                            cat => cat.id === category.id
-                                                        )
-                                                            ? 'supplier-dropdown__item--selected'
-                                                            : ''
-                                                            }`}
+                                                        className={`supplier-dropdown__item ${
+                                                            categoryDropdown.selectedCategories.some(
+                                                                (cat) => cat.id === category.id,
+                                                            )
+                                                                ? 'supplier-dropdown__item--selected'
+                                                                : ''
+                                                        }`}
                                                         onClick={() => handleCategorySelect(category)}
                                                     >
                                                         <span className="supplier-dropdown__item-checkbox">
                                                             {categoryDropdown.selectedCategories.some(
-                                                                cat => cat.id === category.id
+                                                                (cat) => cat.id === category.id,
                                                             ) && '✓'}
                                                         </span>
                                                         <span>
                                                             {category.name}
                                                             {category.description && (
-                                                                <span style={{ marginLeft: '6px', color: '#94a3b8', fontSize: '12px' }}>
+                                                                <span
+                                                                    style={{
+                                                                        marginLeft: '6px',
+                                                                        color: '#94a3b8',
+                                                                        fontSize: '12px',
+                                                                    }}
+                                                                >
                                                                     ({category.description})
                                                                 </span>
                                                             )}
@@ -332,7 +350,9 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
                                                 ))
                                             ) : (
                                                 <div className="supplier-dropdown__empty">
-                                                    {categoryDropdown.searchTerm ? 'Không tìm thấy kết quả' : 'Không có mặt hàng nào'}
+                                                    {categoryDropdown.searchTerm
+                                                        ? 'Không tìm thấy kết quả'
+                                                        : 'Không có mặt hàng nào'}
                                                 </div>
                                             )}
                                         </div>
@@ -349,6 +369,7 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
                                 placeholder="Nguyễn Trần Minh Anh"
                                 value={formData.contactPerson}
                                 onChange={handleInputChange}
+                                disabled={submitting}
                             />
                         </label>
                     </div>
@@ -361,6 +382,7 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
                             placeholder="09xx xxx xxx"
                             value={formData.phoneNumber}
                             onChange={handleInputChange}
+                            disabled={submitting}
                         />
                     </label>
 
@@ -372,6 +394,7 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
                             placeholder="Số nhà, tên đường, phường/xã..."
                             value={formData.address}
                             onChange={handleInputChange}
+                            disabled={submitting}
                         />
                     </label>
                     <label className="supplier-modal__field">
@@ -382,14 +405,28 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
                             placeholder="Ghi chú..."
                             value={formData.notes}
                             onChange={handleInputChange}
+                            disabled={submitting}
                         />
                     </label>
                     <div className="supplier-modal__footer">
-                        <button type="button" className="supplier-btn supplier-btn--secondary" onClick={onClose}>
+                        <button
+                            type="button"
+                            className="supplier-btn supplier-btn--secondary"
+                            onClick={onClose}
+                            disabled={submitting}
+                        >
                             Hủy
                         </button>
-                        <button type="submit" className="supplier-btn supplier-btn--primary">
-                            Thêm nhà cung cấp
+                        <button
+                            type="submit"
+                            className="supplier-btn supplier-btn--primary"
+                            disabled={submitting}
+                        >
+                            {submitting
+                                ? 'Đang lưu...'
+                                : isEdit
+                                  ? 'Lưu thay đổi'
+                                  : 'Thêm nhà cung cấp'}
                         </button>
                     </div>
                 </form>

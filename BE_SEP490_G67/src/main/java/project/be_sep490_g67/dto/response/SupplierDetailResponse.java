@@ -23,6 +23,6 @@ public class SupplierDetailResponse {
     String phoneNumber;
     String address;
     String notes;
-    List<String> categories;
+    List<CategoryResponse> categories;
     BigDecimal currentDebt;
 }

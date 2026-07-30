@@ -14,6 +14,8 @@ public interface SupplierRepository extends JpaRepository<Supplier, Integer> {
 
     boolean existsSuppliersBySupplierCode(String supplierCode);
 
+    boolean existsBySupplierCodeAndIdNot(String supplierCode, Integer id);
+
     // Lấy 1 NCC còn hoạt động theo id — dùng cho màn chi tiết,
     // tránh trả về NCC đã bị xoá mềm (isRemoved = true).
     Optional<Supplier> findByIdAndIsRemovedFalse(Integer id);

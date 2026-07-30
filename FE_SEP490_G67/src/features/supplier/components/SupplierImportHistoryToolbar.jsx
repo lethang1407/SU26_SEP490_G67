@@ -1,5 +1,5 @@
 import { Search } from 'lucide-react';
-import { IMPORT_HISTORY_FILTER, IMPORT_HISTORY_FILTER_LABEL } from '../constants/mockSupplierDetails';
+import { IMPORT_HISTORY_FILTER, IMPORT_HISTORY_FILTER_LABEL } from '../constants';
 
 const FILTER_OPTIONS = [IMPORT_HISTORY_FILTER.ALL, IMPORT_HISTORY_FILTER.DEBT, IMPORT_HISTORY_FILTER.DONE];
 
