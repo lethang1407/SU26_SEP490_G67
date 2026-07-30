@@ -107,7 +107,7 @@ export function getLocationStatus(location) {
 export function formatLocationAddress(location) {
     const parts = [`Khu ${location.zone}`];
     if (location.aisle) {
-        parts.push(`Lối ${location.aisle}`);
+        parts.push(`Hàng ${location.aisle}`);
     }
     if (location.shelf) {
         parts.push(`Kệ ${location.shelf}`);
@@ -159,8 +159,8 @@ export function getAisleOptions(locations, zoneFilter) {
         zoneFilter === 'all' ? locations : locations.filter((item) => item.zone === zoneFilter);
     const aisles = [...new Set(filtered.map((item) => item.aisle).filter(Boolean))].sort();
     return [
-        { value: 'all', label: 'Tất cả lối' },
-        ...aisles.map((aisle) => ({ value: aisle, label: `Lối ${aisle}` })),
+        { value: 'all', label: 'Tất cả hàng' },
+        ...aisles.map((aisle) => ({ value: aisle, label: `Hàng ${aisle}` })),
     ];
 }
 

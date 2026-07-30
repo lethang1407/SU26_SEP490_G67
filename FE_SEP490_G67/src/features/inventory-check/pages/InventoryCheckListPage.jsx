@@ -104,8 +104,6 @@ export default function InventoryCheckListPage() {
                             <div>
                                 <h1 className="inventory-page__title">Phiếu kiểm kho</h1>
                                 <p className="inventory-page__subtitle">
-                                    Quản lý và theo dõi quá trình kiểm kê theo lô và vị trí kệ.
-                                    Mỗi kệ chỉ chứa một loại sản phẩm.
                                 </p>
                             </div>
                             <div className="inventory-page__actions">

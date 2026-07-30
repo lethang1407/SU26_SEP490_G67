@@ -62,10 +62,6 @@ export const menus = [
         icon: Warehouse,
         children: [
             {
-                title: "Tồn kho",
-                path: "/admin/warehouse/inventory"
-            },
-            {
                 title: "Vị trí hàng hóa",
                 path: "/admin/warehouse/locations"
             },
@@ -78,7 +74,7 @@ export const menus = [
                 path: "/admin/warehouse/import"
             },
             {
-                title: "Trả hàng nhập",
+                title: "Trả hàng",
                 path: "/admin/warehouse/return"
             },
             {

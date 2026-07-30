@@ -94,8 +94,8 @@ export default function StorageLocationGrid({
                                     >
                                         <div className="storage-location-aisle__label">
                                             {aisleGroup.aisle
-                                                ? `Lối ${aisleGroup.aisle}`
-                                                : 'Chưa gán lối'}
+                                                ? `Hàng ${aisleGroup.aisle}`
+                                                : 'Chưa gán hàng'}
                                             <span className="storage-location-aisle__count">
                                                 {aisleGroup.locations.length} ô
                                             </span>

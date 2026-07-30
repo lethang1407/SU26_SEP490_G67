@@ -206,9 +206,7 @@ export default function CreateInventoryCheckPage() {
                         <header className="inventory-check-detail-header">
                             <div>
                                 <h1 className="inventory-page__title">Tạo phiếu kiểm kho</h1>
-                                <p className="inventory-page__subtitle">
-                                    Kiểm kê theo từng lô tại từng vị trí kệ. Mỗi dòng là một cặp
-                                    lô + vị trí.
+                                <p className="inventory-page__subtitle">                                   
                                 </p>
                             </div>
                             <div className="inventory-page__actions">

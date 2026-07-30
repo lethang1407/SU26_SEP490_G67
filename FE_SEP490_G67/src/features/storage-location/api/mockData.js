@@ -11,7 +11,7 @@ export const MOCK_STORAGE_LOCATIONS = [
         aisle: '01',
         shelf: '01',
         bin: null,
-        description: 'Kệ đầu lối A, dành cho hàng mới nhập',
+        description: 'Kệ đầu hàng A, dành cho hàng mới nhập',
         contents: [],
     },
     {

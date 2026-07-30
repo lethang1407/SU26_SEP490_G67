@@ -375,7 +375,7 @@ export default function AdjustStorageLocationModal({ show, onHide, locations, on
                             {selectedLocation && (
                                 <>
                                     <p className="storage-adjust-modal__location-desc">
-                                        Khu {selectedLocation.zone} · Lối{' '}
+                                        Khu {selectedLocation.zone} · Hàng{' '}
                                         {selectedLocation.aisle || '—'} · Kệ{' '}
                                         {selectedLocation.shelf || '—'}
                                     </p>

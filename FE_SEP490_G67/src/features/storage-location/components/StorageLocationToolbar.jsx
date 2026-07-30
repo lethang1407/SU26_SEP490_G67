@@ -25,7 +25,7 @@ export default function StorageLocationToolbar({
                     <input
                         type="text"
                         className="storage-location-toolbar__search-input"
-                        placeholder="Tìm theo mã kệ, sản phẩm, số lô..."
+                        placeholder="Tìm theo sản phẩm, số lô..."
                         value={keyword}
                         onChange={(event) => onKeywordChange(event.target.value)}
                         onKeyDown={(event) => {

@@ -1,10 +1,9 @@
-import { ClipboardCheck, Package, X } from 'lucide-react';
+import { ClipboardCheck, Package, Settings2, X } from 'lucide-react';
 import { LOCATION_STATUS } from '../constants';
 import {
     formatCurrency,
     formatDate,
     formatLocationAddress,
-    getLocationMetrics,
     getLocationProduct,
     getLocationStatus,
     isNearExpiry,
@@ -14,14 +13,13 @@ export default function StorageLocationDetailDrawer({
     location,
     onClose,
     onCheckLocation,
-    onViewInventory,
+    onAdjustLocation,
 }) {
     if (!location) {
         return null;
     }
 
     const status = getLocationStatus(location);
-    const { totalQty, batchCount } = getLocationMetrics(location);
     const product = getLocationProduct(location);
     const isEmpty = status === LOCATION_STATUS.EMPTY;
 
@@ -79,63 +77,42 @@ export default function StorageLocationDetailDrawer({
                         </p>
                     </div>
                 ) : (
-                    <>
-                        <div className="storage-location-drawer__mini-stats">
-                            <div className="storage-location-drawer__mini-stat">
-                                <span className="storage-location-drawer__mini-stat-value">
-                                    {batchCount}
-                                </span>
-                                <span className="storage-location-drawer__mini-stat-label">
-                                    Số lô
-                                </span>
-                            </div>
-                            <div className="storage-location-drawer__mini-stat">
-                                <span className="storage-location-drawer__mini-stat-value">
-                                    {totalQty}
-                                </span>
-                                <span className="storage-location-drawer__mini-stat-label">
-                                    Tổng SL ({product?.unit})
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="storage-location-drawer__contents">
-                            <h3 className="storage-location-drawer__section-title">
-                                Các lô trên kệ
-                            </h3>
-                            {(location.contents ?? []).map((item) => (
-                                <article key={item.id} className="storage-location-content-card">
-                                    <h4 className="storage-location-content-card__batch">
-                                        {item.batchCode}
-                                    </h4>
-                                    <dl className="storage-location-content-card__details">
-                                        <div>
-                                            <dt>SL tại kệ</dt>
-                                            <dd>
-                                                {item.quantity} {item.unit}
-                                            </dd>
-                                        </div>
-                                        <div>
-                                            <dt>HSD</dt>
-                                            <dd
-                                                className={
-                                                    isNearExpiry(item.expiryDate)
-                                                        ? 'storage-location-content-card__expiry--warning'
-                                                        : ''
-                                                }
-                                            >
-                                                {formatDate(item.expiryDate)}
-                                            </dd>
-                                        </div>
-                                        <div>
-                                            <dt>Giá nhập</dt>
-                                            <dd>{formatCurrency(item.importPrice)}</dd>
-                                        </div>
-                                    </dl>
-                                </article>
-                            ))}
-                        </div>
-                    </>
+                    <div className="storage-location-drawer__contents">
+                        <h3 className="storage-location-drawer__section-title">
+                            Các lô trên kệ
+                        </h3>
+                        {(location.contents ?? []).map((item) => (
+                            <article key={item.id} className="storage-location-content-card">
+                                <h4 className="storage-location-content-card__batch">
+                                    {item.batchCode}
+                                </h4>
+                                <dl className="storage-location-content-card__details">
+                                    <div>
+                                        <dt>SL tại kệ</dt>
+                                        <dd>
+                                            {item.quantity} {item.unit}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt>HSD</dt>
+                                        <dd
+                                            className={
+                                                isNearExpiry(item.expiryDate)
+                                                    ? 'storage-location-content-card__expiry--warning'
+                                                    : ''
+                                            }
+                                        >
+                                            {formatDate(item.expiryDate)}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt>Giá nhập</dt>
+                                        <dd>{formatCurrency(item.importPrice)}</dd>
+                                    </div>
+                                </dl>
+                            </article>
+                        ))}
+                    </div>
                 )}
 
                 <footer className="storage-location-drawer__footer">
@@ -152,9 +129,10 @@ export default function StorageLocationDetailDrawer({
                     <button
                         type="button"
                         className="inventory-btn inventory-btn--secondary storage-location-drawer__action"
-                        onClick={() => onViewInventory(location)}
+                        onClick={() => onAdjustLocation(location)}
                     >
-                        Xem trên Tồn kho
+                        <Settings2 size={18} />
+                        Điều chỉnh
                     </button>
                 </footer>
             </aside>

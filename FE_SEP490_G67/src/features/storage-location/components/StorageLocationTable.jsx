@@ -17,7 +17,7 @@ export default function StorageLocationTable({ locations, selectedLocationId, on
                     <tr>
                         <th>Mã vị trí</th>
                         <th>Khu</th>
-                        <th>Lối</th>
+                        <th>Hàng</th>
                         <th>Kệ</th>
                         <th>Ô</th>
                         <th>Trạng thái</th>

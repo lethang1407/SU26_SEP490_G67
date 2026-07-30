@@ -41,7 +41,7 @@ export default function StorageLocationCell({ location, isSelected, onSelect }) 
                 <span className="storage-location-cell__size">{profile.sizeLabel}</span>
                 {location.aisle && location.shelf ? (
                     <span className="storage-location-cell__address">
-                        Lối {location.aisle} · Tầng {location.shelf}
+                        Hàng {location.aisle} · Tầng {location.shelf}
                     </span>
                 ) : (
                     <span className="storage-location-cell__address">Khu {location.zone}</span>

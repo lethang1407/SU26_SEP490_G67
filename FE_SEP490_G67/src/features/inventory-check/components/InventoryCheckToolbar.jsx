@@ -17,7 +17,7 @@ export default function InventoryCheckToolbar({
                 <input
                     type="text"
                     className="inventory-check-toolbar__search-input"
-                    placeholder="Tìm theo mã phiếu, ghi chú..."
+                    placeholder="Tìm theo ngày, ghi chú"
                     value={keyword}
                     onChange={(event) => onKeywordChange(event.target.value)}
                     onKeyDown={(event) => {

@@ -81,7 +81,7 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
         }
 
         if (!payload.label) {
-            setError('Vui lòng nhập mã vị trí hoặc điền lối/kệ để tự sinh mã.');
+            setError('Vui lòng nhập mã vị trí hoặc điền hàng/kệ để tự sinh mã.');
             setIsSubmitting(false);
             return;
         }
@@ -110,7 +110,7 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
                     {error && <Alert variant="danger">{error}</Alert>}
 
                     <p className="storage-location-modal__hint">
-                        Mã vị trí gợi ý theo định dạng <strong>Khu-Lối-Kệ-Ô</strong> (ví dụ:
+                        Mã vị trí gợi ý theo định dạng <strong>Khu-Hàng-Kệ-Ô</strong> (ví dụ:
                         A-01-02).
                     </p>
 
@@ -137,7 +137,7 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
                         </Form.Group>
 
                         <Form.Group className="storage-location-modal__field" controlId="locationAisle">
-                            <Form.Label>Lối đi</Form.Label>
+                            <Form.Label>Hàng</Form.Label>
                             <Form.Control
                                 type="text"
                                 name="aisle"

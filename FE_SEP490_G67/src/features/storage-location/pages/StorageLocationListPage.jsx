@@ -13,7 +13,6 @@ import StorageLocationGrid from '../components/StorageLocationGrid';
 import StorageLocationTable from '../components/StorageLocationTable';
 import StorageLocationToolbar from '../components/StorageLocationToolbar';
 import { INVENTORY_CHECK_ROUTES } from '../../inventory-check/constants';
-import { INVENTORY_ROUTES } from '../../inventory/constants';
 import { LOCATION_STATUS, VIEW_MODE } from '../constants';
 import {
     filterStorageLocations,
@@ -189,13 +188,9 @@ export default function StorageLocationListPage() {
         navigate(`${INVENTORY_CHECK_ROUTES.create}?location=${encodeURIComponent(location.label)}`);
     };
 
-    const handleViewInventory = (location) => {
-        const product = location.contents?.[0];
-        if (product?.productName) {
-            navigate(`${INVENTORY_ROUTES.list}?keyword=${encodeURIComponent(product.productName)}`);
-            return;
-        }
-        navigate(INVENTORY_ROUTES.list);
+    const handleAdjustLocation = (location) => {
+        setSelectedLocation(null);
+        setShowAdjustModal(true);
     };
 
     return (
@@ -287,7 +282,7 @@ export default function StorageLocationListPage() {
                 location={selectedLocation}
                 onClose={() => setSelectedLocation(null)}
                 onCheckLocation={handleCheckLocation}
-                onViewInventory={handleViewInventory}
+                onAdjustLocation={handleAdjustLocation}
             />
 
             <CreateStorageLocationModal
