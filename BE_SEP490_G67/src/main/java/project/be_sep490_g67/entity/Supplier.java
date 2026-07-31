@@ -36,7 +36,7 @@ public class Supplier extends BaseEntity {
     @Column(name = "notes")
     private String notes;
 
-    @Column(name = "supplier_code", nullable = false, length = 30)
+    @Column(name = "supplier_code", length = 30)
     private String supplierCode;
 
     @ManyToMany(fetch = FetchType.LAZY)
@@ -50,4 +50,11 @@ public class Supplier extends BaseEntity {
 
     @OneToMany(mappedBy = "supplier")
     private List<SupplierPayment> payments;
+
+    @PostPersist
+    public void generateSupplierCode() {
+        if (this.supplierCode == null && this.id != null) {
+            this.supplierCode = String.format("NCC-%04d", this.id);
+        }
+    }
 }

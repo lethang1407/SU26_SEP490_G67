@@ -13,7 +13,7 @@ import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.SupplierRepository;
 import project.be_sep490_g67.repository.UserRepository;
-
+import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 
 @Service
@@ -24,12 +24,8 @@ public class SupplierService {
     SupplierRepository supplierRepository;
     UserRepository userRepository;
 
-
+    @Transactional
     public AddNewSupplierResponse addNewSupplier(AddNewSupplierRequest request) {
-        if (supplierRepository.existsSuppliersBySupplierCode((request.getSupplierCode()))) {
-            throw new AppException(ErrorCode.EXISTED_SUPPLIER);
-        }
-
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
@@ -42,10 +38,6 @@ public class SupplierService {
         supplier.setPhoneNumber(request.getPhoneNumber());
         supplier.setNotes(request.getNotes());
         supplier.setCategories(request.getCategories());
-        supplier.setCreatedAt(Instant.now());
-        supplier.setCreatedBy(user.getId());
-        supplier.setIsRemoved(false);
-
         Supplier savedSupplier = supplierRepository.save(supplier);
 
         return AddNewSupplierResponse.builder()
