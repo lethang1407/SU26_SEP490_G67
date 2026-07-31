@@ -13,7 +13,7 @@ import { useContext } from "react";
 export default function SideBar() {
     const [expanded, setExpanded] = useState(null);
     const location = useLocation();
-    const  logout  = useContext(AuthContext);
+    const { logout } = useContext(AuthContext);
 
     useEffect(() => {
         const activeMenu = menus.find(menu => 

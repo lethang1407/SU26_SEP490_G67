@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, ChevronDown, Search } from 'lucide-react';
 import { removeVietnameseTones } from '../utils/supplierUtils';
-import { suppliersApi } from '../api';
-import { categoriesApi } from '../../category/api';
+import {suppliersApi} from '../api';
+import {categoriesApi} from '../../category/api';
 export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
     const [formData, setFormData] = useState({
         name: '',
+        supplierCode: '',
         categories: '',
         contactPerson: '',
         phoneNumber: '',
@@ -82,6 +83,7 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
         // Send data in the format expected by backend
         onSubmit({
             name: formData.name,
+            supplierCode: formData.supplierCode,
             categories: categoryDropdown.selectedCategories.map(cat => ({ id: cat.id })),
             contactPerson: formData.contactPerson,
             phoneNumber: formData.phoneNumber,
@@ -91,6 +93,7 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
         // Reset form
         setFormData({
             name: '',
+            supplierCode: '',
             categories: '',
             contactPerson: '',
             phoneNumber: '',
@@ -203,15 +206,17 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
                             />
                         </label>
 
-
                         <label className="supplier-modal__field supplier-modal__field--half">
-                            <span>Người liên hệ</span>
+                            <span>
+                                Mã nhà cung cấp <span style={{ color: 'red' }}>*</span>
+                            </span>
                             <input
                                 type="text"
-                                name="contactPerson"
-                                placeholder="Nguyễn Trần Minh Anh"
-                                value={formData.contactPerson}
+                                name="supplierCode"
+                                placeholder="NCC00042"
+                                value={formData.supplierCode}
                                 onChange={handleInputChange}
+                                required
                             />
                         </label>
                     </div>
@@ -335,17 +340,30 @@ export default function SupplierAddNewModal({ open, onClose, onSubmit }) {
                                 )}
                             </div>
                         </label>
-                        <label className="supplier-modal__field">
-                            <span>Số điện thoại</span>
+
+                        <label className="supplier-modal__field supplier-modal__field--half">
+                            <span>Người liên hệ</span>
                             <input
-                                type="tel"
-                                name="phoneNumber"
-                                placeholder="09xx xxx xxx"
-                                value={formData.phoneNumber}
+                                type="text"
+                                name="contactPerson"
+                                placeholder="Nguyễn Trần Minh Anh"
+                                value={formData.contactPerson}
                                 onChange={handleInputChange}
                             />
                         </label>
                     </div>
+
+                    <label className="supplier-modal__field">
+                        <span>Số điện thoại</span>
+                        <input
+                            type="tel"
+                            name="phoneNumber"
+                            placeholder="09xx xxx xxx"
+                            value={formData.phoneNumber}
+                            onChange={handleInputChange}
+                        />
+                    </label>
+
                     <label className="supplier-modal__field">
                         <span>Địa chỉ</span>
                         <textarea
