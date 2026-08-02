@@ -31,28 +31,8 @@ public class CategoryController {
                 .message("Lấy danh sách danh mục hàng hóa thành công")
                 .build();
     }
-
     @PostMapping
-    public ApiResponse<CategoryResponse> createCategory(@Valid @RequestBody UpsertCategoryRequest request) {
-        return ApiResponse.<CategoryResponse>builder()
-                .result(categoryService.create(request))
-                .message("Thêm danh mục thành công")
-                .build();
-    }
-
-    @PutMapping("/{id}")
-    public ApiResponse<CategoryResponse> updateCategory(
-            @PathVariable Integer id,
-            @Valid @RequestBody UpsertCategoryRequest request
-    ) {
-        return ApiResponse.<CategoryResponse>builder()
-                .result(categoryService.update(id, request))
-                .message("Cập nhật danh mục thành công")
-                .build();
-    }
-
-    @PostMapping
-    public ApiResponse<CategoryResponse> addCategory(@Valid @RequestBody CategoryRequest request){
+    public ApiResponse<CategoryResponse> addCategory(@Valid @RequestBody UpsertCategoryRequest request){
         CategoryResponse newCategory = categoryService.createCategory(request);
         return ApiResponse.<CategoryResponse>builder()
                 .result(newCategory)
@@ -61,8 +41,8 @@ public class CategoryController {
     }
 
     @PutMapping("/{categoryId}")
-    public ApiResponse<CategoryResponse> updateCategory(@Valid @RequestBody CategoryRequest request, @PathVariable Integer categoryId){
-        CategoryResponse updateCategory = categoryService.updateCategory(request,  categoryId);
+    public ApiResponse<CategoryResponse> updateCategory(@Valid @RequestBody UpsertCategoryRequest request, @PathVariable Integer categoryId){
+        CategoryResponse updateCategory = categoryService.updateCategory(categoryId,request);
 
         return ApiResponse.<CategoryResponse>builder()
                 .result(updateCategory)

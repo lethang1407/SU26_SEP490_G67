@@ -38,14 +38,7 @@ public class ImportOrderController {
                 .message("Lấy danh sách đơn nhập hàng thành công")
                 .build();
     }
-    @PostMapping("/suggest")
-    public ApiResponse<List<ImportSuggestionDTO>> suggest(@RequestBody ImportSuggestRequest request) {
-        List<ImportSuggestionDTO> result = importSuggestionService.getSuggestions(request);
-        return ApiResponse.<List<ImportSuggestionDTO>>builder()
-                .result(result)
-                .message("Gợi ý nhập hàng thành công")
-                .build();
-    }
+
     @PostMapping("/suggest")
     public ApiResponse<List<ImportSuggestionDTO>> suggest(@RequestBody ImportSuggestRequest request) {
         List<ImportSuggestionDTO> result = importSuggestionService.getSuggestions(request);
