@@ -25,7 +25,7 @@ public interface ImportOrderDetailRepository extends JpaRepository<ImportOrderDe
           AND o.createdAt >= :from
           AND o.createdAt < :to
           AND (:productId IS NULL OR p.id = :productId)
-          AND (:status IS NULL OR :status = '' OR UPPER(o.status) = UPPER(:status))
+          AND (:status IS NULL OR :status = '' OR UPPER(o.orderStatus) = UPPER(:status))
           AND (:supplierKeyword IS NULL OR :supplierKeyword = ''
                OR LOWER(s.name) LIKE LOWER(CONCAT('%', :supplierKeyword, '%'))
                OR LOWER(o.orderCode) LIKE LOWER(CONCAT('%', :supplierKeyword, '%')))

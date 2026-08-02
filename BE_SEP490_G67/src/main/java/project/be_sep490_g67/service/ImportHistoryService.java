@@ -140,7 +140,7 @@ public class ImportHistoryService {
                 .unitPrice(d.getCostPerUnit())
                 .totalAmount(d.getLineTotal())
                 .staffName(createdBy == null ? "—" : staffNames.getOrDefault(createdBy, "—"))
-                .status(mapBeStatusToFe(order.getStatus()))
+                .status(mapBeStatusToFe(order.getOrderStatus()))
                 .build();
     }
 

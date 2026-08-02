@@ -140,7 +140,7 @@ public class ImportOrderService {
             order.setSupplier(supplier);
             order.setOrderCode("PO-" + datePart + "-" + String.format("%03d", SEQ.getAndIncrement()));
             order.setReceivedDate(null);
-            order.setStatus("PENDING_CHECK");
+            order.setOrderStatus("PENDING_CHECK");
             order.setNote("Tạo từ màn chuẩn bị đơn nhập");
             order.setTotalCost(BigDecimal.ZERO);
             order = importOrderRepository.save(order);
