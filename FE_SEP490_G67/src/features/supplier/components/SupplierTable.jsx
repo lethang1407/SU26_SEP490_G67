@@ -1,14 +1,62 @@
-import { Link } from 'react-router-dom';
-import SupplierStatusBadge from './SupplierStatusBadge';
+import { Fragment } from 'react';
+import SupplierExpandPanel from './SupplierExpandPanel';
 import { formatCurrency } from '../utils/supplierUtils';
 
-export default function SupplierTable({ items, loading }) {
-    if (loading) {
-        return (
-            <div className="supplier-table-card supplier-table-card--empty">
-                <p>Đang tải danh sách nhà cung cấp...</p>
+const COLUMN_COUNT = 5;
+const SKELETON_ROWS = 6;
+
+function SupplierTableSkeleton() {
+    return (
+        <div className="supplier-table-card" aria-busy="true" aria-label="Đang tải danh sách nhà cung cấp">
+            <div className="supplier-table-wrapper">
+                <table className="supplier-table">
+                    <thead>
+                        <tr>
+                            <th>Mã NCC</th>
+                            <th>Tên nhà cung cấp</th>
+                            <th>Số điện thoại</th>
+                            <th>Địa chỉ</th>
+                            <th>Nợ cần trả hiện tại</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {Array.from({ length: SKELETON_ROWS }, (_, index) => (
+                            <tr key={index} className="supplier-table__skeleton-row">
+                                <td>
+                                    <span className="supplier-skeleton supplier-skeleton--sm" />
+                                </td>
+                                <td>
+                                    <span className="supplier-skeleton supplier-skeleton--lg" />
+                                </td>
+                                <td>
+                                    <span className="supplier-skeleton supplier-skeleton--md" />
+                                </td>
+                                <td>
+                                    <span className="supplier-skeleton supplier-skeleton--xl" />
+                                </td>
+                                <td>
+                                    <span className="supplier-skeleton supplier-skeleton--md" />
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
-        );
+        </div>
+    );
+}
+
+export default function SupplierTable({
+    items,
+    loading,
+    expandedId,
+    onToggleExpand,
+    onPaymentSuccess,
+    onSupplierUpdated,
+    onSupplierDeleted,
+}) {
+    if (loading) {
+        return <SupplierTableSkeleton />;
     }
 
     if (items.length === 0) {
@@ -29,45 +77,52 @@ export default function SupplierTable({ items, loading }) {
                             <th>Tên nhà cung cấp</th>
                             <th>Số điện thoại</th>
                             <th>Địa chỉ</th>
-                            <th>Nợ hiện tại</th>
-                            <th>Trạng thái</th>
+                            <th>Nợ cần trả hiện tại</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {items.map((supplier) => (
-                            <tr key={supplier.id}>
-                                <td>
-                                    <Link
-                                        to={`/admin/warehouse/supplier/${supplier.id}`}
-                                        className="supplier-table__code"
+                        {items.map((supplier) => {
+                            const isExpanded = expandedId === supplier.id;
+
+                            return (
+                                <Fragment key={supplier.id}>
+                                    <tr
+                                        className={`supplier-table__row ${
+                                            isExpanded ? 'supplier-table__row--expanded' : ''
+                                        }`}
+                                        onClick={() => onToggleExpand(supplier.id)}
+                                        aria-expanded={isExpanded}
                                     >
-                                        {supplier.supplierCode}
-                                    </Link>
-                                </td>
-                                <td className="supplier-table__name">
-                                    <Link
-                                        to={`/admin/warehouse/supplier/${supplier.id}`}
-                                        className="supplier-table__name-link"
-                                    >
-                                        {supplier.name}
-                                    </Link>
-                                </td>
-                                <td className="supplier-table__phone">{supplier.phoneNumber}</td>
-                                <td className="supplier-table__address" title={supplier.address}>
-                                    {supplier.address}
-                                </td>
-                                <td
-                                    className={`supplier-table__debt ${
-                                        supplier.currentDebt > 0 ? 'supplier-table__debt--highlight' : ''
-                                    }`}
-                                >
-                                    {formatCurrency(supplier.currentDebt)}
-                                </td>
-                                <td>
-                                    <SupplierStatusBadge status={supplier.status} />
-                                </td>
-                            </tr>
-                        ))}
+                                        <td className="supplier-table__code-text">{supplier.supplierCode}</td>
+                                        <td className="supplier-table__name">{supplier.name}</td>
+                                        <td className="supplier-table__phone">{supplier.phoneNumber}</td>
+                                        <td className="supplier-table__address" title={supplier.address}>
+                                            {supplier.address}
+                                        </td>
+                                        <td
+                                            className={`supplier-table__debt ${
+                                                supplier.currentDebt > 0 ? 'supplier-table__debt--highlight' : ''
+                                            }`}
+                                        >
+                                            {formatCurrency(supplier.currentDebt)}
+                                        </td>
+                                    </tr>
+                                    {isExpanded && (
+                                        <tr className="supplier-table__expand-row">
+                                            <td colSpan={COLUMN_COUNT} className="supplier-table__expand-cell">
+                                                <SupplierExpandPanel
+                                                    supplierId={supplier.id}
+                                                    listDebt={supplier.currentDebt}
+                                                    onPaymentSuccess={onPaymentSuccess}
+                                                    onUpdated={onSupplierUpdated}
+                                                    onDeleted={onSupplierDeleted}
+                                                />
+                                            </td>
+                                        </tr>
+                                    )}
+                                </Fragment>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>

@@ -28,6 +28,8 @@ public interface CategoryRepository extends JpaRepository<Category, Integer> {
             @Param("search") String search,
             Pageable pageable);
 
+    boolean existsByNameIgnoreCaseAndIdNot(String name, Integer id);
+
     Optional<Category> findByIdAndIsRemovedFalse(Integer id);
 
     boolean existsByNameIgnoreCaseAndIsRemovedFalse(String name);

@@ -9,7 +9,6 @@ import org.hibernate.annotations.OnDeleteAction;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -44,6 +43,10 @@ public class SalesOrder extends BaseEntity {
     private BigDecimal subtotal;
 
     @ColumnDefault("0.00")
+    @Column(name = "paid_amount", precision = 15, scale = 2)
+    private BigDecimal paidAmount;
+
+    @ColumnDefault("0.00")
     @Column(name = "discount_amount", precision = 15, scale = 2)
     private BigDecimal discountAmount;
 
@@ -58,6 +61,9 @@ public class SalesOrder extends BaseEntity {
     @Lob
     @Column(name = "note")
     private String note;
+
+    @Column(name = "due_date")
+    private Instant dueDate;
 
     @OneToMany(mappedBy = "salesOrder")
     private Set<DebtPayment> debtPayments = new LinkedHashSet<>();

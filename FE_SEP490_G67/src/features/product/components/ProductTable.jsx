@@ -1,196 +1,121 @@
-import { useEffect, useRef } from 'react';
-import {
-  coverClass,
-  formatCoverDays,
-  formatRate,
-  rowClass,
-  stockClass,
-} from '../utils/productUtils';
-
-const HOVER_OPEN_MS = 2000;
-
-function ProductThumb({ product }) {
-  const img = product.productImg;
-  if (img && (img.startsWith('http') || img.startsWith('/'))) {
-    return (
-      <div className="prod-img">
-        <img src={img} alt="" />
-      </div>
-    );
-  }
-  return <div className="prod-img">{img || '📦'}</div>;
-}
+import { useNavigate } from 'react-router-dom';
+import { getProductStatusLabel } from '../api/productMockData';
+import { PRODUCT_ROUTES } from '../constants';
+import { formatCurrency } from '../utils/productUtils';
 
 export default function ProductTable({
-  items,
-  loading,
-  facet,
-  selectedIds,
-  detailProductId,
-  onToggle,
-  onToggleAll,
-  onOpenDetail,
-  onHoverDetailCancel,
-  page,
-  totalPages,
-  totalElements,
-  onPageChange,
+    items,
+    selectedIds,
+    onToggleRow,
+    onToggleAll,
 }) {
-  const allChecked = items.length > 0 && items.every((p) => selectedIds.has(p.id));
-  const hoverTimerRef = useRef(null);
-  const hoverIdRef = useRef(null);
+    const navigate = useNavigate();
+    const allSelected = items.length > 0 && items.every((item) => selectedIds.includes(item.id));
+    const someSelected = items.some((item) => selectedIds.includes(item.id));
 
-  useEffect(() => {
-    return () => {
-      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    const handleRowClick = (productId) => {
+        navigate(PRODUCT_ROUTES.detail(productId));
     };
-  }, []);
 
-  const clearHoverTimer = () => {
-    if (hoverTimerRef.current) {
-      clearTimeout(hoverTimerRef.current);
-      hoverTimerRef.current = null;
+    if (items.length === 0) {
+        return (
+            <div className="product-table-card product-table-card--empty">
+                <p>Không tìm thấy sản phẩm phù hợp.</p>
+            </div>
+        );
     }
-    hoverIdRef.current = null;
-  };
 
-  const handleRowEnter = (product) => {
-    clearHoverTimer();
-    hoverIdRef.current = product.id;
-    hoverTimerRef.current = setTimeout(() => {
-      if (hoverIdRef.current === product.id) {
-        onOpenDetail?.(product);
-      }
-    }, HOVER_OPEN_MS);
-  };
+    return (
+        <div className="product-table-card">
+            <div className="product-table-wrapper">
+                <table className="product-table">
+                    <thead>
+                        <tr>
+                            <th className="product-table__col-check">
+                                <input
+                                    type="checkbox"
+                                    className="product-table__checkbox"
+                                    checked={allSelected}
+                                    ref={(input) => {
+                                        if (input) {
+                                            input.indeterminate = someSelected && !allSelected;
+                                        }
+                                    }}
+                                    onChange={(event) => onToggleAll(event.target.checked)}
+                                    aria-label="Chọn tất cả sản phẩm"
+                                />
+                            </th>
+                            <th>Mã SP</th>
+                            <th>Tên sản phẩm</th>
+                            <th>Danh mục</th>
+                            <th>Giá nhập</th>
+                            <th>Giá bán</th>
+                            <th>Tồn kho</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {items.map((product) => {
+                            const isOutOfStock = product.stock === 0;
+                            const isSelected = selectedIds.includes(product.id);
 
-  const handleRowLeave = () => {
-    clearHoverTimer();
-    onHoverDetailCancel?.();
-  };
-
-  return (
-    <div className={`tablewrap ${detailProductId ? 'tablewrap--detail-open' : ''}`}>
-      <div className="tscroll">
-        <table>
-          <thead>
-            <tr>
-              <th className="col-cb">
-                <span
-                  className={`cb ${allChecked ? 'on' : ''}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleAll(!allChecked);
-                  }}
-                  role="checkbox"
-                  aria-checked={allChecked}
-                />
-              </th>
-              <th className="col-prod">Sản phẩm</th>
-              <th className="col-rate" title="Tốc độ bán">Tốc độ</th>
-              <th className="col-stock" title="Tồn kho">Tồn</th>
-              <th className="col-cover" title="Còn bán được">Còn bán</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={5} style={{ textAlign: 'center', color: '#64748B', padding: 24 }}>
-                  Đang tải…
-                </td>
-              </tr>
-            )}
-            {!loading && items.length === 0 && (
-              <tr>
-                <td colSpan={5} style={{ textAlign: 'center', color: '#64748B', padding: 24 }}>
-                  Không có sản phẩm trong nhóm này.
-                </td>
-              </tr>
-            )}
-            {!loading &&
-              items.map((p) => {
-                const checked = selectedIds.has(p.id);
-                const unit = p.unitName || 'sp';
-                const isDetailFocus = detailProductId === p.id;
-                return (
-                  <tr
-                    key={p.id}
-                    className={`${rowClass(facet || p.facetStatus, checked)} ${
-                      isDetailFocus ? 'detail-focus' : ''
-                    } ${detailProductId && !isDetailFocus ? 'detail-dimmed' : ''}`.trim()}
-                    onClick={() => onOpenDetail?.(p)}
-                    onMouseEnter={() => handleRowEnter(p)}
-                    onMouseLeave={handleRowLeave}
-                  >
-                    <td
-                      className="col-cb"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggle(p.id);
-                      }}
-                    >
-                      <span className={`cb ${checked ? 'on' : ''}`} />
-                    </td>
-                    <td className="col-prod">
-                      <div className="prod">
-                        <ProductThumb product={p} />
-                        <div className="prod-name" title={p.name}>{p.name}</div>
-                      </div>
-                    </td>
-                    <td className="col-rate">
-                      <div className="rate-main" title={formatRate(p.avgDailyRate, `${unit}/ngày`)}>
-                        {formatRate(p.avgDailyRate, `${unit}/ngày`)}
-                      </div>
-                      <div className="rate-sub" title={formatRate(p.avgWeeklyRate, `${unit}/tuần`)}>
-                        {formatRate(p.avgWeeklyRate, `${unit}/tuần`)}
-                      </div>
-                    </td>
-                    <td className={`col-stock ${stockClass(p.onHand, facet || p.facetStatus)}`}>
-                      {p.onHand ?? 0}
-                    </td>
-                    <td
-                      className={`col-cover ${coverClass(p.coverDaysLeft)}`}
-                      title={formatCoverDays(p.coverDaysLeft)}
-                    >
-                      {formatCoverDays(p.coverDaysLeft)}
-                    </td>
-                  </tr>
-                );
-              })}
-          </tbody>
-        </table>
-      </div>
-      <div className="foot">
-        <div>{totalElements} sản phẩm</div>
-        <div className="pages">
-          <button
-            type="button"
-            className="pg"
-            disabled={page <= 0}
-            onClick={() => onPageChange(page - 1)}
-          >
-            ‹
-          </button>
-          {Array.from({ length: Math.min(totalPages, 3) }, (_, i) => (
-            <button
-              key={i}
-              type="button"
-              className={`pg ${page === i ? 'cur' : ''}`}
-              onClick={() => onPageChange(i)}
-            >
-              {i + 1}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="pg"
-            disabled={page >= totalPages - 1}
-            onClick={() => onPageChange(page + 1)}
-          >
-            ›
-          </button>
+                            return (
+                                <tr
+                                    key={product.id}
+                                    className={`product-table__row${
+                                        isSelected ? ' product-table__row--selected' : ''
+                                    }`}
+                                    onClick={() => handleRowClick(product.id)}
+                                >
+                                    <td className="product-table__col-check" onClick={(event) => event.stopPropagation()}>
+                                        <input
+                                            type="checkbox"
+                                            className="product-table__checkbox"
+                                            checked={isSelected}
+                                            onChange={() => onToggleRow(product.id)}
+                                            aria-label={`Chọn ${product.name}`}
+                                        />
+                                    </td>
+                                    <td className="product-table__code">{product.code}</td>
+                                    <td>
+                                        <div className="product-table__name-cell">
+                                            <div className="product-table__name-info">
+                                                <span className="product-table__name">{product.name}</span>
+                                                <span className="product-table__barcode">{product.barcode}</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="product-table__category">{product.category}</td>
+                                    <td className="product-table__import-price">
+                                        {formatCurrency(product.importPrice)}
+                                    </td>
+                                    <td className="product-table__sell-price">
+                                        {formatCurrency(product.sellPrice)}
+                                    </td>
+                                    <td
+                                        className={`product-table__stock${
+                                            isOutOfStock ? ' product-table__stock--empty' : ''
+                                        }`}
+                                    >
+                                        {product.stock}
+                                    </td>
+                                    <td>
+                                        <span
+                                            className={`product-table__status${
+                                                isOutOfStock
+                                                    ? ' product-table__status--out-of-stock'
+                                                    : ' product-table__status--in-stock'
+                                            }`}
+                                        >
+                                            {getProductStatusLabel(product.stock)}
+                                        </span>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 }

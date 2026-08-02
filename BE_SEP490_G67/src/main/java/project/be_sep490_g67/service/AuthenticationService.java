@@ -112,6 +112,7 @@ public class AuthenticationService {
                         Instant.now().plus(VALID_DURATION, ChronoUnit.SECONDS).toEpochMilli()))
                 .jwtID(UUID.randomUUID().toString())
                 .claim("scope", buildScope(user))
+                .claim("userId", user.getId())
                 .build();
 
         Payload payload = new Payload(jwtClaimsSet.toJSONObject());
@@ -156,7 +157,7 @@ public class AuthenticationService {
 
     private String[] buildScope(User user) {
         if (CollectionUtils.isEmpty(user.getRoles())) {
-            return new String[0]; // Trả về mảng rỗng nếu không có role
+            return new String[0];
         }
 
         return user.getRoles().stream()

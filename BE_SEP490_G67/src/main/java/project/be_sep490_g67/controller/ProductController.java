@@ -15,16 +15,43 @@ import project.be_sep490_g67.dto.response.ProductDetailDTO;
 import project.be_sep490_g67.dto.response.ProductListItemDTO;
 import project.be_sep490_g67.service.ProductCommandService;
 import project.be_sep490_g67.service.ProductListService;
+import project.be_sep490_g67.dto.response.ProductBarcodeResponse;
+import project.be_sep490_g67.dto.response.ProductSearchResponse;
+import project.be_sep490_g67.service.ProductService;
+
+import java.util.List;
 
 @RestController
-@RequestMapping(ApiPath.PRODUCT)
+@RequestMapping(ApiPath.PRODUCTS)
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ProductController {
 
+    ProductService productService;
     ProductListService productListService;
     ProductCommandService productCommandService;
 
+    /**
+     * GET /api/products/barcode/{barcode}
+     */
+    @GetMapping("/barcode/{barcode}")
+    ApiResponse<ProductBarcodeResponse> getByBarcode(@PathVariable String barcode) {
+        ProductBarcodeResponse result = productService.getProductByBarcode(barcode);
+        return ApiResponse.<ProductBarcodeResponse>builder()
+                .result(result)
+                .build();
+    }
+
+    /**
+     * GET /api/products/search?q={query}
+     */
+    @GetMapping("/search")
+    ApiResponse<List<ProductSearchResponse>> searchByName(@RequestParam("q") String query) {
+        List<ProductSearchResponse> results = productService.searchByNameAndBarcode(query);
+        return ApiResponse.<List<ProductSearchResponse>>builder()
+                .result(results)
+                .build();
+    }
     @GetMapping
     public ApiResponse<PageResponse<ProductListItemDTO>> getProducts(
             @RequestParam(defaultValue = "hot") String facet,

@@ -70,8 +70,16 @@ export const menus = [
                 path: "/admin/warehouse/check"
             },
             {
-                title: "Lịch sử nhập hàng",
+                title: "Gợi ý nhập hàng",
+                path: "/admin/warehouse/product-import"
+            },
+            {
+                title: "Đơn nhập hàng",
                 path: "/admin/warehouse/import"
+            },
+            {
+                title: "Lịch sử nhập hàng",
+                path: "/admin/warehouse/import-history"
             },
             {
                 title: "Trả hàng nhập",

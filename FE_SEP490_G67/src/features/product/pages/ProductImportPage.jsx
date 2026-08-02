@@ -5,7 +5,7 @@ import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import ProductFacet from '../components/ProductFacet';
 import ProductBulkBar from '../components/ProductBulkBar';
-import ProductTable from '../components/ProductTable';
+import ProductImportTable from '../components/ProductImportTable';
 import ImportPanel from '../components/ImportPanel';
 import ProductDetailDrawer from '../components/ProductDetailDrawer';
 import { productsApi } from '../api';
@@ -275,7 +275,7 @@ export default function ProductImportPage() {
                   />
                 )}
 
-                <ProductTable
+                <ProductImportTable
                   items={products}
                   loading={loading}
                   facet={facet}

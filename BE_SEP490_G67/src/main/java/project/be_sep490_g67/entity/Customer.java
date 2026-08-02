@@ -6,7 +6,6 @@ import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -26,13 +25,23 @@ public class Customer extends BaseEntity {
     @Column(name = "phone_number", length = 15)
     private String phoneNumber;
 
+    @Column(name = "address")
+    private String address;
+
+    @Column(name = "status", length = 15)
+    private String status;
+
+    @ColumnDefault("1")
+    @Column(name = "allow_debt")
+    private Boolean allowDebt = true;
+
+    @Lob
+    @Column(name = "note")
+    private String note;
+
     @ColumnDefault("0.00")
     @Column(name = "total_debt", precision = 15, scale = 2)
     private BigDecimal totalDebt;
-
-    @ColumnDefault("0.00")
-    @Column(name = "total_paid", precision = 15, scale = 2)
-    private BigDecimal totalPaid;
 
     @OneToMany(mappedBy = "customer")
     private Set<DebtPayment> debtPayments = new LinkedHashSet<>();

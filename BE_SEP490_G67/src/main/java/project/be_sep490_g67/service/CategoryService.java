@@ -15,7 +15,9 @@ import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.entity.Category;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
+import project.be_sep490_g67.mapper.CategoryMapper;
 import project.be_sep490_g67.repository.CategoryRepository;
+import project.be_sep490_g67.repository.UserRepository;
 
 import java.util.HashMap;
 import java.util.List;
@@ -28,7 +30,10 @@ import java.util.Map;
 public class CategoryService {
 
     CategoryRepository categoryRepository;
+    UserRepository userRepository;
+    CategoryMapper categoryMapper;
 
+    // View all category
     @Transactional(readOnly = true)
     public PageResponse<CategoryResponse> findAllCategory(String search, int page, int size) {
         Page<Category> result = categoryRepository.findAllCategory(
@@ -45,7 +50,7 @@ public class CategoryService {
     }
 
     @Transactional
-    public CategoryResponse create(UpsertCategoryRequest request) {
+    public CategoryResponse createCategory(UpsertCategoryRequest request) {
         String name = requireName(request.getName());
         if (categoryRepository.existsByNameIgnoreCaseAndIsRemovedFalse(name)) {
             throw new AppException(ErrorCode.CATEGORY_NAME_EXISTED);
@@ -61,7 +66,7 @@ public class CategoryService {
     }
 
     @Transactional
-    public CategoryResponse update(Integer id, UpsertCategoryRequest request) {
+    public CategoryResponse updateCategory(Integer id, UpsertCategoryRequest request) {
         Category category = categoryRepository.findByIdAndIsRemovedFalse(id)
                 .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_NOT_FOUND));
 

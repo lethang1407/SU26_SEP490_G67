@@ -5,7 +5,7 @@ import { getProfile } from '../../../features/profile/api';
 import { PROFILE_ROUTES } from '../../../features/profile/constants';
 import { getRoleLabel,ROLE_LABELS } from '../../../features/profile/utils/profileUtils';
 import '../../../css/AdminHeader.css';
-export default function AdminHeader({ user, activePage}) {
+export default function AdminHeader({ user, activePage }) {
 	const navigate = useNavigate();
 	const [headerUser, setHeaderUser] = useState(user ?? null);
 	const [isDropdownOpen, setIsDropdownOpen] = useState(false);

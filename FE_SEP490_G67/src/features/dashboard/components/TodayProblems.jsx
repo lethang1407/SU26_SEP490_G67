@@ -12,7 +12,7 @@ const problems = [
         severity: 'critical',
         icon: AlertTriangle,
         name: 'Sữa chua Vinamilk',
-        desc: 'Hết hạn 2 ngày trước',
+        desc: 'Hết hạn 2 ngày trước (10 lốc)',
         cta: 'Điều chỉnh tồn kho',
     },
     {
@@ -20,7 +20,7 @@ const problems = [
         severity: 'critical',
         icon: CreditCard,
         name: 'Nguyễn Thị Lan',
-        desc: 'Nợ 450.000đ quá hạn 5 ngày',
+        desc: 'Nợ 450.000đ',
         cta: 'Xem nợ',
     },
     {
@@ -28,7 +28,7 @@ const problems = [
         severity: 'warning',
         icon: Package,
         name: 'Mì Hảo Hảo',
-        desc: 'Còn 3 gói, dưới ngưỡng tối thiểu',
+        desc: 'Còn 3 thùng, dưới ngưỡng tối thiểu',
         cta: 'Nhập hàng',
     },
     {
@@ -36,7 +36,7 @@ const problems = [
         severity: 'warning',
         icon: Clock,
         name: 'Bánh mì sandwich',
-        desc: 'Hết hạn trong 1 ngày',
+        desc: 'Sản phẩm bị lỗi (mốc)',
         cta: 'Xem chi tiết',
     },
     {

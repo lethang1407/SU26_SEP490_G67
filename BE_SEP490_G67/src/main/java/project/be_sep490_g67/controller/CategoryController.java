@@ -24,7 +24,7 @@ public class CategoryController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String search
-    ) {
+    ){
         PageResponse<CategoryResponse> listCategory = categoryService.findAllCategory(search, page, size);
         return ApiResponse.<PageResponse<CategoryResponse>>builder()
                 .result(listCategory)
@@ -47,6 +47,25 @@ public class CategoryController {
     ) {
         return ApiResponse.<CategoryResponse>builder()
                 .result(categoryService.update(id, request))
+                .message("Cập nhật danh mục thành công")
+                .build();
+    }
+
+    @PostMapping
+    public ApiResponse<CategoryResponse> addCategory(@Valid @RequestBody CategoryRequest request){
+        CategoryResponse newCategory = categoryService.createCategory(request);
+        return ApiResponse.<CategoryResponse>builder()
+                .result(newCategory)
+                .message("Tạo mới danh mục thành công")
+                .build();
+    }
+
+    @PutMapping("/{categoryId}")
+    public ApiResponse<CategoryResponse> updateCategory(@Valid @RequestBody CategoryRequest request, @PathVariable Integer categoryId){
+        CategoryResponse updateCategory = categoryService.updateCategory(request,  categoryId);
+
+        return ApiResponse.<CategoryResponse>builder()
+                .result(updateCategory)
                 .message("Cập nhật danh mục thành công")
                 .build();
     }

@@ -1,47 +1,49 @@
-import { Filter, Search } from 'lucide-react';
-import { SUPPLIER_STATUS_FILTER } from '../constants';
+import { Search } from 'lucide-react';
 
-const STATUS_OPTIONS = [
-    { value: SUPPLIER_STATUS_FILTER.ALL, label: 'Tất cả trạng thái' },
-    { value: SUPPLIER_STATUS_FILTER.ACTIVE, label: 'Đang giao dịch' },
-    { value: SUPPLIER_STATUS_FILTER.HAS_DEBT, label: 'Có công nợ' },
-    { value: SUPPLIER_STATUS_FILTER.PAUSED, label: 'Tạm dừng' },
-];
-
-export default function SupplierToolbar({ keyword, statusFilter, onKeywordChange, onStatusChange }) {
+export default function SupplierToolbar({
+    keyword,
+    categoryId,
+    categories = [],
+    categoriesLoading = false,
+    onKeywordChange,
+    onCategoryChange,
+}) {
     return (
         <div className="supplier-toolbar">
             <div className="supplier-toolbar__search">
-                <Search size={18} className="supplier-toolbar__search-icon" />
+                <Search size={20} className="supplier-toolbar__search-icon" />
                 <input
                     type="text"
                     className="supplier-toolbar__search-input"
-                    placeholder="Tìm theo tên hoặc mã nhà cung cấp..."
+                    placeholder="Tìm theo tên, mã hoặc số điện thoại"
                     value={keyword}
                     onChange={(event) => onKeywordChange(event.target.value)}
+                    aria-label="Tìm nhà cung cấp"
                 />
             </div>
 
             <div className="supplier-toolbar__filters">
-                <label className="supplier-toolbar__filter-group">
-                    <span className="supplier-toolbar__filter-label">Trạng thái:</span>
-                    <select
-                        className="supplier-toolbar__select"
-                        value={statusFilter}
-                        onChange={(event) => onStatusChange(event.target.value)}
-                    >
-                        {STATUS_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                                {option.label}
-                            </option>
-                        ))}
-                    </select>
+                <label className="supplier-toolbar__filter-label" htmlFor="supplier-category-filter">
+                    Danh mục:
                 </label>
-
-                <button type="button" className="supplier-toolbar__filter-btn" disabled title="Sắp có">
-                    <Filter size={16} />
-                    Lọc thêm
-                </button>
+                <select
+                    id="supplier-category-filter"
+                    className="supplier-toolbar__select"
+                    value={categoryId ?? ''}
+                    onChange={(event) => {
+                        const value = event.target.value;
+                        onCategoryChange(value === '' ? null : Number(value));
+                    }}
+                    disabled={categoriesLoading}
+                    aria-label="Lọc theo danh mục"
+                >
+                    <option value="">Tất cả danh mục</option>
+                    {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                            {category.name}
+                        </option>
+                    ))}
+                </select>
             </div>
         </div>
     );

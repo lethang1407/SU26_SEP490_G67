@@ -1,0 +1,41 @@
+.import-order-status {
+    display: inline-flex;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.import-order-status--draft {
+    background: #ffedd5;
+    color: #c2410c;
+}
+
+.import-order-status--imported {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.import-order-table__supplier-code {
+    color: #2563eb;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.import-order-table__supplier-code:hover {
+    text-decoration: underline;
+}
+
+.import-order-table .supplier-table__name {
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+    .import-order-table .supplier-table__name {
+        max-width: 160px;
+    }
+}

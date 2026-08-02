@@ -1,0 +1,138 @@
+import { useState } from 'react';
+import { X, Printer } from 'lucide-react';
+import useInvoiceExport from '../hooks/useInvoiceExport';
+import { printInvoice } from '../utils/printInvoice';
+
+export default function ReceiptModal({ receipt, onClose }) {
+    if (!receipt) return null;
+
+    const items = receipt.items ?? [];
+    const total = receipt.totalAmount ?? receipt.total ?? 0;
+
+    // Invoice data hook
+    const { invoiceData, isLoading, error, fetchInvoice, clearInvoice } = useInvoiceExport();
+
+    // Print button handler
+    const handlePrint = async () => {
+        if (receipt?.id == null || isLoading) return;
+
+        let data = invoiceData;
+        if (!data) {
+            data = await fetchInvoice(receipt.id);
+        }
+        if (data) {
+            printInvoice(data);
+        }
+    };
+
+    // Close handler
+    const handleClose = () => {
+        clearInvoice();
+        onClose();
+    };
+
+    return (
+        <div className="receipt-modal-overlay" onClick={handleClose}>
+            <div className="receipt-modal" onClick={(e) => e.stopPropagation()}>
+
+                {/*  Header  */}
+                <div className="receipt-modal-header">
+                    <div className="receipt-modal-title">
+                        Hóa đơn #{receipt.orderCode ?? receipt.id}
+                    </div>
+                    <button className="batch-modal-close" onClick={handleClose} title="Đóng">
+                        <X size={18} />
+                    </button>
+                </div>
+
+                {/*  Meta  */}
+                <div className="receipt-meta">
+                    <span>
+                        Ngày:{' '}
+                        {receipt.createdAt
+                            ? new Date(receipt.createdAt).toLocaleString('vi-VN', {
+                                timeZone: 'Asia/Ho_Chi_Minh',
+                            })
+                            : '—'}
+                    </span>
+                    {receipt.customer ? (
+                        <span>
+                            Khách: {receipt.customer.fullName} - {receipt.customer.phoneNumber}
+                        </span>
+                    ) : (
+                        <span className="receipt-debt-badge">Bán nợ / Khách lẻ</span>
+                    )}
+                </div>
+
+                {/*  Items  */}
+                <table className="receipt-table">
+                    <thead>
+                        <tr>
+                            <th>Tên hàng</th>
+                            <th>ĐVT</th>
+                            <th className="text-right">SL</th>
+                            <th className="text-right">Đơn giá</th>
+                            <th className="text-right">Thành tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {items.map((item, idx) => (
+                            <tr key={idx}>
+                                <td>{item.name}</td>
+                                <td>{item.unitName ?? '—'}</td>
+                                <td className="text-right">{item.quantity}</td>
+                                <td className="text-right">
+                                    {Number(item.unitPrice ?? 0).toLocaleString('vi-VN')}
+                                </td>
+                                <td className="text-right font-bold">
+                                    {Number(item.lineTotal ?? item.unitPrice * item.quantity).toLocaleString('vi-VN')}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colSpan={4} className="receipt-total-label">TỔNG CỘNG</td>
+                            <td className="text-right receipt-total-value">
+                                {Number(total).toLocaleString('vi-VN')}
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                {/*  Invoice-fetch error  */}
+                {error && (
+                    <div style={{
+                        color: '#dc2626',
+                        fontSize: '13px',
+                        marginTop: '8px',
+                        padding: '6px 10px',
+                        background: '#fef2f2',
+                        borderRadius: '4px',
+                        border: '1px solid #fca5a5',
+                    }}>
+                        {error}
+                    </div>
+                )}
+
+                {/*  Actions  */}
+                <div className="receipt-actions">
+                    <button
+                        id="btn-print-invoice"
+                        className="btn-checkout"
+                        onClick={handlePrint}
+                        disabled={isLoading || receipt?.id == null}
+                        title={receipt?.id == null ? 'Đang tải đơn hàng...' : 'In hóa đơn'}
+                    >
+                        <Printer size={18} style={{ marginRight: 8 }} />
+                        {isLoading ? 'Đang tải...' : 'In hóa đơn'}
+                    </button>
+
+                    <button className="receipt-close-btn" onClick={handleClose}>
+                        Đóng
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}

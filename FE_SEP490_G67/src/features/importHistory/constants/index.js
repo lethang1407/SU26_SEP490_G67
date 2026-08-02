@@ -1,5 +1,5 @@
 export const IMPORT_HISTORY_ROUTES = {
-  list: '/admin/warehouse/import',
+  list: '/admin/warehouse/import-history',
 };
 
 export const IMPORT_HISTORY_PAGE_SIZE = 5;

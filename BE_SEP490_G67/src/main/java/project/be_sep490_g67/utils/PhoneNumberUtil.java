@@ -45,4 +45,18 @@ public final class PhoneNumberUtil {
 
         return digits.length() == 11 && digits.startsWith("02");
     }
+
+    public static String formatDisplay(String phone) {
+        String digits = normalize(phone);
+
+        if (digits.length() == 10) {
+            return digits.substring(0, 4) + " " + digits.substring(4, 7) + " " + digits.substring(7);
+        }
+
+        if (digits.length() == 11) {
+            return digits.substring(0, 3) + " " + digits.substring(3, 7) + " " + digits.substring(7);
+        }
+
+        return phone;
+    }
 }
