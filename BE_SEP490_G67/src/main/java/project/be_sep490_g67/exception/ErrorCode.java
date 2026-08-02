@@ -32,7 +32,26 @@ public enum ErrorCode {
     PASSWORD_CONTAINS_USERNAME(1014, "Mật khẩu không được trùng với tên đăng nhập", HttpStatus.BAD_REQUEST),
     WEAK_PASSWORD(1015, "Mật khẩu quá phổ biến, vui lòng chọn mật khẩu khác", HttpStatus.BAD_REQUEST),
     NOT_FOUND_STORE(1016, "Không tìm thấy thông tin cửa hàng",  HttpStatus.NOT_FOUND),
-    EXISTED_SUPPLIER(1017, "Nhà cung cấp đã tồn tại", HttpStatus.CONFLICT)
+    EXISTED_SUPPLIER(1017, "Nhà cung cấp đã tồn tại", HttpStatus.CONFLICT),
+
+    PRODUCT_NOT_FOUND(1100, "Không tìm thấy sản phẩm", HttpStatus.NOT_FOUND),
+    PRODUCT_NAME_REQUIRED(1101, "Vui lòng nhập tên sản phẩm", HttpStatus.BAD_REQUEST),
+    CATEGORY_NOT_FOUND(1102, "Không tìm thấy danh mục", HttpStatus.NOT_FOUND),
+    CATEGORY_NAME_REQUIRED(1116, "Vui lòng nhập tên danh mục", HttpStatus.BAD_REQUEST),
+    CATEGORY_NAME_EXISTED(1117, "Tên danh mục đã tồn tại", HttpStatus.CONFLICT),
+    PRODUCT_SKU_EXISTED(1103, "Mã SKU đã tồn tại", HttpStatus.CONFLICT),
+    PRODUCT_BARCODE_EXISTED(1104, "Mã vạch đã tồn tại", HttpStatus.CONFLICT),
+    PRODUCT_PRICE_INVALID(1105, "Giá không hợp lệ", HttpStatus.BAD_REQUEST),
+    PRODUCT_SELL_BELOW_COST(1106, "Giá bán phải lớn hơn hoặc bằng giá nhập", HttpStatus.BAD_REQUEST),
+    PRODUCT_VAT_INVALID(1107, "VAT phải từ 0 đến 100", HttpStatus.BAD_REQUEST),
+    PRODUCT_STATUS_INVALID(1108, "Trạng thái sản phẩm không hợp lệ", HttpStatus.BAD_REQUEST),
+    PRODUCT_UNIT_BASE_INVALID(1109, "Phải có đúng một đơn vị cơ bản với hệ số 1", HttpStatus.BAD_REQUEST),
+    PRODUCT_UNIT_INVALID(1110, "Đơn vị tính không hợp lệ", HttpStatus.BAD_REQUEST),
+    PRODUCT_ATTRIBUTE_INVALID(1111, "Thuộc tính sản phẩm không hợp lệ", HttpStatus.BAD_REQUEST),
+    PRODUCT_IMAGE_INVALID(1112, "Ảnh phải là JPG/PNG và tối đa 5MB", HttpStatus.BAD_REQUEST),
+    PRODUCT_IMAGE_UPLOAD_FAILED(1113, "Tải ảnh lên Cloudinary thất bại", HttpStatus.BAD_GATEWAY),
+    PRODUCT_IMAGE_NOT_FOUND(1114, "Không tìm thấy ảnh sản phẩm", HttpStatus.NOT_FOUND),
+    INVALID_DATE_RANGE(1115, "Khoảng thời gian không hợp lệ", HttpStatus.BAD_REQUEST),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

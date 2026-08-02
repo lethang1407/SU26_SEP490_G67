@@ -25,6 +25,15 @@ public class Category extends BaseEntity {
     @Column(name = "description")
     private String description;
 
+    /** Số ngày đủ bán mặc định cho nhóm (cascade SOQ) */
+    @ColumnDefault("7")
+    @Column(name = "cover_days", nullable = false)
+    private Integer coverDays = 7;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "default_supplier_id")
+    private Supplier defaultSupplier;
+
     @OneToMany(mappedBy = "category")
     private Set<Product> products = new LinkedHashSet<>();
 

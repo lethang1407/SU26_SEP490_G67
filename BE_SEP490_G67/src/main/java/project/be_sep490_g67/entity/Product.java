@@ -33,6 +33,16 @@ public class Product extends BaseEntity {
     @Column(name = "barcode", length = 50)
     private String barcode;
 
+    @Column(name = "sku", length = 50, unique = true)
+    private String sku;
+
+    @Column(name = "brand", length = 100)
+    private String brand;
+
+    @ColumnDefault("10.00")
+    @Column(name = "vat_percent", precision = 5, scale = 2, nullable = false)
+    private BigDecimal vatPercent = new BigDecimal("10.00");
+
     @ColumnDefault("0.00")
     @Column(name = "cost_price", precision = 15, scale = 2)
     private BigDecimal costPrice;
@@ -51,6 +61,19 @@ public class Product extends BaseEntity {
     @Column(name = "product_img", length = 500)
     private String productImg;
 
+    /** active | inactive (ngừng bán) */
+    @ColumnDefault("'active'")
+    @Column(name = "status", length = 20, nullable = false)
+    private String status = "active";
+
+    /** Tag mùa lễ: Tết, Trung thu… — null = không phải hàng mùa */
+    @Column(name = "season_tag", length = 50)
+    private String seasonTag;
+
+    /** Cài riêng “đủ bán (ngày)” — null = theo nhóm */
+    @Column(name = "cover_days_override")
+    private Integer coverDaysOverride;
+
     @OneToMany(mappedBy = "product")
     private Set<ImportOrderDetail> importOrderDetails = new LinkedHashSet<>();
 
@@ -62,6 +85,9 @@ public class Product extends BaseEntity {
 
     @OneToMany(mappedBy = "product")
     private Set<ProductUnit> productUnits = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "product")
+    private Set<ProductImage> productImages = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "product")
     private Set<ReturnOrderDetail> returnOrderDetails = new LinkedHashSet<>();

@@ -1,14 +1,12 @@
 package project.be_sep490_g67.controller;
 
+import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.springframework.data.domain.Page;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
+import project.be_sep490_g67.dto.request.UpsertCategoryRequest;
 import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.CategoryResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
@@ -26,11 +24,30 @@ public class CategoryController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String search
-    ){
+    ) {
         PageResponse<CategoryResponse> listCategory = categoryService.findAllCategory(search, page, size);
         return ApiResponse.<PageResponse<CategoryResponse>>builder()
                 .result(listCategory)
                 .message("Lấy danh sách danh mục hàng hóa thành công")
+                .build();
+    }
+
+    @PostMapping
+    public ApiResponse<CategoryResponse> createCategory(@Valid @RequestBody UpsertCategoryRequest request) {
+        return ApiResponse.<CategoryResponse>builder()
+                .result(categoryService.create(request))
+                .message("Thêm danh mục thành công")
+                .build();
+    }
+
+    @PutMapping("/{id}")
+    public ApiResponse<CategoryResponse> updateCategory(
+            @PathVariable Integer id,
+            @Valid @RequestBody UpsertCategoryRequest request
+    ) {
+        return ApiResponse.<CategoryResponse>builder()
+                .result(categoryService.update(id, request))
+                .message("Cập nhật danh mục thành công")
                 .build();
     }
 }

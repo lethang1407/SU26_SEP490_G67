@@ -32,4 +32,7 @@ public class ProductUnit extends BaseEntity {
     @Column(name = "unit_base", precision = 10, scale = 4)
     private BigDecimal unitBase;
 
+    @Column(name = "selling_price", precision = 15, scale = 2)
+    private BigDecimal sellingPrice;
+
 }

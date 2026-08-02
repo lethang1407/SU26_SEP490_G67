@@ -38,4 +38,9 @@ public class StoreConfig extends BaseEntity{
     @ColumnDefault("'VND'")
     @Column(name = "currency", length = 10)
     private String currency;
+
+    /** Fallback “đủ bán (ngày)” khi nhóm chưa cấu hình */
+    @ColumnDefault("7")
+    @Column(name = "default_cover_days", nullable = false)
+    private Integer defaultCoverDays = 7;
 }

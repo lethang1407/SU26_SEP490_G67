@@ -36,9 +36,13 @@ public class ImportOrder extends BaseEntity {
     @Column(name = "received_date")
     private LocalDate receivedDate;
 
-    @Lob
     @Column(name = "note")
     private String note;
+
+    /** DRAFT | PENDING_CHECK | MATCHED | MISMATCH */
+    @ColumnDefault("'PENDING_CHECK'")
+    @Column(name = "status", length = 30, nullable = false)
+    private String status = "PENDING_CHECK";
 
     @OneToMany(mappedBy = "importOrder")
     private Set<ImportOrderDetail> importOrderDetails = new LinkedHashSet<>();

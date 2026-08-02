@@ -70,7 +70,7 @@ export const menus = [
                 path: "/admin/warehouse/check"
             },
             {
-                title: "Nhập hàng",
+                title: "Lịch sử nhập hàng",
                 path: "/admin/warehouse/import"
             },
             {

@@ -39,6 +39,11 @@ public class Supplier extends BaseEntity {
     @Column(name = "supplier_code", nullable = false, length = 30)
     private String supplierCode;
 
+    /** Ngày từ đặt → hàng về kệ */
+    @ColumnDefault("3")
+    @Column(name = "lead_time_days", nullable = false)
+    private Integer leadTimeDays = 3;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "supplier_category",
             joinColumns = @JoinColumn(name = "supplier_id"),

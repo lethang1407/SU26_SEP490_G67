@@ -8,6 +8,9 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import project.be_sep490_g67.entity.Category;
 
+import java.util.List;
+import java.util.Optional;
+
 @Repository
 public interface CategoryRepository extends JpaRepository<Category, Integer> {
     @Query("""
@@ -24,4 +27,19 @@ public interface CategoryRepository extends JpaRepository<Category, Integer> {
     Page<Category> findAllCategory(
             @Param("search") String search,
             Pageable pageable);
+
+    Optional<Category> findByIdAndIsRemovedFalse(Integer id);
+
+    boolean existsByNameIgnoreCaseAndIsRemovedFalse(String name);
+
+    boolean existsByNameIgnoreCaseAndIdNotAndIsRemovedFalse(String name, Integer id);
+
+    @Query("""
+        SELECT p.category.id, COUNT(p)
+        FROM Product p
+        WHERE p.category.id IN :categoryIds
+          AND (p.isRemoved = false OR p.isRemoved IS NULL)
+        GROUP BY p.category.id
+        """)
+    List<Object[]> countProductsByCategoryIds(@Param("categoryIds") List<Integer> categoryIds);
 }
