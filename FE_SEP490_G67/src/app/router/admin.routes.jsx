@@ -10,6 +10,7 @@ import ProductDetailPage from '../../features/product/pages/ProductDetailPage';
 import StoreInfor from '../../features/store/pages/StoreInfor';
 import SupplierListPage from '../../features/supplier/pages/SupplierListPage';
 import ImportOrderListPage from '../../features/import-order/pages/ImportOrderListPage';
+import CreateImportOrderPage from '../../features/import-order/pages/CreateImportOrderPage';
 import POSScreen from '../../features/pos-screen/pages/POS';
 import CustomerDebtPage from '../../features/customer/pages/CustomerDebtPage';
 import CustomerDetailPage from '../../features/customer/pages/CustomerDetailPage';
@@ -58,6 +59,14 @@ const adminRoutes = [
     {
         path: '/admin/warehouse/supplier',
         element: <SupplierListPage />,
+    },
+    {
+        path: '/admin/warehouse/import/create',
+        element: <CreateImportOrderPage />,
+    },
+    {
+        path: '/admin/warehouse/import/:id/edit',
+        element: <CreateImportOrderPage />,
     },
     {
         path: '/admin/warehouse/import',

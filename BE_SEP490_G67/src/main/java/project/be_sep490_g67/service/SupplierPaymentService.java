@@ -135,6 +135,39 @@ public class SupplierPaymentService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
+    public PageResponse<SupplierPaymentResponse> getPaymentHistoryByImportOrder(
+            Integer importOrderId, int page, int size) {
+
+        ImportOrder order = importOrderRepository.findById(importOrderId)
+                .filter(io -> !Boolean.TRUE.equals(io.getIsRemoved()))
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_IMPORT_ORDER));
+
+        List<SupplierPayment> payments =
+                supplierPaymentRepository.findAllByImportOrderOrderByPaymentDateAsc(order.getId());
+
+        Map<Integer, BigDecimal> paidSoFarByOrder = new HashMap<>();
+        List<SupplierPaymentResponse> allItems = payments.stream()
+                .map(payment -> toResponse(payment, paidSoFarByOrder))
+                .sorted(Comparator.comparing(SupplierPaymentResponse::getPaymentDate).reversed())
+                .toList();
+
+        int totalElements = allItems.size();
+        int totalPages = Math.max(1, (int) Math.ceil((double) totalElements / size));
+        int safePage = Math.min(Math.max(page, 0), totalPages - 1);
+        int from = safePage * size;
+        int to = Math.min(from + size, totalElements);
+        List<SupplierPaymentResponse> pageContent = totalElements == 0 ? List.of() : allItems.subList(from, to);
+
+        return PageResponse.<SupplierPaymentResponse>builder()
+                .content(pageContent)
+                .page(safePage)
+                .size(size)
+                .totalElements(totalElements)
+                .totalPages(totalPages)
+                .build();
+    }
+
     private SupplierPaymentResponse toResponse(SupplierPayment payment, Map<Integer, BigDecimal> paidSoFarByOrder) {
         ImportOrder order = payment.getImportOrder();
 
