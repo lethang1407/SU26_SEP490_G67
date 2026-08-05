@@ -7,21 +7,21 @@ const alerts = [
         icon: <AlertTriangle size={14} />,
         label: '3 sản phẩm ĐÃ HẾT HẠN',
         variant: 'critical',
-        link: '/admin/warehouse/inventory?filter=expired',
+        link: '/admin/warehouse/locations',
     },
     {
         id: 'low-stock',
         icon: <Package size={14} />,
         label: '5 sản phẩm SẮP HẾT HÀNG',
         variant: 'warning',
-        link: '/admin/warehouse/inventory?filter=low-stock',
+        link: '/admin/warehouse/import',
     },
     {
         id: 'expiring-soon',
         icon: <Clock size={14} />,
         label: '7 sản phẩm SẮP HẾT HẠN',
         variant: 'caution',
-        link: '/admin/warehouse/inventory?filter=expiring-soon',
+        link: '/admin/warehouse/check',
     },
 ];
 

@@ -40,8 +40,8 @@ public class SecurityConfig {
                 .cors((cors) -> {
                     cors.configurationSource(corsConfigurationSource());
                 })
-                .authorizeHttpRequests(request -> request.requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINTS)
-                        .permitAll()
+                .authorizeHttpRequests(request -> request
+                        .requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINTS).permitAll()
                         .anyRequest()
                         .authenticated());
 

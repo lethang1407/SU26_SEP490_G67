@@ -1,18 +1,19 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Alert, Spinner } from 'react-bootstrap';
 import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import ProductToolbar from '../components/ProductToolbar';
 import ProductTable from '../components/ProductTable';
 import ProductPagination from '../components/ProductPagination';
-import { MOCK_PRODUCTS } from '../api/productMockData';
+import { getProductList } from '../api';
 import {
     CATEGORY_FILTER,
     PRODUCT_ROUTES,
     STATUS_FILTER,
     SUPPLIER_FILTER,
 } from '../constants';
-import { filterProducts, paginateItems } from '../utils/productUtils';
+import { getApiErrorMessage } from '../../../utils/api-utils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Product.css';
 
@@ -32,16 +33,89 @@ export default function ProductListPage() {
     });
     const [page, setPage] = useState(1);
     const [selectedIds, setSelectedIds] = useState([]);
+    const [products, setProducts] = useState([]);
+    const [pagination, setPagination] = useState({
+        page: 1,
+        totalPages: 1,
+        startIndex: 0,
+        endIndex: 0,
+        totalItems: 0,
+    });
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    const filteredProducts = useMemo(
-        () => filterProducts(MOCK_PRODUCTS, appliedFilters),
-        [appliedFilters],
-    );
+    useEffect(() => {
+        let isCancelled = false;
 
-    const pagination = useMemo(
-        () => paginateItems(filteredProducts, page, PAGE_SIZE),
-        [filteredProducts, page],
-    );
+        const fetchProducts = async () => {
+            setIsLoading(true);
+            setError(null);
+
+            try {
+                const result = await getProductList({
+                    keyword: appliedFilters.keyword.trim() || undefined,
+                    category:
+                        appliedFilters.categoryFilter === CATEGORY_FILTER.ALL
+                            ? undefined
+                            : appliedFilters.categoryFilter,
+                    status:
+                        appliedFilters.statusFilter === STATUS_FILTER.ALL
+                            ? undefined
+                            : appliedFilters.statusFilter,
+                    page: page - 1,
+                    size: PAGE_SIZE,
+                });
+
+                if (isCancelled) {
+                    return;
+                }
+
+                let items = result.content ?? [];
+                if (appliedFilters.supplierFilter !== SUPPLIER_FILTER.ALL) {
+                    items = items.filter(
+                        (product) => product.supplier === appliedFilters.supplierFilter,
+                    );
+                }
+
+                const totalElements = result.totalElements ?? items.length;
+                const totalPages = Math.max(result.totalPages ?? 1, 1);
+                const currentPage = (result.page ?? 0) + 1;
+                const startIndex = totalElements === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+                const endIndex = Math.min(currentPage * PAGE_SIZE, totalElements);
+
+                setProducts(items);
+                setPagination({
+                    page: currentPage,
+                    totalPages,
+                    startIndex,
+                    endIndex,
+                    totalItems: totalElements,
+                });
+            } catch (fetchError) {
+                if (!isCancelled) {
+                    setProducts([]);
+                    setError(getApiErrorMessage(fetchError, 'Không thể tải danh sách sản phẩm.'));
+                    setPagination({
+                        page: 1,
+                        totalPages: 1,
+                        startIndex: 0,
+                        endIndex: 0,
+                        totalItems: 0,
+                    });
+                }
+            } finally {
+                if (!isCancelled) {
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        fetchProducts();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [appliedFilters, page]);
 
     const handleApplyFilters = () => {
         setAppliedFilters({
@@ -64,7 +138,7 @@ export default function ProductListPage() {
 
     const handleToggleAll = (checked) => {
         if (checked) {
-            setSelectedIds(pagination.items.map((item) => item.id));
+            setSelectedIds(products.map((item) => item.id));
             return;
         }
         setSelectedIds([]);
@@ -109,21 +183,33 @@ export default function ProductListPage() {
                             onFilter={handleApplyFilters}
                         />
 
-                        <ProductTable
-                            items={pagination.items}
-                            selectedIds={selectedIds}
-                            onToggleRow={handleToggleRow}
-                            onToggleAll={handleToggleAll}
-                        />
+                        {error && <Alert variant="danger">{error}</Alert>}
 
-                        <ProductPagination
-                            page={pagination.page}
-                            totalPages={pagination.totalPages}
-                            startIndex={pagination.startIndex}
-                            endIndex={pagination.endIndex}
-                            totalItems={pagination.totalItems}
-                            onPageChange={setPage}
-                        />
+                        {isLoading ? (
+                            <div className="text-center p-5">
+                                <Spinner animation="border" role="status">
+                                    <span className="visually-hidden">Đang tải...</span>
+                                </Spinner>
+                            </div>
+                        ) : (
+                            <>
+                                <ProductTable
+                                    items={products}
+                                    selectedIds={selectedIds}
+                                    onToggleRow={handleToggleRow}
+                                    onToggleAll={handleToggleAll}
+                                />
+
+                                <ProductPagination
+                                    page={pagination.page}
+                                    totalPages={pagination.totalPages}
+                                    startIndex={pagination.startIndex}
+                                    endIndex={pagination.endIndex}
+                                    totalItems={pagination.totalItems}
+                                    onPageChange={setPage}
+                                />
+                            </>
+                        )}
                     </div>
                 </main>
             </div>
