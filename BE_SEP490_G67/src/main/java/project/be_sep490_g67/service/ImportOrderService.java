@@ -68,7 +68,6 @@ public class ImportOrderService {
     public ImportOrderListItemResponse createImportOrder(CreateImportOrderRequest request) {
         String orderStatus = normalizeCreateOrderStatus(request.getOrderStatus());
         boolean isImported = ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(orderStatus);
-
         Supplier supplier = supplierRepository.findByIdAndIsRemovedFalse(request.getSupplierId())
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
 
@@ -76,24 +75,9 @@ public class ImportOrderService {
         List<ImportOrderDetail> details = new ArrayList<>();
 
         for (CreateImportOrderRequest.LineItem line : request.getLines()) {
-            Product product = productRepository.findById(line.getProductId())
-                    .filter(p -> !Boolean.TRUE.equals(p.getIsRemoved()))
-                    .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
-
-            BigDecimal cost = line.getCostPerUnit() != null ? line.getCostPerUnit() : BigDecimal.ZERO;
-            BigDecimal lineTotal = cost.multiply(BigDecimal.valueOf(line.getQuantity()));
-
-            ImportOrderDetail detail = new ImportOrderDetail();
-            detail.setProduct(product);
-            detail.setQuantity(line.getQuantity());
-            detail.setCostPerUnit(cost);
-            detail.setLineTotal(lineTotal);
-            detail.setExpiryDate(line.getExpiryDate());
-            detail.setNote(blankToNull(line.getNote()));
-            detail.setIsRemoved(false);
+            ImportOrderDetail detail = buildDetailFromLine(line);
             details.add(detail);
-
-            goodsTotal = goodsTotal.add(lineTotal);
+            goodsTotal = goodsTotal.add(detail.getLineTotal() != null ? detail.getLineTotal() : BigDecimal.ZERO);
         }
 
         BigDecimal discount = request.getDiscountAmount() != null
@@ -164,7 +148,6 @@ public class ImportOrderService {
 
         String orderStatus = normalizeCreateOrderStatus(request.getOrderStatus());
         boolean isImported = ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(orderStatus);
-
         Supplier supplier = supplierRepository.findByIdAndIsRemovedFalse(request.getSupplierId())
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
 
@@ -172,24 +155,9 @@ public class ImportOrderService {
         List<ImportOrderDetail> details = new ArrayList<>();
 
         for (CreateImportOrderRequest.LineItem line : request.getLines()) {
-            Product product = productRepository.findById(line.getProductId())
-                    .filter(p -> !Boolean.TRUE.equals(p.getIsRemoved()))
-                    .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
-
-            BigDecimal cost = line.getCostPerUnit() != null ? line.getCostPerUnit() : BigDecimal.ZERO;
-            BigDecimal lineTotal = cost.multiply(BigDecimal.valueOf(line.getQuantity()));
-
-            ImportOrderDetail detail = new ImportOrderDetail();
-            detail.setProduct(product);
-            detail.setQuantity(line.getQuantity());
-            detail.setCostPerUnit(cost);
-            detail.setLineTotal(lineTotal);
-            detail.setExpiryDate(line.getExpiryDate());
-            detail.setNote(blankToNull(line.getNote()));
-            detail.setIsRemoved(false);
+            ImportOrderDetail detail = buildDetailFromLine(line);
             details.add(detail);
-
-            goodsTotal = goodsTotal.add(lineTotal);
+            goodsTotal = goodsTotal.add(detail.getLineTotal() != null ? detail.getLineTotal() : BigDecimal.ZERO);
         }
 
         BigDecimal discount = request.getDiscountAmount() != null
@@ -365,6 +333,7 @@ public class ImportOrderService {
                             .lineTotal(detail.getLineTotal())
                             .expiryDate(detail.getExpiryDate())
                             .note(detail.getNote())
+                            .isPromotion(Boolean.TRUE.equals(detail.getIsPromotion()))
                             .build();
                 })
                 .toList();
@@ -561,6 +530,33 @@ public class ImportOrderService {
             throw new AppException(ErrorCode.INVALID_IMPORT_ORDER_STATUS);
         }
         return normalized;
+    }
+
+    /**
+     * Map dòng request → detail.
+     * Hàng KM (isPromotion): lineTotal = 0 (không tính nợ), vẫn giữ costPerUnit tham chiếu, vẫn nhập kho.
+     */
+    private ImportOrderDetail buildDetailFromLine(CreateImportOrderRequest.LineItem line) {
+        Product product = productRepository.findById(line.getProductId())
+                .filter(p -> !Boolean.TRUE.equals(p.getIsRemoved()))
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        boolean isPromotion = Boolean.TRUE.equals(line.getIsPromotion());
+        BigDecimal cost = line.getCostPerUnit() != null ? line.getCostPerUnit() : BigDecimal.ZERO;
+        BigDecimal lineTotal = isPromotion
+                ? BigDecimal.ZERO
+                : cost.multiply(BigDecimal.valueOf(line.getQuantity()));
+
+        ImportOrderDetail detail = new ImportOrderDetail();
+        detail.setProduct(product);
+        detail.setQuantity(line.getQuantity());
+        detail.setCostPerUnit(cost);
+        detail.setLineTotal(lineTotal);
+        detail.setExpiryDate(line.getExpiryDate());
+        detail.setNote(blankToNull(line.getNote()));
+        detail.setIsPromotion(isPromotion);
+        detail.setIsRemoved(false);
+        return detail;
     }
 
     private void createStockForDetail(ImportOrder order, ImportOrderDetail detail, StorageLocation location) {

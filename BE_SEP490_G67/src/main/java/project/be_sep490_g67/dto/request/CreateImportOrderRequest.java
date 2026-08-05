@@ -66,5 +66,11 @@ public class CreateImportOrderRequest {
         LocalDate expiryDate;
 
         String note;
+
+        /**
+         * true = hàng KM / trả thưởng: lineTotal = 0, vẫn nhập kho.
+         * null được coi là false.
+         */
+        Boolean isPromotion;
     }
 }

@@ -32,6 +32,7 @@ function createLineFromProduct(product) {
         costPerUnit: Number(product.importPrice) || 0,
         expiryDate: '',
         note: '',
+        isPromotion: false,
     };
 }
 
@@ -46,12 +47,13 @@ function mapDetailLine(item) {
         costPerUnit: Number(item.costPerUnit) || 0,
         expiryDate: item.expiryDate || '',
         note: item.note || '',
+        isPromotion: Boolean(item.isPromotion),
     };
 }
 
 function toApiPayload(orderStatus, { supplier, note, invoiceImage, safeDiscount, safePaidAmount, lines }) {
     return {
-        supplierId: supplier.id,
+        supplierId: Number(supplier.id),
         orderStatus,
         note: note.trim() || null,
         invoiceImage: invoiceImage || null,
@@ -64,6 +66,7 @@ function toApiPayload(orderStatus, { supplier, note, invoiceImage, safeDiscount,
             costPerUnit: Number(line.costPerUnit) || 0,
             expiryDate: line.expiryDate || null,
             note: line.note?.trim() || null,
+            isPromotion: Boolean(line.isPromotion),
         })),
     };
 }
@@ -120,10 +123,10 @@ export default function CreateImportOrderPage() {
 
     const totalAmount = useMemo(
         () =>
-            lines.reduce(
-                (sum, line) => sum + (Number(line.quantity) || 0) * (Number(line.costPerUnit) || 0),
-                0,
-            ),
+            lines.reduce((sum, line) => {
+                if (line.isPromotion) return sum;
+                return sum + (Number(line.quantity) || 0) * (Number(line.costPerUnit) || 0);
+            }, 0),
         [lines],
     );
 
@@ -353,7 +356,10 @@ export default function CreateImportOrderPage() {
                     'Bạn chưa chọn nhà cung cấp. Vui lòng chọn nhà cung cấp trước khi hoàn thành phiếu nhập hàng.',
                 );
             } else {
-                window.alert('Vui lòng chọn nhà cung cấp.');
+                showAlertModal(
+                    'Lưu phiếu tạm',
+                    'Vui lòng chọn nhà cung cấp trước khi lưu tạm.',
+                );
             }
             return false;
         }
@@ -364,7 +370,10 @@ export default function CreateImportOrderPage() {
                     'Bạn chưa thêm sản phẩm nào. Vui lòng thêm ít nhất một sản phẩm trước khi hoàn thành.',
                 );
             } else {
-                window.alert('Vui lòng thêm ít nhất một sản phẩm.');
+                showAlertModal(
+                    'Lưu phiếu tạm',
+                    'Vui lòng thêm ít nhất một sản phẩm trước khi lưu tạm.',
+                );
             }
             return false;
         }
@@ -372,7 +381,7 @@ export default function CreateImportOrderPage() {
             (line) => !line.productId || (Number(line.quantity) || 0) < 1,
         );
         if (invalidLine) {
-            window.alert('Có dòng hàng chưa hợp lệ. Kiểm tra lại số lượng.');
+            showAlertModal('Dòng hàng chưa hợp lệ', 'Có dòng hàng chưa hợp lệ. Kiểm tra lại số lượng.');
             return false;
         }
         return true;
@@ -432,7 +441,7 @@ export default function CreateImportOrderPage() {
     };
 
     const submitOrder = async (orderStatus) => {
-        // Complete đã validate riêng; draft vẫn validate bằng alert
+        // Complete đã validate riêng; draft vẫn validate bằng modal
         if (orderStatus === ORDER_STATUS.DRAFT) {
             if (!validate({ useModal: false }) || submitting || loadingDetail) return;
         } else if (submitting || loadingDetail) {
@@ -440,12 +449,15 @@ export default function CreateImportOrderPage() {
         }
 
         if (uploadingInvoiceImage) {
-            window.alert('Đang upload ảnh hóa đơn. Vui lòng đợi xong rồi lưu lại.');
+            showAlertModal(
+                'Đang upload ảnh',
+                'Đang upload ảnh hóa đơn. Vui lòng đợi xong rồi lưu lại.',
+            );
             return;
         }
 
         const payload = toApiPayload(orderStatus, {
-            supplier: { ...supplier, id: Number(supplier.id) },
+            supplier,
             note,
             invoiceImage: invoiceImageUrl,
             safeDiscount,
@@ -461,20 +473,29 @@ export default function CreateImportOrderPage() {
                 await importOrdersApi.createImportOrder(payload);
             }
 
-            window.alert(
+            showAlertModal(
+                orderStatus === ORDER_STATUS.DRAFT ? 'Lưu phiếu tạm' : 'Hoàn thành phiếu nhập',
                 orderStatus === ORDER_STATUS.DRAFT
                     ? isEditMode
                         ? 'Đã cập nhật phiếu tạm.'
                         : 'Đã lưu phiếu tạm thành công.'
                     : 'Đã hoàn thành phiếu nhập hàng.',
+                {
+                    onConfirm: () => {
+                        closeAlertModal();
+                        navigate('/admin/warehouse/import');
+                    },
+                },
             );
-            navigate('/admin/warehouse/import');
         } catch (error) {
             const message =
                 error?.response?.data?.message ||
                 error?.message ||
                 'Không thể lưu phiếu nhập. Vui lòng thử lại.';
-            window.alert(message);
+            showAlertModal(
+                orderStatus === ORDER_STATUS.DRAFT ? 'Lưu phiếu tạm' : 'Hoàn thành phiếu nhập',
+                message,
+            );
         } finally {
             setSubmitting(false);
         }

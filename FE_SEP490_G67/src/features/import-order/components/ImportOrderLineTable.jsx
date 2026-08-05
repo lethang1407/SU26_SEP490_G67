@@ -27,6 +27,15 @@ export default function ImportOrderLineTable({ lines, onChangeLine, onRemoveLine
         };
     }, [openNoteKey]);
 
+    const handleTogglePromotion = (line) => {
+        const next = !line.isPromotion;
+        const patch = { isPromotion: next };
+        if (next && !line.note?.trim()) {
+            patch.note = 'Hàng khuyến mãi';
+        }
+        onChangeLine(line.key, patch);
+    };
+
     return (
         <div className="ioc-lines-card">
             <div className="ioc-lines-wrapper">
@@ -53,46 +62,74 @@ export default function ImportOrderLineTable({ lines, onChangeLine, onRemoveLine
                             </tr>
                         )}
                         {lines.map((line, index) => {
-                            const lineTotal = (Number(line.quantity) || 0) * (Number(line.costPerUnit) || 0);
+                            const isPromotion = Boolean(line.isPromotion);
+                            const lineTotal = isPromotion
+                                ? 0
+                                : (Number(line.quantity) || 0) * (Number(line.costPerUnit) || 0);
                             const hasNote = Boolean(line.note?.trim());
                             const isNoteOpen = openNoteKey === line.key;
 
                             return (
-                                <tr key={line.key}>
+                                <tr
+                                    key={line.key}
+                                    className={isPromotion ? 'ioc-lines-table__row--promo' : undefined}
+                                >
                                     <td className="ioc-lines-table__stt">{index + 1}</td>
                                     <td className="ioc-lines-table__code">{line.productCode}</td>
                                     <td>
                                         <div className="ioc-lines-table__name">{line.productName}</div>
-                                        <div className="ioc-line-note">
+                                        <div className="ioc-line-meta">
                                             <button
                                                 type="button"
-                                                className={`ioc-line-note__trigger ${
-                                                    hasNote ? 'ioc-line-note__trigger--filled' : ''
+                                                className={`ioc-promo-chip ${
+                                                    isPromotion ? 'ioc-promo-chip--on' : ''
                                                 }`}
-                                                onClick={() =>
-                                                    setOpenNoteKey((prev) => (prev === line.key ? null : line.key))
+                                                onClick={() => handleTogglePromotion(line)}
+                                                aria-pressed={isPromotion}
+                                                title={
+                                                    isPromotion
+                                                        ? 'Bỏ đánh dấu hàng khuyến mãi'
+                                                        : 'Đánh dấu hàng KM / trả thưởng — không thu tiền, vẫn nhập kho'
                                                 }
                                             >
-                                                <span className="ioc-line-note__preview">
-                                                    {hasNote ? line.note : 'Ghi chú...'}
-                                                </span>
-                                                <Pencil size={13} className="ioc-line-note__icon" />
+                                                Hàng KM
                                             </button>
 
-                                            {isNoteOpen && (
-                                                <div className="ioc-line-note__popover" ref={noteEditorRef}>
-                                                    <textarea
-                                                        className="ioc-line-note__textarea"
-                                                        rows={3}
-                                                        autoFocus
-                                                        placeholder="Ghi chú"
-                                                        value={line.note}
-                                                        onChange={(event) =>
-                                                            onChangeLine(line.key, { note: event.target.value })
-                                                        }
-                                                    />
-                                                </div>
-                                            )}
+                                            <div className="ioc-line-note">
+                                                <button
+                                                    type="button"
+                                                    className={`ioc-line-note__trigger ${
+                                                        hasNote ? 'ioc-line-note__trigger--filled' : ''
+                                                    }`}
+                                                    onClick={() =>
+                                                        setOpenNoteKey((prev) =>
+                                                            prev === line.key ? null : line.key,
+                                                        )
+                                                    }
+                                                >
+                                                    <span className="ioc-line-note__preview">
+                                                        {hasNote ? line.note : 'Ghi chú...'}
+                                                    </span>
+                                                    <Pencil size={13} className="ioc-line-note__icon" />
+                                                </button>
+
+                                                {isNoteOpen && (
+                                                    <div className="ioc-line-note__popover" ref={noteEditorRef}>
+                                                        <textarea
+                                                            className="ioc-line-note__textarea"
+                                                            rows={3}
+                                                            autoFocus
+                                                            placeholder="VD: Trả thưởng - HBTB0526"
+                                                            value={line.note}
+                                                            onChange={(event) =>
+                                                                onChangeLine(line.key, {
+                                                                    note: event.target.value,
+                                                                })
+                                                            }
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </td>
                                     <td>
@@ -129,7 +166,16 @@ export default function ImportOrderLineTable({ lines, onChangeLine, onRemoveLine
                                                     costPerUnit: parseMoneyInput(event.target.value),
                                                 })
                                             }
-                                            aria-label="Đơn giá (VND)"
+                                            aria-label={
+                                                isPromotion
+                                                    ? 'Đơn giá tham chiếu (không tính tiền)'
+                                                    : 'Đơn giá (VND)'
+                                            }
+                                            title={
+                                                isPromotion
+                                                    ? 'Giá tham chiếu trên phiếu NCC — không tính vào tổng thanh toán'
+                                                    : undefined
+                                            }
                                         />
                                     </td>
                                     <td>
@@ -142,7 +188,17 @@ export default function ImportOrderLineTable({ lines, onChangeLine, onRemoveLine
                                             }
                                         />
                                     </td>
-                                    <td className="ioc-lines-table__total">{formatCurrency(lineTotal)}</td>
+                                    <td
+                                        className={`ioc-lines-table__total ${
+                                            isPromotion ? 'ioc-lines-table__total--promo' : ''
+                                        }`}
+                                    >
+                                        {isPromotion ? (
+                                            <span title="Không thu tiền">0đ</span>
+                                        ) : (
+                                            formatCurrency(lineTotal)
+                                        )}
+                                    </td>
                                     <td>
                                         <button
                                             type="button"

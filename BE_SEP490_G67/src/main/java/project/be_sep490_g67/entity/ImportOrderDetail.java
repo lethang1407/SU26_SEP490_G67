@@ -3,6 +3,7 @@ package project.be_sep490_g67.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
@@ -40,8 +41,14 @@ public class ImportOrderDetail extends BaseEntity {
     @Column(name = "expiry_date")
     private LocalDate expiryDate;
 
-    /** Ghi chú từng dòng hàng trên phiếu nhập. */
     @Column(name = "note", length = 500)
     private String note;
+
+    /**
+     * true = hàng khuyến mại / trả thưởng: không tính vào tổng thanh toán, vẫn nhập kho.
+     */
+    @ColumnDefault("0")
+    @Column(name = "is_promotion", nullable = false)
+    private Boolean isPromotion = false;
 
 }

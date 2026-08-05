@@ -661,6 +661,84 @@ a.supplier-btn {
     color: #64748b;
 }
 
+.ioc-lines-table__row--promo td {
+    background: #fffbeb;
+}
+
+.ioc-line-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.ioc-promo-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 26px;
+    padding: 2px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    background: #fff;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.ioc-promo-chip:hover {
+    border-color: #fcd34d;
+    color: #b45309;
+    background: #fffbeb;
+}
+
+.ioc-promo-chip--on {
+    border-color: #f59e0b;
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.ioc-promo-chip--on:hover {
+    border-color: #d97706;
+    background: #fde68a;
+}
+
+.ioc-promo-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    color: #b45309;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.4;
+    flex-shrink: 0;
+}
+
+.ioc-lines-table__total--promo {
+    color: #b45309;
+    font-weight: 600;
+}
+
+.import-order-expand__product-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.import-order-expand__col-total--promo {
+    color: #b45309;
+}
+
 .ioc-lines-table__code {
     font-weight: 600;
     color: #334155;
@@ -675,6 +753,8 @@ a.supplier-btn {
 
 .ioc-line-note {
     position: relative;
+    flex: 1;
+    min-width: 120px;
 }
 
 .ioc-line-note__trigger {

@@ -25,4 +25,5 @@ public class ImportOrderItemResponse {
     BigDecimal lineTotal;
     LocalDate expiryDate;
     String note;
+    Boolean isPromotion;
 }

@@ -113,8 +113,18 @@ export default function ImportOrderInfoTab({ order }) {
                                         </span>
                                     </td>
                                     <td>
-                                        <div className="import-order-expand__product-name">
-                                            {item.productName || '—'}
+                                        <div className="import-order-expand__product-name-row">
+                                            <div className="import-order-expand__product-name">
+                                                {item.productName || '—'}
+                                            </div>
+                                            {item.isPromotion ? (
+                                                <span
+                                                    className="ioc-promo-badge"
+                                                    title="Hàng khuyến mãi / trả thưởng — không thu tiền"
+                                                >
+                                                    KM
+                                                </span>
+                                            ) : null}
                                         </div>
                                         <div className="import-order-expand__line-meta">
                                             {item.expiryDate ? (
@@ -135,8 +145,16 @@ export default function ImportOrderInfoTab({ order }) {
                                     <td className="import-order-expand__col-num">
                                         {formatMoneyPlain(item.costPerUnit)}
                                     </td>
-                                    <td className="import-order-expand__col-num import-order-expand__col-total">
-                                        {formatMoneyPlain(item.lineTotal)}
+                                    <td
+                                        className={`import-order-expand__col-num import-order-expand__col-total ${
+                                            item.isPromotion ? 'import-order-expand__col-total--promo' : ''
+                                        }`}
+                                    >
+                                        {item.isPromotion ? (
+                                            <span title="Không thu tiền">0</span>
+                                        ) : (
+                                            formatMoneyPlain(item.lineTotal)
+                                        )}
                                     </td>
                                 </tr>
                             ))
