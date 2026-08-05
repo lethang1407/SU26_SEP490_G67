@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Data
 @Builder
@@ -15,16 +16,13 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class ImportOrderItemResponse {
+    Integer id;
     Integer productId;
     String productCode;
     String productName;
-    String unit;
     Integer quantity;
     BigDecimal costPerUnit;
     BigDecimal lineTotal;
-    String expiryDate;
-    Integer batchId;
-    String batchCode;
-    Integer locationId;
-    String locationLabel;
+    LocalDate expiryDate;
+    String note;
 }

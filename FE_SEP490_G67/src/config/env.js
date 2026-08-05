@@ -10,12 +10,16 @@ const createEnv = () => {
       .optional(),
     APP_URL: z.string().optional().default('http://localhost:3000'),
     APP_MOCK_API_PORT: z.string().optional().default('8080'),
-     ENABLE_AUTO_REDIRECT_LOGIN: z
+    ENABLE_AUTO_REDIRECT_LOGIN: z
       .string()
       .refine((s) => s === 'true' || s === 'false')
       .transform((s) => s === 'true')
       .optional()
-      .default('false'),  // Mặc định tắt trong dev
+      .default('false'), // Mặc định tắt trong dev
+    /** Cloudinary cloud name — dùng unsigned upload từ FE. */
+    CLOUDINARY_CLOUD_NAME: z.string().optional().default(''),
+    /** Upload preset unsigned (Settings → Upload → Upload presets). */
+    CLOUDINARY_UPLOAD_PRESET: z.string().optional().default(''),
   });
 
   const envVars = Object.entries(import.meta.env).reduce(

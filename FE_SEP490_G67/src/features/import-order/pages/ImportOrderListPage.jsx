@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
@@ -26,14 +27,18 @@ export default function ImportOrderListPage() {
     const [keyword, setKeyword] = useState('');
     const [debouncedKeyword, setDebouncedKeyword] = useState('');
     const [orderStatusFilter, setOrderStatusFilter] = useState(ORDER_STATUS_FILTER.ALL);
+    const [fromDate, setFromDate] = useState('');
+    const [toDate, setToDate] = useState('');
     const [page, setPage] = useState(1);
     const [data, setData] = useState(EMPTY_PAGE);
     const [loading, setLoading] = useState(true);
+    const [expandedId, setExpandedId] = useState(null);
 
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedKeyword(keyword);
             setPage(1);
+            setExpandedId(null);
         }, SEARCH_DEBOUNCE_MS);
 
         return () => clearTimeout(timer);
@@ -47,11 +52,13 @@ export default function ImportOrderListPage() {
                 size: PAGE_SIZE,
                 search: debouncedKeyword,
                 orderStatus: orderStatusFilter,
+                fromDate,
+                toDate,
             })
             .then((result) => setData(result ?? EMPTY_PAGE))
             .catch(() => setData(EMPTY_PAGE))
             .finally(() => setLoading(false));
-    }, [page, debouncedKeyword, orderStatusFilter]);
+    }, [page, debouncedKeyword, orderStatusFilter, fromDate, toDate]);
 
     useEffect(() => {
         fetchImportOrders();
@@ -60,6 +67,23 @@ export default function ImportOrderListPage() {
     const handleOrderStatusFilterChange = (value) => {
         setOrderStatusFilter(value);
         setPage(1);
+        setExpandedId(null);
+    };
+
+    const handleDateRangeChange = ({ fromDate: nextFrom = '', toDate: nextTo = '' }) => {
+        setFromDate(nextFrom);
+        setToDate(nextTo);
+        setPage(1);
+        setExpandedId(null);
+    };
+
+    const handleToggleExpand = (orderId) => {
+        setExpandedId((prev) => (prev === orderId ? null : orderId));
+    };
+
+    const handleDraftCancelled = () => {
+        setExpandedId(null);
+        fetchImportOrders();
     };
 
     const totalItems = data.totalElements ?? 0;
@@ -79,21 +103,30 @@ export default function ImportOrderListPage() {
                                 </p>
                             </div>
                             <div className="supplier-page__actions">
-                                <button type="button" className="supplier-btn supplier-btn--primary" disabled>
+                                <Link to="/admin/warehouse/import/create" className="supplier-btn supplier-btn--primary">
                                     <Plus size={20} />
                                     Tạo phiếu nhập
-                                </button>
+                                </Link>
                             </div>
                         </header>
 
                         <ImportOrderToolbar
                             keyword={keyword}
                             orderStatusFilter={orderStatusFilter}
+                            fromDate={fromDate}
+                            toDate={toDate}
                             onKeywordChange={setKeyword}
                             onOrderStatusFilterChange={handleOrderStatusFilterChange}
+                            onDateRangeChange={handleDateRangeChange}
                         />
 
-                        <ImportOrderTable items={data.content ?? []} loading={loading} />
+                        <ImportOrderTable
+                            items={data.content ?? []}
+                            loading={loading}
+                            expandedId={expandedId}
+                            onToggleExpand={handleToggleExpand}
+                            onDraftCancelled={handleDraftCancelled}
+                        />
 
                         <SupplierPagination
                             page={page}
@@ -101,7 +134,11 @@ export default function ImportOrderListPage() {
                             startIndex={totalItems === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}
                             endIndex={Math.min(page * PAGE_SIZE, totalItems)}
                             totalItems={totalItems}
-                            onPageChange={setPage}
+                            onPageChange={(nextPage) => {
+                                setExpandedId(null);
+                                setPage(nextPage);
+                            }}
+                            itemLabel="đơn nhập"
                         />
                     </div>
                 </main>

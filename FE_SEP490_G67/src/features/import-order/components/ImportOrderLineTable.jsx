@@ -1,174 +1,159 @@
-import { Trash2 } from 'lucide-react';
-import {
-    computeLineTotal,
-    formatCurrency,
-    getAvailableLocationsForProduct,
-} from '../utils/importOrderUtils';
+import { useEffect, useRef, useState } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
+import { formatCurrency, formatMoneyInput, parseMoneyInput } from '../utils/importOrderUtils';
 
-export default function ImportOrderLineTable({
-    lines,
-    locations = [],
-    editable = false,
-    onQuantityChange,
-    onCostChange,
-    onExpiryChange,
-    onLocationChange,
-    onRemoveLine,
-}) {
-    if (lines.length === 0) {
-        return (
-            <div className="import-order-line-card import-order-line-card--empty">
-                <p>Chưa có sản phẩm nào được chọn.</p>
-                <span>Hãy tìm kiếm sản phẩm ở thanh công cụ phía trên.</span>
-            </div>
-        );
-    }
+export default function ImportOrderLineTable({ lines, onChangeLine, onRemoveLine }) {
+    const [openNoteKey, setOpenNoteKey] = useState(null);
+    const noteEditorRef = useRef(null);
+
+    useEffect(() => {
+        if (!openNoteKey) return undefined;
+
+        const handleClickOutside = (event) => {
+            if (noteEditorRef.current && !noteEditorRef.current.contains(event.target)) {
+                setOpenNoteKey(null);
+            }
+        };
+
+        const handleEscape = (event) => {
+            if (event.key === 'Escape') setOpenNoteKey(null);
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleEscape);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [openNoteKey]);
 
     return (
-        <div className="import-order-line-card">
-            <div className="import-order-line-card__header">
-                <div>
-                    <h2 className="import-order-line-card__title">Nhập hàng</h2>
-                    <p className="import-order-line-card__subtitle">
-                        Mỗi dòng tương ứng một lô mới. Cùng sản phẩm nhưng HSD khác nhau cần tách
-                        thành nhiều dòng.
-                    </p>
-                </div>
-                {editable && (
-                    <button
-                        type="button"
-                        className="inventory-btn inventory-btn--secondary inventory-btn--sm"
-                        onClick={() => window.alert('Chức năng nhập từ Excel đang phát triển.')}
-                    >
-                        Nhập từ Excel
-                    </button>
-                )}
-            </div>
-
-            <div className="import-order-line-table-wrapper">
-                <table className="import-order-line-table">
+        <div className="ioc-lines-card">
+            <div className="ioc-lines-wrapper">
+                <table className="ioc-lines-table">
                     <thead>
                         <tr>
-                            <th>STT</th>
-                            <th>Sản phẩm</th>
-                            <th>SL</th>
+                            <th className="ioc-lines-table__stt">STT</th>
+                            <th>Mã hàng</th>
+                            <th>Tên hàng</th>
+                            <th>ĐVT</th>
+                            <th>Số lượng</th>
                             <th>Đơn giá</th>
-                            <th>HSD</th>
-                            <th>Vị trí kệ</th>
+                            <th>Hạn sử dụng</th>
                             <th>Thành tiền</th>
-                            {editable && <th />}
+                            <th aria-label="Xóa" />
                         </tr>
                     </thead>
                     <tbody>
+                        {lines.length === 0 && (
+                            <tr>
+                                <td colSpan={9} className="ioc-lines-table__empty-cell">
+                                    Chưa có hàng hóa nào. Tìm và chọn sản phẩm ở ô phía trên để thêm vào phiếu.
+                                </td>
+                            </tr>
+                        )}
                         {lines.map((line, index) => {
-                            const locationOptions = getAvailableLocationsForProduct(
-                                locations,
-                                line.productCode,
-                            );
+                            const lineTotal = (Number(line.quantity) || 0) * (Number(line.costPerUnit) || 0);
+                            const hasNote = Boolean(line.note?.trim());
+                            const isNoteOpen = openNoteKey === line.key;
 
                             return (
-                                <tr key={line.id}>
-                                    <td>{index + 1}</td>
-                                    <td className="import-order-line-table__product">
-                                        <span className="import-order-line-table__product-name">
-                                            {line.productName}
-                                        </span>
-                                        <span className="import-order-line-table__product-meta">
-                                            {line.productCode} · {line.unit}
-                                            {line.batchCode ? ` · ${line.batchCode}` : ''}
-                                        </span>
-                                    </td>
+                                <tr key={line.key}>
+                                    <td className="ioc-lines-table__stt">{index + 1}</td>
+                                    <td className="ioc-lines-table__code">{line.productCode}</td>
                                     <td>
-                                        {editable ? (
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                className="import-order-line-table__input import-order-line-table__input--qty"
-                                                value={line.quantity}
-                                                onChange={(event) =>
-                                                    onQuantityChange?.(line.id, event.target.value)
-                                                }
-                                            />
-                                        ) : (
-                                            line.quantity
-                                        )}
-                                    </td>
-                                    <td>
-                                        {editable ? (
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                className="import-order-line-table__input import-order-line-table__input--price"
-                                                value={line.costPerUnit}
-                                                onChange={(event) =>
-                                                    onCostChange?.(line.id, event.target.value)
-                                                }
-                                            />
-                                        ) : (
-                                            formatCurrency(line.costPerUnit)
-                                        )}
-                                    </td>
-                                    <td>
-                                        {editable ? (
-                                            line.hasExpiry !== false ? (
-                                                <input
-                                                    type="date"
-                                                    className="import-order-line-table__input import-order-line-table__input--date"
-                                                    value={line.expiryDate || ''}
-                                                    onChange={(event) =>
-                                                        onExpiryChange?.(line.id, event.target.value)
-                                                    }
-                                                />
-                                            ) : (
-                                                <span className="import-order-line-table__na">—</span>
-                                            )
-                                        ) : (
-                                            line.expiryDate || '—'
-                                        )}
-                                    </td>
-                                    <td>
-                                        {editable ? (
-                                            <select
-                                                className="import-order-line-table__select"
-                                                value={line.locationId || ''}
-                                                onChange={(event) => {
-                                                    const locationId = event.target.value;
-                                                    const selected = locations.find(
-                                                        (item) => String(item.id) === locationId,
-                                                    );
-                                                    onLocationChange?.(
-                                                        line.id,
-                                                        locationId,
-                                                        selected?.label || '',
-                                                    );
-                                                }}
-                                            >
-                                                <option value="">Chưa xếp kệ</option>
-                                                {locationOptions.map((location) => (
-                                                    <option key={location.id} value={location.id}>
-                                                        {location.label}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        ) : (
-                                            line.locationLabel || 'Chưa xếp kệ'
-                                        )}
-                                    </td>
-                                    <td className="import-order-line-table__total">
-                                        {formatCurrency(computeLineTotal(line))}
-                                    </td>
-                                    {editable && (
-                                        <td>
+                                        <div className="ioc-lines-table__name">{line.productName}</div>
+                                        <div className="ioc-line-note">
                                             <button
                                                 type="button"
-                                                className="import-order-line-table__remove"
-                                                title="Xóa dòng"
-                                                onClick={() => onRemoveLine?.(line.id)}
+                                                className={`ioc-line-note__trigger ${
+                                                    hasNote ? 'ioc-line-note__trigger--filled' : ''
+                                                }`}
+                                                onClick={() =>
+                                                    setOpenNoteKey((prev) => (prev === line.key ? null : line.key))
+                                                }
                                             >
-                                                <Trash2 size={16} />
+                                                <span className="ioc-line-note__preview">
+                                                    {hasNote ? line.note : 'Ghi chú...'}
+                                                </span>
+                                                <Pencil size={13} className="ioc-line-note__icon" />
                                             </button>
-                                        </td>
-                                    )}
+
+                                            {isNoteOpen && (
+                                                <div className="ioc-line-note__popover" ref={noteEditorRef}>
+                                                    <textarea
+                                                        className="ioc-line-note__textarea"
+                                                        rows={3}
+                                                        autoFocus
+                                                        placeholder="Ghi chú"
+                                                        value={line.note}
+                                                        onChange={(event) =>
+                                                            onChangeLine(line.key, { note: event.target.value })
+                                                        }
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <input
+                                            type="text"
+                                            className="ioc-lines-table__input ioc-lines-table__input--unit"
+                                            value={line.unit}
+                                            onChange={(event) =>
+                                                onChangeLine(line.key, { unit: event.target.value })
+                                            }
+                                        />
+                                    </td>
+                                    <td>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            className="ioc-lines-table__input ioc-lines-table__input--qty"
+                                            value={line.quantity}
+                                            onChange={(event) =>
+                                                onChangeLine(line.key, {
+                                                    quantity: Math.max(1, Number(event.target.value) || 1),
+                                                })
+                                            }
+                                        />
+                                    </td>
+                                    <td>
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            className="ioc-lines-table__input ioc-lines-table__input--price"
+                                            value={formatMoneyInput(line.costPerUnit)}
+                                            onChange={(event) =>
+                                                onChangeLine(line.key, {
+                                                    costPerUnit: parseMoneyInput(event.target.value),
+                                                })
+                                            }
+                                            aria-label="Đơn giá (VND)"
+                                        />
+                                    </td>
+                                    <td>
+                                        <input
+                                            type="date"
+                                            className="ioc-lines-table__input ioc-lines-table__input--date"
+                                            value={line.expiryDate}
+                                            onChange={(event) =>
+                                                onChangeLine(line.key, { expiryDate: event.target.value })
+                                            }
+                                        />
+                                    </td>
+                                    <td className="ioc-lines-table__total">{formatCurrency(lineTotal)}</td>
+                                    <td>
+                                        <button
+                                            type="button"
+                                            className="ioc-lines-table__remove"
+                                            onClick={() => onRemoveLine(line.key)}
+                                            title="Xóa dòng"
+                                            aria-label={`Xóa ${line.productName}`}
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </td>
                                 </tr>
                             );
                         })}

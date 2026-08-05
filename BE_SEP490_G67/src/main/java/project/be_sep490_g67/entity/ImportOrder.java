@@ -32,6 +32,11 @@ public class ImportOrder extends BaseEntity {
     @Column(name = "total_cost", precision = 15, scale = 2)
     private BigDecimal totalCost;
 
+   
+    @ColumnDefault("0.00")
+    @Column(name = "discount_amount", precision = 15, scale = 2)
+    private BigDecimal discountAmount;
+
     @Column(name = "received_date")
     private LocalDate receivedDate;
 
@@ -45,7 +50,11 @@ public class ImportOrder extends BaseEntity {
     @Lob
     @Column(name = "note")
     private String note;
-    
+
+
+    @Column(name = "invoice_image", length = 500)
+    private String invoiceImage;
+
     @OneToMany(mappedBy = "importOrder")
     private Set<ImportOrderDetail> importOrderDetails = new LinkedHashSet<>();
 

@@ -5,6 +5,26 @@ export function formatCurrency(value) {
     return `${new Intl.NumberFormat('vi-VN').format(amount)} đ`;
 }
 
+/** Hiển thị số tiền trong ô input: 1000000 → 1.000.000 */
+export function formatMoneyInput(value) {
+    const amount = Math.max(0, Number(value) || 0);
+    return new Intl.NumberFormat('vi-VN').format(amount);
+}
+
+/** Parse ô nhập tiền có dấu chấm/phẩy về số nguyên VND */
+export function parseMoneyInput(text) {
+    const digits = String(text ?? '').replace(/[^\d]/g, '');
+    if (!digits) return 0;
+    return Number(digits);
+}
+
+export function formatDate(value) {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString('vi-VN');
+}
+
 export function formatDateTime(value) {
     if (!value) {
         return '—';

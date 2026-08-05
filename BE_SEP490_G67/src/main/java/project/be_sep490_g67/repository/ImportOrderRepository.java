@@ -31,7 +31,7 @@ public interface ImportOrderRepository extends JpaRepository<ImportOrder, Intege
               AND io.isRemoved = false
               AND (:search IS NULL OR :search = ''
                    OR LOWER(io.orderCode) LIKE LOWER(CONCAT('%', :search, '%')))
-            ORDER BY io.receivedDate DESC, io.id DESC
+            ORDER BY io.createdAt DESC, io.id DESC
             """)
     List<ImportOrder> searchBySupplier(@Param("supplierId") Integer supplierId, @Param("search") String search);
 
@@ -48,29 +48,39 @@ public interface ImportOrderRepository extends JpaRepository<ImportOrder, Intege
                    OR LOWER(s.name) LIKE LOWER(CONCAT('%', :search, '%')))
               AND (:orderStatus IS NULL OR :orderStatus = '' OR :orderStatus = 'ALL'
                    OR io.orderStatus = :orderStatus)
-            ORDER BY io.receivedDate DESC, io.id DESC
+            ORDER BY io.createdAt DESC, io.id DESC
             """)
     List<ImportOrder> searchAll(
             @Param("search") String search,
             @Param("orderStatus") String orderStatus);
 
-    // Lấy 1 đơn nhập kèm chi tiết mặt hàng (JOIN FETCH) cho modal xem chi tiết, tránh N+1
+    // Lấy 1 đơn nhập kèm NCC + chi tiết mặt hàng (JOIN FETCH), tránh N+1
     @Query("""
             SELECT DISTINCT io FROM ImportOrder io
+            JOIN FETCH io.supplier s
             LEFT JOIN FETCH io.importOrderDetails iod
             LEFT JOIN FETCH iod.product
-            LEFT JOIN FETCH io.supplier
             WHERE io.id = :id
               AND io.isRemoved = false
             """)
     Optional<ImportOrder> findDetailById(@Param("id") Integer id);
 
+    /** Load phiếu để update — không FETCH detail (tránh xung đột khi bulk delete dòng cũ). */
     @Query("""
-            SELECT DISTINCT io FROM ImportOrder io
-            LEFT JOIN FETCH io.stockBatches sb
-            LEFT JOIN FETCH sb.product
+            SELECT io FROM ImportOrder io
+            JOIN FETCH io.supplier s
             WHERE io.id = :id
               AND io.isRemoved = false
             """)
-    Optional<ImportOrder> findWithBatchesById(@Param("id") Integer id);
+    Optional<ImportOrder> findActiveByIdForUpdate(@Param("id") Integer id);
+
+    /** Mã dạng NH###### — lấy mã lớn nhất để +1 (zero-pad nên sort string = sort số). */
+    @Query(value = """
+            SELECT order_code
+            FROM import_orders
+            WHERE order_code REGEXP '^NH[0-9]{6}$'
+            ORDER BY order_code DESC
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<String> findLatestNhOrderCode();
 }

@@ -1,3 +1,5 @@
+import SupplierPhoneCell from './SupplierPhoneCell';
+
 export default function SupplierContactCard({ supplier }) {
     return (
         <div className="supplier-detail-card">
@@ -9,7 +11,9 @@ export default function SupplierContactCard({ supplier }) {
                 </div>
                 <div className="supplier-detail-dl__row">
                     <dt>Số điện thoại</dt>
-                    <dd>{supplier.phoneNumber || '—'}</dd>
+                    <dd>
+                        <SupplierPhoneCell phoneNumber={supplier.phoneNumber} />
+                    </dd>
                 </div>
                 <div className="supplier-detail-dl__row">
                     <dt>Địa chỉ</dt>

@@ -294,6 +294,30 @@
     white-space: nowrap;
 }
 
+.supplier-toolbar__select {
+    min-width: 200px;
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+    color: #1e293b;
+    font-size: 14px;
+    font-weight: 500;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.supplier-toolbar__select:focus {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.supplier-toolbar__select:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
 .supplier-toolbar__chips {
     display: flex;
     flex-wrap: wrap;
@@ -530,6 +554,60 @@
 .supplier-table__phone {
     white-space: nowrap;
     color: #334155;
+}
+
+.supplier-phone {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+}
+
+.supplier-phone--empty {
+    color: #94a3b8;
+}
+
+.supplier-phone__link {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.supplier-phone__link:hover {
+    text-decoration: underline;
+}
+
+.supplier-phone__text {
+    color: #334155;
+    font-weight: 600;
+}
+
+.supplier-phone__copy {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #fff;
+    color: #64748b;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.supplier-phone__copy:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #334155;
+}
+
+.supplier-phone__copy--done {
+    border-color: #86efac;
+    background: #f0fdf4;
+    color: #16a34a;
 }
 
 .supplier-table__address {

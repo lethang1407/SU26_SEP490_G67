@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -20,13 +21,31 @@ public class ImportOrderDetailResponse {
     Integer id;
     String orderCode;
     LocalDate receivedDate;
+    Instant receivedAt;
     String createdByName;
+
     Integer supplierId;
+    String supplierCode;
     String supplierName;
-    String note;
-    BigDecimal totalCost;
+
+    /** DRAFT | IMPORTED */
+    String orderStatus;
+
+    /** Trạng thái thanh toán derive: DEBT | DONE (giữ tên status cho modal NCC). */
     String status;
+
+    /** Tổng tiền hàng = SUM(line_total), trước giảm giá. */
+    BigDecimal goodsTotal;
+    BigDecimal discountAmount;
+    /** Cần trả NCC = goodsTotal - discount (= total_cost). */
+    BigDecimal totalCost;
     BigDecimal paidAmount;
     BigDecimal remainingDebt;
+
+    String note;
+
+    /** URL ảnh hóa đơn / phiếu giao hàng (Cloudinary). */
+    String invoiceImage;
+
     List<ImportOrderItemResponse> items;
 }

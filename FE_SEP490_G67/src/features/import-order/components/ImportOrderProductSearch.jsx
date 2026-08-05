@@ -1,109 +1,145 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Search } from 'lucide-react';
-import { getProductList } from '../../product/api';
-import { mapProductForSearch, searchProducts } from '../utils/importOrderUtils';
+import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Plus, Search } from 'lucide-react';
+import { importOrdersApi } from '../api';
 
-const SEARCH_DEBOUNCE_MS = 300;
+const DEBOUNCE_MS = 300;
+const MIN_QUERY_LENGTH = 2;
 
-export default function ImportOrderProductSearch({ onSelectProduct }) {
+function mapProduct(product) {
+    const baseUnit = (product.productUnits || []).find(
+        (unit) => unit.unitBase != null && Number(unit.unitBase) === 1,
+    );
+    return {
+        id: product.id,
+        name: product.name,
+        code: product.barcode || `SP${String(product.id).padStart(6, '0')}`,
+        barcode: product.barcode || '',
+        unit: baseUnit?.name || 'Cái',
+        // API search chưa trả giá nhập → mặc định 0, user nhập trên bảng
+        importPrice: 0,
+    };
+}
+
+export default function ImportOrderProductSearch({ onSelect }) {
     const [keyword, setKeyword] = useState('');
-    const [open, setOpen] = useState(false);
-    const [products, setProducts] = useState([]);
+    const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
-    const containerRef = useRef(null);
+    const [error, setError] = useState('');
+    const [open, setOpen] = useState(false);
+    const wrapRef = useRef(null);
+    const requestIdRef = useRef(0);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (containerRef.current && !containerRef.current.contains(event.target)) {
+            if (wrapRef.current && !wrapRef.current.contains(event.target)) {
                 setOpen(false);
             }
         };
-
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
     useEffect(() => {
         const trimmed = keyword.trim();
-        if (!trimmed) {
-            setProducts([]);
+        if (trimmed.length < MIN_QUERY_LENGTH) {
+            setResults([]);
+            setError('');
+            setLoading(false);
             return undefined;
         }
 
+        const currentRequestId = ++requestIdRef.current;
+        setLoading(true);
+        setError('');
+
         const timer = setTimeout(async () => {
-            setLoading(true);
             try {
-                const result = await getProductList({
-                    keyword: trimmed,
-                    page: 0,
-                    size: 20,
-                });
-                const mapped = (result.content ?? []).map(mapProductForSearch);
-                setProducts(searchProducts(mapped, trimmed).length ? mapped : mapped);
+                const data = await importOrdersApi.searchProducts(trimmed);
+                if (currentRequestId !== requestIdRef.current) return;
+                setResults((data || []).map(mapProduct));
             } catch {
-                setProducts([]);
+                if (currentRequestId !== requestIdRef.current) return;
+                setResults([]);
+                setError('Không thể tải sản phẩm. Vui lòng thử lại.');
             } finally {
-                setLoading(false);
+                if (currentRequestId === requestIdRef.current) {
+                    setLoading(false);
+                }
             }
-        }, SEARCH_DEBOUNCE_MS);
+        }, DEBOUNCE_MS);
 
         return () => clearTimeout(timer);
     }, [keyword]);
 
-    const results = useMemo(() => {
-        if (!keyword.trim()) {
-            return [];
-        }
-        return products;
-    }, [products, keyword]);
-
     const handleSelect = (product) => {
-        onSelectProduct?.(product);
+        onSelect?.(product);
         setKeyword('');
+        setResults([]);
         setOpen(false);
-        setProducts([]);
     };
 
-    return (
-        <div className="import-order-product-search" ref={containerRef}>
-            <Search size={18} className="import-order-product-search__icon" />
-            <input
-                type="text"
-                className="import-order-product-search__input"
-                placeholder="Tìm sản phẩm theo tên, mã SKU hoặc barcode..."
-                value={keyword}
-                onChange={(event) => {
-                    setKeyword(event.target.value);
-                    setOpen(true);
-                }}
-                onFocus={() => setOpen(true)}
-            />
+    const showDropdown = open && keyword.trim().length >= MIN_QUERY_LENGTH;
 
-            {open && keyword.trim() && (
-                <div className="import-order-product-search__dropdown">
-                    {loading ? (
-                        <p className="import-order-product-search__empty">Đang tìm sản phẩm...</p>
-                    ) : results.length === 0 ? (
-                        <p className="import-order-product-search__empty">Không tìm thấy sản phẩm.</p>
-                    ) : (
-                        results.map((product) => (
-                            <button
-                                key={product.id}
-                                type="button"
-                                className="import-order-product-search__item"
-                                onClick={() => handleSelect(product)}
-                            >
-                                <span className="import-order-product-search__item-name">
-                                    {product.productName}
-                                </span>
-                                <span className="import-order-product-search__item-meta">
-                                    {product.productCode} · {product.barcode || '—'} · {product.unit}
-                                </span>
-                            </button>
-                        ))
-                    )}
-                </div>
-            )}
+    return (
+        <div className="ioc-search-row">
+            <div className="ioc-search" ref={wrapRef}>
+                <Search size={18} className="ioc-search__icon" />
+                <input
+                    type="text"
+                    className="ioc-search__input"
+                    placeholder="Tìm hàng hóa theo mã hoặc tên..."
+                    value={keyword}
+                    onChange={(event) => {
+                        setKeyword(event.target.value);
+                        setOpen(true);
+                    }}
+                    onFocus={() => setOpen(true)}
+                    aria-label="Tìm sản phẩm nhập hàng"
+                />
+
+                {showDropdown && (
+                    <div className="ioc-search__dropdown">
+                        {loading ? (
+                            <div className="ioc-search__empty">Đang tìm...</div>
+                        ) : error ? (
+                            <div className="ioc-search__empty">{error}</div>
+                        ) : results.length === 0 ? (
+                            <div className="ioc-search__empty">Không tìm thấy sản phẩm phù hợp</div>
+                        ) : (
+                            <ul className="ioc-search__list">
+                                {results.map((product) => (
+                                    <li key={product.id}>
+                                        <button
+                                            type="button"
+                                            className="ioc-search__item"
+                                            onMouseDown={(event) => {
+                                                event.preventDefault();
+                                                handleSelect(product);
+                                            }}
+                                        >
+                                            <span className="ioc-search__item-name">{product.name}</span>
+                                            <span className="ioc-search__item-meta">
+                                                {product.code}
+                                                {product.barcode ? ` · ${product.barcode}` : ''}
+                                            </span>
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            <Link
+                to="/admin/products/create"
+                className="ioc-search-add"
+                title="Thêm hàng hóa mới"
+                aria-label="Thêm hàng hóa mới"
+            >
+                <Plus size={20} />
+            </Link>
         </div>
     );
 }

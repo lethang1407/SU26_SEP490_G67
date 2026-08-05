@@ -1,5 +1,6 @@
 import { Fragment } from 'react';
 import SupplierExpandPanel from './SupplierExpandPanel';
+import SupplierPhoneCell from './SupplierPhoneCell';
 import { formatCurrency } from '../utils/supplierUtils';
 
 const COLUMN_COUNT = 5;
@@ -95,7 +96,9 @@ export default function SupplierTable({
                                     >
                                         <td className="supplier-table__code-text">{supplier.supplierCode}</td>
                                         <td className="supplier-table__name">{supplier.name}</td>
-                                        <td className="supplier-table__phone">{supplier.phoneNumber}</td>
+                                        <td className="supplier-table__phone">
+                                            <SupplierPhoneCell phoneNumber={supplier.phoneNumber} stopRowClick />
+                                        </td>
                                         <td className="supplier-table__address" title={supplier.address}>
                                             {supplier.address}
                                         </td>

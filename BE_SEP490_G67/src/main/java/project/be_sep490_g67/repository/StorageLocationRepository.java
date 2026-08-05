@@ -11,6 +11,7 @@ import java.util.Optional;
 @Repository
 public interface StorageLocationRepository extends JpaRepository<StorageLocation, Integer> {
 
+    Optional<StorageLocation> findFirstByIsRemovedFalseAndIsActiveTrueOrderByIdAsc();
     @Query("""
             SELECT DISTINCT sl
             FROM StorageLocation sl
