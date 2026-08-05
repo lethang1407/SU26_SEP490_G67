@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
@@ -7,8 +8,8 @@ import SupplierToolbar from '../components/SupplierToolbar';
 import SupplierTable from '../components/SupplierTable';
 import SupplierPagination from '../components/SupplierPagination';
 import SupplierAddNewModal from '../components/SupplierAddNewModal';
-import { SUPPLIER_DEBT_FILTER } from '../constants';
 import { suppliersApi } from '../api';
+import { categoriesApi } from '../../category/api';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Supplier.css';
 
@@ -21,36 +22,90 @@ const EMPTY_PAGE = {
     totalElements: 0,
     totalPages: 1,
     totalDebt: 0,
+    debtSupplierCount: 0,
 };
 
 const SEARCH_DEBOUNCE_MS = 400;
 
 export default function SupplierListPage() {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const pendingExpandIdRef = useRef(null);
+
     const [keyword, setKeyword] = useState('');
     const [debouncedKeyword, setDebouncedKeyword] = useState('');
-    const [debtFilter, setDebtFilter] = useState(SUPPLIER_DEBT_FILTER.ALL);
+    const [categoryId, setCategoryId] = useState(null);
+    const [categories, setCategories] = useState([]);
+    const [categoriesLoading, setCategoriesLoading] = useState(false);
     const [page, setPage] = useState(1);
     const [data, setData] = useState(EMPTY_PAGE);
     const [loading, setLoading] = useState(false);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [expandedId, setExpandedId] = useState(null);
+    const [toast, setToast] = useState('');
+
+    // Deep-link từ phiếu nhập: mở đúng NCC (search theo mã rồi expand)
+    useEffect(() => {
+        const expandId = location.state?.expandSupplierId;
+        if (expandId == null) return;
+
+        const code = String(location.state?.expandSupplierCode || '').trim();
+        pendingExpandIdRef.current = expandId;
+        if (code) {
+            setKeyword(code);
+            setDebouncedKeyword(code);
+            setPage(1);
+        } else {
+            setExpandedId(expandId);
+            pendingExpandIdRef.current = null;
+        }
+        navigate(location.pathname, { replace: true, state: {} });
+    }, [location.state, location.pathname, navigate]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedKeyword(keyword);
             setPage(1);
+            if (pendingExpandIdRef.current == null) {
+                setExpandedId(null);
+            }
         }, SEARCH_DEBOUNCE_MS);
 
         return () => clearTimeout(timer);
     }, [keyword]);
 
-    const fetchSuppliers = useCallback(() => {
-        setLoading(true);
+    useEffect(() => {
+        const pendingId = pendingExpandIdRef.current;
+        if (pendingId == null || loading) return;
+        const found = (data.content || []).some((item) => item.id === pendingId);
+        if (found) {
+            setExpandedId(pendingId);
+            pendingExpandIdRef.current = null;
+        }
+    }, [data, loading]);
+
+    useEffect(() => {
+        setCategoriesLoading(true);
+        categoriesApi
+            .getAllCategories()
+            .then((items) => setCategories(Array.isArray(items) ? items : []))
+            .catch(() => setCategories([]))
+            .finally(() => setCategoriesLoading(false));
+    }, []);
+
+    const fetchSuppliers = useCallback((options = {}) => {
+        const silent = options.silent === true;
+        if (!silent) setLoading(true);
         suppliersApi
-            .getSuppliers({ page: page - 1, size: PAGE_SIZE, search: debouncedKeyword, debtFilter })
+            .getSuppliers({ page: page - 1, size: PAGE_SIZE, search: debouncedKeyword, categoryId })
             .then((result) => setData(result ?? EMPTY_PAGE))
-            .catch(() => setData(EMPTY_PAGE))
-            .finally(() => setLoading(false));
-    }, [page, debouncedKeyword, debtFilter]);
+            .catch(() => {
+                if (!silent) setData(EMPTY_PAGE);
+            })
+            .finally(() => {
+                if (!silent) setLoading(false);
+            });
+    }, [page, debouncedKeyword, categoryId]);
 
     useEffect(() => {
         fetchSuppliers();
@@ -60,9 +115,35 @@ export default function SupplierListPage() {
         setKeyword(value);
     };
 
-    const handleDebtFilterChange = (value) => {
-        setDebtFilter(value);
+    const handleCategoryChange = (value) => {
+        setCategoryId(value);
         setPage(1);
+        setExpandedId(null);
+    };
+
+    const handleToggleExpand = (supplierId) => {
+        setExpandedId((current) => (current === supplierId ? null : supplierId));
+    };
+
+    const handlePaymentSuccess = ({ orderCode, amount, paymentMethod, notes }) => {
+        fetchSuppliers({ silent: true });
+        setToast(
+            `Đã ghi nhận thanh toán ${new Intl.NumberFormat('vi-VN').format(amount)}đ cho đơn ${orderCode} (${paymentMethod})${notes ? `: ${notes}` : ''}.`,
+        );
+        setTimeout(() => setToast(''), 4000);
+    };
+
+    const handleSupplierUpdated = (updated) => {
+        fetchSuppliers({ silent: true });
+        setToast(`Đã cập nhật nhà cung cấp ${updated?.name || ''}.`);
+        setTimeout(() => setToast(''), 3000);
+    };
+
+    const handleSupplierDeleted = () => {
+        setExpandedId(null);
+        fetchSuppliers({ silent: true });
+        setToast('Đã xóa nhà cung cấp.');
+        setTimeout(() => setToast(''), 3000);
     };
 
     const handleAddSupplier = (supplierData) => {
@@ -78,7 +159,10 @@ export default function SupplierListPage() {
             });
     };
 
-    const summary = { totalDebt: data.totalDebt ?? 0 };
+    const summary = {
+        totalDebt: data.totalDebt ?? 0,
+        debtSupplierCount: data.debtSupplierCount ?? 0,
+    };
 
     const pagination = {
         page,
@@ -95,6 +179,8 @@ export default function SupplierListPage() {
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container supplier-page">
+                        {toast && <p className="supplier-page__toast">{toast}</p>}
+
                         <header className="supplier-page__header">
                             <div>
                                 <h1 className="supplier-page__title">Danh sách nhà cung cấp</h1>
@@ -118,12 +204,22 @@ export default function SupplierListPage() {
 
                         <SupplierToolbar
                             keyword={keyword}
-                            debtFilter={debtFilter}
+                            categoryId={categoryId}
+                            categories={categories}
+                            categoriesLoading={categoriesLoading}
                             onKeywordChange={handleKeywordChange}
-                            onDebtFilterChange={handleDebtFilterChange}
+                            onCategoryChange={handleCategoryChange}
                         />
 
-                        <SupplierTable items={data.content} loading={loading} />
+                        <SupplierTable
+                            items={data.content}
+                            loading={loading}
+                            expandedId={expandedId}
+                            onToggleExpand={handleToggleExpand}
+                            onPaymentSuccess={handlePaymentSuccess}
+                            onSupplierUpdated={handleSupplierUpdated}
+                            onSupplierDeleted={handleSupplierDeleted}
+                        />
 
                         <SupplierPagination
                             page={pagination.page}
@@ -131,7 +227,10 @@ export default function SupplierListPage() {
                             startIndex={pagination.startIndex}
                             endIndex={pagination.endIndex}
                             totalItems={pagination.totalItems}
-                            onPageChange={setPage}
+                            onPageChange={(nextPage) => {
+                                setExpandedId(null);
+                                setPage(nextPage);
+                            }}
                         />
 
                         <SupplierAddNewModal

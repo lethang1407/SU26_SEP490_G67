@@ -1,5 +1,5 @@
 -- ============================================================
--- V6: Human-readable document codes (redesign v3 §9).
+-- V11: Human-readable document codes (redesign v3 §9).
 --
 --     Replaces the random truncated-UUID codes
 --       SalesOrderService:   "SO-" + UUID(8)

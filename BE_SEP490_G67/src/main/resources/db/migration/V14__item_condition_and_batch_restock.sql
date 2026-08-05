@@ -1,5 +1,5 @@
 -- ============================================================
--- V9: Item condition and batch-correct restock (redesign v2 §5).
+-- V14: Item condition and batch-correct restock (redesign v2 §5).
 --
 --     Until now every returned item went straight back into sellable
 --     stock, in whatever batch happened to be available:
@@ -12,7 +12,7 @@
 --       products.is_returnable               policy flag for goods that
 --                                            cannot come back at all
 --
---     Guarded with information_schema checks, same as V4-V8.
+--     Guarded with information_schema checks, same as V4-V5, V11-V13.
 -- ============================================================
 
 -- ------------------------------------------------------------

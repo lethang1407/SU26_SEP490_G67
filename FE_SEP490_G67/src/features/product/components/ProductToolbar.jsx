@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react';
+import { categoriesApi } from '../../category/api';
 import {
+    CATEGORY_FILTER,
     CATEGORY_OPTIONS,
     STATUS_OPTIONS,
     SUPPLIER_OPTIONS,
@@ -15,6 +18,28 @@ export default function ProductToolbar({
     onSupplierChange,
     onFilter,
 }) {
+    const [categoryOptions, setCategoryOptions] = useState(CATEGORY_OPTIONS);
+
+    useEffect(() => {
+        let isCancelled = false;
+
+        categoriesApi
+            .getAllCategories()
+            .then((items) => {
+                if (!isCancelled && items.length > 0) {
+                    setCategoryOptions([
+                        { value: CATEGORY_FILTER.ALL, label: 'Tất cả danh mục' },
+                        ...items.map((item) => ({ value: item.name, label: item.name })),
+                    ]);
+                }
+            })
+            .catch(() => {});
+
+        return () => {
+            isCancelled = true;
+        };
+    }, []);
+
     return (
         <div className="product-toolbar">
             <div className="product-toolbar__search">
@@ -35,7 +60,7 @@ export default function ProductToolbar({
                         value={categoryFilter}
                         onChange={(event) => onCategoryChange(event.target.value)}
                     >
-                        {CATEGORY_OPTIONS.map((option) => (
+                        {categoryOptions.map((option) => (
                             <option key={option.value} value={option.value}>
                                 {option.label}
                             </option>

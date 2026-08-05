@@ -1,15 +1,26 @@
 import { api } from '@/lib/api-clien';
 
 export const suppliersApi = {
-    getSuppliers: async ({ page = 0, size = 10, search = '', debtFilter = 'ALL' } = {}) => {
-        const params = { page, size, debtFilter };
+    getSuppliers: async ({ page = 0, size = 10, search = '', categoryId = null } = {}) => {
+        const params = { page, size };
         if (search && search.trim()) params.search = search.trim();
+        if (categoryId != null) params.categoryId = categoryId;
         const response = await api.get('/suppliers', { params });
         return response.result;
     },
 
     addSupplier: async (payload) => {
         const response = await api.post('/suppliers', payload);
+        return response;
+    },
+
+    updateSupplier: async (id, payload) => {
+        const response = await api.put(`/suppliers/${id}`, payload);
+        return response.result;
+    },
+
+    deleteSupplier: async (id) => {
+        const response = await api.delete(`/suppliers/${id}`);
         return response;
     },
 

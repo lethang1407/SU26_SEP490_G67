@@ -1,5 +1,5 @@
 -- ============================================================
--- V10: Indexes for the return lookup (redesign v3 §7a).
+-- V15: Indexes for the return lookup (redesign v3 §7a).
 --
 --     "Product + time range is the workhorse combination and must be
 --      fast" (§7a). The whole §8 not-found path is the SAME query, and
@@ -8,7 +8,7 @@
 --      what makes that target unreachable as the shop accumulates
 --      history.
 --
---     Guarded with information_schema checks, same as V4-V9.
+--     Guarded with information_schema checks, same as V4-V5, V11-V14.
 -- ============================================================
 
 SET @idx_exists := (

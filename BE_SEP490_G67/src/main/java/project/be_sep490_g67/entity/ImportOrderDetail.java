@@ -40,4 +40,8 @@ public class ImportOrderDetail extends BaseEntity {
     @Column(name = "expiry_date")
     private LocalDate expiryDate;
 
+    /** Ghi chú từng dòng hàng trên phiếu nhập. */
+    @Column(name = "note", length = 500)
+    private String note;
+
 }

@@ -16,6 +16,10 @@ import project.be_sep490_g67.dto.response.AuthenticationResponse;
 import project.be_sep490_g67.dto.response.IntrospectResponse;
 import project.be_sep490_g67.service.AuthenticationService;
 import project.be_sep490_g67.service.PasswordRestService;
+import project.be_sep490_g67.dto.request.ForgotPasswordChangeRequest;
+import project.be_sep490_g67.dto.request.ForgotPasswordInitiateRequest;
+import project.be_sep490_g67.dto.request.ForgotPasswordVerifyOtpRequest;
+import project.be_sep490_g67.dto.request.LogoutRequest;
 
 import java.text.ParseException;
 

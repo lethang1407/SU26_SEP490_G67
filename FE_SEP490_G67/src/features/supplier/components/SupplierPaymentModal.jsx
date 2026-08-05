@@ -176,8 +176,8 @@ export default function SupplierPaymentModal({ open, supplier, onClose, onSubmit
                             <strong>{selectedOrder ? formatCurrency(selectedOrder.remainingDebt) : '—'}</strong>
                         </div>
                         <div className="supplier-modal__readonly-row">
-                            <span>Số tiền đã trả</span>
-                            <strong>{selectedOrder ? formatCurrency(selectedOrder.paidAmount) : '—'}</strong>
+                            <span>Số tiền trả</span>
+                            <strong>{selectedOrder ? formatCurrency(parsedAmount) : '—'}</strong>
                         </div>
                         <div className="supplier-modal__readonly-row">
                             <span>Số nợ còn lại</span>

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
 import SupplierPagination from './SupplierPagination';
-import { PAYMENT_METHOD_LABEL } from '../constants/mockSupplierDetails';
 import { formatCurrency, formatDateTime } from '../utils/supplierUtils';
 import { suppliersApi } from '../api';
 
@@ -45,7 +44,7 @@ export default function SupplierPaymentHistoryTable({ supplierId, onViewReferenc
     }, [supplierId, page, debouncedKeyword, fromDate, toDate]);
 
     // refreshToken không được dùng trong fetchPayments, chỉ là "tín hiệu" ép fetch lại
-    // sau khi thanh toán nợ thành công ở nơi khác (SupplierDetailPage).
+    // sau khi thanh toán nợ thành công ở expand panel.
     useEffect(() => {
         fetchPayments();
     }, [fetchPayments, refreshToken]);
@@ -176,7 +175,7 @@ export default function SupplierPaymentHistoryTable({ supplierId, onViewReferenc
                                                 : '—'}
                                         </td>
                                         <td className="supplier-table__notes">
-                                            {payment.note || PAYMENT_METHOD_LABEL[payment.paymentMethod] || '—'}
+                                            {payment.note || '—'}
                                         </td>
                                     </tr>
                                 ))

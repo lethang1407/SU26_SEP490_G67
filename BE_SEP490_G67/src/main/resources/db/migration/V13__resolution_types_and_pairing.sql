@@ -1,5 +1,5 @@
 -- ============================================================
--- V8: Per-line resolution types and line-to-line pairing
+-- V13: Per-line resolution types and line-to-line pairing
 --     (redesign v3 §2, §3, §5).
 --
 --     Replaces the single free-text return_orders.resolution_type — which
@@ -12,7 +12,7 @@
 --     at the replacement line on the outgoing invoice. NULL for REFUND and
 --     STORE_CREDIT, required for EXCHANGE_*.
 --
---     Guarded with information_schema checks, same as V4-V7.
+--     Guarded with information_schema checks, same as V4-V5, V11-V12.
 -- ============================================================
 
 -- ------------------------------------------------------------
@@ -136,7 +136,7 @@ DEALLOCATE PREPARE stmt;
 -- return_orders.sales_order_id becomes NULLABLE (§6.4)
 --
 -- A visit can involve items from several invoices, so the link belongs
--- on the DETAIL row (sales_order_detail_id, added in V7). The parent
+-- on the DETAIL row (sales_order_detail_id, added in V12). The parent
 -- column stays as an advisory pointer to the first source invoice.
 -- ------------------------------------------------------------
 

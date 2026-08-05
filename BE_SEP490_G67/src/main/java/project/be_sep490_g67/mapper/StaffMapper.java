@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 
 @Component
 public class StaffMapper {
-
+    //mapper
     public StaffListResponse toListResponse(User user) {
         return StaffListResponse.builder()
                 .id(user.getId())

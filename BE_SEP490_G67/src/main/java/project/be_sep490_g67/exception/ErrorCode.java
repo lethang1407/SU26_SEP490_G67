@@ -44,7 +44,32 @@ public enum ErrorCode {
     INVALID_PAYMENT_AMOUNT(1026, "Số tiền thanh toán không hợp lệ", HttpStatus.BAD_REQUEST),
     PAYMENT_EXCEEDS_DEBT(1027, "Số tiền vượt quá số nợ còn lại của đơn hàng", HttpStatus.BAD_REQUEST),
     CUSTOMER_NOT_FOUND(1028, "Không tìm thấy khách hàng", HttpStatus.NOT_FOUND),
+    PRODUCT_NOT_FOUND(1046, "Không tìm thấy sản phẩm", HttpStatus.NOT_FOUND),
+    BARCODE_EXISTED(1047, "Mã vạch đã được sử dụng", HttpStatus.CONFLICT),
+    INVALID_PRODUCT_PRICE(1048, "Giá sản phẩm không hợp lệ", HttpStatus.BAD_REQUEST),
+    STORAGE_LOCATION_NOT_FOUND(1031, "Không tìm thấy vị trí kho", HttpStatus.NOT_FOUND),
+    STORAGE_LOCATION_LABEL_EXISTED(1032, "Mã vị trí kho đã tồn tại", HttpStatus.CONFLICT),
+    STOCK_BATCH_NOT_FOUND(1033, "Không tìm thấy lô hàng", HttpStatus.NOT_FOUND),
+    BATCH_LOCATION_NOT_FOUND(1034, "Không tìm thấy phân bổ lô trên kệ", HttpStatus.NOT_FOUND),
+    STORAGE_LOCATION_PRODUCT_MISMATCH(1035, "Kệ đang chứa sản phẩm khác. Mỗi kệ chỉ chứa một loại sản phẩm", HttpStatus.BAD_REQUEST),
+    INSUFFICIENT_UNPLACED_QUANTITY(1036, "Số lượng xếp vượt quá số lượng lô chưa xếp kệ", HttpStatus.BAD_REQUEST),
+    INSUFFICIENT_BATCH_LOCATION_QUANTITY(1037, "Số lượng chuyển vượt quá số lượng đang có trên kệ", HttpStatus.BAD_REQUEST),
+    INVALID_BATCH_LOCATION_MOVE(1038, "Không thể chuyển lô về cùng một kệ", HttpStatus.BAD_REQUEST),
+    IMPORT_ITEMS_EMPTY(1039, "Phiếu nhập phải có ít nhất một dòng sản phẩm", HttpStatus.BAD_REQUEST),
+    INVALID_IMPORT_QUANTITY(1040, "Số lượng nhập phải lớn hơn 0", HttpStatus.BAD_REQUEST),
+    INVALID_IMPORT_COST(1041, "Đơn giá nhập không hợp lệ", HttpStatus.BAD_REQUEST),
+    INVENTORY_CHECK_NOT_FOUND(1042, "Không tìm thấy phiếu kiểm kho", HttpStatus.NOT_FOUND),
+    INVENTORY_CHECK_ITEMS_EMPTY(1043, "Phiếu kiểm kho phải có ít nhất một dòng", HttpStatus.BAD_REQUEST),
+    INVALID_INVENTORY_CHECK_QTY(1044, "Số lượng thực tế kiểm kho không hợp lệ", HttpStatus.BAD_REQUEST),
+    INVENTORY_CHECK_DUPLICATE_LINE(1045, "Không được kiểm trùng một lô tại cùng vị trí trong một phiếu", HttpStatus.BAD_REQUEST),
+
     INSUFFICIENT_STOCK(1029, "Không đủ tồn kho", HttpStatus.BAD_REQUEST),
+    SUPPLIER_HAS_DEBT(1030, "Không thể xóa nhà cung cấp đang còn công nợ. Vui lòng thanh toán hết trước khi xóa.", HttpStatus.BAD_REQUEST),
+    INVALID_IMPORT_ORDER_STATUS(1032, "Trạng thái phiếu nhập không hợp lệ", HttpStatus.BAD_REQUEST),
+    INVALID_IMPORT_DISCOUNT(1033, "Giảm giá không hợp lệ", HttpStatus.BAD_REQUEST),
+    INVALID_IMPORT_PAID_AMOUNT(1034, "Số tiền trả NCC không hợp lệ", HttpStatus.BAD_REQUEST),
+    IMPORT_ORDER_NOT_EDITABLE(1035, "Chỉ được sửa phiếu tạm. Phiếu đã nhập hàng không thể chỉnh sửa.", HttpStatus.BAD_REQUEST),
+    IMPORT_ORDER_NOT_DELETABLE(1036, "Chỉ được hủy phiếu tạm. Phiếu đã nhập hàng không thể xóa.", HttpStatus.BAD_REQUEST),
 
     // Invoice errors (3xxx)
     ORDER_NOT_FOUND(3001, "Không tìm thấy đơn hàng", HttpStatus.NOT_FOUND),
@@ -54,7 +79,8 @@ public enum ErrorCode {
     ORDER_TOTAL_MISMATCH(3005, "Tổng tiền đơn hàng không khớp, cần kiểm tra lại dữ liệu", HttpStatus.UNPROCESSABLE_ENTITY),
     INVOICE_ACCESS_DENIED(3006, "Bạn không có quyền truy cập hóa đơn này", HttpStatus.FORBIDDEN),
     PRODUCT_UNIT_NOT_FOUND(3007, "Không tìm thấy đơn vị sản phẩm", HttpStatus.NOT_FOUND),
-    PRODUCT_NOT_FOUND(3008, "Không tìm thấy sản phẩm", HttpStatus.NOT_FOUND),
+    // PRODUCT_NOT_FOUND đã có ở nhóm 1xxx (1046) từ nhánh dev — dùng lại,
+    // không định nghĩa bản 3008 song song (enum không cho trùng tên).
 
     // Return / exchange errors (31xx)
     ORIGINAL_ORDER_NOT_FOUND(3101, "Không tìm thấy đơn hàng gốc", HttpStatus.NOT_FOUND),
@@ -65,7 +91,8 @@ public enum ErrorCode {
     RETURN_QUANTITY_EXCEEDS_REMAINING(3110, "Số lượng trả vượt quá số lượng còn có thể trả của dòng hàng này", HttpStatus.BAD_REQUEST),
     RETURN_WINDOW_EXPIRED(3111, "Đơn hàng đã quá thời hạn đổi trả", HttpStatus.BAD_REQUEST),
     RETURN_PRODUCT_NOT_FOUND(3106, "Không tìm thấy sản phẩm cần trả", HttpStatus.NOT_FOUND),
-    STOCK_BATCH_NOT_FOUND(3107, "Không tìm thấy lô hàng", HttpStatus.NOT_FOUND),
+    // STOCK_BATCH_NOT_FOUND đã có ở nhóm 1xxx (1033) từ nhánh dev — dùng lại,
+    // không định nghĩa bản 3107 song song.
     NO_AVAILABLE_STOCK_BATCH(3108, "Không tìm thấy lô hàng khả dụng cho sản phẩm", HttpStatus.BAD_REQUEST),
     INVALID_UNIT_CONVERSION(3109, "Quy đổi đơn vị của sản phẩm không hợp lệ", HttpStatus.UNPROCESSABLE_ENTITY),
 

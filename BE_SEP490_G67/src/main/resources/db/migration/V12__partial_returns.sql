@@ -1,5 +1,5 @@
 -- ============================================================
--- V7: Repeated partial returns (redesign v2 §3).
+-- V12: Repeated partial returns (redesign v2 §3).
 --
 --     Until now a return line recorded only WHICH PRODUCT came back, so
 --     "how many of this line are still returnable" was unanswerable and
@@ -21,7 +21,7 @@
 --     them a return of "1 thùng" is indistinguishable from "1 cái" once
 --     the product's units are later edited.
 --
---     Guarded with information_schema checks, same as V4/V5/V6.
+--     Guarded with information_schema checks, same as V4/V5/V11.
 -- ============================================================
 
 SET @col_exists := (

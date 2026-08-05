@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import SupplierImportHistoryToolbar from './SupplierImportHistoryToolbar';
 import SupplierPagination from './SupplierPagination';
-import { IMPORT_HISTORY_FILTER, IMPORT_ORDER_STATUS_LABEL } from '../constants/mockSupplierDetails';
+import { IMPORT_HISTORY_FILTER, IMPORT_ORDER_STATUS_LABEL } from '../constants';
 import { formatCurrency, formatDate } from '../utils/supplierUtils';
 import { suppliersApi } from '../api';
 
@@ -43,7 +43,7 @@ export default function SupplierImportHistoryTable({ supplierId, onViewDetail, r
     }, [supplierId, page, debouncedKeyword, statusFilter]);
 
     // refreshToken không được dùng trong fetchImportOrders, chỉ là "tín hiệu" ép fetch lại
-    // sau khi thanh toán nợ thành công ở nơi khác (SupplierDetailPage).
+    // sau khi thanh toán nợ thành công ở expand panel.
     useEffect(() => {
         fetchImportOrders();
     }, [fetchImportOrders, refreshToken]);

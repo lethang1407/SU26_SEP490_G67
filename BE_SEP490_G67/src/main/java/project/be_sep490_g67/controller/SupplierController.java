@@ -38,9 +38,9 @@ public class SupplierController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String search,
-            @RequestParam(defaultValue = "ALL") String debtFilter
+            @RequestParam(required = false) Integer categoryId
     ) {
-        SupplierListPageResponse result = supplierService.findAllSuppliers(search, debtFilter, page, size);
+        SupplierListPageResponse result = supplierService.findAllSuppliers(search, categoryId, page, size);
         return ApiResponse.<SupplierListPageResponse>builder()
                 .result(result)
                 .message("Lấy danh sách nhà cung cấp thành công")
@@ -52,6 +52,25 @@ public class SupplierController {
         return ApiResponse.<SupplierDetailResponse>builder()
                 .result(supplierService.getSupplierDetail(id))
                 .message("Lấy thông tin nhà cung cấp thành công")
+                .build();
+    }
+
+    @PutMapping("/{id}")
+    public ApiResponse<SupplierDetailResponse> updateSupplier(
+            @PathVariable Integer id,
+            @RequestBody AddNewSupplierRequest request
+    ) {
+        return ApiResponse.<SupplierDetailResponse>builder()
+                .result(supplierService.updateSupplier(id, request))
+                .message("Cập nhật nhà cung cấp thành công")
+                .build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> deleteSupplier(@PathVariable Integer id) {
+        supplierService.deleteSupplier(id);
+        return ApiResponse.<Void>builder()
+                .message("Xóa nhà cung cấp thành công")
                 .build();
     }
 
