@@ -76,4 +76,20 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
                     """
     )
     List<BatchLocation> findAvailableByProductId(@Param("productId") Integer productId);
+
+    @Query("""
+            SELECT bl FROM BatchLocation bl
+            JOIN FETCH bl.batch sb
+            JOIN FETCH bl.location ls
+            WHERE sb.product.id = :productId
+              AND ls.id = :locationId
+              AND bl.quantity > 0
+              AND bl.isRemoved = false
+              AND sb.isRemoved = false
+              AND ls.isRemoved = false
+            ORDER BY sb.expiryDate ASC, sb.receivedDate ASC
+            """)
+    List<BatchLocation> findAvailableByProductIdAndLocationId(
+            @Param("productId") Integer productId,
+            @Param("locationId") Integer locationId);
 }

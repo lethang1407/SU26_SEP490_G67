@@ -60,6 +60,11 @@ export default function ProductSearchDropdown({ results, loading, error, onSelec
                                 {product.barcode && (
                                     <span className="psd-barcode">{product.barcode}</span>
                                 )}
+                                {product.primarySaleLocationLabel && (
+                                    <span className="psd-barcode">
+                                        Lấy tại: {product.primarySaleLocationLabel}
+                                    </span>
+                                )}
                                 <span className="psd-price">
                                     {product.sellingPrice != null
                                         ? Number(product.sellingPrice).toLocaleString() + ' ₫'

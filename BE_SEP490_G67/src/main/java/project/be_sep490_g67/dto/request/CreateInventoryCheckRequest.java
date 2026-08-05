@@ -26,8 +26,8 @@ public class CreateInventoryCheckRequest {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class InventoryCheckLineRequest {
 
-        @NotNull(message = "batchLocationId không được để trống")
-        Integer batchLocationId;
+        @NotNull(message = "productId không được để trống")
+        Integer productId;
 
         @NotNull(message = "Số lượng thực tế không được để trống")
         @Min(value = 0, message = "Số lượng thực tế không hợp lệ")

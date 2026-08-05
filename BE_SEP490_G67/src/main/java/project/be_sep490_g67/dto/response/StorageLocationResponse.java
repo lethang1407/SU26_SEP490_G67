@@ -22,6 +22,9 @@ public class StorageLocationResponse {
     String aisle;
     String shelf;
     String bin;
+    String size;
     String description;
+    /** True nếu ô này là ô bán chính của sản phẩm đang chứa. */
+    Boolean isPrimarySale;
     List<StorageLocationContentResponse> contents;
 }

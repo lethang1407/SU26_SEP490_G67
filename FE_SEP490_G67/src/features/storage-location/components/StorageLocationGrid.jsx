@@ -12,7 +12,7 @@ function ZoneSummaryPills({ stats }) {
             </span>
             {(stats.largeEmpty > 0 || stats.mediumEmpty > 0 || stats.smallEmpty > 0) && (
                 <span className="storage-location-zone__pill storage-location-zone__pill--muted">
-                    trống: {stats.largeEmpty} lớn · {stats.mediumEmpty} vừa · {stats.smallEmpty} nhỏ
+                    trống: {stats.largeEmpty} to · {stats.mediumEmpty} vừa · {stats.smallEmpty} bé
                 </span>
             )}
             {stats.nearExpiryCount > 0 && (
@@ -42,20 +42,23 @@ export default function StorageLocationGrid({
     return (
         <div className="storage-location-grid">
             <p className="storage-location-grid__hint">
-                Mặc định ẩn sơ đồ ô kệ — nhìn nhanh sức chứa từng khu, rồi mở khu cần làm việc. Ô
-                lớn / vừa / nhỏ phản ánh khả năng chứa khác nhau (tầng kệ thấp thường lớn hơn).
+                Mỗi khu chia theo tầng; trên mỗi tầng các ô đánh số từ 1. Kích thước ô to / vừa / bé
+                do bạn chọn khi tạo vị trí.
             </p>
 
             {groups.map((group) => {
                 const isExpanded = expandedZones.has(group.zone);
                 const stats = group.stats;
+                const floorGroups = group.floors ?? group.aisles ?? [];
 
                 return (
                     <section
                         key={group.zone}
                         className={[
                             'storage-location-zone',
-                            isExpanded ? 'storage-location-zone--expanded' : 'storage-location-zone--collapsed',
+                            isExpanded
+                                ? 'storage-location-zone--expanded'
+                                : 'storage-location-zone--collapsed',
                         ].join(' ')}
                     >
                         <button
@@ -87,31 +90,39 @@ export default function StorageLocationGrid({
 
                         {isExpanded && (
                             <div className="storage-location-zone__body">
-                                {(group.aisles ?? []).map((aisleGroup) => (
-                                    <div
-                                        key={aisleGroup.aisle ?? 'none'}
-                                        className="storage-location-aisle"
-                                    >
-                                        <div className="storage-location-aisle__label">
-                                            {aisleGroup.aisle
-                                                ? `Hàng ${aisleGroup.aisle}`
-                                                : 'Chưa gán hàng'}
-                                            <span className="storage-location-aisle__count">
-                                                {aisleGroup.locations.length} ô
-                                            </span>
+                                {floorGroups.map((floorGroup) => {
+                                    const floorKey =
+                                        floorGroup.floor ?? floorGroup.aisle ?? 'none';
+                                    const floorLabel =
+                                        floorGroup.floor ?? floorGroup.aisle;
+                                    return (
+                                        <div
+                                            key={floorKey}
+                                            className="storage-location-aisle"
+                                        >
+                                            <div className="storage-location-aisle__label">
+                                                {floorLabel
+                                                    ? `Tầng ${floorLabel}`
+                                                    : 'Chưa gán tầng'}
+                                                <span className="storage-location-aisle__count">
+                                                    {floorGroup.locations.length} ô
+                                                </span>
+                                            </div>
+                                            <div className="storage-location-aisle__map">
+                                                {floorGroup.locations.map((location) => (
+                                                    <StorageLocationCell
+                                                        key={location.id}
+                                                        location={location}
+                                                        isSelected={
+                                                            selectedLocationId === location.id
+                                                        }
+                                                        onSelect={onSelectLocation}
+                                                    />
+                                                ))}
+                                            </div>
                                         </div>
-                                        <div className="storage-location-aisle__map">
-                                            {aisleGroup.locations.map((location) => (
-                                                <StorageLocationCell
-                                                    key={location.id}
-                                                    location={location}
-                                                    isSelected={selectedLocationId === location.id}
-                                                    onSelect={onSelectLocation}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </section>

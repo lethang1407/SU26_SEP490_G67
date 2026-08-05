@@ -1,22 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Alert, Spinner } from 'react-bootstrap';
 import { Plus, Settings2 } from 'lucide-react';
 import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import AdjustStorageLocationModal from '../components/AdjustStorageLocationModal';
-import { fetchStorageLocations } from '../api';
+import { fetchStorageLocations, setPrimarySaleLocation } from '../api';
 import CreateStorageLocationModal from '../components/CreateStorageLocationModal';
 import StorageLocationDetailDrawer from '../components/StorageLocationDetailDrawer';
 import StorageLocationGrid from '../components/StorageLocationGrid';
 import StorageLocationTable from '../components/StorageLocationTable';
 import StorageLocationToolbar from '../components/StorageLocationToolbar';
-import { INVENTORY_CHECK_ROUTES } from '../../inventory-check/constants';
 import { LOCATION_STATUS, VIEW_MODE } from '../constants';
 import {
     filterStorageLocations,
-    getAisleOptions,
+    getFloorOptions,
     getZoneOptions,
     groupLocationsByZone,
 } from '../utils/storageLocationUtils';
@@ -32,10 +30,10 @@ const DEFAULT_FILTERS = {
 };
 
 export default function StorageLocationListPage() {
-    const navigate = useNavigate();
     const [allLocations, setAllLocations] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [settingPrimary, setSettingPrimary] = useState(false);
 
     const [keyword, setKeyword] = useState('');
     const [zoneFilter, setZoneFilter] = useState('all');
@@ -91,7 +89,7 @@ export default function StorageLocationListPage() {
 
     const zoneOptions = useMemo(() => getZoneOptions(locationsData), [locationsData]);
     const aisleOptions = useMemo(
-        () => getAisleOptions(locationsData, appliedFilters.zoneFilter),
+        () => getFloorOptions(locationsData, appliedFilters.zoneFilter),
         [locationsData, appliedFilters.zoneFilter],
     );
 
@@ -184,13 +182,31 @@ export default function StorageLocationListPage() {
         setAisleFilter('all');
     };
 
-    const handleCheckLocation = (location) => {
-        navigate(`${INVENTORY_CHECK_ROUTES.create}?location=${encodeURIComponent(location.label)}`);
-    };
-
     const handleAdjustLocation = (location) => {
         setSelectedLocation(null);
         setShowAdjustModal(true);
+    };
+
+    const handleSetPrimarySaleLocation = async (location) => {
+        if (!location?.id || settingPrimary) {
+            return;
+        }
+        setSettingPrimary(true);
+        setError(null);
+        try {
+            const updated = await setPrimarySaleLocation(location.id);
+            setReloadKey((prev) => prev + 1);
+            setSelectedLocation(updated);
+        } catch (setErrorResult) {
+            setError(
+                getApiErrorMessage(
+                    setErrorResult,
+                    'Không thể đặt ô bán. Vui lòng thử lại.',
+                ),
+            );
+        } finally {
+            setSettingPrimary(false);
+        }
     };
 
     return (
@@ -206,8 +222,8 @@ export default function StorageLocationListPage() {
                             <div>
                                 <h1 className="inventory-page__title">Vị trí hàng hóa</h1>
                                 <p className="inventory-page__subtitle">
-                                    Xem sức chứa theo khu trước, rồi mở khu cần xếp hàng. Ô lớn /
-                                    vừa / nhỏ phản ánh khả năng chứa khác nhau trên sơ đồ kho.
+                                    Mỗi khu chia theo tầng; trên mỗi tầng các ô đánh số từ 1. Chọn
+                                    kích thước ô to / vừa / bé khi tạo vị trí.
                                 </p>
                             </div>
                             <div className="inventory-page__actions">
@@ -281,8 +297,9 @@ export default function StorageLocationListPage() {
             <StorageLocationDetailDrawer
                 location={selectedLocation}
                 onClose={() => setSelectedLocation(null)}
-                onCheckLocation={handleCheckLocation}
                 onAdjustLocation={handleAdjustLocation}
+                onSetPrimarySaleLocation={handleSetPrimarySaleLocation}
+                settingPrimary={settingPrimary}
             />
 
             <CreateStorageLocationModal

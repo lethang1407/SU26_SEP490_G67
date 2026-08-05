@@ -16,17 +16,12 @@ import java.math.BigDecimal;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class InventoryCheckLineResponse {
     Integer id;
-    Integer batchLocationId;
-    Integer batchId;
-    Integer locationId;
+    Integer productId;
     String productCode;
     String productName;
     String unit;
-    String batchCode;
-    String locationLabel;
     Integer systemQty;
     Integer actualQty;
     BigDecimal importPrice;
     String note;
-    String expiryDate;
 }

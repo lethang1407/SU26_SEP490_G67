@@ -14,17 +14,11 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class StorageLocationContentResponse {
-    /** ID bản ghi batch_locations */
-    Integer id;
-    /** ID lô stock_batches */
-    Integer batchId;
+public class InventoryCheckProductPreviewResponse {
     Integer productId;
     String productCode;
     String productName;
     String unit;
-    String batchCode;
-    Integer quantity;
+    Integer systemQty;
     BigDecimal importPrice;
-    String expiryDate;
 }

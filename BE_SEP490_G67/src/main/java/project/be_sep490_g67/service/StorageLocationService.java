@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import project.be_sep490_g67.constants.StorageLocationConstants;
 import project.be_sep490_g67.constants.StorageZoneConstants;
 import project.be_sep490_g67.dto.request.AssignBatchRequest;
 import project.be_sep490_g67.dto.request.CreateStorageLocationRequest;
@@ -21,13 +22,17 @@ import project.be_sep490_g67.entity.StorageLocation;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.BatchLocationRepository;
+import project.be_sep490_g67.repository.ProductRepository;
 import project.be_sep490_g67.repository.ProductUnitRepository;
 import project.be_sep490_g67.repository.StockBatchRepository;
 import project.be_sep490_g67.repository.StorageLocationRepository;
+import project.be_sep490_g67.util.StockBatchUtils;
 
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -38,11 +43,13 @@ public class StorageLocationService {
     BatchLocationRepository batchLocationRepository;
     StockBatchRepository stockBatchRepository;
     ProductUnitRepository productUnitRepository;
+    ProductRepository productRepository;
 
     @Transactional(readOnly = true)
     public List<StorageLocationResponse> getAllLocations() {
+        Set<Integer> primaryLocationIds = new HashSet<>(productRepository.findAllPrimarySaleLocationIds());
         return storageLocationRepository.findAllActiveWithContents().stream()
-                .map(this::toResponse)
+                .map(location -> toResponse(location, primaryLocationIds.contains(location.getId())))
                 .toList();
     }
 
@@ -50,7 +57,7 @@ public class StorageLocationService {
     public StorageLocationResponse getLocationById(Integer locationId) {
         StorageLocation location = storageLocationRepository.findActiveWithContentsById(locationId)
                 .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
-        return toResponse(location);
+        return toResponse(location, isPrimarySaleLocation(location.getId()));
     }
 
     @Transactional(readOnly = true)
@@ -62,23 +69,39 @@ public class StorageLocationService {
 
     @Transactional
     public StorageLocationResponse createLocation(CreateStorageLocationRequest request) {
-        String label = request.getLabel().trim();
+        String zone = request.getZone().trim().toUpperCase();
+        String shelf = request.getShelf().trim();
+        String bin = request.getBin().trim();
+        String size = StorageLocationConstants.normalizeSize(request.getSize());
+
+        if (!StorageLocationConstants.isValidSize(size)) {
+            throw new AppException(ErrorCode.INVALID_STORAGE_LOCATION_SIZE);
+        }
+
+        if (storageLocationRepository.existsByZoneIgnoreCaseAndShelfAndBinAndIsRemovedFalse(zone, shelf, bin)) {
+            throw new AppException(ErrorCode.STORAGE_LOCATION_SLOT_EXISTED);
+        }
+
+        String label = request.getLabel() == null || request.getLabel().isBlank()
+                ? StorageLocationConstants.buildLabel(zone, shelf, bin)
+                : request.getLabel().trim();
 
         if (storageLocationRepository.existsByLabelIgnoreCaseAndIsRemovedFalse(label)) {
             throw new AppException(ErrorCode.STORAGE_LOCATION_LABEL_EXISTED);
         }
 
         StorageLocation location = new StorageLocation();
-        location.setZone(request.getZone().trim().toUpperCase());
+        location.setZone(zone);
         location.setLabel(label);
-        location.setAisle(trimToNull(request.getAisle()));
-        location.setShelf(trimToNull(request.getShelf()));
-        location.setBin(trimToNull(request.getBin()));
+        location.setAisle(null);
+        location.setShelf(shelf);
+        location.setBin(bin);
+        location.setSize(size);
         location.setDescription(trimToNull(request.getDescription()));
         location.setIsActive(true);
         location.setIsRemoved(false);
 
-        return toResponse(storageLocationRepository.save(location));
+        return toResponse(storageLocationRepository.save(location), false);
     }
 
     @Transactional
@@ -99,12 +122,22 @@ public class StorageLocationService {
             throw new AppException(ErrorCode.INSUFFICIENT_UNPLACED_QUANTITY);
         }
 
+        boolean locationWasEmpty = location.getBatchLocations().stream()
+                .filter(bl -> !Boolean.TRUE.equals(bl.getIsRemoved()))
+                .noneMatch(bl -> bl.getQuantity() != null && bl.getQuantity() > 0);
+
         assertCanPlaceProduct(location, batch.getProduct().getId());
         upsertBatchLocation(batch, location, quantity);
 
+        Product product = batch.getProduct();
+        if (locationWasEmpty && product.getPrimarySaleLocation() == null) {
+            product.setPrimarySaleLocation(location);
+            productRepository.save(product);
+        }
+
         StorageLocation refreshed = storageLocationRepository.findActiveWithContentsById(location.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
-        return toResponse(refreshed);
+        return toResponse(refreshed, isPrimarySaleLocation(refreshed.getId()));
     }
 
     @Transactional
@@ -141,7 +174,7 @@ public class StorageLocationService {
 
         StorageLocation refreshed = storageLocationRepository.findActiveWithContentsById(destination.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
-        return toResponse(refreshed);
+        return toResponse(refreshed, isPrimarySaleLocation(refreshed.getId()));
     }
 
     @Transactional
@@ -152,6 +185,37 @@ public class StorageLocationService {
         batchLocation.setQuantity(0);
         batchLocation.setIsRemoved(true);
         batchLocationRepository.save(batchLocation);
+    }
+
+    /**
+     * Đặt ô hiện tại làm ô bán chính của sản phẩm đang chứa trên ô.
+     */
+    @Transactional
+    public StorageLocationResponse setAsPrimarySale(Integer locationId) {
+        StorageLocation location = storageLocationRepository.findActiveWithContentsById(locationId)
+                .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
+
+        Product productOnShelf = location.getBatchLocations().stream()
+                .filter(bl -> !Boolean.TRUE.equals(bl.getIsRemoved()))
+                .filter(bl -> bl.getQuantity() != null && bl.getQuantity() > 0)
+                .map(bl -> bl.getBatch().getProduct())
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.PRIMARY_SALE_LOCATION_EMPTY));
+
+        productRepository.findByPrimarySaleLocationId(locationId).ifPresent(other -> {
+            if (!Objects.equals(other.getId(), productOnShelf.getId())) {
+                throw new AppException(ErrorCode.PRIMARY_SALE_LOCATION_IN_USE);
+            }
+        });
+
+        Product product = productRepository.findActiveById(productOnShelf.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+        product.setPrimarySaleLocation(location);
+        productRepository.save(product);
+
+        StorageLocation refreshed = storageLocationRepository.findActiveWithContentsById(locationId)
+                .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
+        return toResponse(refreshed, true);
     }
 
     private void upsertBatchLocation(StockBatch batch, StorageLocation location, int quantity) {
@@ -194,7 +258,11 @@ public class StorageLocationService {
         return Math.max(0, quantityIn - placedQty);
     }
 
-    private StorageLocationResponse toResponse(StorageLocation location) {
+    private boolean isPrimarySaleLocation(Integer locationId) {
+        return productRepository.findByPrimarySaleLocationId(locationId).isPresent();
+    }
+
+    private StorageLocationResponse toResponse(StorageLocation location, boolean isPrimarySale) {
         return StorageLocationResponse.builder()
                 .id(location.getId())
                 .label(location.getLabel())
@@ -203,7 +271,11 @@ public class StorageLocationService {
                 .aisle(location.getAisle())
                 .shelf(location.getShelf())
                 .bin(location.getBin())
+                .size(location.getSize() != null
+                        ? location.getSize()
+                        : StorageLocationConstants.SIZE_MD)
                 .description(location.getDescription())
+                .isPrimarySale(isPrimarySale)
                 .contents(mapContents(location))
                 .build();
     }
@@ -235,10 +307,11 @@ public class StorageLocationService {
         return StorageLocationContentResponse.builder()
                 .id(batchLocation.getId())
                 .batchId(batch.getId())
+                .productId(product.getId())
                 .productCode(resolveProductCode(product))
                 .productName(product.getName())
                 .unit(resolveBaseUnitName(product.getId()))
-                .batchCode("BATCH-" + batch.getId())
+                .batchCode(StockBatchUtils.resolveBatchCode(batch))
                 .quantity(batchLocation.getQuantity())
                 .importPrice(batch.getCostPerUnit() != null ? batch.getCostPerUnit() : product.getCostPrice())
                 .expiryDate(batch.getExpiryDate() != null ? batch.getExpiryDate().toString() : null)
@@ -253,7 +326,7 @@ public class StorageLocationService {
                 .productCode(resolveProductCode(product))
                 .productName(product.getName())
                 .unit(resolveBaseUnitName(product.getId()))
-                .batchCode("BATCH-" + batch.getId())
+                .batchCode(StockBatchUtils.resolveBatchCode(batch))
                 .quantity(getUnplacedQuantity(batch))
                 .importPrice(batch.getCostPerUnit() != null ? batch.getCostPerUnit() : product.getCostPrice())
                 .expiryDate(batch.getExpiryDate() != null ? batch.getExpiryDate().toString() : null)

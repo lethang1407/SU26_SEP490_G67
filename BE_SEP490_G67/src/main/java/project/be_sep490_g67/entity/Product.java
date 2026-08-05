@@ -50,6 +50,12 @@ public class Product extends BaseEntity {
     @Column(name = "product_img", length = 500)
     private String productImg;
 
+    /** Ô kệ dùng để lấy hàng bán (POS). Mỗi SP tối đa 1 ô. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @OnDelete(action = OnDeleteAction.SET_NULL)
+    @JoinColumn(name = "primary_sale_location_id")
+    private StorageLocation primarySaleLocation;
+
     @OneToMany(mappedBy = "product")
     private Set<ImportOrderDetail> importOrderDetails = new LinkedHashSet<>();
 

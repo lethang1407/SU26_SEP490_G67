@@ -1,4 +1,4 @@
-import { LOCATION_STATUS_LABEL } from '../constants';
+import { LOCATION_STATUS_LABEL, SHELF_SIZE_LABEL, normalizeShelfSize } from '../constants';
 import { getLocationMetrics, getLocationStatus } from '../utils/storageLocationUtils';
 
 export default function StorageLocationTable({ locations, selectedLocationId, onSelectLocation }) {
@@ -17,9 +17,9 @@ export default function StorageLocationTable({ locations, selectedLocationId, on
                     <tr>
                         <th>Mã vị trí</th>
                         <th>Khu</th>
-                        <th>Hàng</th>
-                        <th>Kệ</th>
+                        <th>Tầng</th>
                         <th>Ô</th>
+                        <th>Kích thước</th>
                         <th>Trạng thái</th>
                         <th>Sản phẩm trên kệ</th>
                         <th>Số lô</th>
@@ -32,6 +32,7 @@ export default function StorageLocationTable({ locations, selectedLocationId, on
                     {locations.map((location) => {
                         const status = getLocationStatus(location);
                         const { batchCount, totalQty, product } = getLocationMetrics(location);
+                        const sizeKey = normalizeShelfSize(location.size);
 
                         return (
                             <tr
@@ -44,9 +45,9 @@ export default function StorageLocationTable({ locations, selectedLocationId, on
                             >
                                 <td className="storage-location-table__code">{location.label}</td>
                                 <td>{location.zone}</td>
-                                <td>{location.aisle || '—'}</td>
                                 <td>{location.shelf || '—'}</td>
                                 <td>{location.bin || '—'}</td>
+                                <td>{SHELF_SIZE_LABEL[sizeKey]}</td>
                                 <td>
                                     <span
                                         className={`storage-location-status-badge storage-location-status-badge--${status}`}

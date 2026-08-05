@@ -88,4 +88,13 @@ public class StorageLocationController {
                 .message("Gỡ lô khỏi kệ thành công")
                 .build();
     }
+
+    @PostMapping("/{locationId}/primary-sale")
+    public ApiResponse<StorageLocationResponse> setAsPrimarySale(
+            @PathVariable("locationId") Integer locationId) {
+        return ApiResponse.<StorageLocationResponse>builder()
+                .result(storageLocationService.setAsPrimarySale(locationId))
+                .message("Đã đặt làm ô bán của sản phẩm")
+                .build();
+    }
 }

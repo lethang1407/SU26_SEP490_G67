@@ -6,10 +6,10 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.be_sep490_g67.dto.request.CreateInventoryCheckRequest;
-import project.be_sep490_g67.dto.response.AvailableBatchLocationResponse;
 import project.be_sep490_g67.dto.response.InventoryCheckDetailResponse;
 import project.be_sep490_g67.dto.response.InventoryCheckLineResponse;
 import project.be_sep490_g67.dto.response.InventoryCheckListItemResponse;
+import project.be_sep490_g67.dto.response.InventoryCheckProductPreviewResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.entity.BatchLocation;
 import project.be_sep490_g67.entity.InventoryCheck;
@@ -24,11 +24,13 @@ import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.BatchLocationRepository;
 import project.be_sep490_g67.repository.InventoryCheckDetailRepository;
 import project.be_sep490_g67.repository.InventoryCheckRepository;
+import project.be_sep490_g67.repository.ProductRepository;
 import project.be_sep490_g67.repository.ProductUnitRepository;
 import project.be_sep490_g67.repository.StockBatchRepository;
 import project.be_sep490_g67.repository.StockMovementRepository;
 import project.be_sep490_g67.repository.UserRepository;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -57,6 +59,7 @@ public class InventoryCheckService {
 
     InventoryCheckRepository inventoryCheckRepository;
     InventoryCheckDetailRepository inventoryCheckDetailRepository;
+    ProductRepository productRepository;
     BatchLocationRepository batchLocationRepository;
     StockBatchRepository stockBatchRepository;
     StockMovementRepository stockMovementRepository;
@@ -90,25 +93,15 @@ public class InventoryCheckService {
     }
 
     @Transactional(readOnly = true)
-    public List<AvailableBatchLocationResponse> getAvailableLines(String locationLabel) {
-        return batchLocationRepository.findActiveAvailableLines(locationLabel).stream()
-                .map(this::toAvailableLine)
-                .toList();
-    }
-
-    @Transactional(readOnly = true)
-    public List<Map<String, String>> getLocationOptions() {
-        return batchLocationRepository.findActiveAvailableLines("all").stream()
-                .map(bl -> bl.getLocation().getLabel())
-                .filter(Objects::nonNull)
-                .distinct()
-                .sorted()
-                .map(label -> Map.of("value", label, "label", label))
-                .toList();
+    public InventoryCheckProductPreviewResponse getProductPreview(Integer productId) {
+        Product product = productRepository.findById(productId)
+                .filter(p -> !Boolean.TRUE.equals(p.getIsRemoved()))
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+        return toProductPreview(product);
     }
 
     /**
-     * Tạo phiếu kiểm kho và hoàn tất ngay: điều chỉnh batch_locations + stock_batches.
+     * Tạo phiếu kiểm kho theo sản phẩm và hoàn tất ngay: điều chỉnh tồn SP.
      */
     @Transactional
     public InventoryCheckDetailResponse createCheck(CreateInventoryCheckRequest request, Integer createdBy) {
@@ -118,7 +111,7 @@ public class InventoryCheckService {
 
         Set<Integer> seen = new HashSet<>();
         for (CreateInventoryCheckRequest.InventoryCheckLineRequest line : request.getLines()) {
-            if (!seen.add(line.getBatchLocationId())) {
+            if (!seen.add(line.getProductId())) {
                 throw new AppException(ErrorCode.INVENTORY_CHECK_DUPLICATE_LINE);
             }
             if (line.getActualQty() == null || line.getActualQty() < 0) {
@@ -141,24 +134,26 @@ public class InventoryCheckService {
         InventoryCheck savedCheck = inventoryCheckRepository.save(check);
 
         for (CreateInventoryCheckRequest.InventoryCheckLineRequest lineReq : request.getLines()) {
-            BatchLocation batchLocation = batchLocationRepository
-                    .findActiveWithDetailsById(lineReq.getBatchLocationId())
-                    .orElseThrow(() -> new AppException(ErrorCode.BATCH_LOCATION_NOT_FOUND));
+            Product product = productRepository.findById(lineReq.getProductId())
+                    .filter(p -> !Boolean.TRUE.equals(p.getIsRemoved()))
+                    .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
-            int systemQty = batchLocation.getQuantity() != null ? batchLocation.getQuantity() : 0;
+            int systemQty = resolveProductSystemQty(product.getId());
             int actualQty = lineReq.getActualQty();
             int delta = actualQty - systemQty;
 
             InventoryCheckDetail detail = new InventoryCheckDetail();
             detail.setInventoryCheck(savedCheck);
-            detail.setBatchLocation(batchLocation);
+            detail.setProduct(product);
             detail.setSystemQty(systemQty);
             detail.setActualQty(actualQty);
             detail.setNote(trimToNull(lineReq.getNote()));
             detail.setIsRemoved(false);
             inventoryCheckDetailRepository.save(detail);
 
-            applyStockAdjustment(batchLocation, actualQty, delta, savedCheck.getId());
+            if (delta != 0) {
+                applyProductStockAdjustment(product, delta, savedCheck);
+            }
         }
 
         InventoryCheck refreshed = inventoryCheckRepository.findDetailById(savedCheck.getId())
@@ -166,35 +161,134 @@ public class InventoryCheckService {
         return toDetailResponse(refreshed);
     }
 
-    private void applyStockAdjustment(
-            BatchLocation batchLocation, int actualQty, int delta, Integer checkId) {
+    private int resolveProductSystemQty(Integer productId) {
+        List<StockBatch> batches = stockBatchRepository.findAvailableByProductId(productId);
+        return batches.stream()
+                .mapToInt(b -> b.getQuantityIn() != null ? b.getQuantityIn() : 0)
+                .sum();
+    }
 
-        StockBatch batch = batchLocation.getBatch();
-
-        if (actualQty <= 0) {
-            batchLocation.setQuantity(0);
-            batchLocation.setIsRemoved(true);
-        } else {
-            batchLocation.setQuantity(actualQty);
+    /**
+     * delta &lt; 0: trừ tồn FEFO theo lô + kệ.
+     * delta &gt; 0: cộng vào lô gần nhất (hoặc tạo lô điều chỉnh chưa xếp kệ).
+     */
+    private void applyProductStockAdjustment(Product product, int delta, InventoryCheck check) {
+        if (delta < 0) {
+            deductProductStock(product.getId(), -delta, check.getId());
+            return;
         }
-        batchLocationRepository.save(batchLocation);
+        increaseProductStock(product, delta, check);
+    }
 
-        int currentBatchQty = batch.getQuantityIn() != null ? batch.getQuantityIn() : 0;
-        int nextBatchQty = Math.max(0, currentBatchQty + delta);
-        batch.setQuantityIn(nextBatchQty);
-        stockBatchRepository.save(batch);
+    private void deductProductStock(Integer productId, int quantityNeed, Integer checkId) {
+        List<StockBatch> batches = stockBatchRepository.findAvailableByProductId(productId);
+        int remaining = quantityNeed;
 
-        if (delta != 0) {
+        for (StockBatch batch : batches) {
+            if (remaining <= 0) {
+                break;
+            }
+            int batchQty = batch.getQuantityIn() != null ? batch.getQuantityIn() : 0;
+            if (batchQty <= 0) {
+                continue;
+            }
+
+            int deduct = Math.min(batchQty, remaining);
+            int nextBatchQty = batchQty - deduct;
+            batch.setQuantityIn(nextBatchQty);
+            stockBatchRepository.save(batch);
+
+            deductFromBatchLocations(batch, deduct);
+
             StockMovement movement = new StockMovement();
             movement.setStockBatch(batch);
             movement.setMovementType(MOVEMENT_TYPE);
             movement.setReferenceType(REFERENCE_TYPE);
             movement.setReferenceId(checkId);
-            movement.setQuantityDelta(delta);
+            movement.setQuantityDelta(-deduct);
             movement.setStockAfter(nextBatchQty);
             movement.setIsRemoved(false);
             stockMovementRepository.save(movement);
+
+            remaining -= deduct;
         }
+
+        // Cho phép kiểm thiếu hơn tồn hệ thống: phần còn lại coi như đã ghi nhận trên phiếu
+    }
+
+    private void deductFromBatchLocations(StockBatch batch, int quantityToDeduct) {
+        List<BatchLocation> locations = batchLocationRepository
+                .findAvailableByProductId(batch.getProduct().getId())
+                .stream()
+                .filter(bl -> Objects.equals(bl.getBatch().getId(), batch.getId()))
+                .toList();
+
+        int remaining = quantityToDeduct;
+        for (BatchLocation bl : locations) {
+            if (remaining <= 0) {
+                break;
+            }
+            int qty = bl.getQuantity() != null ? bl.getQuantity() : 0;
+            if (qty <= 0) {
+                continue;
+            }
+            int deduct = Math.min(qty, remaining);
+            int next = qty - deduct;
+            if (next <= 0) {
+                bl.setQuantity(0);
+                bl.setIsRemoved(true);
+            } else {
+                bl.setQuantity(next);
+            }
+            batchLocationRepository.save(bl);
+            remaining -= deduct;
+        }
+    }
+
+    private void increaseProductStock(Product product, int delta, InventoryCheck check) {
+        List<StockBatch> batches = stockBatchRepository.findAvailableByProductId(product.getId());
+        StockBatch target = batches.stream()
+                .max(Comparator
+                        .comparing(StockBatch::getReceivedDate, Comparator.nullsFirst(Comparator.naturalOrder()))
+                        .thenComparing(StockBatch::getId, Comparator.nullsFirst(Comparator.naturalOrder())))
+                .orElse(null);
+
+        if (target == null) {
+            target = new StockBatch();
+            target.setProduct(product);
+            target.setImportOrder(null);
+            target.setBatchCode("ADJ-" + check.getCheckCode());
+            target.setCostPerUnit(product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO);
+            target.setQuantityIn(0);
+            target.setReceivedDate(LocalDate.now());
+            target.setIsRemoved(false);
+        }
+
+        int current = target.getQuantityIn() != null ? target.getQuantityIn() : 0;
+        int next = current + delta;
+        target.setQuantityIn(next);
+        StockBatch saved = stockBatchRepository.save(target);
+
+        StockMovement movement = new StockMovement();
+        movement.setStockBatch(saved);
+        movement.setMovementType(MOVEMENT_TYPE);
+        movement.setReferenceType(REFERENCE_TYPE);
+        movement.setReferenceId(check.getId());
+        movement.setQuantityDelta(delta);
+        movement.setStockAfter(next);
+        movement.setIsRemoved(false);
+        stockMovementRepository.save(movement);
+    }
+
+    private InventoryCheckProductPreviewResponse toProductPreview(Product product) {
+        return InventoryCheckProductPreviewResponse.builder()
+                .productId(product.getId())
+                .productCode(resolveProductCode(product))
+                .productName(product.getName())
+                .unit(resolveBaseUnitName(product.getId()))
+                .systemQty(resolveProductSystemQty(product.getId()))
+                .importPrice(product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO)
+                .build();
     }
 
     private InventoryCheckListItemResponse toListItem(
@@ -238,43 +332,19 @@ public class InventoryCheckService {
     }
 
     private InventoryCheckLineResponse toLineResponse(InventoryCheckDetail detail) {
-        BatchLocation bl = detail.getBatchLocation();
-        StockBatch batch = bl.getBatch();
-        Product product = batch.getProduct();
-
+        Product product = detail.getProduct();
         return InventoryCheckLineResponse.builder()
                 .id(detail.getId())
-                .batchLocationId(bl.getId())
-                .batchId(batch.getId())
-                .locationId(bl.getLocation() != null ? bl.getLocation().getId() : null)
-                .productCode(resolveProductCode(product))
-                .productName(product.getName())
-                .unit(resolveBaseUnitName(product.getId()))
-                .batchCode("BATCH-" + batch.getId())
-                .locationLabel(bl.getLocation() != null ? bl.getLocation().getLabel() : null)
+                .productId(product != null ? product.getId() : null)
+                .productCode(product != null ? resolveProductCode(product) : null)
+                .productName(product != null ? product.getName() : null)
+                .unit(product != null ? resolveBaseUnitName(product.getId()) : "Cái")
                 .systemQty(detail.getSystemQty())
                 .actualQty(detail.getActualQty())
-                .importPrice(batch.getCostPerUnit() != null ? batch.getCostPerUnit() : product.getCostPrice())
+                .importPrice(product != null && product.getCostPrice() != null
+                        ? product.getCostPrice()
+                        : BigDecimal.ZERO)
                 .note(detail.getNote())
-                .expiryDate(batch.getExpiryDate() != null ? batch.getExpiryDate().toString() : null)
-                .build();
-    }
-
-    private AvailableBatchLocationResponse toAvailableLine(BatchLocation bl) {
-        StockBatch batch = bl.getBatch();
-        Product product = batch.getProduct();
-        return AvailableBatchLocationResponse.builder()
-                .id(bl.getId())
-                .batchId(batch.getId())
-                .locationId(bl.getLocation().getId())
-                .productCode(resolveProductCode(product))
-                .productName(product.getName())
-                .unit(resolveBaseUnitName(product.getId()))
-                .batchCode("BATCH-" + batch.getId())
-                .locationLabel(bl.getLocation().getLabel())
-                .systemQty(bl.getQuantity())
-                .importPrice(batch.getCostPerUnit() != null ? batch.getCostPerUnit() : product.getCostPrice())
-                .expiryDate(batch.getExpiryDate() != null ? batch.getExpiryDate().toString() : null)
                 .build();
     }
 

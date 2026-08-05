@@ -1,4 +1,4 @@
-import { ClipboardCheck, Package, Settings2, X } from 'lucide-react';
+import { Package, Settings2, Star, X } from 'lucide-react';
 import { LOCATION_STATUS } from '../constants';
 import {
     formatCurrency,
@@ -12,8 +12,9 @@ import {
 export default function StorageLocationDetailDrawer({
     location,
     onClose,
-    onCheckLocation,
     onAdjustLocation,
+    onSetPrimarySaleLocation,
+    settingPrimary = false,
 }) {
     if (!location) {
         return null;
@@ -35,7 +36,12 @@ export default function StorageLocationDetailDrawer({
             <aside className="storage-location-drawer__panel" role="dialog" aria-modal="true">
                 <header className="storage-location-drawer__header">
                     <div>
-                        <h2 className="storage-location-drawer__title">{location.label}</h2>
+                        <h2 className="storage-location-drawer__title">
+                            {location.label}
+                            {location.isPrimarySale ? (
+                                <span className="storage-location-drawer__sale-badge">Ô bán</span>
+                            ) : null}
+                        </h2>
                         <p className="storage-location-drawer__address">
                             {formatLocationAddress(location)}
                         </p>
@@ -116,16 +122,17 @@ export default function StorageLocationDetailDrawer({
                 )}
 
                 <footer className="storage-location-drawer__footer">
-                    {!isEmpty && (
+                    {!isEmpty && product && onSetPrimarySaleLocation ? (
                         <button
                             type="button"
                             className="inventory-btn inventory-btn--primary storage-location-drawer__action"
-                            onClick={() => onCheckLocation(location)}
+                            disabled={settingPrimary || location.isPrimarySale}
+                            onClick={() => onSetPrimarySaleLocation(location)}
                         >
-                            <ClipboardCheck size={18} />
-                            Kiểm kệ này
+                            <Star size={18} />
+                            {location.isPrimarySale ? 'Đang là ô bán' : 'Đặt làm ô bán của SP'}
                         </button>
-                    )}
+                    ) : null}
                     <button
                         type="button"
                         className="inventory-btn inventory-btn--secondary storage-location-drawer__action"

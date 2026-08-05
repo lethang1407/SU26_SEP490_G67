@@ -29,18 +29,35 @@ export const VIEW_MODE = {
 
 export const NEAR_EXPIRY_DAYS = 7;
 
-/** Kích thước ô kệ — ảnh hưởng sức chứa và diện tích trên sơ đồ. */
 export const SHELF_SIZE = {
     SM: 'sm',
     MD: 'md',
     LG: 'lg',
 };
 
+/** Map size từ BE (SM|MD|LG) sang key FE. */
+export function normalizeShelfSize(raw) {
+    const value = String(raw ?? '').trim().toUpperCase();
+    if (value === 'SM' || value === 'SMALL') return SHELF_SIZE.SM;
+    if (value === 'LG' || value === 'LARGE') return SHELF_SIZE.LG;
+    if (value === 'MD' || value === 'MEDIUM') return SHELF_SIZE.MD;
+    if (value === SHELF_SIZE.SM || value === SHELF_SIZE.MD || value === SHELF_SIZE.LG) {
+        return value;
+    }
+    return SHELF_SIZE.MD;
+}
+
 export const SHELF_SIZE_LABEL = {
-    [SHELF_SIZE.SM]: 'Ô nhỏ',
+    [SHELF_SIZE.SM]: 'Ô bé',
     [SHELF_SIZE.MD]: 'Ô vừa',
-    [SHELF_SIZE.LG]: 'Ô lớn',
+    [SHELF_SIZE.LG]: 'Ô to',
 };
+
+export const SHELF_SIZE_OPTIONS = [
+    { value: 'SM', label: SHELF_SIZE_LABEL[SHELF_SIZE.SM] },
+    { value: 'MD', label: SHELF_SIZE_LABEL[SHELF_SIZE.MD] },
+    { value: 'LG', label: SHELF_SIZE_LABEL[SHELF_SIZE.LG] },
+];
 
 /** Sức chứa ước tính (đơn vị số lượng) theo kích thước ô. */
 export const SHELF_CAPACITY = {

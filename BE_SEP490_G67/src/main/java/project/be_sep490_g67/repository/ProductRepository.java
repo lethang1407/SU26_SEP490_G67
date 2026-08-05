@@ -49,4 +49,19 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
                   )
             """)
     List<Product> searchByNameAndBarcode(@Param("query") String query);
+
+    @Query("""
+            SELECT p.primarySaleLocation.id
+            FROM Product p
+            WHERE p.primarySaleLocation IS NOT NULL
+              AND (p.isRemoved = false OR p.isRemoved IS NULL)
+            """)
+    List<Integer> findAllPrimarySaleLocationIds();
+
+    @Query("""
+            SELECT p FROM Product p
+            WHERE p.primarySaleLocation.id = :locationId
+              AND (p.isRemoved = false OR p.isRemoved IS NULL)
+            """)
+    Optional<Product> findByPrimarySaleLocationId(@Param("locationId") Integer locationId);
 }

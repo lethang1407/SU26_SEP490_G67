@@ -44,3 +44,8 @@ export async function unassignBatchFromLocation({ batchLocationId }) {
     });
     return response.result;
 }
+
+export async function setPrimarySaleLocation(locationId) {
+    const response = await api.post(`/storage-locations/${locationId}/primary-sale`);
+    return response.result;
+}

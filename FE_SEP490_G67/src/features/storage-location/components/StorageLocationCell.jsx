@@ -27,7 +27,7 @@ export default function StorageLocationCell({ location, isSelected, onSelect }) 
                 .filter(Boolean)
                 .join(' ')}
             onClick={() => onSelect(location)}
-            title={`${location.label} · ${profile.sizeLabel} · sức chứa ~${profile.capacity}`}
+            title={`${location.label} · ${profile.sizeLabel}`}
         >
             <div className="storage-location-cell__header">
                 <span className="storage-location-cell__label">{location.label}</span>
@@ -39,9 +39,10 @@ export default function StorageLocationCell({ location, isSelected, onSelect }) 
 
             <span className="storage-location-cell__meta">
                 <span className="storage-location-cell__size">{profile.sizeLabel}</span>
-                {location.aisle && location.shelf ? (
+                {location.shelf || location.bin ? (
                     <span className="storage-location-cell__address">
-                        Hàng {location.aisle} · Tầng {location.shelf}
+                        {location.shelf ? `Tầng ${location.shelf}` : '—'}
+                        {location.bin ? ` · Ô ${location.bin}` : ''}
                     </span>
                 ) : (
                     <span className="storage-location-cell__address">Khu {location.zone}</span>
@@ -57,7 +58,7 @@ export default function StorageLocationCell({ location, isSelected, onSelect }) 
                             {shortProductName}
                         </span>
                         <span className="storage-location-cell__qty">
-                            {batchCount} lô · {totalQty}/{profile.capacity} {product?.unit ?? 'đv'}
+                            {batchCount} lô · {totalQty} {product?.unit ?? 'đv'}
                         </span>
                     </>
                 )}
@@ -82,6 +83,11 @@ export default function StorageLocationCell({ location, isSelected, onSelect }) 
                     Sắp HSD
                 </span>
             )}
+            {location.isPrimarySale ? (
+                <span className="storage-location-cell__badge storage-location-cell__badge--sale">
+                    Ô bán
+                </span>
+            ) : null}
         </button>
     );
 }
