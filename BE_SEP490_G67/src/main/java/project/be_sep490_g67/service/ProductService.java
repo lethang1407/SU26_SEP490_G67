@@ -185,23 +185,9 @@ public class ProductService {
                 .name(product.getName())
                 .barcode(product.getBarcode())
                 .sellingPrice(product.getSellingPrice())
-                .primarySaleLocationId(resolvePrimaryLocationId(product))
-                .primarySaleLocationLabel(resolvePrimaryLocationLabel(product))
                 .productUnits(unitInfos)
                 .stockBatches(batchInfos)
                 .build();
-    }
-
-    private Integer resolvePrimaryLocationId(Product product) {
-        return product.getPrimarySaleLocation() != null
-                ? product.getPrimarySaleLocation().getId()
-                : null;
-    }
-
-    private String resolvePrimaryLocationLabel(Product product) {
-        return product.getPrimarySaleLocation() != null
-                ? product.getPrimarySaleLocation().getLabel()
-                : null;
     }
 
     private Product findActiveProduct(Integer productId) {
@@ -538,8 +524,6 @@ public class ProductService {
                         .name(product.getName())
                         .barcode(product.getBarcode())
                         .sellingPrice(product.getSellingPrice())
-                        .primarySaleLocationId(resolvePrimaryLocationId(product))
-                        .primarySaleLocationLabel(resolvePrimaryLocationLabel(product))
                         .productUnits(product.getProductUnits().stream()
                                 .filter(u -> Boolean.FALSE.equals(u.getIsRemoved()))
                                 .map(u -> ProductSearchResponse.ProductUnitInfo

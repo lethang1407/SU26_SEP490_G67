@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Modal } from 'react-bootstrap';
-import { GripVertical, Package, Search, X } from 'lucide-react';
+import { ChevronDown, GripVertical, Package, Search } from 'lucide-react';
 import {
     assignBatchToLocation,
     fetchStorageLocations,
@@ -8,8 +8,14 @@ import {
     moveBatchLocation,
     unassignBatchFromLocation,
 } from '../api';
+import { ZONE_TYPE } from '../constants';
 import { getApiErrorMessage } from '../../../utils/api-utils';
-import { formatDate, getLocationProduct } from '../utils/storageLocationUtils';
+import {
+    formatDate,
+    getLocationProduct,
+    groupLocationsByZone,
+    groupZoneGroupsByType,
+} from '../utils/storageLocationUtils';
 
 const DRAG_TYPE = {
     unplaced: 'unplaced',
@@ -23,7 +29,194 @@ function cloneLocations(locations) {
     }));
 }
 
-export default function AdjustStorageLocationModal({ show, onHide, locations, onSaved }) {
+function LocationTree({
+    draftLocations,
+    selectedLocationId,
+    onSelectLocation,
+    dragOverTarget,
+    setDragOverTarget,
+    onDropOnLocation,
+    isSaving,
+    initialExpandLocationId,
+}) {
+    const zoneGroups = useMemo(
+        () => groupLocationsByZone(draftLocations),
+        [draftLocations],
+    );
+    const { sales, warehouse } = useMemo(
+        () => groupZoneGroupsByType(zoneGroups),
+        [zoneGroups],
+    );
+
+    const initialLocation = useMemo(
+        () => draftLocations.find((item) => item.id === initialExpandLocationId) ?? null,
+        [draftLocations, initialExpandLocationId],
+    );
+
+    const [expandedTypes, setExpandedTypes] = useState(() => new Set());
+    const [expandedZones, setExpandedZones] = useState(() => new Set());
+
+    useEffect(() => {
+        if (!initialLocation) {
+            return;
+        }
+        const typeKey = initialLocation.zoneType === ZONE_TYPE.SALES ? 'sales' : 'warehouse';
+        setExpandedTypes(new Set([typeKey]));
+        if (initialLocation.zone) {
+            setExpandedZones(new Set([initialLocation.zone]));
+        }
+    }, [initialLocation]);
+
+    const toggleType = (typeKey) => {
+        setExpandedTypes((prev) => {
+            const next = new Set(prev);
+            if (next.has(typeKey)) {
+                next.delete(typeKey);
+            } else {
+                next.add(typeKey);
+            }
+            return next;
+        });
+    };
+
+    const toggleZone = (zone) => {
+        setExpandedZones((prev) => {
+            const next = new Set(prev);
+            if (next.has(zone)) {
+                next.delete(zone);
+            } else {
+                next.add(zone);
+            }
+            return next;
+        });
+    };
+
+    const renderZoneGroups = (groups) =>
+        groups.map((group) => {
+            const zoneOpen = expandedZones.has(group.zone);
+            return (
+                <div key={group.zone} className="storage-adjust-modal__zone-node">
+                    <button
+                        type="button"
+                        className="storage-adjust-modal__tree-toggle"
+                        onClick={() => toggleZone(group.zone)}
+                    >
+                        <ChevronDown
+                            size={16}
+                            className={
+                                zoneOpen
+                                    ? 'storage-adjust-modal__chevron storage-adjust-modal__chevron--open'
+                                    : 'storage-adjust-modal__chevron'
+                            }
+                        />
+                        <span>Khu {group.zone}</span>
+                        <span className="storage-adjust-modal__tree-count">
+                            {group.locations.length} ô
+                        </span>
+                    </button>
+                    {zoneOpen && (
+                        <div className="storage-adjust-modal__zone-locations">
+                            {group.locations.map((location) => {
+                                const product = getLocationProduct(location);
+                                const isDropTarget = dragOverTarget === `loc-${location.id}`;
+                                return (
+                                    <button
+                                        key={location.id}
+                                        type="button"
+                                        className={[
+                                            'storage-adjust-modal__location-item',
+                                            selectedLocationId === location.id
+                                                ? 'storage-adjust-modal__location-item--active'
+                                                : '',
+                                            isDropTarget
+                                                ? 'storage-adjust-modal__location-item--drop'
+                                                : '',
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' ')}
+                                        disabled={isSaving}
+                                        onClick={() => onSelectLocation(location.id)}
+                                        onDragOver={(event) => {
+                                            event.preventDefault();
+                                            event.dataTransfer.dropEffect = 'move';
+                                            setDragOverTarget(`loc-${location.id}`);
+                                        }}
+                                        onDragLeave={() => {
+                                            setDragOverTarget((prev) =>
+                                                prev === `loc-${location.id}` ? null : prev,
+                                            );
+                                        }}
+                                        onDrop={(event) => onDropOnLocation(event, location.id)}
+                                    >
+                                        <span className="storage-adjust-modal__location-label">
+                                            {location.label}
+                                        </span>
+                                        <span className="storage-adjust-modal__location-meta">
+                                            {(location.contents ?? []).length > 0
+                                                ? `${location.contents.length} lô · ${product?.productName ?? ''}`
+                                                : 'Kệ trống'}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            );
+        });
+
+    const renderTypeBlock = (typeKey, title, groups) => {
+        if (groups.length === 0) {
+            return null;
+        }
+        const open = expandedTypes.has(typeKey);
+        return (
+            <div className="storage-adjust-modal__type-node">
+                <button
+                    type="button"
+                    className="storage-adjust-modal__tree-toggle storage-adjust-modal__tree-toggle--type"
+                    onClick={() => toggleType(typeKey)}
+                >
+                    <ChevronDown
+                        size={16}
+                        className={
+                            open
+                                ? 'storage-adjust-modal__chevron storage-adjust-modal__chevron--open'
+                                : 'storage-adjust-modal__chevron'
+                        }
+                    />
+                    <span>{title}</span>
+                    <span className="storage-adjust-modal__tree-count">
+                        {groups.reduce((sum, g) => sum + g.locations.length, 0)} ô
+                    </span>
+                </button>
+                {open && (
+                    <div className="storage-adjust-modal__type-children">
+                        {renderZoneGroups(groups)}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    return (
+        <div className="storage-adjust-modal__location-list">
+            {renderTypeBlock('sales', 'Khu bán hàng', sales)}
+            {renderTypeBlock('warehouse', 'Khu kho', warehouse)}
+            {sales.length === 0 && warehouse.length === 0 && (
+                <div className="storage-adjust-modal__empty">Chưa có vị trí kệ.</div>
+            )}
+        </div>
+    );
+}
+
+export default function AdjustStorageLocationModal({
+    show,
+    onHide,
+    locations,
+    onSaved,
+    initialLocationId = null,
+}) {
     const [draftLocations, setDraftLocations] = useState([]);
     const [unplacedBatches, setUnplacedBatches] = useState([]);
     const [selectedLocationId, setSelectedLocationId] = useState(null);
@@ -33,8 +226,9 @@ export default function AdjustStorageLocationModal({ show, onHide, locations, on
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
+    const [sessionInitialLocationId, setSessionInitialLocationId] = useState(null);
 
-    const reloadData = async (preferLocations) => {
+    const reloadData = async (preferLocations, preferredId) => {
         const [nextLocations, nextUnplaced] = await Promise.all([
             preferLocations ? Promise.resolve(preferLocations) : fetchStorageLocations(),
             fetchUnplacedBatches(),
@@ -43,20 +237,22 @@ export default function AdjustStorageLocationModal({ show, onHide, locations, on
         setDraftLocations(cloned);
         setUnplacedBatches(nextUnplaced ?? []);
         setSelectedLocationId((prev) => {
-            if (prev && cloned.some((location) => location.id === prev)) {
-                return prev;
+            const preferred = preferredId ?? prev;
+            if (preferred && cloned.some((location) => location.id === preferred)) {
+                return preferred;
             }
-            return cloned[0]?.id ?? null;
+            return null;
         });
         return cloned;
     };
 
     useEffect(() => {
         if (!show) {
-            return;
+            return undefined;
         }
 
         let cancelled = false;
+        setSessionInitialLocationId(initialLocationId);
 
         const load = async () => {
             setIsLoading(true);
@@ -66,15 +262,18 @@ export default function AdjustStorageLocationModal({ show, onHide, locations, on
             setHasChanges(false);
 
             try {
-                const cloned = await reloadData(locations);
-                if (!cancelled) {
-                    setSelectedLocationId(cloned[0]?.id ?? null);
-                }
+                await reloadData(locations, initialLocationId);
             } catch (error) {
                 if (!cancelled) {
-                    setDraftLocations(cloneLocations(locations));
+                    const cloned = cloneLocations(locations);
+                    setDraftLocations(cloned);
                     setUnplacedBatches([]);
-                    setSelectedLocationId(locations?.[0]?.id ?? null);
+                    setSelectedLocationId(
+                        initialLocationId &&
+                            cloned.some((item) => item.id === initialLocationId)
+                            ? initialLocationId
+                            : null,
+                    );
                     setMessage({
                         type: 'error',
                         text: getApiErrorMessage(
@@ -95,7 +294,9 @@ export default function AdjustStorageLocationModal({ show, onHide, locations, on
         return () => {
             cancelled = true;
         };
-    }, [show, locations]);
+        // Chỉ reload khi mở modal
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [show]);
 
     const selectedLocation = useMemo(
         () => draftLocations.find((location) => location.id === selectedLocationId) ?? null,
@@ -148,7 +349,6 @@ export default function AdjustStorageLocationModal({ show, onHide, locations, on
     const handleDropOnLocation = async (event, locationId) => {
         event.preventDefault();
         setDragOverTarget(null);
-
         if (isSaving) {
             return;
         }
@@ -177,8 +377,7 @@ export default function AdjustStorageLocationModal({ show, onHide, locations, on
                     quantity: batch.quantity,
                 });
 
-                await reloadData();
-                setSelectedLocationId(locationId);
+                await reloadData(null, locationId);
                 setHasChanges(true);
                 setMessage({
                     type: 'success',
@@ -198,8 +397,7 @@ export default function AdjustStorageLocationModal({ show, onHide, locations, on
                     quantity: payload.quantity,
                 });
 
-                await reloadData();
-                setSelectedLocationId(locationId);
+                await reloadData(null, locationId);
                 setHasChanges(true);
                 setMessage({
                     type: 'success',
@@ -219,7 +417,6 @@ export default function AdjustStorageLocationModal({ show, onHide, locations, on
     const handleDropOnUnplaced = async (event) => {
         event.preventDefault();
         setDragOverTarget(null);
-
         if (isSaving) {
             return;
         }
@@ -235,7 +432,7 @@ export default function AdjustStorageLocationModal({ show, onHide, locations, on
                 batchLocationId: payload.batchId,
             });
 
-            await reloadData();
+            await reloadData(null, selectedLocationId);
             setHasChanges(true);
             setMessage({
                 type: 'success',
@@ -262,83 +459,35 @@ export default function AdjustStorageLocationModal({ show, onHide, locations, on
             dialogClassName="storage-adjust-modal"
             centered
         >
-            <Modal.Header className="storage-adjust-modal__header">
-                <div>
-                    <Modal.Title>Điều chỉnh vị trí lô hàng</Modal.Title>
-                    <p className="storage-adjust-modal__subtitle">
-                        Kéo thả lô chưa xếp từ cột phải vào ô kệ bên trái. Thay đổi được lưu ngay
-                        lên hệ thống.
-                    </p>
+            <Modal.Header className="storage-adjust-modal__header" closeButton>
+                <div className="storage-adjust-modal__header-main">
+                    <Modal.Title>Điều chỉnh vị trí hàng hóa</Modal.Title>
                 </div>
-                <button
-                    type="button"
-                    className="storage-adjust-modal__close"
-                    onClick={handleClose}
-                    aria-label="Đóng"
-                >
-                    <X size={18} />
-                </button>
             </Modal.Header>
 
             <Modal.Body className="storage-adjust-modal__body">
                 {isLoading ? (
-                    <div className="storage-adjust-modal__loading">Đang tải dữ liệu điều chỉnh...</div>
+                    <div className="storage-adjust-modal__loading">
+                        Đang tải dữ liệu điều chỉnh...
+                    </div>
                 ) : (
                     <>
                         <aside className="storage-adjust-modal__sidebar">
                             <h3 className="storage-adjust-modal__section-title">Vị trí kệ</h3>
-                            <p className="storage-adjust-modal__helper storage-adjust-modal__helper--tight">
-                                Thả lô vào kệ để xếp hàng. Click để xem nội dung kệ.
-                            </p>
-                            <div className="storage-adjust-modal__location-list">
-                                {draftLocations.map((location) => {
-                                    const product = getLocationProduct(location);
-                                    const isDropTarget = dragOverTarget === `loc-${location.id}`;
 
-                                    return (
-                                        <button
-                                            key={location.id}
-                                            type="button"
-                                            className={[
-                                                'storage-adjust-modal__location-item',
-                                                selectedLocationId === location.id
-                                                    ? 'storage-adjust-modal__location-item--active'
-                                                    : '',
-                                                isDropTarget
-                                                    ? 'storage-adjust-modal__location-item--drop'
-                                                    : '',
-                                            ]
-                                                .filter(Boolean)
-                                                .join(' ')}
-                                            disabled={isSaving}
-                                            onClick={() => {
-                                                setSelectedLocationId(location.id);
-                                                setMessage(null);
-                                            }}
-                                            onDragOver={(event) => {
-                                                event.preventDefault();
-                                                event.dataTransfer.dropEffect = 'move';
-                                                setDragOverTarget(`loc-${location.id}`);
-                                            }}
-                                            onDragLeave={() => {
-                                                setDragOverTarget((prev) =>
-                                                    prev === `loc-${location.id}` ? null : prev,
-                                                );
-                                            }}
-                                            onDrop={(event) => handleDropOnLocation(event, location.id)}
-                                        >
-                                            <span className="storage-adjust-modal__location-label">
-                                                {location.label}
-                                            </span>
-                                            <span className="storage-adjust-modal__location-meta">
-                                                {(location.contents ?? []).length > 0
-                                                    ? `${location.contents.length} lô · ${product?.productName ?? ''}`
-                                                    : 'Kệ trống — thả lô vào đây'}
-                                            </span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                            <LocationTree
+                                draftLocations={draftLocations}
+                                selectedLocationId={selectedLocationId}
+                                onSelectLocation={(id) => {
+                                    setSelectedLocationId(id);
+                                    setMessage(null);
+                                }}
+                                dragOverTarget={dragOverTarget}
+                                setDragOverTarget={setDragOverTarget}
+                                onDropOnLocation={handleDropOnLocation}
+                                isSaving={isSaving}
+                                initialExpandLocationId={sessionInitialLocationId}
+                            />
                         </aside>
 
                         <section
@@ -372,17 +521,18 @@ export default function AdjustStorageLocationModal({ show, onHide, locations, on
                             <h3 className="storage-adjust-modal__section-title">
                                 {selectedLocation?.label || 'Chọn vị trí'}
                             </h3>
-                            {selectedLocation && (
+                            {selectedLocation ? (
                                 <>
                                     <p className="storage-adjust-modal__location-desc">
-                                        Khu {selectedLocation.zone} · Hàng{' '}
-                                        {selectedLocation.aisle || '—'} · Kệ{' '}
-                                        {selectedLocation.shelf || '—'}
+                                        Khu {selectedLocation.zone}
+                                        {selectedLocation.zoneType === ZONE_TYPE.SALES
+                                            ? ' · Bán'
+                                            : ' · Kho'}{' '}
+                                        · Tầng {selectedLocation.shelf || '—'} · Ô{' '}
+                                        {selectedLocation.bin || '—'}
                                     </p>
                                     <div className="storage-adjust-modal__rule-box">
-                                        Mỗi kệ chỉ chứa 1 loại sản phẩm. Kéo lô từ cột phải thả vào
-                                        đây hoặc vào danh sách kệ. Kéo lô trên kệ trả về cột phải để
-                                        gỡ xếp.
+                                        Mỗi kệ chỉ chứa 1 loại sản phẩm. Khu bán: mỗi SP chỉ 1 lô.
                                     </div>
 
                                     {message && (
@@ -428,7 +578,9 @@ export default function AdjustStorageLocationModal({ show, onHide, locations, on
                                                         <span>
                                                             {item.quantity} {item.unit}
                                                         </span>
-                                                        <span>HSD {formatDate(item.expiryDate)}</span>
+                                                        <span>
+                                                            HSD {formatDate(item.expiryDate)}
+                                                        </span>
                                                     </div>
                                                 </div>
                                             ))
@@ -436,11 +588,14 @@ export default function AdjustStorageLocationModal({ show, onHide, locations, on
                                             <div className="storage-adjust-modal__empty storage-adjust-modal__empty--dropzone">
                                                 <Package size={28} />
                                                 <p>Kệ trống</p>
-                                                <span>Thả lô chưa xếp vào đây để gán vị trí</span>
                                             </div>
                                         )}
                                     </div>
                                 </>
+                            ) : (
+                                <div className="storage-adjust-modal__empty">
+                                    Chọn một ô từ cột trái để xem và xếp lô.
+                                </div>
                             )}
                         </section>
 
@@ -468,7 +623,7 @@ export default function AdjustStorageLocationModal({ show, onHide, locations, on
                         >
                             <h3 className="storage-adjust-modal__section-title">Lô chưa xếp kệ</h3>
                             <p className="storage-adjust-modal__helper storage-adjust-modal__helper--tight">
-                                Các lô đã nhập kho nhưng chưa có vị trí. Kéo thả vào kệ để xếp.
+                                Kéo thả vào ô kệ để xếp.
                             </p>
 
                             <div className="storage-adjust-modal__search">
@@ -534,17 +689,6 @@ export default function AdjustStorageLocationModal({ show, onHide, locations, on
                     </>
                 )}
             </Modal.Body>
-
-            <Modal.Footer className="storage-adjust-modal__footer">
-                <button
-                    type="button"
-                    className="inventory-btn inventory-btn--primary"
-                    onClick={handleClose}
-                    disabled={isSaving}
-                >
-                    Đóng
-                </button>
-            </Modal.Footer>
         </Modal>
     );
 }

@@ -7,25 +7,15 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
-import java.util.List;
-
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class StorageLocationResponse {
+public class StorageZoneResponse {
     Integer id;
-    String label;
-    String zone;
-    String zoneTitle;
-    String aisle;
-    String shelf;
-    String bin;
-    String size;
-    String description;
-    Boolean isFull;
-    /** SALES | WAREHOUSE */
+    String code;
+    String title;
     String zoneType;
-    List<StorageLocationContentResponse> contents;
+    Integer sortOrder;
 }

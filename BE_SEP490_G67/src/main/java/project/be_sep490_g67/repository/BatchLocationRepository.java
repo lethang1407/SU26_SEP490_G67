@@ -77,19 +77,23 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
     )
     List<BatchLocation> findAvailableByProductId(@Param("productId") Integer productId);
 
+    /**
+     * Các dòng batch_location active của SP trên các khu có zone_type = SALES.
+     */
     @Query("""
             SELECT bl FROM BatchLocation bl
             JOIN FETCH bl.batch sb
-            JOIN FETCH bl.location ls
+            JOIN FETCH bl.location loc
             WHERE sb.product.id = :productId
-              AND ls.id = :locationId
               AND bl.quantity > 0
               AND bl.isRemoved = false
               AND sb.isRemoved = false
-              AND ls.isRemoved = false
-            ORDER BY sb.expiryDate ASC, sb.receivedDate ASC
+              AND loc.isRemoved = false
+              AND UPPER(loc.zone) IN (
+                  SELECT UPPER(z.code) FROM StorageZone z
+                  WHERE (z.isRemoved = false OR z.isRemoved IS NULL)
+                    AND z.zoneType = 'SALES'
+              )
             """)
-    List<BatchLocation> findAvailableByProductIdAndLocationId(
-            @Param("productId") Integer productId,
-            @Param("locationId") Integer locationId);
+    List<BatchLocation> findActiveOnSalesZonesByProductId(@Param("productId") Integer productId);
 }

@@ -118,7 +118,6 @@ const POSScreen = () => {
             batch: batchId,
             qty: 1,
             price: defaultUnit?.sellingPrice ?? product.sellingPrice ?? 0,
-            primarySaleLocationLabel: product.primarySaleLocationLabel ?? null,
         };
         setCartItems((prev) => {
             const existing = prev.find((i) => i.id === newItem.id);
@@ -421,14 +420,7 @@ const POSScreen = () => {
                                                 </div>
                                             </td>
                                             <td className="font-bold">{item.code}</td>
-                                            <td>
-                                                <div>{item.name}</div>
-                                                {item.primarySaleLocationLabel ? (
-                                                    <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: 2 }}>
-                                                        Lấy tại: {item.primarySaleLocationLabel}
-                                                    </div>
-                                                ) : null}
-                                            </td>
+                                            <td>{item.name}</td>
                                             <td>
                                                 {(item.units ?? []).length > 1 ? (
                                                     <select

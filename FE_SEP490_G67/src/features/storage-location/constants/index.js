@@ -7,12 +7,14 @@ export const LOCATION_STATUS = {
     EMPTY: 'empty',
     OCCUPIED: 'occupied',
     NEAR_EXPIRY: 'near_expiry',
+    FULL: 'full',
 };
 
 export const LOCATION_STATUS_LABEL = {
     [LOCATION_STATUS.EMPTY]: 'Trống',
     [LOCATION_STATUS.OCCUPIED]: 'Có hàng',
     [LOCATION_STATUS.NEAR_EXPIRY]: 'Sắp hết hạn',
+    [LOCATION_STATUS.FULL]: 'Đầy',
 };
 
 export const LOCATION_STATUS_OPTIONS = [
@@ -20,6 +22,7 @@ export const LOCATION_STATUS_OPTIONS = [
     { value: LOCATION_STATUS.OCCUPIED, label: LOCATION_STATUS_LABEL[LOCATION_STATUS.OCCUPIED] },
     { value: LOCATION_STATUS.EMPTY, label: LOCATION_STATUS_LABEL[LOCATION_STATUS.EMPTY] },
     { value: LOCATION_STATUS.NEAR_EXPIRY, label: LOCATION_STATUS_LABEL[LOCATION_STATUS.NEAR_EXPIRY] },
+    { value: LOCATION_STATUS.FULL, label: LOCATION_STATUS_LABEL[LOCATION_STATUS.FULL] },
 ];
 
 export const VIEW_MODE = {
@@ -65,3 +68,23 @@ export const SHELF_CAPACITY = {
     [SHELF_SIZE.MD]: 200,
     [SHELF_SIZE.LG]: 500,
 };
+
+export const ZONE_TYPE = {
+    SALES: 'SALES',
+    WAREHOUSE: 'WAREHOUSE',
+};
+
+export const ZONE_TYPE_LABEL = {
+    [ZONE_TYPE.SALES]: 'Bán',
+    [ZONE_TYPE.WAREHOUSE]: 'Kho',
+};
+
+export const ZONE_TYPE_OPTIONS = [
+    { value: ZONE_TYPE.SALES, label: 'Khu bán hàng' },
+    { value: ZONE_TYPE.WAREHOUSE, label: 'Khu kho' },
+];
+
+export function normalizeZoneType(raw) {
+    const value = String(raw ?? '').trim().toUpperCase();
+    return value === ZONE_TYPE.SALES ? ZONE_TYPE.SALES : ZONE_TYPE.WAREHOUSE;
+}

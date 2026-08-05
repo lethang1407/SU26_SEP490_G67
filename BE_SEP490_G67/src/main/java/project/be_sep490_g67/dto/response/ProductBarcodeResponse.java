@@ -16,8 +16,6 @@ public class ProductBarcodeResponse {
     String name;
     String barcode;
     BigDecimal sellingPrice;
-    Integer primarySaleLocationId;
-    String primarySaleLocationLabel;
     List<ProductUnitInfo> productUnits;
     List<StockBatchInfo> stockBatches;
 

@@ -64,28 +64,15 @@ export default function StorageLocationCell({ location, isSelected, onSelect }) 
                 )}
             </div>
 
-            <div
-                className={[
-                    'storage-location-cell__fill',
-                    profile.isFull ? 'storage-location-cell__fill--full' : '',
-                    profile.isNearFull ? 'storage-location-cell__fill--near' : '',
-                ]
-                    .filter(Boolean)
-                    .join(' ')}
-                aria-hidden="true"
-            >
-                <span style={{ width: `${isEmpty ? 0 : Math.max(profile.fillPercent, 4)}%` }} />
-            </div>
-
             {status === LOCATION_STATUS.NEAR_EXPIRY && (
                 <span className="storage-location-cell__badge">
                     <AlertTriangle size={12} />
                     Sắp HSD
                 </span>
             )}
-            {location.isPrimarySale ? (
-                <span className="storage-location-cell__badge storage-location-cell__badge--sale">
-                    Ô bán
+            {location.isFull ? (
+                <span className="storage-location-cell__badge storage-location-cell__badge--full">
+                    Đầy
                 </span>
             ) : null}
         </button>

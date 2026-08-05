@@ -57,7 +57,6 @@ export function getLocationProduct(location) {
     }
     const first = contents[0];
     return {
-        productId: first.productId,
         productCode: first.productCode,
         productName: first.productName,
         unit: first.unit,
@@ -87,6 +86,9 @@ export function getLocationStatus(location) {
 
     if (isEmpty) {
         return LOCATION_STATUS.EMPTY;
+    }
+    if (location.isFull) {
+        return LOCATION_STATUS.FULL;
     }
     if (hasNearExpiry) {
         return LOCATION_STATUS.NEAR_EXPIRY;
@@ -382,13 +384,22 @@ export function groupLocationsByZone(locations) {
         if (!groups.has(location.zone)) {
             groups.set(location.zone, {
                 zone: location.zone,
+                zoneType: location.zoneType ?? 'WAREHOUSE',
+                zoneTitle: location.zoneTitle,
                 locations: [],
             });
         }
-        groups.get(location.zone).locations.push(location);
+        const group = groups.get(location.zone);
+        group.locations.push(location);
+        if (location.zoneType) {
+            group.zoneType = location.zoneType;
+        }
+        if (location.zoneTitle) {
+            group.zoneTitle = location.zoneTitle;
+        }
     });
 
-    return [...groups.values()].map((group) => {
+    const mapped = [...groups.values()].map((group) => {
         const sorted = group.locations.sort((a, b) => {
             const floorCmp = String(a.shelf ?? '').localeCompare(String(b.shelf ?? ''), undefined, {
                 numeric: true,
@@ -413,4 +424,26 @@ export function groupLocationsByZone(locations) {
             stats: buildZoneCapacityStats(sorted),
         };
     });
+
+    // Khu bán trước, khu kho sau; trong nhóm sort theo mã khu
+    return mapped.sort((a, b) => {
+        const typeA = a.zoneType === 'SALES' ? 0 : 1;
+        const typeB = b.zoneType === 'SALES' ? 0 : 1;
+        if (typeA !== typeB) return typeA - typeB;
+        return String(a.zone ?? '').localeCompare(String(b.zone ?? ''));
+    });
+}
+
+/** Nhóm zone groups thành 2 section: bán hàng / kho. */
+export function groupZoneGroupsByType(zoneGroups) {
+    const sales = [];
+    const warehouse = [];
+    (zoneGroups ?? []).forEach((group) => {
+        if (group.zoneType === 'SALES') {
+            sales.push(group);
+        } else {
+            warehouse.push(group);
+        }
+    });
+    return { sales, warehouse };
 }

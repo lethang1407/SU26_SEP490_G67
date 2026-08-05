@@ -19,7 +19,6 @@ public class StorageLocationContentResponse {
     Integer id;
     /** ID lô stock_batches */
     Integer batchId;
-    Integer productId;
     String productCode;
     String productName;
     String unit;

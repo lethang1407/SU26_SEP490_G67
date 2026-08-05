@@ -14,6 +14,7 @@ import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.request.AssignBatchRequest;
 import project.be_sep490_g67.dto.request.CreateStorageLocationRequest;
 import project.be_sep490_g67.dto.request.MoveBatchRequest;
+import project.be_sep490_g67.dto.request.SetLocationFullRequest;
 import project.be_sep490_g67.dto.request.UnassignBatchRequest;
 import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.StorageLocationResponse;
@@ -89,12 +90,15 @@ public class StorageLocationController {
                 .build();
     }
 
-    @PostMapping("/{locationId}/primary-sale")
-    public ApiResponse<StorageLocationResponse> setAsPrimarySale(
-            @PathVariable("locationId") Integer locationId) {
+    @PostMapping("/{locationId}/full")
+    public ApiResponse<StorageLocationResponse> setLocationFull(
+            @PathVariable("locationId") Integer locationId,
+            @Valid @RequestBody SetLocationFullRequest request) {
         return ApiResponse.<StorageLocationResponse>builder()
-                .result(storageLocationService.setAsPrimarySale(locationId))
-                .message("Đã đặt làm ô bán của sản phẩm")
+                .result(storageLocationService.setLocationFull(locationId, request.getIsFull()))
+                .message(Boolean.TRUE.equals(request.getIsFull())
+                        ? "Đã đánh dấu ô đầy"
+                        : "Đã bỏ đánh dấu ô đầy")
                 .build();
     }
 }
