@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { categoriesApi } from '../../category/api';
 import { PRODUCT_CATEGORIES } from '../constants';
 
 const INITIAL_FORM = {
@@ -22,10 +23,28 @@ function createAttributeRow() {
     };
 }
 
-export default function ProductCreateForm({ formId, onSubmit }) {
+export default function ProductCreateForm({ formId, isSubmitting = false, onSubmit }) {
     const [form, setForm] = useState(INITIAL_FORM);
     const [attributes, setAttributes] = useState([createAttributeRow()]);
     const [errors, setErrors] = useState({});
+    const [categories, setCategories] = useState(PRODUCT_CATEGORIES);
+
+    useEffect(() => {
+        let isCancelled = false;
+
+        categoriesApi
+            .getAllCategories()
+            .then((items) => {
+                if (!isCancelled && items.length > 0) {
+                    setCategories(items.map((item) => item.name));
+                }
+            })
+            .catch(() => {});
+
+        return () => {
+            isCancelled = true;
+        };
+    }, []);
 
     const handleChange = (event) => {
         const { name, value, type, checked } = event.target;
@@ -109,6 +128,7 @@ export default function ProductCreateForm({ formId, onSubmit }) {
                                 placeholder="Nhập tên sản phẩm"
                                 value={form.name}
                                 onChange={handleChange}
+                                disabled={isSubmitting}
                             />
                             {errors.name && (
                                 <span className="product-create-field__error">{errors.name}</span>
@@ -161,7 +181,7 @@ export default function ProductCreateForm({ formId, onSubmit }) {
                                     onChange={handleChange}
                                 >
                                     <option value="">Chọn danh mục</option>
-                                    {PRODUCT_CATEGORIES.map((category) => (
+                                    {categories.map((category) => (
                                         <option key={category} value={category}>
                                             {category}
                                         </option>
@@ -260,17 +280,6 @@ export default function ProductCreateForm({ formId, onSubmit }) {
                                 </div>
                             ))}
                         </div>
-                    </section>
-
-                    <section className="product-create-card">
-                        <h2 className="product-create-card__title">Hình ảnh sản phẩm</h2>
-                        <label className="product-create-upload">
-                            <input type="file" className="product-create-upload__input" accept="image/jpeg,image/png" multiple />
-                            <span className="product-create-upload__title">
-                                Kéo thả ảnh vào đây hoặc nhấp để tải lên
-                            </span>
-                            <span className="product-create-upload__hint">Hỗ trợ JPG, PNG (Tối đa 5MB)</span>
-                        </label>
                     </section>
                 </div>
 

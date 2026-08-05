@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { categoriesApi } from '../../category/api';
 import { PRODUCT_CATEGORIES } from '../constants';
 
 function createConversionUnit(baseUnitName) {
@@ -12,11 +13,15 @@ function createConversionUnit(baseUnitName) {
 }
 
 function mapProductToForm(product) {
+    const brand = product.brand;
+    const normalizedBrand = brand && brand !== '—' ? brand : '';
+
     return {
         name: product.name ?? '',
         code: product.code ?? '',
         barcode: product.barcode ?? '',
         category: product.category ?? '',
+        brand: normalizedBrand,
         description: product.description ?? '',
         importPrice: String(product.importPrice ?? ''),
         sellPrice: String(product.sellPrice ?? ''),
@@ -30,13 +35,35 @@ function mapProductToForm(product) {
             ratio: String(unit.ratio ?? ''),
             sellPrice: String(unit.sellPrice ?? ''),
         })),
-        images: product.images ?? [],
     };
 }
 
-export default function ProductEditForm({ formId, product, onSubmit }) {
+export default function ProductEditForm({ formId, product, isSubmitting = false, onSubmit }) {
     const [form, setForm] = useState(() => mapProductToForm(product));
     const [errors, setErrors] = useState({});
+    const [categories, setCategories] = useState(PRODUCT_CATEGORIES);
+
+    useEffect(() => {
+        setForm(mapProductToForm(product));
+        setErrors({});
+    }, [product]);
+
+    useEffect(() => {
+        let isCancelled = false;
+
+        categoriesApi
+            .getAllCategories()
+            .then((items) => {
+                if (!isCancelled && items.length > 0) {
+                    setCategories(items.map((item) => item.name));
+                }
+            })
+            .catch(() => {});
+
+        return () => {
+            isCancelled = true;
+        };
+    }, []);
 
     const profitMargin = useMemo(() => {
         const sell = Number(form.sellPrice);
@@ -129,6 +156,7 @@ export default function ProductEditForm({ formId, product, onSubmit }) {
 
     return (
         <form id={formId} className="product-edit-form" onSubmit={handleSubmit} noValidate>
+            <fieldset disabled={isSubmitting} className="product-edit-form__fieldset">
             <div className="product-create-layout">
                 <div className="product-create-main">
                     <section className="product-create-card">
@@ -182,29 +210,45 @@ export default function ProductEditForm({ formId, product, onSubmit }) {
                             </div>
                         </div>
 
-                        <div className="product-create-field product-create-field--full">
-                            <label className="product-create-field__label" htmlFor="edit-category">
-                                Danh mục <span className="product-create-field__required">*</span>
-                            </label>
-                            <select
-                                id="edit-category"
-                                name="category"
-                                className={`product-create-field__select${
-                                    errors.category ? ' product-create-field__input--error' : ''
-                                }`}
-                                value={form.category}
-                                onChange={handleChange}
-                            >
-                                <option value="">Chọn danh mục</option>
-                                {PRODUCT_CATEGORIES.map((category) => (
-                                    <option key={category} value={category}>
-                                        {category}
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.category && (
-                                <span className="product-create-field__error">{errors.category}</span>
-                            )}
+                        <div className="product-create-fields product-create-fields--two-col">
+                            <div className="product-create-field">
+                                <label className="product-create-field__label" htmlFor="edit-category">
+                                    Danh mục <span className="product-create-field__required">*</span>
+                                </label>
+                                <select
+                                    id="edit-category"
+                                    name="category"
+                                    className={`product-create-field__select${
+                                        errors.category ? ' product-create-field__input--error' : ''
+                                    }`}
+                                    value={form.category}
+                                    onChange={handleChange}
+                                >
+                                    <option value="">Chọn danh mục</option>
+                                    {categories.map((category) => (
+                                        <option key={category} value={category}>
+                                            {category}
+                                        </option>
+                                    ))}
+                                </select>
+                                {errors.category && (
+                                    <span className="product-create-field__error">{errors.category}</span>
+                                )}
+                            </div>
+                            <div className="product-create-field">
+                                <label className="product-create-field__label" htmlFor="edit-brand">
+                                    Thương hiệu
+                                </label>
+                                <input
+                                    id="edit-brand"
+                                    name="brand"
+                                    type="text"
+                                    className="product-create-field__input"
+                                    placeholder="Nhập thương hiệu"
+                                    value={form.brand}
+                                    onChange={handleChange}
+                                />
+                            </div>
                         </div>
 
                         <div className="product-edit-units">
@@ -334,36 +378,6 @@ export default function ProductEditForm({ formId, product, onSubmit }) {
                             />
                         </div>
                     </section>
-
-                    <section className="product-create-card">
-                        <h2 className="product-create-card__title">Hình ảnh sản phẩm</h2>
-                        <p className="product-edit-images__hint">
-                            Tải lên ảnh sản phẩm chất lượng cao. Hỗ trợ JPG, PNG (Tối đa 5MB).
-                        </p>
-                        <div className="product-edit-images">
-                            {form.images.map((image) => (
-                                <div
-                                    key={image.id}
-                                    className={`product-edit-image-item${
-                                        image.isMain ? ' product-edit-image-item--main' : ''
-                                    }`}
-                                >
-                                    <div className="product-edit-image-item__preview" />
-                                    {image.isMain && (
-                                        <span className="product-edit-image-item__badge">Ảnh chính</span>
-                                    )}
-                                </div>
-                            ))}
-                            <label className="product-edit-image-add">
-                                <input
-                                    type="file"
-                                    className="product-create-upload__input"
-                                    accept="image/jpeg,image/png"
-                                />
-                                <span className="product-edit-image-add__text">Thêm ảnh</span>
-                            </label>
-                        </div>
-                    </section>
                 </div>
 
                 <aside className="product-create-sidebar">
@@ -445,6 +459,7 @@ export default function ProductEditForm({ formId, product, onSubmit }) {
                     </section>
                 </aside>
             </div>
+            </fieldset>
         </form>
     );
 }

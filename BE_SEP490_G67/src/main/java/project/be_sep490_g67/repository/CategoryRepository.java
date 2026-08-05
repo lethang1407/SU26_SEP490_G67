@@ -8,6 +8,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import project.be_sep490_g67.entity.Category;
 
+import java.util.Optional;
+
 @Repository
 public interface CategoryRepository extends JpaRepository<Category, Integer> {
     @Query("""
@@ -26,4 +28,11 @@ public interface CategoryRepository extends JpaRepository<Category, Integer> {
             Pageable pageable);
 
     boolean existsByNameIgnoreCaseAndIdNot(String name, Integer id);
+
+    @Query("""
+            SELECT c FROM Category c
+            WHERE c.isRemoved = false
+            AND LOWER(c.name) = LOWER(:name)
+            """)
+    Optional<Category> findActiveByNameIgnoreCase(@Param("name") String name);
 }

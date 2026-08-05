@@ -13,7 +13,7 @@ const problems = [
         icon: AlertTriangle,
         name: 'Sữa chua Vinamilk',
         desc: 'Hết hạn 2 ngày trước (10 lốc)',
-        cta: 'Điều chỉnh tồn kho',
+        cta: 'Kiểm kho',
     },
     {
         id: 2,
