@@ -21,13 +21,20 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    width: 50%;
+    flex: 1;
+    min-width: 0;
 }
 
 .search-wrapper {
     position: relative;
     width: 100%;
     max-width: 400px;
+}
+
+.pos-header-left:has(.pos-header-tabs) .search-wrapper,
+.pos-header-left:has(.pos-header-center) .search-wrapper {
+    flex: 0 0 320px;
+    width: 320px;
 }
 
 .search-icon {
@@ -52,6 +59,30 @@
     align-items: center;
     gap: 8px;
     height: 100%;
+    min-width: 0;
+}
+
+.pos-header-center .tab-active {
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+}
+
+.pos-header-tabs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 100%;
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.pos-header-tabs::-webkit-scrollbar {
+    display: none;
 }
 
 .tab-active {
@@ -66,6 +97,7 @@
     margin-top: 8px;
     cursor: pointer;
     border: none;
+
 }
 
 .tab-inactive {
@@ -85,6 +117,12 @@
 
 .tab-inactive:hover {
     background-color: rgba(255, 255, 255, 0.28);
+}
+
+.tab-active,
+.tab-inactive {
+    flex: 0 0 auto;
+    white-space: nowrap;
 }
 
 .tab-close {
@@ -108,6 +146,12 @@
     border: none;
     color: white;
     cursor: pointer;
+    flex: 0 0 auto;
+}
+
+.btn-add-tab:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 .pos-header-right {
@@ -342,6 +386,12 @@
 
 .text-blue-large {
     color: #2563eb;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.text-black-large {
+    color: rgba(0, 0, 0, 0.677);
     font-size: 24px;
     font-weight: bold;
 }
@@ -606,6 +656,105 @@
     padding: 12px 20px;
     border-bottom: 1px solid #f3f4f6;
     font-size: 14px;
+}
+
+/*  Product Info Modal — nút "i" trên dòng giỏ hàng  */
+.cart-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-product-info {
+    display: inline-flex;
+    align-items: center;
+    background: none;
+    border: none;
+    padding: 2px;
+    cursor: pointer;
+    color: #9ca3af;
+    flex-shrink: 0;
+}
+
+.btn-product-info:hover {
+    color: #2563eb;
+}
+
+.product-info-modal {
+    width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.product-info-body {
+    padding-bottom: 8px;
+}
+
+.product-info-grid {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 10px 16px;
+    margin: 0;
+    padding: 16px 20px;
+    font-size: 14px;
+}
+
+.product-info-grid dt {
+    color: #6b7280;
+}
+
+.product-info-grid dd {
+    margin: 0;
+    color: #111827;
+}
+
+.product-info-price {
+    font-weight: 700;
+    color: #2563eb;
+}
+
+.product-info-stock-low {
+    font-weight: 700;
+    color: #dc2626;
+}
+
+.product-info-stock-warning {
+    margin-left: 8px;
+    font-size: 12px;
+    color: #b45309;
+}
+
+.product-info-section-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    text-transform: uppercase;
+    background-color: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.product-info-modal .batch-modal-table td {
+    padding: 10px 20px;
+    border-bottom: 1px solid #f3f4f6;
+    font-size: 14px;
+}
+
+.product-info-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 16px 20px;
+    padding: 12px;
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    color: #ef4444;
+    font-size: 13px;
 }
 
 /*  Receipt Modal  */
@@ -983,6 +1132,80 @@
     border-color: #2563eb;
     background-color: #eff6ff;
     color: #1d4ed8;
+}
+
+/*  Tiền khách đưa / hình thức thanh toán / tiền thừa  */
+.cash-given-input {
+    width: 150px;
+    text-align: right;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 20px;
+    font-weight: bold;
+    color: rgba(0, 0, 0, 0.677);
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.cash-given-input:focus {
+    border-color: #2563eb;
+}
+
+/* Placeholder ở đây là số khách phải trả, không phải gợi ý — phải đọc được */
+.cash-given-input::placeholder {
+    color: #9ca3af;
+    font-weight: bold;
+}
+
+.payment-method-select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background-color: #fff;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    outline: none;
+}
+
+.payment-method-select:focus {
+    border-color: #2563eb;
+}
+
+.change-due-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.change-due-row.is-zero {
+    background-color: #f9fafb;
+    border-color: #e5e7eb;
+    color: #1e1f20;
+}
+
+.change-due-amount {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.cash-short-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    color: #070707bd;
+    font-weight: 600;
 }
 
 .spin-icon {

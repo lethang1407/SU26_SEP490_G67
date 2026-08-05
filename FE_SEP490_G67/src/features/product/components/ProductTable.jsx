@@ -45,7 +45,7 @@ export default function ProductTable({
                                     aria-label="Chọn tất cả sản phẩm"
                                 />
                             </th>
-                            <th>Mã SP</th>
+                            <th>Mã SKU</th>
                             <th>Tên sản phẩm</th>
                             <th>Danh mục</th>
                             <th>Giá nhập</th>
@@ -62,9 +62,8 @@ export default function ProductTable({
                             return (
                                 <tr
                                     key={product.id}
-                                    className={`product-table__row${
-                                        isSelected ? ' product-table__row--selected' : ''
-                                    }`}
+                                    className={`product-table__row${isSelected ? ' product-table__row--selected' : ''
+                                        }`}
                                     onClick={() => handleRowClick(product.id)}
                                 >
                                     <td className="product-table__col-check" onClick={(event) => event.stopPropagation()}>
@@ -93,19 +92,17 @@ export default function ProductTable({
                                         {formatCurrency(product.sellPrice)}
                                     </td>
                                     <td
-                                        className={`product-table__stock${
-                                            isOutOfStock ? ' product-table__stock--empty' : ''
-                                        }`}
+                                        className={`product-table__stock${isOutOfStock ? ' product-table__stock--empty' : ''
+                                            }`}
                                     >
                                         {product.stock}
                                     </td>
                                     <td>
                                         <span
-                                            className={`product-table__status${
-                                                isOutOfStock
+                                            className={`product-table__status${isOutOfStock
                                                     ? ' product-table__status--out-of-stock'
                                                     : ' product-table__status--in-stock'
-                                            }`}
+                                                }`}
                                         >
                                             {getProductStatusLabel(product.stock)}
                                         </span>

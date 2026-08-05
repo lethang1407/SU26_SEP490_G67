@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import project.be_sep490_g67.entity.ReturnOrder;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -14,6 +15,6 @@ public interface ReturnOrderRepository extends JpaRepository<ReturnOrder, Intege
     @Query("SELECT r FROM ReturnOrder r WHERE r.id = :id AND r.isRemoved = false")
     Optional<ReturnOrder> findActiveById(@Param("id") Integer id);
 
-    @Query("SELECT r FROM ReturnOrder r WHERE r.salesOrder.id = :salesOrderId AND r.isRemoved = false")
-    Optional<ReturnOrder> findBySalesOrderId(@Param("salesOrderId") Integer salesOrderId);
+    @Query("SELECT r FROM ReturnOrder r WHERE r.salesOrder.id = :salesOrderId AND r.isRemoved = false ORDER BY r.createdAt ASC")
+    List<ReturnOrder> findAllBySalesOrderId(@Param("salesOrderId") Integer salesOrderId);
 }

@@ -11,9 +11,6 @@ import java.util.Optional;
 
 @Repository
 public interface ImportOrderRepository extends JpaRepository<ImportOrder, Integer> {
-
-    // Lấy các đơn nhập còn hiệu lực của NCC còn hoạt động — dùng để tính nợ NCC
-    // (nợ = totalCost - tổng đã trả, tính ở Service, không cache trên entity)
     @Query("""
             SELECT io FROM ImportOrder io
             WHERE io.isRemoved = false
@@ -21,9 +18,6 @@ public interface ImportOrderRepository extends JpaRepository<ImportOrder, Intege
             """)
     List<ImportOrder> findAllActiveWithActiveSupplier();
 
-    // Lịch sử nhập hàng của 1 NCC, lọc theo mã đơn (search) — chưa phân trang ở SQL
-    // vì trạng thái Đang nợ/Hoàn thành là derive (không có cột), phải tính + lọc ở Service.
-    // Với quy mô 1 cửa hàng nhỏ (tối đa vài trăm đơn/NCC) cách này vẫn đủ nhanh.
     @Query("""
             SELECT io FROM ImportOrder io
             WHERE io.supplier.id = :supplierId
@@ -34,7 +28,6 @@ public interface ImportOrderRepository extends JpaRepository<ImportOrder, Intege
             """)
     List<ImportOrder> searchBySupplier(@Param("supplierId") Integer supplierId, @Param("search") String search);
 
-    // Lấy 1 đơn nhập kèm chi tiết mặt hàng (JOIN FETCH) cho modal xem chi tiết, tránh N+1
     @Query("""
             SELECT DISTINCT io FROM ImportOrder io
             LEFT JOIN FETCH io.importOrderDetails iod

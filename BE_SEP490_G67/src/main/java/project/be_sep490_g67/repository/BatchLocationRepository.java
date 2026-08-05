@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 import project.be_sep490_g67.entity.BatchLocation;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface BatchLocationRepository extends JpaRepository<BatchLocation, Integer> {
@@ -24,4 +25,13 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
                     """
     )
     List<BatchLocation> findAvailableByProductId(@Param("productId") Integer productId);
+
+    @Query("""
+            SELECT bl FROM BatchLocation bl
+            WHERE bl.batch.id = :batchId
+              AND bl.isRemoved = false
+            ORDER BY bl.quantity DESC, bl.id ASC
+            LIMIT 1
+            """)
+    Optional<BatchLocation> findFirstByBatchId(@Param("batchId") Integer batchId);
 }

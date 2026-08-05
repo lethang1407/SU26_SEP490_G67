@@ -27,13 +27,35 @@ public class ReturnOrderDetail extends BaseEntity {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sales_order_detail_id")
+    private SalesOrderDetail salesOrderDetail;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @OnDelete(action = OnDeleteAction.SET_NULL)
+    @JoinColumn(name = "product_unit_id")
+    private ProductUnit productUnit;
+
     @Column(name = "quantity")
     private Integer quantity;
+
+    @Column(name = "unit_name", length = 50)
+    private String unitName;
 
     @Column(name = "unit_price", precision = 15, scale = 2)
     private BigDecimal unitPrice;
 
     @Column(name = "line_refund", precision = 15, scale = 2)
     private BigDecimal lineRefund;
+
+    @Column(name = "resolution_type", length = 20, nullable = false)
+    private String resolutionType;
+
+    @Column(name = "item_condition", length = 20, nullable = false)
+    private String itemCondition;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "paired_out_detail_id", unique = true)
+    private SalesOrderDetail pairedOutDetail;
 
 }

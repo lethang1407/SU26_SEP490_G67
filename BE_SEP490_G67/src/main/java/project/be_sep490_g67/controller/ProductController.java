@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.ProductBarcodeResponse;
+import project.be_sep490_g67.dto.response.ProductPosInfoResponse;
 import project.be_sep490_g67.dto.response.ProductSearchResponse;
 import project.be_sep490_g67.service.ProductService;
 
@@ -28,6 +29,16 @@ public class ProductController {
         ProductBarcodeResponse result = productService.getProductByBarcode(barcode);
         return ApiResponse.<ProductBarcodeResponse>builder()
                 .result(result)
+                .build();
+    }
+
+    /**
+     * GET /api/products/{productId}/pos-info
+     */
+    @GetMapping("/{productId}/pos-info")
+    ApiResponse<ProductPosInfoResponse> getPosInfo(@PathVariable Integer productId) {
+        return ApiResponse.<ProductPosInfoResponse>builder()
+                .result(productService.getPosInfo(productId))
                 .build();
     }
 

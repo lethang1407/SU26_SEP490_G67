@@ -21,7 +21,7 @@ export default function ProductToolbar({
                 <input
                     type="text"
                     className="product-toolbar__search-input"
-                    placeholder="Tên sản phẩm, mã SP, mã vạch..."
+                    placeholder="Tên sản phẩm, mã SKU, mã vạch..."
                     value={keyword}
                     onChange={(event) => onKeywordChange(event.target.value)}
                 />

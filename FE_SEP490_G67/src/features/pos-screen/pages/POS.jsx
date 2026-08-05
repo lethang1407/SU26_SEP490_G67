@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
     Search, X,
     RefreshCcw,
@@ -13,6 +13,7 @@ import {
     AlertCircle,
     Loader,
     CheckCircle,
+    Info,
 } from "lucide-react";
 import "../../../css/POS.css";
 import { isValidQtyInput, isValidQtyValue, isQtyInvalid, parseQty } from '../utils/validation';
@@ -24,7 +25,22 @@ import BatchSelectModal from '../components/BatchSelectModal';
 import ProductSearchDropdown from '../components/ProductSearchDropdown';
 import CustomerSearchDropdown from '../components/CustomerSearchDropdown';
 import SalesOrderHistoryModal from '../components/SalesOrderHistoryModal';
+import ProductInfoModal from '../components/ProductInfoModal';
+import ExchangeOrder from '../components/ExchangeOrder';
+import { saveActiveCart, loadActiveCart } from '../utils/cartStorage';
 import { createQuickCustomer } from '../api';
+
+const MAX_TABS = 10;
+
+// Hằng số dùng chung cho tab không có giỏ
+const EMPTY_CART = [];
+const EMPTY_QTY_INPUTS = {};
+
+const PAYMENT_METHODS = [
+    { value: 'cash', label: 'Tiền mặt' },
+    { value: 'transfer', label: 'Chuyển khoản' },
+    { value: 'debt', label: 'Bán nợ' },
+];
 
 let _tabCounter = 1;
 function nextTabId() { return ++_tabCounter; }
@@ -32,21 +48,43 @@ function nextTabId() { return ++_tabCounter; }
 function createTab(id = 1) {
     return {
         id,
-        label: `Hóa đơn ${id}`,
+        type: 'SALE',
         cartItems: [],
         qtyInputs: {},
     };
 }
 
+function createReturnTab(id, orderId) {
+    return { id, type: 'RETURN', orderId: String(orderId) };
+}
+
 const POSScreen = () => {
     const navigate = useNavigate();
-    const [tabs, setTabs] = useState([createTab(1)]);
-    const [activeTabId, setActiveTabId] = useState(1);
+    const [searchParams] = useSearchParams();
+    const [tabs, setTabs] = useState(() => {
+        const saved = loadActiveCart();
+        const saleTab = saved ? { ...createTab(1), ...saved } : createTab(1);
+        const returnOrderId = searchParams.get('return');
+        return returnOrderId
+            ? [saleTab, createReturnTab(nextTabId(), returnOrderId)]
+            : [saleTab];
+    });
+    const [activeTabId, setActiveTabId] = useState(() => tabs[tabs.length - 1].id);
 
     const activeTab = tabs.find(t => t.id === activeTabId) ?? tabs[0];
+    const isReturnTab = activeTab.type === 'RETURN';
 
-    const cartItems = activeTab.cartItems;
-    const qtyInputs = activeTab.qtyInputs;
+    const tabLabels = useMemo(() => {
+        let sale = 0;
+        let ret = 0;
+        return Object.fromEntries(tabs.map(t => [
+            t.id,
+            t.type === 'RETURN' ? `Trả hàng ${++ret}` : `Hóa đơn ${++sale}`,
+        ]));
+    }, [tabs]);
+
+    const cartItems = useMemo(() => activeTab.cartItems ?? EMPTY_CART, [activeTab.cartItems]);
+    const qtyInputs = useMemo(() => activeTab.qtyInputs ?? EMPTY_QTY_INPUTS, [activeTab.qtyInputs]);
 
     const setCartItems = useCallback((updater) => {
         setTabs(prev => prev.map(t =>
@@ -64,18 +102,41 @@ const POSScreen = () => {
         ));
     }, [activeTabId]);
 
-    // Add new tab
+    // Add new tab (tối đa MAX_TABS hóa đơn)
     const handleAddTab = useCallback(() => {
+        if (tabs.length >= MAX_TABS) return;
         const id = nextTabId();
         setTabs(prev => [...prev, createTab(id)]);
         setActiveTabId(id);
+    }, [tabs.length]);
+
+    const handleOpenReturnTab = useCallback((orderId) => {
+        const key = String(orderId);
+        const existing = tabs.find(t => t.type === 'RETURN' && t.orderId === key);
+        if (existing) {
+            setActiveTabId(existing.id);
+            return;
+        }
+        if (tabs.length >= MAX_TABS) return;
+        const id = nextTabId();
+        setTabs(prev => [...prev, createReturnTab(id, key)]);
+        setActiveTabId(id);
+    }, [tabs]);
+
+    const returnDirtyRef = useRef({});
+    const handleReturnDirtyChange = useCallback((tabId, dirty) => {
+        returnDirtyRef.current[tabId] = dirty;
     }, []);
 
-    // Close tab
-    const handleCloseTab = useCallback((tabId, e) => {
-        e.stopPropagation();
+    const closeTab = useCallback((tabId) => {
+        delete returnDirtyRef.current[tabId];
         setTabs(prev => {
-            if (prev.length === 1) return prev;
+            if (prev.length === 1) {
+                if (prev[0].type !== 'RETURN') return prev;
+                const fresh = createTab(nextTabId());
+                setActiveTabId(fresh.id);
+                return [fresh];
+            }
             const next = prev.filter(t => t.id !== tabId);
             if (activeTabId === tabId) {
                 setActiveTabId(next[next.length - 1].id);
@@ -84,21 +145,27 @@ const POSScreen = () => {
         });
     }, [activeTabId]);
 
-    //  History modal 
-    const [historyOpen, setHistoryOpen] = useState(false);
+    const handleCloseTab = useCallback((tabId, e) => {
+        e.stopPropagation();
+        if (returnDirtyRef.current[tabId]
+            && !window.confirm('Đóng thông tin của đơn sẽ không lưu lại. Bạn có chắc muốn đóng không?')) {
+            return;
+        }
+        closeTab(tabId);
+    }, [closeTab]);
 
-    //  Other state 
+    const [historyOpen, setHistoryOpen] = useState(false);
     const [searchInput, setSearchInput] = useState('');
     const [pendingProduct, setPendingProduct] = useState(null);
+    const [infoProductId, setInfoProductId] = useState(null);
     const [paymentMethod, setPaymentMethod] = useState('cash');
+    const [cashGivenInput, setCashGivenInput] = useState('');
 
-    //  Quick-add form state 
     const [showQuickAdd, setShowQuickAdd] = useState(false);
     const [quickAddName, setQuickAddName] = useState('');
     const [quickAddLoading, setQuickAddLoading] = useState(false);
     const [quickAddError, setQuickAddError] = useState(null);
 
-    //  Discount state 
     const [discountEditing, setDiscountEditing] = useState(false);
     const discountInputRef = useRef(null);
 
@@ -168,9 +235,8 @@ const POSScreen = () => {
         clearResults();
     }, [onProductFound, clearResults]);
 
-    // Barcode scanner hook
     const { scanning, error: scanError, clearError: clearScanError } =
-        useBarcodeScanner({ onProductFound });
+        useBarcodeScanner({ onProductFound, enabled: !isReturnTab });
 
     // Checkout hook
     const {
@@ -185,7 +251,6 @@ const POSScreen = () => {
         resetCheckout,
     } = useCheckout();
 
-    // Customer phone search hook
     const { results: customerResults, loading: customerSearchLoading, error: customerSearchError, clearResults: clearCustomerResults } =
         useCustomerSearch(customer ? '' : phone);
 
@@ -267,11 +332,20 @@ const POSScreen = () => {
         setQtyInputs((prev) => { const n = { ...prev }; delete n[id]; return n; });
     };
 
-    // Derived values
     const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
     const totalItems = cartItems.reduce((sum, item) => sum + item.qty, 0);
     const safeDiscount = Math.min(discount, subtotal);
     const amountDue = subtotal - safeDiscount;
+
+    const cashGiven = cashGivenInput.trim() === ''
+        ? amountDue
+        : (parseFloat(cashGivenInput) || 0);
+    const changeDue = cashGiven - amountDue;
+
+    useEffect(() => {
+        if (isReturnTab) return;
+        saveActiveCart(cartItems, qtyInputs);
+    }, [cartItems, qtyInputs, isReturnTab]);
 
     const handleNewOrder = () => {
         setCartItems([]);
@@ -286,6 +360,7 @@ const POSScreen = () => {
         setQuickAddName('');
         setQuickAddError(null);
         setDiscountEditing(false);
+        setCashGivenInput('');
     };
 
     // Discount editing
@@ -296,64 +371,77 @@ const POSScreen = () => {
         }
     };
 
-    // Render 
     return (
         <div className="pos-container">
             <header className="pos-header">
                 <div className="pos-header-left">
-                    <div className="search-wrapper">
-                        <Search className="search-icon" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Tìm kiếm hàng hóa..."
-                            className="search-input"
-                            value={searchInput}
-                            onChange={(e) => setSearchInput(e.target.value)}
-                            disabled={scanning}
-                            autoFocus
-                        />
-                        {showDropdown && (
-                            <ProductSearchDropdown
-                                results={searchResults}
-                                loading={searchLoading}
-                                error={searchError}
-                                onSelect={handleSearchSelect}
-                                onClose={() => {
-                                    setSearchInput('');
-                                    clearResults();
-                                }}
+                    {/* Tab trả hàng có ô tìm hàng đổi riêng bên trong */}
+                    {!isReturnTab && (
+                        <div className="search-wrapper">
+                            <Search className="search-icon" size={18} />
+                            <input
+                                type="text"
+                                placeholder="Tìm kiếm hàng hóa..."
+                                className="search-input"
+                                value={searchInput}
+                                onChange={(e) => setSearchInput(e.target.value)}
+                                disabled={scanning}
+                                autoFocus
                             />
-                        )}
+                            {showDropdown && (
+                                <ProductSearchDropdown
+                                    results={searchResults}
+                                    loading={searchLoading}
+                                    error={searchError}
+                                    onSelect={handleSearchSelect}
+                                    onClose={() => {
+                                        setSearchInput('');
+                                        clearResults();
+                                    }}
+                                />
+                            )}
+                        </div>
+                    )}
+
+                    {/* ── Order Tabs ── */}
+                    <div className="pos-header-tabs">
+                        {tabs.map((tab) => (
+                            <button
+                                key={tab.id}
+                                className={tab.id === activeTabId ? 'tab-active' : 'tab-inactive'}
+                                onClick={() => setActiveTabId(tab.id)}
+                            >
+                                {tabLabels[tab.id]}
+                                {tabs.length > 1 && (
+                                    <span
+                                        className="tab-close"
+                                        onClick={(e) => handleCloseTab(tab.id, e)}
+                                        title="Đóng hóa đơn này"
+                                    >
+                                        <X size={14} strokeWidth={2.5} />
+                                    </span>
+                                )}
+                            </button>
+                        ))}
+                        <button
+                            className="btn-add-tab"
+                            onClick={handleAddTab}
+                            disabled={tabs.length >= MAX_TABS}
+                            title={tabs.length >= MAX_TABS
+                                ? `Chỉ được mở tối đa ${MAX_TABS} hóa đơn`
+                                : 'Tạo hóa đơn mới'}
+                        >
+                            <Plus size={24} strokeWidth={3} />
+                        </button>
                     </div>
                 </div>
 
-                {/* ── Order Tabs ── */}
-                <div className="pos-header-center">
-                    {tabs.map(tab => (
-                        <button
-                            key={tab.id}
-                            className={tab.id === activeTabId ? 'tab-active' : 'tab-inactive'}
-                            onClick={() => setActiveTabId(tab.id)}
-                        >
-                            {tab.label}
-                            <span
-                                className="tab-close"
-                                onClick={(e) => handleCloseTab(tab.id, e)}
-                                title="Đóng hóa đơn này"
-                            >
-                                <X size={14} strokeWidth={2.5} />
-                            </span>
-                        </button>
-                    ))}
-                    <button className="btn-add-tab" onClick={handleAddTab} title="Tạo hóa đơn mới">
-                        <Plus size={24} strokeWidth={3} />
-                    </button>
-                </div>
-
                 <div className="pos-header-right">
-                    <button className="icon-btn" onClick={handleNewOrder} title="Làm mới đơn hiện tại">
-                        <RefreshCcw size={20} />
-                    </button>
+                    {!isReturnTab && (
+                        <button className="icon-btn" onClick={handleNewOrder} title="Làm mới đơn hiện tại">
+                            <RefreshCcw size={20} />
+                        </button>
+                    )}
                     <button
                         className="icon-btn"
                         onClick={() => setHistoryOpen(true)}
@@ -380,7 +468,7 @@ const POSScreen = () => {
                 </div>
             )}
 
-            <div className="pos-main">
+            <div className="pos-main" style={isReturnTab ? { display: 'none' } : undefined}>
 
                 {/* LEFT COLUMN - CART */}
                 <div className="pos-cart-section">
@@ -389,7 +477,7 @@ const POSScreen = () => {
                             <thead>
                                 <tr>
                                     <th className="col-stt">STT</th>
-                                    <th>MÃ HÀNG</th>
+                                    <th>MÃ SKU</th>
                                     <th>TÊN HÀNG</th>
                                     <th>ĐVT</th>
                                     <th className="text-center">SỐ LƯỢNG</th>
@@ -420,7 +508,18 @@ const POSScreen = () => {
                                                 </div>
                                             </td>
                                             <td className="font-bold">{item.code}</td>
-                                            <td>{item.name}</td>
+                                            <td>
+                                                <div className="cart-name-cell">
+                                                    <span>{item.name}</span>
+                                                    <button
+                                                        className="btn-product-info"
+                                                        title="Xem thông tin sản phẩm"
+                                                        onClick={() => setInfoProductId(item.productId)}
+                                                    >
+                                                        <Info size={16} />
+                                                    </button>
+                                                </div>
+                                            </td>
                                             <td>
                                                 {(item.units ?? []).length > 1 ? (
                                                     <select
@@ -624,9 +723,24 @@ const POSScreen = () => {
                         </div>
 
                         <div className="summary-row" style={{ marginTop: '16px' }}>
-                            <span className="font-bold">KHÁCH CẦN TRẢ</span>
+                            <span className="font-bold">KHÁCH PHẢI TRẢ</span>
                             <span className="text-blue-large">{amountDue.toLocaleString()}</span>
                         </div>
+
+                        {paymentMethod === 'cash' && (
+                            <div className="summary-row">
+                                <span className="font-bold">TIỀN KHÁCH ĐƯA</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    step={1000}
+                                    className="cash-given-input"
+                                    value={cashGivenInput}
+                                    placeholder={amountDue.toLocaleString('vi-VN')}
+                                    onChange={(e) => setCashGivenInput(e.target.value)}
+                                />
+                            </div>
+                        )}
 
                         {/* Payment Methods */}
                         <div>
@@ -651,6 +765,23 @@ const POSScreen = () => {
                                 ))}
                             </div>
 
+                            {paymentMethod === 'cash' && (
+                                <div className={`change-due-row${changeDue > 0 ? '' : ' is-zero'}`}>
+                                    <span>Tiền thừa trả khách</span>
+                                    <span className="change-due-amount">
+                                        {Math.max(0, changeDue).toLocaleString('vi-VN')}
+                                    </span>
+                                </div>
+                            )}
+
+                            {paymentMethod === 'cash' && changeDue < 0 && (
+                                <div className="cash-short-row">
+                                    <span>Khách đưa còn thiếu</span>
+                                    <span className="change-due-amount">
+                                        {Math.abs(changeDue).toLocaleString('vi-VN')}
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Checkout error */}
@@ -680,6 +811,29 @@ const POSScreen = () => {
                 </div>
             </div>
 
+            {/* PRODUCT INFO MODAL */}
+            {infoProductId && (
+                <ProductInfoModal
+                    productId={infoProductId}
+                    onClose={() => setInfoProductId(null)}
+                />
+            )}
+
+            {/* RETURN TABS */}
+            {tabs.filter(t => t.type === 'RETURN').map(tab => (
+                <div
+                    key={tab.id}
+                    className={`pos-return-pane${tab.id === activeTabId ? ' is-active' : ''}`}
+                >
+                    <ExchangeOrder
+                        embedded
+                        orderId={tab.orderId}
+                        onDone={() => closeTab(tab.id)}
+                        onDirtyChange={(dirty) => handleReturnDirtyChange(tab.id, dirty)}
+                    />
+                </div>
+            ))}
+
             {/* BATCH SELECT MODAL */}
             {pendingProduct && (
                 <BatchSelectModal
@@ -696,11 +850,13 @@ const POSScreen = () => {
             {historyOpen && (
                 <SalesOrderHistoryModal
                     onClose={() => setHistoryOpen(false)}
-                    onViewInvoice={(orderId) => {
+                    onExchange={(orderId) => {
                         setHistoryOpen(false);
+                        handleOpenReturnTab(orderId);
                     }}
                 />
             )}
+
         </div>
     );
 };

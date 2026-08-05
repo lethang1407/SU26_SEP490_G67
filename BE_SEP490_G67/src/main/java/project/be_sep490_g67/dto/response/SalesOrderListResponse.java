@@ -29,6 +29,7 @@ public class SalesOrderListResponse {
         String  orderCode;
         Instant createdAt;
         String  customerName;    // null → "Khách lẻ"
+        String  customerPhone;   // null → "Khách lẻ"
         BigDecimal totalAmount;
         String  orderStatus;
         String  paymentMethod;

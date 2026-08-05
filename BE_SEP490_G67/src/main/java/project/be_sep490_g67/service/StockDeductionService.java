@@ -21,7 +21,7 @@ public class StockDeductionService {
     private final StockMovementRepository stockMovementRepository;
 
     @Transactional
-    public void deductStock(Integer productId, Integer quantityNeed, Integer orderId, Integer userId) {
+    public Integer deductStock(Integer productId, Integer quantityNeed, Integer orderId, Integer userId) {
         // Query FEFO
         List<BatchLocation> availableList = batchLocationRepository.findAvailableByProductId(productId);
 
@@ -35,8 +35,12 @@ public class StockDeductionService {
             );
         }
         int remaining = quantityNeed;
+        Integer firstBatchId = null;
         for (BatchLocation bl : availableList) {
             if (remaining <= 0) break;
+            if (firstBatchId == null) {
+                firstBatchId = bl.getBatch().getId();
+            }
             int deduct = Math.min(bl.getQuantity(), remaining);
             int stockAfter = bl.getQuantity() - deduct;
 
@@ -61,5 +65,7 @@ public class StockDeductionService {
             log.info("Trừ kho: product = {}, batch = {}, location = {}, deduct={}, stockAfter={}, order={}", productId, bl.getBatch().getId(), bl.getLocation().getLabel(), deduct, stockAfter, orderId);
             remaining -= deduct;
         }
+
+        return firstBatchId;
     }
 }
