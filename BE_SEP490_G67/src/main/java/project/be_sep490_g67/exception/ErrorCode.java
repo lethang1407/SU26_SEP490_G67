@@ -65,7 +65,6 @@ public enum ErrorCode {
 
     INSUFFICIENT_STOCK(1029, "Không đủ tồn kho", HttpStatus.BAD_REQUEST),
     SUPPLIER_HAS_DEBT(1030, "Không thể xóa nhà cung cấp đang còn công nợ. Vui lòng thanh toán hết trước khi xóa.", HttpStatus.BAD_REQUEST),
-    PRODUCT_NOT_FOUND(1031, "Không tìm thấy sản phẩm", HttpStatus.NOT_FOUND),
     INVALID_IMPORT_ORDER_STATUS(1032, "Trạng thái phiếu nhập không hợp lệ", HttpStatus.BAD_REQUEST),
     INVALID_IMPORT_DISCOUNT(1033, "Giảm giá không hợp lệ", HttpStatus.BAD_REQUEST),
     INVALID_IMPORT_PAID_AMOUNT(1034, "Số tiền trả NCC không hợp lệ", HttpStatus.BAD_REQUEST),

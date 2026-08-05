@@ -18,7 +18,6 @@ import CreateImportOrderPage from '../../features/import-order/pages/CreateImpor
 import ImportOrderDetailPage from '../../features/import-order/pages/ImportOrderDetailPage';
 import ImportReturnPage from '../../features/import-return/pages/ImportReturnPage';
 import ImportOrderListPage from '../../features/import-order/pages/ImportOrderListPage';
-import CreateImportOrderPage from '../../features/import-order/pages/CreateImportOrderPage';
 import POSScreen from '../../features/pos-screen/pages/POS';
 import CustomerDebtPage from '../../features/customer/pages/CustomerDebtPage';
 import CustomerDetailPage from '../../features/customer/pages/CustomerDetailPage';
@@ -93,10 +92,6 @@ const adminRoutes = [
         element: <ImportOrderListPage />,
     },
     {
-        path: '/admin/warehouse/import/create',
-        element: <CreateImportOrderPage />,
-    },
-    {
         path: '/admin/warehouse/import/:orderId',
         element: <ImportOrderDetailPage />,
     },
@@ -123,8 +118,7 @@ const adminRoutes = [
     {
         path: '/admin/customer',
         element: <CustomerDebtPage />,
-    }
+    },
 ];
 
 export default adminRoutes;
-

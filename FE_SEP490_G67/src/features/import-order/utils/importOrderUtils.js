@@ -44,19 +44,6 @@ export function formatDateTime(value) {
     });
 }
 
-export function formatDate(value) {
-    if (!value) {
-        return '—';
-    }
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-        return value;
-    }
-
-    return date.toLocaleDateString('vi-VN');
-}
-
 export function computeLineTotal(line) {
     const quantity = Number(line.quantity) || 0;
     const costPerUnit = Number(line.costPerUnit) || 0;
