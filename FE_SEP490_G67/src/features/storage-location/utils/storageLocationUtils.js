@@ -4,6 +4,7 @@ import {
     SHELF_CAPACITY,
     SHELF_SIZE,
     SHELF_SIZE_LABEL,
+    normalizeShelfSize,
 } from '../constants';
 
 export function formatCurrency(value) {
@@ -41,24 +42,12 @@ export function isNearExpiry(expiryDate, referenceDate = new Date()) {
     return diffDays >= 0 && diffDays <= NEAR_EXPIRY_DAYS;
 }
 
-export function buildLocationLabel({ zone, aisle, shelf, bin }) {
-    if (!zone?.trim()) {
+/** Mã vị trí: A-T1-O3 */
+export function buildLocationLabel({ zone, shelf, bin }) {
+    if (!zone?.trim() || !shelf?.trim() || !bin?.trim()) {
         return '';
     }
-
-    const parts = [zone.trim().toUpperCase()];
-
-    if (aisle?.trim()) {
-        parts.push(aisle.trim().padStart(2, '0'));
-    }
-    if (shelf?.trim()) {
-        parts.push(shelf.trim().padStart(2, '0'));
-    }
-    if (bin?.trim()) {
-        parts.push(bin.trim().padStart(2, '0'));
-    }
-
-    return parts.join('-');
+    return `${zone.trim().toUpperCase()}-T${String(shelf).trim()}-O${String(bin).trim()}`;
 }
 
 export function getLocationProduct(location) {
@@ -98,6 +87,9 @@ export function getLocationStatus(location) {
     if (isEmpty) {
         return LOCATION_STATUS.EMPTY;
     }
+    if (location.isFull) {
+        return LOCATION_STATUS.FULL;
+    }
     if (hasNearExpiry) {
         return LOCATION_STATUS.NEAR_EXPIRY;
     }
@@ -106,11 +98,8 @@ export function getLocationStatus(location) {
 
 export function formatLocationAddress(location) {
     const parts = [`Khu ${location.zone}`];
-    if (location.aisle) {
-        parts.push(`Hàng ${location.aisle}`);
-    }
     if (location.shelf) {
-        parts.push(`Kệ ${location.shelf}`);
+        parts.push(`Tầng ${location.shelf}`);
     }
     if (location.bin) {
         parts.push(`Ô ${location.bin}`);
@@ -148,24 +137,32 @@ export function getZoneOptions(locations) {
     return [
         { value: 'all', label: 'Tất cả khu' },
         ...zones.map((zone) => ({
-                value: zone,
-                label: `Khu ${zone}`,
-            })),
+            value: zone,
+            label: `Khu ${zone}`,
+        })),
     ];
 }
 
-export function getAisleOptions(locations, zoneFilter) {
+export function getFloorOptions(locations, zoneFilter) {
     const filtered =
         zoneFilter === 'all' ? locations : locations.filter((item) => item.zone === zoneFilter);
-    const aisles = [...new Set(filtered.map((item) => item.aisle).filter(Boolean))].sort();
+    const floors = [...new Set(filtered.map((item) => item.shelf).filter(Boolean))].sort((a, b) =>
+        String(a).localeCompare(String(b), undefined, { numeric: true }),
+    );
     return [
-        { value: 'all', label: 'Tất cả hàng' },
-        ...aisles.map((aisle) => ({ value: aisle, label: `Hàng ${aisle}` })),
+        { value: 'all', label: 'Tất cả tầng' },
+        ...floors.map((floor) => ({ value: floor, label: `Tầng ${floor}` })),
     ];
+}
+
+/** @deprecated dùng getFloorOptions */
+export function getAisleOptions(locations, zoneFilter) {
+    return getFloorOptions(locations, zoneFilter);
 }
 
 export function filterStorageLocations(locations, filters) {
     const keyword = filters.keyword?.trim().toLowerCase() ?? '';
+    const floorFilter = filters.floorFilter ?? filters.aisleFilter ?? 'all';
 
     return locations.filter((location) => {
         const status = getLocationStatus(location);
@@ -173,7 +170,7 @@ export function filterStorageLocations(locations, filters) {
         if (filters.zoneFilter !== 'all' && location.zone !== filters.zoneFilter) {
             return false;
         }
-        if (filters.aisleFilter !== 'all' && location.aisle !== filters.aisleFilter) {
+        if (floorFilter !== 'all' && String(location.shelf ?? '') !== String(floorFilter)) {
             return false;
         }
         if (filters.statusFilter !== 'all' && status !== filters.statusFilter) {
@@ -184,6 +181,8 @@ export function filterStorageLocations(locations, filters) {
                 location.label,
                 location.zone,
                 location.zoneTitle,
+                location.shelf,
+                location.bin,
                 location.description,
                 ...(location.contents ?? []).flatMap((item) => [
                     item.productName,
@@ -202,54 +201,12 @@ export function filterStorageLocations(locations, filters) {
     });
 }
 
-/**
- * Ước lượng kích thước / sức chứa ô kệ khi BE chưa có field riêng.
- * Ưu tiên: mô tả chứa từ khóa → tầng kệ (thấp = lớn) → mặc định vừa.
- */
+/** Kích thước ô từ BE (`size`: SM|MD|LG). Fallback MD nếu thiếu. */
 export function getShelfProfile(location) {
-    const description = (location.description ?? '').toLowerCase();
-    let size = SHELF_SIZE.MD;
-
-    if (
-        /\b(ô lớn|o lon|pallet|lớn|lon)\b/i.test(description) ||
-        description.includes('large') ||
-        description.includes('lg')
-    ) {
-        size = SHELF_SIZE.LG;
-    } else if (
-        /\b(ô nhỏ|o nho|nhỏ|nho)\b/i.test(description) ||
-        description.includes('small') ||
-        description.includes('sm')
-    ) {
-        size = SHELF_SIZE.SM;
-    } else {
-        const shelfNum = Number.parseInt(String(location.shelf ?? '').replace(/\D/g, ''), 10);
-        if (Number.isFinite(shelfNum)) {
-            if (shelfNum <= 1) {
-                size = SHELF_SIZE.LG;
-            } else if (shelfNum === 2) {
-                size = SHELF_SIZE.MD;
-            } else {
-                size = SHELF_SIZE.SM;
-            }
-        } else {
-            const binNum = Number.parseInt(String(location.bin ?? '').replace(/\D/g, ''), 10);
-            if (Number.isFinite(binNum)) {
-                if (binNum % 5 === 1) {
-                    size = SHELF_SIZE.LG;
-                } else if (binNum % 2 === 0) {
-                    size = SHELF_SIZE.MD;
-                } else {
-                    size = SHELF_SIZE.SM;
-                }
-            }
-        }
-    }
-
+    const size = normalizeShelfSize(location.size);
     const capacity = SHELF_CAPACITY[size];
     const { totalQty, isEmpty } = getLocationMetrics(location);
-    const usedQty = Math.min(totalQty, capacity);
-    const fillRatio = capacity > 0 ? usedQty / capacity : 0;
+    const fillRatio = capacity > 0 ? Math.min(totalQty, capacity) / capacity : 0;
     const remainingQty = Math.max(capacity - totalQty, 0);
 
     return {
@@ -319,46 +276,47 @@ export function buildZoneCapacityStats(locations) {
     };
 }
 
-export function groupLocationsByAisle(locations) {
-    const aisles = new Map();
+export function groupLocationsByFloor(locations) {
+    const floors = new Map();
 
     locations.forEach((location) => {
-        const key = location.aisle?.trim() || '_none';
-        if (!aisles.has(key)) {
-            aisles.set(key, {
-                aisle: key === '_none' ? null : key,
+        const key = location.shelf?.trim() || '_none';
+        if (!floors.has(key)) {
+            floors.set(key, {
+                floor: key === '_none' ? null : key,
                 locations: [],
             });
         }
-        aisles.get(key).locations.push(location);
+        floors.get(key).locations.push(location);
     });
 
-    return [...aisles.values()]
+    return [...floors.values()]
         .map((group) => ({
             ...group,
             locations: group.locations.sort((a, b) => {
-                const shelfA = String(a.shelf ?? '');
-                const shelfB = String(b.shelf ?? '');
                 const binA = String(a.bin ?? '');
                 const binB = String(b.bin ?? '');
                 return (
-                    shelfA.localeCompare(shelfB, undefined, { numeric: true }) ||
                     binA.localeCompare(binB, undefined, { numeric: true }) ||
                     a.label.localeCompare(b.label)
                 );
             }),
         }))
         .sort((a, b) => {
-            if (!a.aisle) return 1;
-            if (!b.aisle) return -1;
-            return String(a.aisle).localeCompare(String(b.aisle), undefined, { numeric: true });
+            if (!a.floor) return 1;
+            if (!b.floor) return -1;
+            return String(a.floor).localeCompare(String(b.floor), undefined, { numeric: true });
         });
 }
 
-/**
- * Rút gọn tên SP hiển thị nhanh: bỏ dung tích/khối lượng, lấy cụm loại hàng.
- * VD: "Nước mắm Nam Ngư 500ml" → "Nước mắm"
- */
+/** @deprecated dùng groupLocationsByFloor */
+export function groupLocationsByAisle(locations) {
+    return groupLocationsByFloor(locations).map((group) => ({
+        aisle: group.floor,
+        locations: group.locations,
+    }));
+}
+
 export function shortenProductName(productName) {
     if (!productName?.trim()) {
         return '';
@@ -381,9 +339,10 @@ export function shortenProductName(productName) {
     }
 
     const firstTwo = words.slice(0, 2).join(' ').toLowerCase();
-    const keepThree = /^(nước giải|sữa tươi|sữa chua|dầu ăn|bánh mì|trứng gà|nước ngọt|nước lọc|nước suối|gia vị)$/i.test(
-        firstTwo,
-    );
+    const keepThree =
+        /^(nước giải|sữa tươi|sữa chua|dầu ăn|bánh mì|trứng gà|nước ngọt|nước lọc|nước suối|gia vị)$/i.test(
+            firstTwo,
+        );
 
     return words.slice(0, keepThree ? 3 : 2).join(' ');
 }
@@ -425,20 +384,66 @@ export function groupLocationsByZone(locations) {
         if (!groups.has(location.zone)) {
             groups.set(location.zone, {
                 zone: location.zone,
+                zoneType: location.zoneType ?? 'WAREHOUSE',
+                zoneTitle: location.zoneTitle,
                 locations: [],
             });
         }
-        groups.get(location.zone).locations.push(location);
+        const group = groups.get(location.zone);
+        group.locations.push(location);
+        if (location.zoneType) {
+            group.zoneType = location.zoneType;
+        }
+        if (location.zoneTitle) {
+            group.zoneTitle = location.zoneTitle;
+        }
     });
 
-    return [...groups.values()].map((group) => {
-        const sorted = group.locations.sort((a, b) => a.label.localeCompare(b.label));
+    const mapped = [...groups.values()].map((group) => {
+        const sorted = group.locations.sort((a, b) => {
+            const floorCmp = String(a.shelf ?? '').localeCompare(String(b.shelf ?? ''), undefined, {
+                numeric: true,
+            });
+            if (floorCmp !== 0) return floorCmp;
+            const binCmp = String(a.bin ?? '').localeCompare(String(b.bin ?? ''), undefined, {
+                numeric: true,
+            });
+            if (binCmp !== 0) return binCmp;
+            return a.label.localeCompare(b.label);
+        });
+        const floors = groupLocationsByFloor(sorted);
         return {
             ...group,
             locations: sorted,
             productPreview: getZoneProductPreview(sorted, 3),
-            aisles: groupLocationsByAisle(sorted),
+            floors,
+            aisles: floors.map((g) => ({
+                aisle: g.floor,
+                locations: g.locations,
+            })),
             stats: buildZoneCapacityStats(sorted),
         };
     });
+
+    // Khu bán trước, khu kho sau; trong nhóm sort theo mã khu
+    return mapped.sort((a, b) => {
+        const typeA = a.zoneType === 'SALES' ? 0 : 1;
+        const typeB = b.zoneType === 'SALES' ? 0 : 1;
+        if (typeA !== typeB) return typeA - typeB;
+        return String(a.zone ?? '').localeCompare(String(b.zone ?? ''));
+    });
+}
+
+/** Nhóm zone groups thành 2 section: bán hàng / kho. */
+export function groupZoneGroupsByType(zoneGroups) {
+    const sales = [];
+    const warehouse = [];
+    (zoneGroups ?? []).forEach((group) => {
+        if (group.zoneType === 'SALES') {
+            sales.push(group);
+        } else {
+            warehouse.push(group);
+        }
+    });
+    return { sales, warehouse };
 }

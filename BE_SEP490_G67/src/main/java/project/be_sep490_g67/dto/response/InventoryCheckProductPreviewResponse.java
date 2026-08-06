@@ -14,14 +14,11 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class InventoryCheckLineResponse {
-    Integer id;
+public class InventoryCheckProductPreviewResponse {
     Integer productId;
     String productCode;
     String productName;
     String unit;
     Integer systemQty;
-    Integer actualQty;
     BigDecimal importPrice;
-    String note;
 }

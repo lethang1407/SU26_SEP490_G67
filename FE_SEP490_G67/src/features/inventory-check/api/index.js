@@ -27,15 +27,14 @@ export async function fetchInventoryCheckById(id) {
     return response.result;
 }
 
-export async function fetchAvailableCheckLines(location = 'all') {
-    const response = await api.get('/inventory-checks/available-lines', {
-        params: { location },
-    });
-    return response.result ?? [];
+export async function fetchInventoryCheckProductPreview(productId) {
+    const response = await api.get(`/inventory-checks/product-preview/${productId}`);
+    return response.result;
 }
 
-export async function fetchCheckLocationOptions() {
-    const response = await api.get('/inventory-checks/location-options');
+/** Tìm SP theo tên / barcode — dùng chung endpoint POS. */
+export async function searchProductsForCheck(query) {
+    const response = await api.get('/products/search', { params: { q: query } });
     return response.result ?? [];
 }
 

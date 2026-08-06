@@ -31,10 +31,10 @@ public class InventoryCheckDetail extends BaseEntity {
     private InventoryCheck inventoryCheck;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "batch_location_id", nullable = false)
-    private BatchLocation batchLocation;
+    @JoinColumn(name = "product_id", nullable = false)
+    private Product product;
 
-    /** Tồn hệ thống tại thời điểm kiểm (snapshot) */
+    /** Tồn hệ thống tại thời điểm kiểm (snapshot theo sản phẩm) */
     @Column(name = "system_qty", nullable = false)
     private Integer systemQty;
 

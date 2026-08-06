@@ -16,6 +16,12 @@ import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.mapper.ProductMapper;
 import project.be_sep490_g67.repository.*;
+import project.be_sep490_g67.dto.response.ProductBarcodeResponse;
+import project.be_sep490_g67.dto.response.ProductSearchResponse;
+import project.be_sep490_g67.entity.Product;
+import project.be_sep490_g67.entity.StockBatch;
+import project.be_sep490_g67.repository.ProductRepository;
+import project.be_sep490_g67.util.StockBatchUtils;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -170,7 +176,7 @@ public class ProductService {
         List<ProductBarcodeResponse.StockBatchInfo> batchInfos = batches.stream()
                 .map(b -> ProductBarcodeResponse.StockBatchInfo.builder()
                         .id(b.getId())
-                        .batchCode("BATCH-" + b.getId())
+                        .batchCode(StockBatchUtils.resolveBatchCode(b))
                         .quantity(b.getQuantityIn())
                         .expiryDate(b.getExpiryDate() != null ? b.getExpiryDate().toString()
                                 : null)

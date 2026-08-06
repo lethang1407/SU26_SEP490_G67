@@ -5,7 +5,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import project.be_sep490_g67.constants.StorageLocationConstants;
 import project.be_sep490_g67.constants.StorageZoneConstants;
+import project.be_sep490_g67.constants.StorageZoneType;
 import project.be_sep490_g67.dto.request.AssignBatchRequest;
 import project.be_sep490_g67.dto.request.CreateStorageLocationRequest;
 import project.be_sep490_g67.dto.request.MoveBatchRequest;
@@ -18,12 +20,14 @@ import project.be_sep490_g67.entity.Product;
 import project.be_sep490_g67.entity.ProductUnit;
 import project.be_sep490_g67.entity.StockBatch;
 import project.be_sep490_g67.entity.StorageLocation;
+import project.be_sep490_g67.entity.StorageZone;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.BatchLocationRepository;
 import project.be_sep490_g67.repository.ProductUnitRepository;
 import project.be_sep490_g67.repository.StockBatchRepository;
 import project.be_sep490_g67.repository.StorageLocationRepository;
+import project.be_sep490_g67.util.StockBatchUtils;
 
 import java.util.Comparator;
 import java.util.List;
@@ -38,6 +42,7 @@ public class StorageLocationService {
     BatchLocationRepository batchLocationRepository;
     StockBatchRepository stockBatchRepository;
     ProductUnitRepository productUnitRepository;
+    StorageZoneService storageZoneService;
 
     @Transactional(readOnly = true)
     public List<StorageLocationResponse> getAllLocations() {
@@ -62,23 +67,55 @@ public class StorageLocationService {
 
     @Transactional
     public StorageLocationResponse createLocation(CreateStorageLocationRequest request) {
-        String label = request.getLabel().trim();
+        String zone = request.getZone().trim().toUpperCase();
+        String shelf = request.getShelf().trim();
+        String bin = request.getBin().trim();
+        String size = StorageLocationConstants.normalizeSize(request.getSize());
+
+        if (!StorageLocationConstants.isValidSize(size)) {
+            throw new AppException(ErrorCode.INVALID_STORAGE_LOCATION_SIZE);
+        }
+
+        if (storageLocationRepository.existsByStorageZone_CodeIgnoreCaseAndShelfAndBinAndIsRemovedFalse(
+                zone, shelf, bin)) {
+            throw new AppException(ErrorCode.STORAGE_LOCATION_SLOT_EXISTED);
+        }
+
+        String label = request.getLabel() == null || request.getLabel().isBlank()
+                ? StorageLocationConstants.buildLabel(zone, shelf, bin)
+                : request.getLabel().trim();
 
         if (storageLocationRepository.existsByLabelIgnoreCaseAndIsRemovedFalse(label)) {
             throw new AppException(ErrorCode.STORAGE_LOCATION_LABEL_EXISTED);
         }
 
+        StorageZone zoneEntity = storageZoneService.ensureZoneExists(zone);
+
         StorageLocation location = new StorageLocation();
-        location.setZone(request.getZone().trim().toUpperCase());
+        location.setStorageZone(zoneEntity);
         location.setLabel(label);
-        location.setAisle(trimToNull(request.getAisle()));
-        location.setShelf(trimToNull(request.getShelf()));
-        location.setBin(trimToNull(request.getBin()));
+        location.setAisle(null);
+        location.setShelf(shelf);
+        location.setBin(bin);
+        location.setSize(size);
         location.setDescription(trimToNull(request.getDescription()));
+        location.setIsFull(false);
         location.setIsActive(true);
         location.setIsRemoved(false);
 
         return toResponse(storageLocationRepository.save(location));
+    }
+
+    @Transactional
+    public StorageLocationResponse setLocationFull(Integer locationId, boolean isFull) {
+        StorageLocation location = storageLocationRepository.findActiveWithContentsById(locationId)
+                .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
+        if (isFull && !hasActiveStock(location)) {
+            throw new AppException(ErrorCode.STORAGE_LOCATION_EMPTY_CANNOT_MARK_FULL);
+        }
+        location.setIsFull(isFull);
+        storageLocationRepository.save(location);
+        return toResponse(location);
     }
 
     @Transactional
@@ -88,6 +125,8 @@ public class StorageLocationService {
 
         StorageLocation location = storageLocationRepository.findActiveWithContentsById(request.getLocationId())
                 .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
+
+        assertNotFull(location);
 
         int remaining = getUnplacedQuantity(batch);
         if (remaining <= 0) {
@@ -100,6 +139,8 @@ public class StorageLocationService {
         }
 
         assertCanPlaceProduct(location, batch.getProduct().getId());
+        assertSalesZoneBatchRule(batch, location, null, false);
+
         upsertBatchLocation(batch, location, quantity);
 
         StorageLocation refreshed = storageLocationRepository.findActiveWithContentsById(location.getId())
@@ -119,6 +160,8 @@ public class StorageLocationService {
         StorageLocation destination = storageLocationRepository.findActiveWithContentsById(request.getToLocationId())
                 .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
 
+        assertNotFull(destination);
+
         int available = source.getQuantity() != null ? source.getQuantity() : 0;
         int quantity = request.getQuantity() != null ? request.getQuantity() : available;
         if (quantity < 1 || quantity > available) {
@@ -127,6 +170,9 @@ public class StorageLocationService {
 
         StockBatch batch = source.getBatch();
         assertCanPlaceProduct(destination, batch.getProduct().getId());
+
+        boolean fullRelocate = quantity >= available;
+        assertSalesZoneBatchRule(batch, destination, source.getLocation().getId(), fullRelocate);
 
         int remainingOnSource = available - quantity;
         if (remainingOnSource <= 0) {
@@ -174,6 +220,62 @@ public class StorageLocationService {
         batchLocationRepository.save(created);
     }
 
+    private void assertNotFull(StorageLocation location) {
+        if (Boolean.TRUE.equals(location.getIsFull())) {
+            throw new AppException(ErrorCode.STORAGE_LOCATION_FULL);
+        }
+    }
+
+    private boolean hasActiveStock(StorageLocation location) {
+        if (location.getBatchLocations() == null) {
+            return false;
+        }
+        return location.getBatchLocations().stream()
+                .anyMatch(batchLocation ->
+                        !Boolean.TRUE.equals(batchLocation.getIsRemoved())
+                                && batchLocation.getQuantity() != null
+                                && batchLocation.getQuantity() > 0);
+    }
+
+    /**
+     * Khu bán: mỗi SP tối đa 1 StockBatch trên toàn bộ khu bán.
+     * Cùng lô chỉ được nằm trên 1 ô bán; chuyển hết sang ô bán khác thì được.
+     */
+    private void assertSalesZoneBatchRule(
+            StockBatch batch,
+            StorageLocation destination,
+            Integer sourceLocationId,
+            boolean fullRelocateFromSource) {
+        if (!storageZoneService.isSalesZone(destination.getStorageZone())) {
+            return;
+        }
+
+        Integer productId = batch.getProduct().getId();
+        Integer batchId = batch.getId();
+        List<BatchLocation> salesLines =
+                batchLocationRepository.findActiveOnSalesZonesByProductId(productId);
+
+        for (BatchLocation existing : salesLines) {
+            Integer existingBatchId = existing.getBatch().getId();
+            Integer existingLocationId = existing.getLocation().getId();
+
+            if (Objects.equals(existingLocationId, destination.getId())
+                    && Objects.equals(existingBatchId, batchId)) {
+                continue;
+            }
+
+            if (!Objects.equals(existingBatchId, batchId)) {
+                throw new AppException(ErrorCode.SALES_ZONE_PRODUCT_BATCH_EXISTS);
+            }
+
+            // Cùng batch đang ở ô bán khác
+            if (Objects.equals(existingLocationId, sourceLocationId) && fullRelocateFromSource) {
+                continue;
+            }
+            throw new AppException(ErrorCode.SALES_ZONE_BATCH_SPLIT);
+        }
+    }
+
     private void assertCanPlaceProduct(StorageLocation location, Integer productId) {
         Integer occupiedProductId = location.getBatchLocations().stream()
                 .filter(bl -> !Boolean.TRUE.equals(bl.getIsRemoved()))
@@ -195,15 +297,30 @@ public class StorageLocationService {
     }
 
     private StorageLocationResponse toResponse(StorageLocation location) {
+        StorageZone zone = location.getStorageZone();
+        String zoneCode = zone != null ? zone.getCode() : null;
+        String zoneType = zone != null && zone.getZoneType() != null
+                ? zone.getZoneType()
+                : StorageZoneType.WAREHOUSE;
+        String zoneTitle = zone != null && zone.getTitle() != null && !zone.getTitle().isBlank()
+                ? zone.getTitle()
+                : StorageZoneConstants.resolveZoneTitle(zoneCode);
+
         return StorageLocationResponse.builder()
                 .id(location.getId())
                 .label(location.getLabel())
-                .zone(location.getZone())
-                .zoneTitle(StorageZoneConstants.resolveZoneTitle(location.getZone()))
+                .zone(zoneCode)
+                .zoneId(zone != null ? zone.getId() : null)
+                .zoneTitle(zoneTitle)
                 .aisle(location.getAisle())
                 .shelf(location.getShelf())
                 .bin(location.getBin())
+                .size(location.getSize() != null
+                        ? location.getSize()
+                        : StorageLocationConstants.SIZE_MD)
                 .description(location.getDescription())
+                .isFull(Boolean.TRUE.equals(location.getIsFull()))
+                .zoneType(zoneType)
                 .contents(mapContents(location))
                 .build();
     }
@@ -238,7 +355,7 @@ public class StorageLocationService {
                 .productCode(resolveProductCode(product))
                 .productName(product.getName())
                 .unit(resolveBaseUnitName(product.getId()))
-                .batchCode("BATCH-" + batch.getId())
+                .batchCode(StockBatchUtils.resolveBatchCode(batch))
                 .quantity(batchLocation.getQuantity())
                 .importPrice(batch.getCostPerUnit() != null ? batch.getCostPerUnit() : product.getCostPrice())
                 .expiryDate(batch.getExpiryDate() != null ? batch.getExpiryDate().toString() : null)
@@ -253,7 +370,7 @@ public class StorageLocationService {
                 .productCode(resolveProductCode(product))
                 .productName(product.getName())
                 .unit(resolveBaseUnitName(product.getId()))
-                .batchCode("BATCH-" + batch.getId())
+                .batchCode(StockBatchUtils.resolveBatchCode(batch))
                 .quantity(getUnplacedQuantity(batch))
                 .importPrice(batch.getCostPerUnit() != null ? batch.getCostPerUnit() : product.getCostPrice())
                 .expiryDate(batch.getExpiryDate() != null ? batch.getExpiryDate().toString() : null)

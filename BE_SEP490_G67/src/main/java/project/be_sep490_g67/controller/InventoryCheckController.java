@@ -15,15 +15,12 @@ import org.springframework.web.bind.annotation.RestController;
 import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.request.CreateInventoryCheckRequest;
 import project.be_sep490_g67.dto.response.ApiResponse;
-import project.be_sep490_g67.dto.response.AvailableBatchLocationResponse;
 import project.be_sep490_g67.dto.response.InventoryCheckDetailResponse;
 import project.be_sep490_g67.dto.response.InventoryCheckListItemResponse;
+import project.be_sep490_g67.dto.response.InventoryCheckProductPreviewResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.repository.UserRepository;
 import project.be_sep490_g67.service.InventoryCheckService;
-
-import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping(ApiPath.INVENTORY_CHECKS)
@@ -46,20 +43,12 @@ public class InventoryCheckController {
                 .build();
     }
 
-    @GetMapping("/available-lines")
-    public ApiResponse<List<AvailableBatchLocationResponse>> getAvailableLines(
-            @RequestParam(required = false, defaultValue = "all") String location) {
-        return ApiResponse.<List<AvailableBatchLocationResponse>>builder()
-                .result(inventoryCheckService.getAvailableLines(location))
-                .message("Lấy danh sách lô + vị trí cần kiểm thành công")
-                .build();
-    }
-
-    @GetMapping("/location-options")
-    public ApiResponse<List<Map<String, String>>> getLocationOptions() {
-        return ApiResponse.<List<Map<String, String>>>builder()
-                .result(inventoryCheckService.getLocationOptions())
-                .message("Lấy danh sách vị trí kệ thành công")
+    @GetMapping("/product-preview/{productId}")
+    public ApiResponse<InventoryCheckProductPreviewResponse> getProductPreview(
+            @PathVariable Integer productId) {
+        return ApiResponse.<InventoryCheckProductPreviewResponse>builder()
+                .result(inventoryCheckService.getProductPreview(productId))
+                .message("Lấy thông tin sản phẩm kiểm kho thành công")
                 .build();
     }
 

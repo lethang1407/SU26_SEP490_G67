@@ -17,11 +17,17 @@ import java.util.List;
 public class StorageLocationResponse {
     Integer id;
     String label;
+    /** Mã khu (A, B, …) — từ storage_zones.code */
     String zone;
+    Integer zoneId;
     String zoneTitle;
     String aisle;
     String shelf;
     String bin;
+    String size;
     String description;
+    Boolean isFull;
+    /** SALES | WAREHOUSE */
+    String zoneType;
     List<StorageLocationContentResponse> contents;
 }

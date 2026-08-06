@@ -1,22 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Alert, Spinner } from 'react-bootstrap';
 import { Plus, Settings2 } from 'lucide-react';
 import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import AdjustStorageLocationModal from '../components/AdjustStorageLocationModal';
-import { fetchStorageLocations } from '../api';
+import { fetchStorageLocations, setStorageLocationFull } from '../api';
 import CreateStorageLocationModal from '../components/CreateStorageLocationModal';
-import StorageLocationDetailDrawer from '../components/StorageLocationDetailDrawer';
+import StorageLocationDetailModal from '../components/StorageLocationDetailModal';
 import StorageLocationGrid from '../components/StorageLocationGrid';
 import StorageLocationTable from '../components/StorageLocationTable';
 import StorageLocationToolbar from '../components/StorageLocationToolbar';
-import { INVENTORY_CHECK_ROUTES } from '../../inventory-check/constants';
+import ZoneDetailModal from '../components/ZoneDetailModal';
 import { LOCATION_STATUS, VIEW_MODE } from '../constants';
 import {
     filterStorageLocations,
-    getAisleOptions,
+    getFloorOptions,
     getZoneOptions,
     groupLocationsByZone,
 } from '../utils/storageLocationUtils';
@@ -32,10 +31,10 @@ const DEFAULT_FILTERS = {
 };
 
 export default function StorageLocationListPage() {
-    const navigate = useNavigate();
     const [allLocations, setAllLocations] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [togglingFull, setTogglingFull] = useState(false);
 
     const [keyword, setKeyword] = useState('');
     const [zoneFilter, setZoneFilter] = useState('all');
@@ -46,9 +45,10 @@ export default function StorageLocationListPage() {
     const [selectedLocation, setSelectedLocation] = useState(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showAdjustModal, setShowAdjustModal] = useState(false);
+    const [adjustInitialLocationId, setAdjustInitialLocationId] = useState(null);
+    const [selectedZoneGroup, setSelectedZoneGroup] = useState(null);
     const [reloadKey, setReloadKey] = useState(0);
     const [draftLocations, setDraftLocations] = useState(null);
-    const [expandedZones, setExpandedZones] = useState(() => new Set());
 
     useEffect(() => {
         let isCancelled = false;
@@ -91,7 +91,7 @@ export default function StorageLocationListPage() {
 
     const zoneOptions = useMemo(() => getZoneOptions(locationsData), [locationsData]);
     const aisleOptions = useMemo(
-        () => getAisleOptions(locationsData, appliedFilters.zoneFilter),
+        () => getFloorOptions(locationsData, appliedFilters.zoneFilter),
         [locationsData, appliedFilters.zoneFilter],
     );
 
@@ -106,45 +106,17 @@ export default function StorageLocationListPage() {
     );
 
     useEffect(() => {
-        if (zoneGroups.length === 0) {
+        if (!selectedZoneGroup) {
             return;
         }
-
-        setExpandedZones((prev) => {
-            const next = new Set();
-            const hasActiveFilter =
-                appliedFilters.zoneFilter !== 'all' ||
-                appliedFilters.aisleFilter !== 'all' ||
-                appliedFilters.statusFilter !== 'all' ||
-                Boolean(appliedFilters.keyword?.trim());
-
-            if (hasActiveFilter) {
-                zoneGroups.forEach((group) => next.add(group.zone));
-            } else {
-                zoneGroups.forEach((group) => {
-                    if (prev.has(group.zone)) {
-                        next.add(group.zone);
-                    }
-                });
-            }
-
-            const prevList = [...prev].sort().join(',');
-            const nextList = [...next].sort().join(',');
-            return prevList === nextList ? prev : next;
-        });
-    }, [zoneGroups, appliedFilters]);
-
-    const handleToggleZone = (zone) => {
-        setExpandedZones((prev) => {
-            const next = new Set(prev);
-            if (next.has(zone)) {
-                next.delete(zone);
-            } else {
-                next.add(zone);
-            }
-            return next;
-        });
-    };
+        const refreshed = zoneGroups.find((group) => group.zone === selectedZoneGroup.zone);
+        if (refreshed && refreshed !== selectedZoneGroup) {
+            setSelectedZoneGroup(refreshed);
+        }
+        if (!refreshed) {
+            setSelectedZoneGroup(null);
+        }
+    }, [zoneGroups, selectedZoneGroup]);
 
     const existingZones = useMemo(
         () => [...new Set(locationsData.map((location) => location.zone).filter(Boolean))],
@@ -184,13 +156,55 @@ export default function StorageLocationListPage() {
         setAisleFilter('all');
     };
 
-    const handleCheckLocation = (location) => {
-        navigate(`${INVENTORY_CHECK_ROUTES.create}?location=${encodeURIComponent(location.label)}`);
-    };
-
     const handleAdjustLocation = (location) => {
+        setAdjustInitialLocationId(location?.id ?? null);
         setSelectedLocation(null);
         setShowAdjustModal(true);
+    };
+
+    const openAdjustModal = () => {
+        setAdjustInitialLocationId(null);
+        setShowAdjustModal(true);
+    };
+
+    const handleOpenZone = (group) => {
+        setSelectedZoneGroup(group);
+    };
+
+    const handleSelectLocationFromZone = (location) => {
+        setSelectedLocation(location);
+    };
+
+    const handleZoneUpdated = () => {
+        setReloadKey((prev) => prev + 1);
+    };
+
+    const handleToggleFull = async (location, isFull) => {
+        if (!location?.id || togglingFull) {
+            return;
+        }
+        if (isFull && !(location.contents ?? []).length) {
+            setError('Ô đang trống, không thể đánh dấu đầy.');
+            return;
+        }
+        setTogglingFull(true);
+        setError(null);
+        try {
+            const updated = await setStorageLocationFull(location.id, isFull);
+            setAllLocations((prev) =>
+                prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)),
+            );
+            setSelectedLocation(updated);
+        } catch (toggleError) {
+            setError(
+                getApiErrorMessage(
+                    toggleError,
+                    'Không thể cập nhật trạng thái đầy. Vui lòng thử lại.',
+                ),
+            );
+        } finally {
+            setTogglingFull(false);
+        }
     };
 
     return (
@@ -199,22 +213,16 @@ export default function StorageLocationListPage() {
             <div className="admin-content">
                 <AdminHeader />
                 <main className="admin-main">
-                    <div
-                        className={`dashboard-container storage-location-page${selectedLocation ? ' storage-location-page--drawer-open' : ''}`}
-                    >
+                    <div className="dashboard-container storage-location-page">
                         <header className="inventory-page__header">
                             <div>
                                 <h1 className="inventory-page__title">Vị trí hàng hóa</h1>
-                                <p className="inventory-page__subtitle">
-                                    Xem sức chứa theo khu trước, rồi mở khu cần xếp hàng. Ô lớn /
-                                    vừa / nhỏ phản ánh khả năng chứa khác nhau trên sơ đồ kho.
-                                </p>
                             </div>
                             <div className="inventory-page__actions">
                                 <button
                                     type="button"
                                     className="inventory-btn inventory-btn--secondary"
-                                    onClick={() => setShowAdjustModal(true)}
+                                    onClick={openAdjustModal}
                                 >
                                     <Settings2 size={18} />
                                     Điều chỉnh
@@ -260,10 +268,7 @@ export default function StorageLocationListPage() {
                                 {viewMode === VIEW_MODE.GRID ? (
                                     <StorageLocationGrid
                                         groups={zoneGroups}
-                                        selectedLocationId={selectedLocation?.id ?? null}
-                                        onSelectLocation={setSelectedLocation}
-                                        expandedZones={expandedZones}
-                                        onToggleZone={handleToggleZone}
+                                        onOpenZone={handleOpenZone}
                                     />
                                 ) : (
                                     <StorageLocationTable
@@ -278,13 +283,6 @@ export default function StorageLocationListPage() {
                 </main>
             </div>
 
-            <StorageLocationDetailDrawer
-                location={selectedLocation}
-                onClose={() => setSelectedLocation(null)}
-                onCheckLocation={handleCheckLocation}
-                onAdjustLocation={handleAdjustLocation}
-            />
-
             <CreateStorageLocationModal
                 show={showCreateModal}
                 onHide={() => setShowCreateModal(false)}
@@ -294,9 +292,30 @@ export default function StorageLocationListPage() {
 
             <AdjustStorageLocationModal
                 show={showAdjustModal}
-                onHide={() => setShowAdjustModal(false)}
+                onHide={() => {
+                    setShowAdjustModal(false);
+                    setAdjustInitialLocationId(null);
+                }}
                 locations={locationsData}
                 onSaved={handleAdjustSaved}
+                initialLocationId={adjustInitialLocationId}
+            />
+
+            <ZoneDetailModal
+                show={Boolean(selectedZoneGroup)}
+                zoneGroup={selectedZoneGroup}
+                onHide={() => setSelectedZoneGroup(null)}
+                selectedLocationId={selectedLocation?.id ?? null}
+                onSelectLocation={handleSelectLocationFromZone}
+                onZoneUpdated={handleZoneUpdated}
+            />
+
+            <StorageLocationDetailModal
+                location={selectedLocation}
+                onClose={() => setSelectedLocation(null)}
+                onAdjustLocation={handleAdjustLocation}
+                onToggleFull={handleToggleFull}
+                togglingFull={togglingFull}
             />
         </div>
     );
