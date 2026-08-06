@@ -12,21 +12,24 @@ import java.util.Optional;
 public interface StorageLocationRepository extends JpaRepository<StorageLocation, Integer> {
 
     Optional<StorageLocation> findFirstByIsRemovedFalseAndIsActiveTrueOrderByIdAsc();
+
     @Query("""
             SELECT DISTINCT sl
             FROM StorageLocation sl
+            JOIN FETCH sl.storageZone sz
             LEFT JOIN FETCH sl.batchLocations bl
             LEFT JOIN FETCH bl.batch b
             LEFT JOIN FETCH b.product p
             WHERE sl.isRemoved = false
               AND (sl.isActive = true OR sl.isActive IS NULL)
-            ORDER BY sl.zone ASC, sl.label ASC
+            ORDER BY sz.code ASC, sl.label ASC
             """)
     List<StorageLocation> findAllActiveWithContents();
 
     @Query("""
             SELECT DISTINCT sl
             FROM StorageLocation sl
+            JOIN FETCH sl.storageZone sz
             LEFT JOIN FETCH sl.batchLocations bl
             LEFT JOIN FETCH bl.batch b
             LEFT JOIN FETCH b.product p
@@ -38,6 +41,6 @@ public interface StorageLocationRepository extends JpaRepository<StorageLocation
 
     boolean existsByLabelIgnoreCaseAndIsRemovedFalse(String label);
 
-    boolean existsByZoneIgnoreCaseAndShelfAndBinAndIsRemovedFalse(
-            String zone, String shelf, String bin);
+    boolean existsByStorageZone_CodeIgnoreCaseAndShelfAndBinAndIsRemovedFalse(
+            String zoneCode, String shelf, String bin);
 }
