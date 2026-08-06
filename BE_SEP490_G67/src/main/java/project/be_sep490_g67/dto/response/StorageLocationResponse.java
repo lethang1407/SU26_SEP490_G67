@@ -17,7 +17,9 @@ import java.util.List;
 public class StorageLocationResponse {
     Integer id;
     String label;
+    /** Mã khu (A, B, …) — từ storage_zones.code */
     String zone;
+    Integer zoneId;
     String zoneTitle;
     String aisle;
     String shelf;

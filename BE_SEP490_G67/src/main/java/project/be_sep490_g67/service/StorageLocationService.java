@@ -27,14 +27,10 @@ import project.be_sep490_g67.repository.BatchLocationRepository;
 import project.be_sep490_g67.repository.ProductUnitRepository;
 import project.be_sep490_g67.repository.StockBatchRepository;
 import project.be_sep490_g67.repository.StorageLocationRepository;
-import project.be_sep490_g67.repository.StorageZoneRepository;
 import project.be_sep490_g67.util.StockBatchUtils;
 
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 
 @Service
@@ -46,14 +42,12 @@ public class StorageLocationService {
     BatchLocationRepository batchLocationRepository;
     StockBatchRepository stockBatchRepository;
     ProductUnitRepository productUnitRepository;
-    StorageZoneRepository storageZoneRepository;
     StorageZoneService storageZoneService;
 
     @Transactional(readOnly = true)
     public List<StorageLocationResponse> getAllLocations() {
-        Map<String, String> zoneTypes = loadZoneTypeMap();
         return storageLocationRepository.findAllActiveWithContents().stream()
-                .map(location -> toResponse(location, zoneTypes))
+                .map(this::toResponse)
                 .toList();
     }
 
@@ -61,7 +55,7 @@ public class StorageLocationService {
     public StorageLocationResponse getLocationById(Integer locationId) {
         StorageLocation location = storageLocationRepository.findActiveWithContentsById(locationId)
                 .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
-        return toResponse(location, loadZoneTypeMap());
+        return toResponse(location);
     }
 
     @Transactional(readOnly = true)
@@ -82,7 +76,8 @@ public class StorageLocationService {
             throw new AppException(ErrorCode.INVALID_STORAGE_LOCATION_SIZE);
         }
 
-        if (storageLocationRepository.existsByZoneIgnoreCaseAndShelfAndBinAndIsRemovedFalse(zone, shelf, bin)) {
+        if (storageLocationRepository.existsByStorageZone_CodeIgnoreCaseAndShelfAndBinAndIsRemovedFalse(
+                zone, shelf, bin)) {
             throw new AppException(ErrorCode.STORAGE_LOCATION_SLOT_EXISTED);
         }
 
@@ -94,10 +89,10 @@ public class StorageLocationService {
             throw new AppException(ErrorCode.STORAGE_LOCATION_LABEL_EXISTED);
         }
 
-        storageZoneService.ensureZoneExists(zone);
+        StorageZone zoneEntity = storageZoneService.ensureZoneExists(zone);
 
         StorageLocation location = new StorageLocation();
-        location.setZone(zone);
+        location.setStorageZone(zoneEntity);
         location.setLabel(label);
         location.setAisle(null);
         location.setShelf(shelf);
@@ -108,7 +103,7 @@ public class StorageLocationService {
         location.setIsActive(true);
         location.setIsRemoved(false);
 
-        return toResponse(storageLocationRepository.save(location), loadZoneTypeMap());
+        return toResponse(storageLocationRepository.save(location));
     }
 
     @Transactional
@@ -120,7 +115,7 @@ public class StorageLocationService {
         }
         location.setIsFull(isFull);
         storageLocationRepository.save(location);
-        return toResponse(location, loadZoneTypeMap());
+        return toResponse(location);
     }
 
     @Transactional
@@ -150,7 +145,7 @@ public class StorageLocationService {
 
         StorageLocation refreshed = storageLocationRepository.findActiveWithContentsById(location.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
-        return toResponse(refreshed, loadZoneTypeMap());
+        return toResponse(refreshed);
     }
 
     @Transactional
@@ -192,7 +187,7 @@ public class StorageLocationService {
 
         StorageLocation refreshed = storageLocationRepository.findActiveWithContentsById(destination.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
-        return toResponse(refreshed, loadZoneTypeMap());
+        return toResponse(refreshed);
     }
 
     @Transactional
@@ -251,7 +246,7 @@ public class StorageLocationService {
             StorageLocation destination,
             Integer sourceLocationId,
             boolean fullRelocateFromSource) {
-        if (!storageZoneService.isSalesZone(destination.getZone())) {
+        if (!storageZoneService.isSalesZone(destination.getStorageZone())) {
             return;
         }
 
@@ -301,27 +296,22 @@ public class StorageLocationService {
         return Math.max(0, quantityIn - placedQty);
     }
 
-    private Map<String, String> loadZoneTypeMap() {
-        Map<String, String> map = new HashMap<>();
-        for (StorageZone zone : storageZoneRepository.findAllActiveOrdered()) {
-            if (zone.getCode() != null) {
-                map.put(zone.getCode().toUpperCase(Locale.ROOT), zone.getZoneType());
-            }
-        }
-        return map;
-    }
-
-    private StorageLocationResponse toResponse(StorageLocation location, Map<String, String> zoneTypes) {
-        String zoneKey = location.getZone() != null
-                ? location.getZone().toUpperCase(Locale.ROOT)
-                : "";
-        String zoneType = zoneTypes.getOrDefault(zoneKey, StorageZoneType.WAREHOUSE);
+    private StorageLocationResponse toResponse(StorageLocation location) {
+        StorageZone zone = location.getStorageZone();
+        String zoneCode = zone != null ? zone.getCode() : null;
+        String zoneType = zone != null && zone.getZoneType() != null
+                ? zone.getZoneType()
+                : StorageZoneType.WAREHOUSE;
+        String zoneTitle = zone != null && zone.getTitle() != null && !zone.getTitle().isBlank()
+                ? zone.getTitle()
+                : StorageZoneConstants.resolveZoneTitle(zoneCode);
 
         return StorageLocationResponse.builder()
                 .id(location.getId())
                 .label(location.getLabel())
-                .zone(location.getZone())
-                .zoneTitle(StorageZoneConstants.resolveZoneTitle(location.getZone()))
+                .zone(zoneCode)
+                .zoneId(zone != null ? zone.getId() : null)
+                .zoneTitle(zoneTitle)
                 .aisle(location.getAisle())
                 .shelf(location.getShelf())
                 .bin(location.getBin())

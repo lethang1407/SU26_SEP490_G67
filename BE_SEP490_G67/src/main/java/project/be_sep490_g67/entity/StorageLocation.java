@@ -12,14 +12,15 @@ import java.util.Set;
 @Setter
 @Entity
 @Table(name = "storage_locations")
-public class StorageLocation extends BaseEntity{
+public class StorageLocation extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Integer id;
 
-    @Column(name = "zone", nullable = false, length = 50)
-    private String zone;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "zone_id", nullable = false)
+    private StorageZone storageZone;
 
     @Column(name = "aisle", length = 20)
     private String aisle;
@@ -52,5 +53,8 @@ public class StorageLocation extends BaseEntity{
     @OneToMany(mappedBy = "location")
     private Set<BatchLocation> batchLocations = new LinkedHashSet<>();
 
-
+    /** Mã khu (A, B, …) — lấy từ FK storage_zones. */
+    public String getZoneCode() {
+        return storageZone != null ? storageZone.getCode() : null;
+    }
 }
