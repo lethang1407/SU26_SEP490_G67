@@ -3,6 +3,7 @@ package project.be_sep490_g67.repository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -73,4 +74,8 @@ public interface ImportOrderDetailRepository extends JpaRepository<ImportOrderDe
         ORDER BY o.id DESC
         """)
     List<Object[]> findRecentCostsByProductIds(@Param("productIds") List<Integer> productIds);
+    
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM ImportOrderDetail d WHERE d.importOrder.id = :orderId")
+    void deleteByImportOrderId(@Param("orderId") Integer orderId);
 }

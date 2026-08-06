@@ -44,4 +44,10 @@ public interface CategoryRepository extends JpaRepository<Category, Integer> {
         GROUP BY p.category.id
         """)
     List<Object[]> countProductsByCategoryIds(@Param("categoryIds") List<Integer> categoryIds);
+    @Query("""
+            SELECT c FROM Category c
+            WHERE c.isRemoved = false
+            AND LOWER(c.name) = LOWER(:name)
+            """)
+    Optional<Category> findActiveByNameIgnoreCase(@Param("name") String name);
 }

@@ -1,5 +1,6 @@
 import { Search } from 'lucide-react';
 import { ORDER_STATUS_FILTER, ORDER_STATUS_FILTER_LABEL } from '../constants';
+import ImportOrderDateRangePicker from './ImportOrderDateRangePicker';
 
 const STATUS_FILTER_OPTIONS = [
     ORDER_STATUS_FILTER.ALL,
@@ -10,20 +11,31 @@ const STATUS_FILTER_OPTIONS = [
 export default function ImportOrderToolbar({
     keyword,
     orderStatusFilter,
+    fromDate,
+    toDate,
     onKeywordChange,
     onOrderStatusFilterChange,
+    onDateRangeChange,
 }) {
     return (
-        <div className="supplier-toolbar">
-            <div className="supplier-toolbar__search">
-                <Search size={20} className="supplier-toolbar__search-icon" />
-                <input
-                    type="text"
-                    className="supplier-toolbar__search-input"
-                    placeholder="Tìm theo mã nhập hàng, mã NCC hoặc tên nhà cung cấp..."
-                    value={keyword}
-                    onChange={(event) => onKeywordChange(event.target.value)}
-                    aria-label="Tìm đơn nhập hàng"
+        <div className="supplier-toolbar import-order-toolbar">
+            <div className="import-order-toolbar__top">
+                <div className="supplier-toolbar__search">
+                    <Search size={20} className="supplier-toolbar__search-icon" />
+                    <input
+                        type="text"
+                        className="supplier-toolbar__search-input"
+                        placeholder="Tìm theo mã nhập hàng, mã NCC hoặc tên nhà cung cấp..."
+                        value={keyword}
+                        onChange={(event) => onKeywordChange(event.target.value)}
+                        aria-label="Tìm đơn nhập hàng"
+                    />
+                </div>
+
+                <ImportOrderDateRangePicker
+                    fromDate={fromDate}
+                    toDate={toDate}
+                    onApply={onDateRangeChange}
                 />
             </div>
 

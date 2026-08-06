@@ -62,15 +62,15 @@ export const menus = [
         icon: Warehouse,
         children: [
             {
-                title: "Tồn kho",
-                path: "/admin/warehouse/inventory"
+                title: "Vị trí hàng hóa",
+                path: "/admin/warehouse/locations"
             },
             {
                 title: "Kiểm kho",
                 path: "/admin/warehouse/check"
             },
             {
-                title: "Gợi ý nhập hàng",
+                title: "Nhập hàng",
                 path: "/admin/warehouse/product-import"
             },
             {
@@ -82,7 +82,7 @@ export const menus = [
                 path: "/admin/warehouse/import-history"
             },
             {
-                title: "Trả hàng nhập",
+                title: "Trả hàng",
                 path: "/admin/warehouse/return"
             },
             {

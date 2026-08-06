@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
@@ -27,6 +28,10 @@ const EMPTY_PAGE = {
 const SEARCH_DEBOUNCE_MS = 400;
 
 export default function SupplierListPage() {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const pendingExpandIdRef = useRef(null);
+
     const [keyword, setKeyword] = useState('');
     const [debouncedKeyword, setDebouncedKeyword] = useState('');
     const [categoryId, setCategoryId] = useState(null);
@@ -41,15 +46,45 @@ export default function SupplierListPage() {
     const [expandedId, setExpandedId] = useState(null);
     const [toast, setToast] = useState('');
 
+    // Deep-link từ phiếu nhập: mở đúng NCC (search theo mã rồi expand)
+    useEffect(() => {
+        const expandId = location.state?.expandSupplierId;
+        if (expandId == null) return;
+
+        const code = String(location.state?.expandSupplierCode || '').trim();
+        pendingExpandIdRef.current = expandId;
+        if (code) {
+            setKeyword(code);
+            setDebouncedKeyword(code);
+            setPage(1);
+        } else {
+            setExpandedId(expandId);
+            pendingExpandIdRef.current = null;
+        }
+        navigate(location.pathname, { replace: true, state: {} });
+    }, [location.state, location.pathname, navigate]);
+
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedKeyword(keyword);
             setPage(1);
-            setExpandedId(null);
+            if (pendingExpandIdRef.current == null) {
+                setExpandedId(null);
+            }
         }, SEARCH_DEBOUNCE_MS);
 
         return () => clearTimeout(timer);
     }, [keyword]);
+
+    useEffect(() => {
+        const pendingId = pendingExpandIdRef.current;
+        if (pendingId == null || loading) return;
+        const found = (data.content || []).some((item) => item.id === pendingId);
+        if (found) {
+            setExpandedId(pendingId);
+            pendingExpandIdRef.current = null;
+        }
+    }, [data, loading]);
 
     useEffect(() => {
         setCategoriesLoading(true);

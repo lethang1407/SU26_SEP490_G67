@@ -11,4 +11,6 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Intege
     List<ProductUnit> findByProductIdAndIsRemovedFalse(Integer productId);
 
     void deleteByProductId(Integer productId);
+
+    List<ProductUnit> findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(Integer productId);
 }
