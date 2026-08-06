@@ -71,7 +71,7 @@ public class ImportOrderController {
         List<ImportSuggestionDTO> result = importSuggestionService.getSuggestions(request);
         return ApiResponse.<List<ImportSuggestionDTO>>builder()
                 .result(result)
-                .message("G\u1ee3i \u00fd nh\u1eadp h\u00e0ng th\u00e0nh c\u00f4ng")
+                .message("Gửi gợi ý thành công")
                 .build();
     }
 
@@ -79,7 +79,7 @@ public class ImportOrderController {
     public ApiResponse<ImportOrderDetailResponse> getImportOrderDetail(@PathVariable Integer id) {
         return ApiResponse.<ImportOrderDetailResponse>builder()
                 .result(importOrderService.getImportOrderDetail(id))
-                .message("L\u1ea5y chi ti\u1ebft \u0111\u01a1n nh\u1eadp h\u00e0ng th\u00e0nh c\u00f4ng")
+                .message("Lấy chi tiết đơn nhập hàng thành công")
                 .build();
     }
 
@@ -88,7 +88,7 @@ public class ImportOrderController {
         List<ImportOrderResponseDTO> result = importOrderService.createOrders(request);
         return ApiResponse.<List<ImportOrderResponseDTO>>builder()
                 .result(result)
-                .message("T\u1ea1o \u0111\u01a1n nh\u1eadp th\u00e0nh c\u00f4ng")
+                .message("Tạo đơn nhập hàng thành công")
                 .build();
     }
 
