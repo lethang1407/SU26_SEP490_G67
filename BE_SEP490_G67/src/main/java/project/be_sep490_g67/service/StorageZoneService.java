@@ -69,6 +69,14 @@ public class StorageZoneService {
         return StorageZoneType.SALES.equals(resolveZoneType(rawCode));
     }
 
+    @Transactional(readOnly = true)
+    public boolean isSalesZone(StorageZone zone) {
+        if (zone == null || zone.getZoneType() == null) {
+            return false;
+        }
+        return StorageZoneType.SALES.equals(zone.getZoneType());
+    }
+
     @Transactional
     public StorageZoneResponse updateZone(String code, UpdateStorageZoneRequest request) {
         StorageZone zone = getRequiredByCode(code);

@@ -84,16 +84,14 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
             SELECT bl FROM BatchLocation bl
             JOIN FETCH bl.batch sb
             JOIN FETCH bl.location loc
+            JOIN FETCH loc.storageZone sz
             WHERE sb.product.id = :productId
               AND bl.quantity > 0
               AND bl.isRemoved = false
               AND sb.isRemoved = false
               AND loc.isRemoved = false
-              AND UPPER(loc.zone) IN (
-                  SELECT UPPER(z.code) FROM StorageZone z
-                  WHERE (z.isRemoved = false OR z.isRemoved IS NULL)
-                    AND z.zoneType = 'SALES'
-              )
+              AND (sz.isRemoved = false OR sz.isRemoved IS NULL)
+              AND sz.zoneType = 'SALES'
             """)
     List<BatchLocation> findActiveOnSalesZonesByProductId(@Param("productId") Integer productId);
 }
