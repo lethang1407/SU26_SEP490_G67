@@ -1,5 +1,5 @@
-import { ChevronDown } from 'lucide-react';
-import StorageLocationCell from './StorageLocationCell';
+import { ZONE_TYPE, ZONE_TYPE_LABEL } from '../constants';
+import { groupZoneGroupsByType } from '../utils/storageLocationUtils';
 
 function ZoneSummaryPills({ stats }) {
     return (
@@ -12,7 +12,7 @@ function ZoneSummaryPills({ stats }) {
             </span>
             {(stats.largeEmpty > 0 || stats.mediumEmpty > 0 || stats.smallEmpty > 0) && (
                 <span className="storage-location-zone__pill storage-location-zone__pill--muted">
-                    trống: {stats.largeEmpty} lớn · {stats.mediumEmpty} vừa · {stats.smallEmpty} nhỏ
+                    trống: {stats.largeEmpty} to · {stats.mediumEmpty} vừa · {stats.smallEmpty} bé
                 </span>
             )}
             {stats.nearExpiryCount > 0 && (
@@ -24,13 +24,59 @@ function ZoneSummaryPills({ stats }) {
     );
 }
 
-export default function StorageLocationGrid({
-    groups,
-    selectedLocationId,
-    onSelectLocation,
-    expandedZones,
-    onToggleZone,
-}) {
+function ZoneSection({ group, onOpenZone }) {
+    const typeLabel = ZONE_TYPE_LABEL[group.zoneType] ?? ZONE_TYPE_LABEL[ZONE_TYPE.WAREHOUSE];
+    const isSales = group.zoneType === ZONE_TYPE.SALES;
+
+    return (
+        <section className="storage-location-zone storage-location-zone--clickable">
+            <button
+                type="button"
+                className="storage-location-zone__toggle"
+                onClick={() => onOpenZone?.(group)}
+            >
+                <div className="storage-location-zone__toggle-main">
+                    <div className="storage-location-zone__heading">
+                        <div className="storage-location-zone__title-row">
+                            <h2 className="storage-location-zone__title">KHU {group.zone}</h2>
+                            <span
+                                className={[
+                                    'storage-location-zone__type-badge',
+                                    isSales
+                                        ? 'storage-location-zone__type-badge--sales'
+                                        : 'storage-location-zone__type-badge--warehouse',
+                                ].join(' ')}
+                            >
+                                {typeLabel}
+                            </span>
+                        </div>
+                        <p className="storage-location-zone__subtitle">
+                            {group.productPreview}
+                        </p>
+                    </div>
+                    <ZoneSummaryPills stats={group.stats} />
+                </div>
+            </button>
+        </section>
+    );
+}
+
+function ZoneTypeBlock({ title, groups, onOpenZone }) {
+    if (!groups.length) {
+        return null;
+    }
+
+    return (
+        <div className="storage-location-zone-block">
+            <h3 className="storage-location-zone-block__title">{title}</h3>
+            {groups.map((group) => (
+                <ZoneSection key={group.zone} group={group} onOpenZone={onOpenZone} />
+            ))}
+        </div>
+    );
+}
+
+export default function StorageLocationGrid({ groups, onOpenZone }) {
     if (groups.length === 0) {
         return (
             <div className="storage-location-empty">
@@ -39,84 +85,12 @@ export default function StorageLocationGrid({
         );
     }
 
+    const { sales, warehouse } = groupZoneGroupsByType(groups);
+
     return (
         <div className="storage-location-grid">
-            <p className="storage-location-grid__hint">
-                Mặc định ẩn sơ đồ ô kệ — nhìn nhanh sức chứa từng khu, rồi mở khu cần làm việc. Ô
-                lớn / vừa / nhỏ phản ánh khả năng chứa khác nhau (tầng kệ thấp thường lớn hơn).
-            </p>
-
-            {groups.map((group) => {
-                const isExpanded = expandedZones.has(group.zone);
-                const stats = group.stats;
-
-                return (
-                    <section
-                        key={group.zone}
-                        className={[
-                            'storage-location-zone',
-                            isExpanded ? 'storage-location-zone--expanded' : 'storage-location-zone--collapsed',
-                        ].join(' ')}
-                    >
-                        <button
-                            type="button"
-                            className="storage-location-zone__toggle"
-                            onClick={() => onToggleZone(group.zone)}
-                            aria-expanded={isExpanded}
-                        >
-                            <div className="storage-location-zone__toggle-main">
-                                <div className="storage-location-zone__heading">
-                                    <h2 className="storage-location-zone__title">KHU {group.zone}</h2>
-                                    <p className="storage-location-zone__subtitle">
-                                        {group.productPreview}
-                                    </p>
-                                </div>
-                                <ZoneSummaryPills stats={stats} />
-                            </div>
-                            <span
-                                className={[
-                                    'storage-location-zone__chevron',
-                                    isExpanded ? 'storage-location-zone__chevron--open' : '',
-                                ]
-                                    .filter(Boolean)
-                                    .join(' ')}
-                            >
-                                <ChevronDown size={20} />
-                            </span>
-                        </button>
-
-                        {isExpanded && (
-                            <div className="storage-location-zone__body">
-                                {(group.aisles ?? []).map((aisleGroup) => (
-                                    <div
-                                        key={aisleGroup.aisle ?? 'none'}
-                                        className="storage-location-aisle"
-                                    >
-                                        <div className="storage-location-aisle__label">
-                                            {aisleGroup.aisle
-                                                ? `Hàng ${aisleGroup.aisle}`
-                                                : 'Chưa gán hàng'}
-                                            <span className="storage-location-aisle__count">
-                                                {aisleGroup.locations.length} ô
-                                            </span>
-                                        </div>
-                                        <div className="storage-location-aisle__map">
-                                            {aisleGroup.locations.map((location) => (
-                                                <StorageLocationCell
-                                                    key={location.id}
-                                                    location={location}
-                                                    isSelected={selectedLocationId === location.id}
-                                                    onSelect={onSelectLocation}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </section>
-                );
-            })}
+            <ZoneTypeBlock title="Khu bán hàng" groups={sales} onOpenZone={onOpenZone} />
+            <ZoneTypeBlock title="Khu kho" groups={warehouse} onOpenZone={onOpenZone} />
         </div>
     );
 }

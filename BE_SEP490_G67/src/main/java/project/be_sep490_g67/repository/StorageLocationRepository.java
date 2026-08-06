@@ -37,4 +37,7 @@ public interface StorageLocationRepository extends JpaRepository<StorageLocation
     Optional<StorageLocation> findActiveWithContentsById(Integer id);
 
     boolean existsByLabelIgnoreCaseAndIsRemovedFalse(String label);
+
+    boolean existsByZoneIgnoreCaseAndShelfAndBinAndIsRemovedFalse(
+            String zone, String shelf, String bin);
 }

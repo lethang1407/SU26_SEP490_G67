@@ -7,12 +7,14 @@ export const LOCATION_STATUS = {
     EMPTY: 'empty',
     OCCUPIED: 'occupied',
     NEAR_EXPIRY: 'near_expiry',
+    FULL: 'full',
 };
 
 export const LOCATION_STATUS_LABEL = {
     [LOCATION_STATUS.EMPTY]: 'Trống',
     [LOCATION_STATUS.OCCUPIED]: 'Có hàng',
     [LOCATION_STATUS.NEAR_EXPIRY]: 'Sắp hết hạn',
+    [LOCATION_STATUS.FULL]: 'Đầy',
 };
 
 export const LOCATION_STATUS_OPTIONS = [
@@ -20,6 +22,7 @@ export const LOCATION_STATUS_OPTIONS = [
     { value: LOCATION_STATUS.OCCUPIED, label: LOCATION_STATUS_LABEL[LOCATION_STATUS.OCCUPIED] },
     { value: LOCATION_STATUS.EMPTY, label: LOCATION_STATUS_LABEL[LOCATION_STATUS.EMPTY] },
     { value: LOCATION_STATUS.NEAR_EXPIRY, label: LOCATION_STATUS_LABEL[LOCATION_STATUS.NEAR_EXPIRY] },
+    { value: LOCATION_STATUS.FULL, label: LOCATION_STATUS_LABEL[LOCATION_STATUS.FULL] },
 ];
 
 export const VIEW_MODE = {
@@ -29,18 +32,35 @@ export const VIEW_MODE = {
 
 export const NEAR_EXPIRY_DAYS = 7;
 
-/** Kích thước ô kệ — ảnh hưởng sức chứa và diện tích trên sơ đồ. */
 export const SHELF_SIZE = {
     SM: 'sm',
     MD: 'md',
     LG: 'lg',
 };
 
+/** Map size từ BE (SM|MD|LG) sang key FE. */
+export function normalizeShelfSize(raw) {
+    const value = String(raw ?? '').trim().toUpperCase();
+    if (value === 'SM' || value === 'SMALL') return SHELF_SIZE.SM;
+    if (value === 'LG' || value === 'LARGE') return SHELF_SIZE.LG;
+    if (value === 'MD' || value === 'MEDIUM') return SHELF_SIZE.MD;
+    if (value === SHELF_SIZE.SM || value === SHELF_SIZE.MD || value === SHELF_SIZE.LG) {
+        return value;
+    }
+    return SHELF_SIZE.MD;
+}
+
 export const SHELF_SIZE_LABEL = {
-    [SHELF_SIZE.SM]: 'Ô nhỏ',
+    [SHELF_SIZE.SM]: 'Ô bé',
     [SHELF_SIZE.MD]: 'Ô vừa',
-    [SHELF_SIZE.LG]: 'Ô lớn',
+    [SHELF_SIZE.LG]: 'Ô to',
 };
+
+export const SHELF_SIZE_OPTIONS = [
+    { value: 'SM', label: SHELF_SIZE_LABEL[SHELF_SIZE.SM] },
+    { value: 'MD', label: SHELF_SIZE_LABEL[SHELF_SIZE.MD] },
+    { value: 'LG', label: SHELF_SIZE_LABEL[SHELF_SIZE.LG] },
+];
 
 /** Sức chứa ước tính (đơn vị số lượng) theo kích thước ô. */
 export const SHELF_CAPACITY = {
@@ -48,3 +68,23 @@ export const SHELF_CAPACITY = {
     [SHELF_SIZE.MD]: 200,
     [SHELF_SIZE.LG]: 500,
 };
+
+export const ZONE_TYPE = {
+    SALES: 'SALES',
+    WAREHOUSE: 'WAREHOUSE',
+};
+
+export const ZONE_TYPE_LABEL = {
+    [ZONE_TYPE.SALES]: 'Bán',
+    [ZONE_TYPE.WAREHOUSE]: 'Kho',
+};
+
+export const ZONE_TYPE_OPTIONS = [
+    { value: ZONE_TYPE.SALES, label: 'Khu bán hàng' },
+    { value: ZONE_TYPE.WAREHOUSE, label: 'Khu kho' },
+];
+
+export function normalizeZoneType(raw) {
+    const value = String(raw ?? '').trim().toUpperCase();
+    return value === ZONE_TYPE.SALES ? ZONE_TYPE.SALES : ZONE_TYPE.WAREHOUSE;
+}

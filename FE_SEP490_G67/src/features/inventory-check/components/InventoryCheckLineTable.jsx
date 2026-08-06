@@ -1,7 +1,6 @@
-import { Search } from 'lucide-react';
+import { Search, Trash2 } from 'lucide-react';
 import {
     enrichCheckLine,
-    formatCurrency,
     formatDiffQty,
     formatDiffValue,
     getDiffClassName,
@@ -14,6 +13,7 @@ export default function InventoryCheckLineTable({
     editable = false,
     onActualQtyChange,
     onNoteChange,
+    onRemoveLine,
 }) {
     const normalizedKeyword = keyword.trim().toLowerCase();
     const filteredLines = lines.filter((line) => {
@@ -23,16 +23,18 @@ export default function InventoryCheckLineTable({
 
         return (
             line.productCode?.toLowerCase().includes(normalizedKeyword) ||
-            line.productName?.toLowerCase().includes(normalizedKeyword) ||
-            line.batchCode?.toLowerCase().includes(normalizedKeyword) ||
-            line.locationLabel?.toLowerCase().includes(normalizedKeyword)
+            line.productName?.toLowerCase().includes(normalizedKeyword)
         );
     });
 
     if (filteredLines.length === 0) {
         return (
             <div className="inventory-check-detail-card inventory-check-detail-card--empty">
-                <p>Không có dòng kiểm kê phù hợp.</p>
+                <p>
+                    {editable
+                        ? 'Chưa có sản phẩm nào. Tìm và thêm hàng hóa cần kiểm ở phía trên.'
+                        : 'Không có dòng kiểm kê phù hợp.'}
+                </p>
             </div>
         );
     }
@@ -45,7 +47,7 @@ export default function InventoryCheckLineTable({
                     <Search size={16} />
                     <input
                         type="text"
-                        placeholder="Tìm kiếm sản phẩm, lô, vị trí..."
+                        placeholder="Tìm trong danh sách..."
                         value={keyword}
                         onChange={(event) => onKeywordChange?.(event.target.value)}
                     />
@@ -58,37 +60,27 @@ export default function InventoryCheckLineTable({
                         <tr>
                             <th>Mã SP</th>
                             <th>Tên sản phẩm</th>
-                            <th>Số lô</th>
-                            <th>Vị trí kệ</th>
                             <th>ĐVT</th>
                             <th>Tồn HT</th>
                             <th>Thực tế</th>
                             <th>Chênh lệch</th>
                             <th>Giá trị lệch</th>
                             <th>Ghi chú</th>
+                            {editable ? <th /> : null}
                         </tr>
                     </thead>
                     <tbody>
                         {filteredLines.map((line) => {
                             const enriched = enrichCheckLine(line);
+                            const rowKey = line.id ?? line.productId;
 
                             return (
-                                <tr key={line.id}>
+                                <tr key={rowKey}>
                                     <td className="inventory-check-line-table__code">
                                         {line.productCode}
                                     </td>
                                     <td className="inventory-check-line-table__name">
                                         {line.productName}
-                                    </td>
-                                    <td>
-                                        <span className="inventory-check-batch-cell">
-                                            {line.batchCode}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span className="inventory-check-location-cell">
-                                            {line.locationLabel}
-                                        </span>
                                     </td>
                                     <td>{line.unit}</td>
                                     <td className="inventory-check-line-table__qty">
@@ -103,7 +95,7 @@ export default function InventoryCheckLineTable({
                                                 value={line.actualQty ?? ''}
                                                 onChange={(event) =>
                                                     onActualQtyChange?.(
-                                                        line.id,
+                                                        rowKey,
                                                         event.target.value,
                                                     )
                                                 }
@@ -132,13 +124,25 @@ export default function InventoryCheckLineTable({
                                                 value={line.note ?? ''}
                                                 placeholder="Ghi chú..."
                                                 onChange={(event) =>
-                                                    onNoteChange?.(line.id, event.target.value)
+                                                    onNoteChange?.(rowKey, event.target.value)
                                                 }
                                             />
                                         ) : (
                                             line.note || '—'
                                         )}
                                     </td>
+                                    {editable ? (
+                                        <td>
+                                            <button
+                                                type="button"
+                                                className="inventory-check-line-table__remove"
+                                                title="Xóa dòng"
+                                                onClick={() => onRemoveLine?.(rowKey)}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </td>
+                                    ) : null}
                                 </tr>
                             );
                         })}
@@ -147,8 +151,8 @@ export default function InventoryCheckLineTable({
             </div>
 
             <p className="inventory-check-line-table__hint">
-                Mỗi dòng = 1 lô tại 1 vị trí kệ. Mỗi kệ chỉ chứa một loại sản phẩm; cùng SP
-                nhưng khác lô hoặc khác kệ sẽ là các dòng riêng.
+                Mỗi dòng = một sản phẩm. Tồn hệ thống là tổng số lượng của sản phẩm trong kho
+                (đã xếp kệ và chưa xếp kệ). Lưu phiếu sẽ cập nhật tồn theo số lượng thực tế.
             </p>
         </div>
     );

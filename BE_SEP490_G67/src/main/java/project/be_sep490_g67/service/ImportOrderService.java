@@ -12,25 +12,21 @@ import project.be_sep490_g67.dto.response.ImportOrderDetailResponse;
 import project.be_sep490_g67.dto.response.ImportOrderItemResponse;
 import project.be_sep490_g67.dto.response.ImportOrderListItemResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
-import project.be_sep490_g67.entity.BatchLocation;
 import project.be_sep490_g67.entity.ImportOrder;
 import project.be_sep490_g67.entity.ImportOrderDetail;
 import project.be_sep490_g67.entity.Product;
 import project.be_sep490_g67.entity.StockBatch;
 import project.be_sep490_g67.entity.StockMovement;
-import project.be_sep490_g67.entity.StorageLocation;
 import project.be_sep490_g67.entity.Supplier;
 import project.be_sep490_g67.entity.SupplierPayment;
 import project.be_sep490_g67.entity.User;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
-import project.be_sep490_g67.repository.BatchLocationRepository;
 import project.be_sep490_g67.repository.ImportOrderDetailRepository;
 import project.be_sep490_g67.repository.ImportOrderRepository;
 import project.be_sep490_g67.repository.ProductRepository;
 import project.be_sep490_g67.repository.StockBatchRepository;
 import project.be_sep490_g67.repository.StockMovementRepository;
-import project.be_sep490_g67.repository.StorageLocationRepository;
 import project.be_sep490_g67.repository.SupplierPaymentRepository;
 import project.be_sep490_g67.repository.SupplierRepository;
 import project.be_sep490_g67.repository.UserRepository;
@@ -60,8 +56,6 @@ public class ImportOrderService {
     ProductRepository productRepository;
     StockBatchRepository stockBatchRepository;
     StockMovementRepository stockMovementRepository;
-    BatchLocationRepository batchLocationRepository;
-    StorageLocationRepository storageLocationRepository;
     UserRepository userRepository;
 
     @Transactional
@@ -132,9 +126,9 @@ public class ImportOrderService {
 
         BigDecimal recordedPaid = BigDecimal.ZERO;
         if (isImported) {
-            StorageLocation location = resolveDefaultStorageLocation();
+            String batchCode = nextBatchCode(saved.getReceivedDate());
             for (ImportOrderDetail detail : details) {
-                createStockForDetail(saved, detail, location);
+                createStockForDetail(saved, detail, batchCode);
             }
             if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
                 createInitialPayment(saved, supplier, paidAmount, request.getPaymentMethod());
@@ -228,9 +222,9 @@ public class ImportOrderService {
 
         BigDecimal recordedPaid = BigDecimal.ZERO;
         if (isImported) {
-            StorageLocation location = resolveDefaultStorageLocation();
+            String batchCode = nextBatchCode(saved.getReceivedDate());
             for (ImportOrderDetail detail : details) {
-                createStockForDetail(saved, detail, location);
+                createStockForDetail(saved, detail, batchCode);
             }
             if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
                 createInitialPayment(saved, supplier, paidAmount, request.getPaymentMethod());
@@ -563,10 +557,19 @@ public class ImportOrderService {
         return normalized;
     }
 
-    private void createStockForDetail(ImportOrder order, ImportOrderDetail detail, StorageLocation location) {
+    private String nextBatchCode(LocalDate receivedDate) {
+        LocalDate date = receivedDate != null ? receivedDate : LocalDate.now();
+        String dayPrefix = ImportOrderConstants.batchDayPrefix(date);
+        Integer maxSeq = stockBatchRepository.findMaxBatchSequenceByDayPrefix(dayPrefix);
+        int next = (maxSeq != null ? maxSeq : 0) + 1;
+        return ImportOrderConstants.formatBatchCode(date, next);
+    }
+
+    private void createStockForDetail(ImportOrder order, ImportOrderDetail detail, String batchCode) {
         StockBatch batch = new StockBatch();
         batch.setProduct(detail.getProduct());
         batch.setImportOrder(order);
+        batch.setBatchCode(batchCode);
         batch.setCostPerUnit(detail.getCostPerUnit());
         batch.setQuantityIn(detail.getQuantity());
         batch.setReceivedDate(order.getReceivedDate() != null ? order.getReceivedDate() : LocalDate.now());
@@ -575,16 +578,9 @@ public class ImportOrderService {
         batch.setIsRemoved(false);
         StockBatch savedBatch = stockBatchRepository.save(batch);
 
-        BatchLocation batchLocation = new BatchLocation();
-        batchLocation.setBatch(savedBatch);
-        batchLocation.setLocation(location);
-        batchLocation.setQuantity(detail.getQuantity());
-        batchLocation.setIsRemoved(false);
-        BatchLocation savedLocation = batchLocationRepository.save(batchLocation);
-
         StockMovement movement = StockMovement.builder()
                 .stockBatch(savedBatch)
-                .batchLocation(savedLocation)
+                .batchLocation(null)
                 .quantityDelta(detail.getQuantity())
                 .stockAfter(detail.getQuantity())
                 .movementType("IMPORT")
@@ -606,19 +602,6 @@ public class ImportOrderService {
         payment.setPaymentDate(LocalDateTime.now());
         payment.setIsRemoved(false);
         supplierPaymentRepository.save(payment);
-    }
-
-    private StorageLocation resolveDefaultStorageLocation() {
-        return storageLocationRepository.findFirstByIsRemovedFalseAndIsActiveTrueOrderByIdAsc()
-                .orElseGet(() -> {
-                    StorageLocation location = new StorageLocation();
-                    location.setZone("DEFAULT");
-                    location.setLabel("Kệ mặc định");
-                    location.setDescription("Vị trí mặc định khi nhập hàng (MVP)");
-                    location.setIsActive(true);
-                    location.setIsRemoved(false);
-                    return storageLocationRepository.save(location);
-                });
     }
 
     private String generateOrderCode() {

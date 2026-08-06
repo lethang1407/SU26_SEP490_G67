@@ -46,19 +46,11 @@ export function InventoryCheckSummaryPanel({ lines }) {
             <h3 className="inventory-check-side-card__title">Tóm tắt kiểm kho</h3>
             <dl className="inventory-check-summary-list">
                 <div className="inventory-check-summary-list__item">
-                    <dt>Số dòng kiểm</dt>
+                    <dt>Số sản phẩm kiểm</dt>
                     <dd>{summary.totalLines}</dd>
                 </div>
-                <div className="inventory-check-summary-list__item">
-                    <dt>Tổng tồn hệ thống</dt>
-                    <dd>{summary.totalSystemQty}</dd>
-                </div>
-                <div className="inventory-check-summary-list__item">
-                    <dt>Tổng thực tế</dt>
-                    <dd>{summary.totalActualQty ?? '—'}</dd>
-                </div>
                 <div className="inventory-check-summary-list__item inventory-check-summary-list__item--highlight">
-                    <dt>Chênh lệch SL</dt>
+                    <dt>Chênh lệch số lượng</dt>
                     <dd
                         className={
                             summary.totalDiffQty < 0
