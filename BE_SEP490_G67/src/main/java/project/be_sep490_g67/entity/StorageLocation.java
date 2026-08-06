@@ -36,6 +36,15 @@ public class StorageLocation extends BaseEntity{
     @Column(name = "description")
     private String description;
 
+    /** SM | MD | LG — kích thước ô (bé / vừa / to). */
+    @Column(name = "size", nullable = false, length = 10)
+    private String size;
+
+    /** Đánh dấu thủ công: ô đã đầy, không nhận thêm hàng. */
+    @ColumnDefault("0")
+    @Column(name = "is_full", nullable = false)
+    private Boolean isFull;
+
     @ColumnDefault("1")
     @Column(name = "is_active")
     private Boolean isActive;

@@ -22,6 +22,10 @@ public class StorageLocationResponse {
     String aisle;
     String shelf;
     String bin;
+    String size;
     String description;
+    Boolean isFull;
+    /** SALES | WAREHOUSE */
+    String zoneType;
     List<StorageLocationContentResponse> contents;
 }

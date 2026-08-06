@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Form, Modal, Spinner } from 'react-bootstrap';
 import { createStorageLocation } from '../api';
+import { SHELF_SIZE_OPTIONS } from '../constants';
 import { buildLocationLabel } from '../utils/storageLocationUtils';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 
 const EMPTY_FORM = {
     zone: '',
-    aisle: '',
     shelf: '',
     bin: '',
+    size: 'MD',
     label: '',
     description: '',
 };
@@ -23,11 +24,10 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
         () =>
             buildLocationLabel({
                 zone: formData.zone,
-                aisle: formData.aisle,
                 shelf: formData.shelf,
                 bin: formData.bin,
             }),
-        [formData.zone, formData.aisle, formData.shelf, formData.bin],
+        [formData.zone, formData.shelf, formData.bin],
     );
 
     useEffect(() => {
@@ -67,10 +67,10 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
 
         const payload = {
             zone: formData.zone.trim().toUpperCase(),
-            label: (formData.label || suggestedLabel).trim(),
-            aisle: formData.aisle.trim() || undefined,
-            shelf: formData.shelf.trim() || undefined,
-            bin: formData.bin.trim() || undefined,
+            shelf: formData.shelf.trim(),
+            bin: formData.bin.trim(),
+            size: formData.size,
+            label: (formData.label || suggestedLabel).trim() || undefined,
             description: formData.description.trim() || undefined,
         };
 
@@ -79,9 +79,18 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
             setIsSubmitting(false);
             return;
         }
-
-        if (!payload.label) {
-            setError('Vui lòng nhập mã vị trí hoặc điền hàng/kệ để tự sinh mã.');
+        if (!/^[1-9]\d*$/.test(payload.shelf)) {
+            setError('Tầng phải là số nguyên dương (1, 2, 3...).');
+            setIsSubmitting(false);
+            return;
+        }
+        if (!/^[1-9]\d*$/.test(payload.bin)) {
+            setError('Số ô phải là số nguyên dương, bắt đầu từ 1 trên mỗi tầng.');
+            setIsSubmitting(false);
+            return;
+        }
+        if (!payload.size) {
+            setError('Vui lòng chọn kích thước ô.');
             setIsSubmitting(false);
             return;
         }
@@ -110,8 +119,8 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
                     {error && <Alert variant="danger">{error}</Alert>}
 
                     <p className="storage-location-modal__hint">
-                        Mã vị trí gợi ý theo định dạng <strong>Khu-Hàng-Kệ-Ô</strong> (ví dụ:
-                        A-01-02).
+                        Cấu trúc <strong>Khu → Tầng → Ô</strong>. Mã gợi ý dạng{' '}
+                        <strong>A-T1-O3</strong>. Mỗi tầng đánh số ô từ 1.
                     </p>
 
                     <div className="storage-location-modal__row">
@@ -136,57 +145,69 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
                             </datalist>
                         </Form.Group>
 
-                        <Form.Group className="storage-location-modal__field" controlId="locationAisle">
-                            <Form.Label>Hàng</Form.Label>
+                        <Form.Group className="storage-location-modal__field" controlId="locationShelf">
+                            <Form.Label>
+                                Tầng <span className="text-danger">*</span>
+                            </Form.Label>
                             <Form.Control
-                                type="text"
-                                name="aisle"
-                                value={formData.aisle}
+                                type="number"
+                                min={1}
+                                step={1}
+                                name="shelf"
+                                value={formData.shelf}
                                 onChange={handleChange}
-                                placeholder="01"
-                                maxLength={20}
+                                placeholder="1"
+                                required
                             />
                         </Form.Group>
                     </div>
 
                     <div className="storage-location-modal__row">
-                        <Form.Group className="storage-location-modal__field" controlId="locationShelf">
-                            <Form.Label>Kệ</Form.Label>
-                            <Form.Control
-                                type="text"
-                                name="shelf"
-                                value={formData.shelf}
-                                onChange={handleChange}
-                                placeholder="02"
-                                maxLength={20}
-                            />
-                        </Form.Group>
-
                         <Form.Group className="storage-location-modal__field" controlId="locationBin">
-                            <Form.Label>Ô (nếu có)</Form.Label>
+                            <Form.Label>
+                                Số ô <span className="text-danger">*</span>
+                            </Form.Label>
                             <Form.Control
-                                type="text"
+                                type="number"
+                                min={1}
+                                step={1}
                                 name="bin"
                                 value={formData.bin}
                                 onChange={handleChange}
-                                placeholder="03"
-                                maxLength={20}
+                                placeholder="1"
+                                required
                             />
+                            <Form.Text className="text-muted">Trên mỗi tầng, ô đánh số từ 1.</Form.Text>
+                        </Form.Group>
+
+                        <Form.Group className="storage-location-modal__field" controlId="locationSize">
+                            <Form.Label>
+                                Kích thước <span className="text-danger">*</span>
+                            </Form.Label>
+                            <Form.Select
+                                name="size"
+                                value={formData.size}
+                                onChange={handleChange}
+                                required
+                            >
+                                {SHELF_SIZE_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                        {option.label}
+                                    </option>
+                                ))}
+                            </Form.Select>
                         </Form.Group>
                     </div>
 
                     <Form.Group className="mb-3" controlId="locationLabel">
-                        <Form.Label>
-                            Mã vị trí <span className="text-danger">*</span>
-                        </Form.Label>
+                        <Form.Label>Mã vị trí</Form.Label>
                         <Form.Control
                             type="text"
                             name="label"
                             value={formData.label}
                             onChange={handleChange}
-                            placeholder="A-01-02"
+                            placeholder="A-T1-O1"
                             maxLength={50}
-                            required
                         />
                         {!labelTouched && suggestedLabel && (
                             <Form.Text className="text-muted">
@@ -203,7 +224,7 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
                             name="description"
                             value={formData.description}
                             onChange={handleChange}
-                            placeholder="Ví dụ: Kệ nước ngọt, tầng mắt"
+                            placeholder="Ví dụ: Ô nước ngọt gần lối vào"
                             maxLength={255}
                         />
                     </Form.Group>
