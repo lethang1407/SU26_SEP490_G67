@@ -176,10 +176,11 @@ public class CustomerService {
     }
 
     private boolean isOrderUnpaid(SalesOrder so) {
-        BigDecimal totalPaid = (so.getPaidAmount() != null ? so.getPaidAmount() : BigDecimal.ZERO)
-                .add(so.getDebtPayments().stream()
-                        .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add));
+        BigDecimal initialPaidAmount = so.getPaidAmount() != null ? so.getPaidAmount() : BigDecimal.ZERO;
+        BigDecimal subsequentPayments = so.getDebtPayments().stream()
+                .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalPaid = initialPaidAmount.add(subsequentPayments);
         return (so.getTotalAmount() != null ? so.getTotalAmount() : BigDecimal.ZERO).compareTo(totalPaid) > 0;
     }
 
@@ -280,9 +281,13 @@ public class CustomerService {
         Page<SalesOrder> salesOrderPage = salesOrderRepository.findDebtOrdersByCustomerIdWithPriority(customerId, keyword, now, pageable);
 
         List<DebtOrderResponse> responses = salesOrderPage.getContent().stream().map(so -> {
-            BigDecimal totalPaid = so.getDebtPayments().stream()
+            // Correctly calculate total paid amount
+            BigDecimal initialPaidAmount = so.getPaidAmount() != null ? so.getPaidAmount() : BigDecimal.ZERO;
+            BigDecimal subsequentPayments = so.getDebtPayments().stream()
                     .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal totalPaid = initialPaidAmount.add(subsequentPayments);
+
             BigDecimal totalAmount = so.getTotalAmount() != null ? so.getTotalAmount() : BigDecimal.ZERO;
             BigDecimal amountRemaining = totalAmount.subtract(totalPaid);
 

@@ -53,6 +53,8 @@ const getStatusBadge = (status) => {
       return <Badge bg="danger">Chưa thanh toán</Badge>;
     case "OVERDUE":
       return <Badge bg="danger">Quá hạn</Badge>;
+    case "IN_DEBT":
+      return <Badge bg="warning">Đang nợ</Badge>;
     default:
       return <Badge bg="secondary">{status}</Badge>;
   }

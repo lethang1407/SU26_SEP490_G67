@@ -1,14 +1,13 @@
 package project.be_sep490_g67.controller;
 
+import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
+import project.be_sep490_g67.dto.request.DebtPaymentRequest;
 import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.DebtPaymentHistoryResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
@@ -23,6 +22,15 @@ import java.time.LocalDate;
 public class DebtPaymentController {
 
     private final DebtPaymentService debtPaymentService;
+
+    @PostMapping
+    public ApiResponse<DebtPaymentHistoryResponse> createDebtPayment(@Valid @RequestBody DebtPaymentRequest request) {
+        DebtPaymentHistoryResponse result = debtPaymentService.createDebtPayment(request);
+        return ApiResponse.<DebtPaymentHistoryResponse>builder()
+                .result(result)
+                .message("Tạo thanh toán công nợ thành công")
+                .build();
+    }
 
     @GetMapping
     public ApiResponse<PageResponse<DebtPaymentHistoryResponse>> getDebtPaymentHistory(
