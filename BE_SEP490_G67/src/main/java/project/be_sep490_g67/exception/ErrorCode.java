@@ -45,13 +45,6 @@ public enum ErrorCode {
     PAYMENT_EXCEEDS_DEBT(1027, "Số tiền vượt quá số nợ còn lại của đơn hàng", HttpStatus.BAD_REQUEST),
     INSUFFICIENT_STOCK(1029, "Không đủ tồn kho", HttpStatus.BAD_REQUEST),
 
-    // Customer errors(2xxx)
-    CUSTOMER_NOT_FOUND(2001, "Không tìm thấy khách hàng", HttpStatus.NOT_FOUND),
-    ALLOW_DEBT_REQUIRED(2002, "Trạng thái cho phép nợ là bắt buộc", HttpStatus.BAD_REQUEST),
-    ORDER_IS_NOT_A_DEBT_ORDER(2003, "Đơn hàng không phải là đơn hàng nợ", HttpStatus.BAD_REQUEST),
-    PAYMENT_AMOUNT_EXCEEDS_REMAINING_DEBT(2004, "Số tiền thanh toán vượt quá số nợ còn lại", HttpStatus.BAD_REQUEST),
-
-
     // Invoice errors (3xxx)
     ORDER_NOT_FOUND(3001, "Không tìm thấy đơn hàng", HttpStatus.NOT_FOUND),
     ORDER_CANCELLED(3002, "Đơn hàng đã bị hủy, không thể xuất hóa đơn", HttpStatus.UNPROCESSABLE_ENTITY),
@@ -60,6 +53,12 @@ public enum ErrorCode {
     ORDER_TOTAL_MISMATCH(3005, "Tổng tiền đơn hàng không khớp, cần kiểm tra lại dữ liệu", HttpStatus.UNPROCESSABLE_ENTITY),
     INVOICE_ACCESS_DENIED(3006, "Bạn không có quyền truy cập hóa đơn này", HttpStatus.FORBIDDEN),
     PRODUCT_UNIT_NOT_FOUND(3007, "Không tìm thấy đơn vị sản phẩm", HttpStatus.NOT_FOUND),
+
+    // Customer errors(4xxx)
+    CUSTOMER_NOT_FOUND(4001, "Không tìm thấy khách hàng", HttpStatus.NOT_FOUND),
+    ALLOW_DEBT_REQUIRED(4002, "Trạng thái cho phép nợ là bắt buộc", HttpStatus.BAD_REQUEST),
+    ORDER_IS_NOT_A_DEBT_ORDER(4003, "Đơn hàng không phải là đơn hàng nợ", HttpStatus.BAD_REQUEST),
+    PAYMENT_AMOUNT_EXCEEDS_REMAINING_DEBT(4004, "Số tiền thanh toán vượt quá số nợ còn lại", HttpStatus.BAD_REQUEST),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {
