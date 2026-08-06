@@ -1,5 +1,6 @@
 package project.be_sep490_g67.controller;
 
+import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -58,7 +59,7 @@ public class SupplierController {
     @PutMapping("/{id}")
     public ApiResponse<SupplierDetailResponse> updateSupplier(
             @PathVariable Integer id,
-            @RequestBody AddNewSupplierRequest request
+            @Valid @RequestBody AddNewSupplierRequest request
     ) {
         return ApiResponse.<SupplierDetailResponse>builder()
                 .result(supplierService.updateSupplier(id, request))
@@ -115,7 +116,7 @@ public class SupplierController {
     }
 
     @PostMapping
-    public ApiResponse<AddNewSupplierResponse> addNewSupplier(@RequestBody AddNewSupplierRequest request) {
+    public ApiResponse<AddNewSupplierResponse> addNewSupplier(@Valid @RequestBody AddNewSupplierRequest request) {
         log.info("Api in controller was called with request: {}", request);
         return ApiResponse.<AddNewSupplierResponse>builder()
                 .result(supplierService.addNewSupplier(request))

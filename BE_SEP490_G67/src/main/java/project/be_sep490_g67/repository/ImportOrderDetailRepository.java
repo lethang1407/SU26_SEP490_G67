@@ -37,4 +37,40 @@ public interface ImportOrderDetailRepository extends JpaRepository<ImportOrderDe
             @Param("productId") Integer productId,
             @Param("status") String status,
             @Param("supplierKeyword") String supplierKeyword);
+
+    /**
+     * DRAFT open PO rows for products — newest order first.
+     * Columns: productId, orderId, orderCode, quantity
+     */
+    @Query("""
+        SELECT p.id, o.id, o.orderCode, d.quantity
+        FROM ImportOrderDetail d
+        JOIN d.importOrder o
+        JOIN d.product p
+        WHERE p.id IN :productIds
+          AND (d.isRemoved = false OR d.isRemoved IS NULL)
+          AND (o.isRemoved = false OR o.isRemoved IS NULL)
+          AND o.orderStatus = 'DRAFT'
+        ORDER BY o.id DESC, d.id DESC
+        """)
+    List<Object[]> findDraftOpenPoRows(@Param("productIds") List<Integer> productIds);
+
+    /**
+     * Recent costs by product + supplier — newest order first.
+     * Columns: productId, supplierId, costPerUnit, orderId
+     */
+    @Query("""
+        SELECT p.id, s.id, d.costPerUnit, o.id
+        FROM ImportOrderDetail d
+        JOIN d.importOrder o
+        JOIN o.supplier s
+        JOIN d.product p
+        WHERE p.id IN :productIds
+          AND (d.isRemoved = false OR d.isRemoved IS NULL)
+          AND (o.isRemoved = false OR o.isRemoved IS NULL)
+          AND (s.isRemoved = false OR s.isRemoved IS NULL)
+          AND d.costPerUnit IS NOT NULL
+        ORDER BY o.id DESC
+        """)
+    List<Object[]> findRecentCostsByProductIds(@Param("productIds") List<Integer> productIds);
 }

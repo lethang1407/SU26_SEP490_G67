@@ -25,6 +25,8 @@ public class ProductDetailDTO {
     private BigDecimal vatPercent;
     private String seasonTag;
     private Integer coverDaysOverride;
+    private Integer categoryCoverDays;
+    private String supplierName;
     private String productImg;
     private String baseUnitName;
 

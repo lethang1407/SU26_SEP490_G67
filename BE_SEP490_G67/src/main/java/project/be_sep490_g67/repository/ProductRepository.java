@@ -34,6 +34,7 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     @Query("""
         SELECT p FROM Product p
         LEFT JOIN FETCH p.category c
+        LEFT JOIN FETCH c.defaultSupplier
         WHERE (p.isRemoved = false OR p.isRemoved IS NULL)
           AND (:keyword IS NULL OR :keyword = ''
                OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
@@ -56,13 +57,23 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
 
     @Query("""
         SELECT p FROM Product p
-        LEFT JOIN FETCH p.category
+        LEFT JOIN FETCH p.category c
+        LEFT JOIN FETCH c.defaultSupplier
         WHERE p.id = :id
           AND (p.isRemoved = false OR p.isRemoved IS NULL)
         """)
     Optional<Product> findDetailById(@Param("id") Integer id);
 
     Optional<Product> findByIdAndIsRemovedFalse(Integer id);
+
+    @Query("""
+        SELECT p FROM Product p
+        LEFT JOIN FETCH p.category c
+        LEFT JOIN FETCH c.defaultSupplier
+        WHERE LOWER(p.sku) = LOWER(:sku)
+          AND (p.isRemoved = false OR p.isRemoved IS NULL)
+        """)
+    Optional<Product> findBySkuIgnoreCase(@Param("sku") String sku);
 
     boolean existsBySkuIgnoreCaseAndIsRemovedFalse(String sku);
 

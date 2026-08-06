@@ -65,10 +65,12 @@ export function formatCoverDays(days) {
   if (days == null) return '—';
   if (days <= 0) return '0 ngày';
   if (days >= 999) return '—';
-  if (days < 1) return '<1 ngày';
-  if (days >= 28) return `~${Math.round(days / 30)} tháng`;
-  if (days >= 7 && days % 7 === 0) return `~${days / 7} tuần`;
-  return `~${Math.round(days * 10) / 10} ngày`;
+  // Làm tròn xuống số nguyên — dễ kiểm soát hơn số thập phân
+  const whole = Math.floor(Number(days));
+  if (whole < 1) return '<1 ngày';
+  if (whole >= 28) return `~${Math.floor(whole / 30)} tháng`;
+  if (whole >= 7 && whole % 7 === 0) return `~${whole / 7} tuần`;
+  return `${whole} ngày`;
 }
 
 export function stockClass(onHand, facet) {
@@ -146,11 +148,18 @@ export function groupSuggestionsBySupplier(items) {
       });
     }
     const group = map.get(key);
-    const lineTotal = (item.costPerUnit || 0) * (item.suggestedQty || 0);
+    const qty = item.quantity ?? item.suggestedQty ?? 0;
+    const lineTotal =
+      item.lineTotal != null
+        ? Number(item.lineTotal)
+        : (item.costPerUnit || 0) * qty;
     group.lines.push({
       productId: item.productId,
       productName: item.productName,
-      quantity: item.suggestedQty,
+      quantity: qty,
+      packQty: item.packQty,
+      unitName: item.unitName,
+      unitBase: item.unitBase,
       costPerUnit: item.costPerUnit || 0,
       lineTotal,
     });

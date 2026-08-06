@@ -35,12 +35,8 @@ public class ImportOrder extends BaseEntity {
 
     @Column(name = "received_date")
     private LocalDate receivedDate;
-
-    /**
-     * DRAFT | IMPORTED — không default; gán tường minh khi tạo/xác nhận đơn
-     * (hoặc cập nhật thủ công cho dữ liệu cũ).
-     */
-    @Column(name = "order_status", length = 20)
+    
+    @Column(name = "status", length = 30)
     private String orderStatus;
 
     @Lob

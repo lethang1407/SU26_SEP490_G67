@@ -31,7 +31,6 @@ export default function ProductListPage() {
         supplierFilter: SUPPLIER_FILTER.ALL,
     });
     const [page, setPage] = useState(1);
-    const [selectedIds, setSelectedIds] = useState([]);
 
     const filteredProducts = useMemo(
         () => filterProducts(MOCK_PRODUCTS, appliedFilters),
@@ -51,23 +50,6 @@ export default function ProductListPage() {
             supplierFilter,
         });
         setPage(1);
-        setSelectedIds([]);
-    };
-
-    const handleToggleRow = (productId) => {
-        setSelectedIds((prev) =>
-            prev.includes(productId)
-                ? prev.filter((id) => id !== productId)
-                : [...prev, productId],
-        );
-    };
-
-    const handleToggleAll = (checked) => {
-        if (checked) {
-            setSelectedIds(pagination.items.map((item) => item.id));
-            return;
-        }
-        setSelectedIds([]);
     };
 
     const handleAddProduct = () => {
@@ -109,12 +91,7 @@ export default function ProductListPage() {
                             onFilter={handleApplyFilters}
                         />
 
-                        <ProductTable
-                            items={pagination.items}
-                            selectedIds={selectedIds}
-                            onToggleRow={handleToggleRow}
-                            onToggleAll={handleToggleAll}
-                        />
+                        <ProductTable items={pagination.items} />
 
                         <ProductPagination
                             page={pagination.page}

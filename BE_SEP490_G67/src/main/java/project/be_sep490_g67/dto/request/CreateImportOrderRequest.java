@@ -3,6 +3,7 @@ package project.be_sep490_g67.dto.request;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -25,5 +26,7 @@ public class CreateImportOrderRequest {
         Integer quantity;
         Integer coverDays;
         LocalDate orderDate;
+        /** Optional — giá NCC đã chọn trên panel; null = dùng products.cost_price */
+        BigDecimal costPerUnit;
     }
 }

@@ -31,6 +31,7 @@ public class ProductCommandService {
     AttributeRepository attributeRepository;
     ProductImageRepository productImageRepository;
     CloudinaryImageService cloudinaryImageService;
+    SupplierRepository supplierRepository;
 
     @Transactional
     public ProductDetailDTO create(UpsertProductRequest request) {
@@ -209,13 +210,25 @@ public class ProductCommandService {
                 .findFirst()
                 .orElse(units.isEmpty() ? "sp" : units.get(0).getName());
 
+        var category = product.getCategory();
+        var defaultSupplier = category != null ? category.getDefaultSupplier() : null;
+        String supplierName = null;
+        if (defaultSupplier != null && !Boolean.TRUE.equals(defaultSupplier.getIsRemoved())) {
+            supplierName = defaultSupplier.getName();
+        } else if (category != null) {
+            List<Supplier> linked = supplierRepository.findActiveByCategoryIds(List.of(category.getId()));
+            if (linked != null && !linked.isEmpty()) {
+                supplierName = linked.get(0).getName();
+            }
+        }
+
         return ProductDetailDTO.builder()
                 .id(product.getId())
                 .name(product.getName())
                 .sku(product.getSku())
                 .barcode(product.getBarcode())
-                .categoryId(product.getCategory() != null ? product.getCategory().getId() : null)
-                .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
+                .categoryId(category != null ? category.getId() : null)
+                .categoryName(category != null ? category.getName() : null)
                 .brand(product.getBrand())
                 .description(product.getDescription())
                 .status(product.getStatus())
@@ -224,6 +237,10 @@ public class ProductCommandService {
                 .vatPercent(product.getVatPercent())
                 .seasonTag(product.getSeasonTag())
                 .coverDaysOverride(product.getCoverDaysOverride())
+                .categoryCoverDays(category != null && category.getCoverDays() != null
+                        ? category.getCoverDays()
+                        : 7)
+                .supplierName(supplierName)
                 .productImg(product.getProductImg())
                 .baseUnitName(baseUnitName)
                 .units(units.stream().map(u -> ProductDetailDTO.UnitDTO.builder()

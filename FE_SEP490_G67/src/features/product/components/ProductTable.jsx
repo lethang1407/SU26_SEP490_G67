@@ -3,15 +3,8 @@ import { getProductStatusLabel } from '../api/productMockData';
 import { PRODUCT_ROUTES } from '../constants';
 import { formatCurrency } from '../utils/productUtils';
 
-export default function ProductTable({
-    items,
-    selectedIds,
-    onToggleRow,
-    onToggleAll,
-}) {
+export default function ProductTable({ items }) {
     const navigate = useNavigate();
-    const allSelected = items.length > 0 && items.every((item) => selectedIds.includes(item.id));
-    const someSelected = items.some((item) => selectedIds.includes(item.id));
 
     const handleRowClick = (productId) => {
         navigate(PRODUCT_ROUTES.detail(productId));
@@ -31,20 +24,6 @@ export default function ProductTable({
                 <table className="product-table">
                     <thead>
                         <tr>
-                            <th className="product-table__col-check">
-                                <input
-                                    type="checkbox"
-                                    className="product-table__checkbox"
-                                    checked={allSelected}
-                                    ref={(input) => {
-                                        if (input) {
-                                            input.indeterminate = someSelected && !allSelected;
-                                        }
-                                    }}
-                                    onChange={(event) => onToggleAll(event.target.checked)}
-                                    aria-label="Chọn tất cả sản phẩm"
-                                />
-                            </th>
                             <th>Mã SP</th>
                             <th>Tên sản phẩm</th>
                             <th>Danh mục</th>
@@ -57,25 +36,13 @@ export default function ProductTable({
                     <tbody>
                         {items.map((product) => {
                             const isOutOfStock = product.stock === 0;
-                            const isSelected = selectedIds.includes(product.id);
 
                             return (
                                 <tr
                                     key={product.id}
-                                    className={`product-table__row${
-                                        isSelected ? ' product-table__row--selected' : ''
-                                    }`}
+                                    className="product-table__row"
                                     onClick={() => handleRowClick(product.id)}
                                 >
-                                    <td className="product-table__col-check" onClick={(event) => event.stopPropagation()}>
-                                        <input
-                                            type="checkbox"
-                                            className="product-table__checkbox"
-                                            checked={isSelected}
-                                            onChange={() => onToggleRow(product.id)}
-                                            aria-label={`Chọn ${product.name}`}
-                                        />
-                                    </td>
                                     <td className="product-table__code">{product.code}</td>
                                     <td>
                                         <div className="product-table__name-cell">

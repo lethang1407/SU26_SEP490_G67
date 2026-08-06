@@ -39,17 +39,17 @@ export const FACETS = [
   {
     group: 'Hết hàng',
     items: [
-      { key: 'hot', label: 'Hết — đang bán tốt', dot: 'hot', nested: true },
-      { key: 'slow', label: 'Hết — ít người mua', dot: 'dead', nested: true },
+      { key: 'hot', label: 'Hết hàng — bán chạy', dot: 'hot', nested: true },
+      { key: 'slow', label: 'Hết hàng — ít bán', dot: 'dead', nested: true },
     ],
   },
   {
     group: 'Còn hàng trên kệ',
     items: [
-      { key: 'warn', label: 'Sắp hết — đang bán tốt', dot: 'warn' },
-      { key: 'season', label: 'Còn hàng — sắp mùa lễ', dot: 'season' },
-      { key: 'ok', label: 'Còn đủ hàng', dot: 'ok' },
-      { key: 'stop', label: 'Đã ngừng bán', dot: 'stop' },
+      { key: 'warn', label: 'Sắp hết', dot: 'warn' },
+      { key: 'season', label: 'Sắp mùa', dot: 'season' },
+      { key: 'ok', label: 'Đủ hàng', dot: 'ok' },
+      { key: 'stop', label: 'Ngừng bán', dot: 'stop' },
     ],
   },
 ];

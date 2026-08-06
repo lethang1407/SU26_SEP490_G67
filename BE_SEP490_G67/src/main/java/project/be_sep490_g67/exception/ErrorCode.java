@@ -64,6 +64,10 @@ public enum ErrorCode {
     INVALID_DATE_RANGE(1115, "Khoảng thời gian không hợp lệ", HttpStatus.BAD_REQUEST),
     CATEGORY_NAME_REQUIRED(1116, "Vui lòng nhập tên danh mục", HttpStatus.BAD_REQUEST),
     CATEGORY_NAME_EXISTED(1117, "Tên danh mục đã tồn tại", HttpStatus.CONFLICT),
+    IMPORT_ORDER_LINES_REQUIRED(1118, "Đơn nhập phải có ít nhất một dòng sản phẩm", HttpStatus.BAD_REQUEST),
+    IMPORT_ORDER_LINE_INVALID(1119, "Dòng nhập thiếu sản phẩm, nhà cung cấp hoặc số lượng không hợp lệ", HttpStatus.BAD_REQUEST),
+    PRODUCT_EXCEL_INVALID(1120, "File Excel không hợp lệ. Chỉ nhận .xlsx và đúng mẫu (SKU/Barcode, Số lượng).", HttpStatus.BAD_REQUEST),
+    PRODUCT_EXCEL_FAILED(1121, "Không xử lý được file Excel", HttpStatus.INTERNAL_SERVER_ERROR),
 
     // Invoice errors (3xxx)
     ORDER_NOT_FOUND(3001, "Không tìm thấy đơn hàng", HttpStatus.NOT_FOUND),

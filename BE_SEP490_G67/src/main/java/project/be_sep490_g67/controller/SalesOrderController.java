@@ -48,18 +48,13 @@ public class SalesOrderController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+            @RequestParam(required = false) String orderStatus,
+            @RequestParam(required = false) String paymentMethod,
+            @RequestParam(required = false) Boolean isDebt
     ) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User currentUser = userRepository.findActiveByUsernameWithRole(username)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
-
-        boolean isPrivileged = currentUser.getRoles().stream()
-                .anyMatch(r -> {
-                    String name = r.getName().toUpperCase();
-                    return name.equals("ADMIN") || name.equals("ACCOUNTANT");
-                });
-
+        User currentUser = resolveCurrentUser();
+        boolean isPrivileged = isPrivileged(currentUser);
         Integer createdByFilter = isPrivileged ? null : currentUser.getId();
 
         ZoneId vnZone = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -67,9 +62,25 @@ public class SalesOrderController {
         Instant to = dateTo != null ? dateTo.plusDays(1).atStartOfDay(vnZone).toInstant() : null;
 
         SalesOrderListResponse result = salesOrderService.getOrderHistory(
-                createdByFilter, search, from, to, page, size);
+                createdByFilter, search, from, to, orderStatus, paymentMethod, isDebt, page, size);
 
         return ApiResponse.<SalesOrderListResponse>builder().result(result).build();
+    }
+
+    /**
+     * GET /api/sales-orders/{id}
+     * Admin order detail. IDOR: ADMIN/ACCOUNTANT any order; CASHIER only own.
+     */
+    @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    ApiResponse<SalesOrderResponse> getOrderDetail(@PathVariable Integer id) {
+        User currentUser = resolveCurrentUser();
+        SalesOrderResponse result = salesOrderService.getOrderDetail(
+                id, currentUser.getId(), isPrivileged(currentUser));
+        return ApiResponse.<SalesOrderResponse>builder()
+                .result(result)
+                .message("Lấy chi tiết đơn hàng thành công")
+                .build();
     }
 
     /**
@@ -116,17 +127,8 @@ public class SalesOrderController {
     @GetMapping("/{id}/invoice")
     @PreAuthorize("isAuthenticated()")
     ApiResponse<InvoiceResponse> getInvoice(@PathVariable Integer id) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User currentUser = userRepository.findActiveByUsernameWithRole(username)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
-
-        boolean isPrivileged = currentUser.getRoles().stream()
-                .anyMatch(r -> {
-                    String name = r.getName().toUpperCase();
-                    return name.equals("ADMIN") || name.equals("ACCOUNTANT");
-                });
-
-        InvoiceResponse result = invoiceService.getInvoice(id, currentUser.getId(), isPrivileged);
+        User currentUser = resolveCurrentUser();
+        InvoiceResponse result = invoiceService.getInvoice(id, currentUser.getId(), isPrivileged(currentUser));
         return ApiResponse.<InvoiceResponse>builder()
                 .result(result)
                 .message("Lấy dữ liệu hóa đơn thành công")
@@ -167,5 +169,19 @@ public class SalesOrderController {
         return userRepository.findByUsername(username)
                 .map(User::getId)
                 .orElse(null);
+    }
+
+    private User resolveCurrentUser() {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findActiveByUsernameWithRole(username)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+    }
+
+    private boolean isPrivileged(User user) {
+        return user.getRoles().stream()
+                .anyMatch(r -> {
+                    String name = r.getName().toUpperCase();
+                    return name.equals("ADMIN") || name.equals("ACCOUNTANT");
+                });
     }
 }

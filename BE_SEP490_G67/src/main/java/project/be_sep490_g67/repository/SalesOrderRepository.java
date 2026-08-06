@@ -22,12 +22,25 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
             LEFT JOIN o.customer c
             WHERE o.isRemoved = false
               AND (:createdBy IS NULL OR o.createdBy = :createdBy)
-              AND (:search IS NULL OR o.orderCode LIKE :search OR LOWER(c.fullName) LIKE :search)
+              AND (:search IS NULL OR LOWER(o.orderCode) LIKE :search
+                   OR LOWER(c.fullName) LIKE :search
+                   OR LOWER(COALESCE(c.phoneNumber, '')) LIKE :search)
               AND (:dateFrom IS NULL OR o.createdAt >= :dateFrom)
               AND (:dateTo   IS NULL OR o.createdAt <= :dateTo)
-            ORDER BY o.createdAt DESC
+              AND (:orderStatus IS NULL OR o.orderStatus = :orderStatus)
+              AND (:paymentMethod IS NULL OR o.paymentMethod = :paymentMethod)
+              AND (:isDebt IS NULL OR o.isDebt = :isDebt)
             """)
-    Page<SalesOrder> findHistory(@Param("createdBy") Integer createdBy, @Param("search") String search, @Param("dateFrom") Instant dateFrom, @Param("dateTo") Instant dateTo, Pageable pageable);
+    Page<SalesOrder> findHistory(
+            @Param("createdBy") Integer createdBy,
+            @Param("search") String search,
+            @Param("dateFrom") Instant dateFrom,
+            @Param("dateTo") Instant dateTo,
+            @Param("orderStatus") String orderStatus,
+            @Param("paymentMethod") String paymentMethod,
+            @Param("isDebt") Boolean isDebt,
+            Pageable pageable
+    );
 
     @Query("SELECT o FROM SalesOrder o LEFT JOIN FETCH o.customer LEFT JOIN FETCH o.salesOrderDetails WHERE o.id = :id AND o.isRemoved = false")
     Optional<SalesOrder> findByIdWithDetails(@Param("id") Integer id);

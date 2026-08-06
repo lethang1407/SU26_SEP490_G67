@@ -13,9 +13,11 @@ import project.be_sep490_g67.entity.Product;
 import project.be_sep490_g67.entity.ProductUnit;
 import project.be_sep490_g67.entity.Supplier;
 import project.be_sep490_g67.repository.BatchLocationRepository;
+import project.be_sep490_g67.repository.ImportOrderDetailRepository;
 import project.be_sep490_g67.repository.ProductRepository;
 import project.be_sep490_g67.repository.SalesOrderDetailRepository;
 import project.be_sep490_g67.repository.StoreConfigRepository;
+import project.be_sep490_g67.repository.SupplierRepository;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -23,8 +25,10 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -42,6 +46,8 @@ public class ProductListService {
     SalesOrderDetailRepository salesOrderDetailRepository;
     BatchLocationRepository batchLocationRepository;
     StoreConfigRepository storeConfigRepository;
+    ImportOrderDetailRepository importOrderDetailRepository;
+    SupplierRepository supplierRepository;
 
     @Transactional(readOnly = true)
     public PageResponse<ProductListItemDTO> getProductPage(
@@ -57,9 +63,27 @@ public class ProductListService {
         Instant to = Instant.now();
         Instant from = to.minus(SALES_WINDOW_DAYS, ChronoUnit.DAYS);
 
+        List<Integer> categoryIds = all.stream()
+                .map(Product::getCategory)
+                .filter(c -> c != null)
+                .map(Category::getId)
+                .distinct()
+                .toList();
+        Map<Integer, String> fallbackSupplierByCategory = new HashMap<>();
+        if (!categoryIds.isEmpty()) {
+            for (Supplier s : supplierRepository.findActiveByCategoryIds(categoryIds)) {
+                if (s.getCategories() == null) continue;
+                for (Category c : s.getCategories()) {
+                    if (c != null && categoryIds.contains(c.getId())) {
+                        fallbackSupplierByCategory.putIfAbsent(c.getId(), s.getName());
+                    }
+                }
+            }
+        }
+
         List<ProductListItemDTO> mapped = new ArrayList<>();
         for (Product p : all) {
-            ProductListItemDTO dto = toListItem(p, from, to);
+            ProductListItemDTO dto = toListItem(p, from, to, fallbackSupplierByCategory);
             if (matchesFacet(dto, facetKey)) {
                 mapped.add(dto);
             }
@@ -74,6 +98,8 @@ public class ProductListService {
         int toIdx = Math.min(fromIdx + size, total);
         List<ProductListItemDTO> content = mapped.subList(fromIdx, toIdx);
 
+        fillOpenPo(content);
+
         return PageResponse.<ProductListItemDTO>builder()
                 .content(content)
                 .page(page)
@@ -83,7 +109,49 @@ public class ProductListService {
                 .build();
     }
 
-    ProductListItemDTO toListItem(Product p, Instant from, Instant to) {
+    /** Toàn bộ SP khớp facet/filter — dùng xuất Excel (không phân trang). */
+    @Transactional(readOnly = true)
+    public List<ProductListItemDTO> listAllForExport(String facet, Integer categoryId, String keyword) {
+        PageResponse<ProductListItemDTO> page = getProductPage(facet, categoryId, keyword, 0, Integer.MAX_VALUE);
+        return page.getContent() == null ? List.of() : page.getContent();
+    }
+
+    void fillOpenPo(List<ProductListItemDTO> content) {
+        if (content == null || content.isEmpty()) {
+            return;
+        }
+        List<Integer> ids = content.stream().map(ProductListItemDTO::getId).toList();
+        List<Object[]> rows = importOrderDetailRepository.findDraftOpenPoRows(ids);
+        Map<Integer, OpenPoInfo> byProduct = new HashMap<>();
+        for (Object[] row : rows) {
+            Integer productId = (Integer) row[0];
+            if (byProduct.containsKey(productId)) {
+                continue; // newest first
+            }
+            byProduct.put(productId, new OpenPoInfo(
+                    (Integer) row[1],
+                    (String) row[2],
+                    row[3] == null ? 0 : ((Number) row[3]).intValue()
+            ));
+        }
+        for (ProductListItemDTO dto : content) {
+            OpenPoInfo info = byProduct.get(dto.getId());
+            if (info != null) {
+                dto.setOpenPoId(info.orderId());
+                dto.setOpenPoCode(info.orderCode());
+                dto.setOpenPoQty(info.qty());
+            }
+        }
+    }
+
+    record OpenPoInfo(Integer orderId, String orderCode, int qty) {}
+
+    ProductListItemDTO toListItem(
+            Product p,
+            Instant from,
+            Instant to,
+            Map<Integer, String> fallbackSupplierByCategory
+    ) {
         Long sold = salesOrderDetailRepository.sumQtyByProductAndDateRange(p.getId(), from, to);
         long soldQty = sold == null ? 0L : sold;
         BigDecimal avgDaily = BigDecimal.valueOf(soldQty)
@@ -106,19 +174,45 @@ public class ProductListService {
 
         String unit = resolveUnit(p);
         String facetStatus = resolveFacet(p, onHand, avgDaily.doubleValue(), coverDaysLeft);
+        Category category = p.getCategory();
+        String supplierName = resolveSupplierName(category, fallbackSupplierByCategory);
 
         return ProductListItemDTO.builder()
                 .id(p.getId())
                 .name(p.getName())
+                .sku(p.getSku())
+                .barcode(p.getBarcode())
                 .productImg(p.getProductImg())
-                .categoryName(p.getCategory() != null ? p.getCategory().getName() : null)
+                .categoryName(category != null ? category.getName() : null)
                 .unitName(unit)
+                .supplierName(supplierName)
+                .description(p.getDescription())
+                .sellingPrice(p.getSellingPrice())
+                .costPrice(p.getCostPrice())
+                .coverDaysOverride(p.getCoverDaysOverride())
+                .categoryCoverDays(category != null && category.getCoverDays() != null
+                        ? category.getCoverDays()
+                        : STORE_COVER_DEFAULT)
                 .avgDailyRate(avgDaily)
                 .avgWeeklyRate(avgWeekly)
                 .onHand(onHand)
                 .coverDaysLeft(coverDaysLeft)
                 .facetStatus(facetStatus)
                 .build();
+    }
+
+    String resolveSupplierName(Category category, Map<Integer, String> fallbackSupplierByCategory) {
+        if (category == null) {
+            return null;
+        }
+        Supplier defaultSupplier = category.getDefaultSupplier();
+        if (defaultSupplier != null && !Boolean.TRUE.equals(defaultSupplier.getIsRemoved())) {
+            return defaultSupplier.getName();
+        }
+        if (fallbackSupplierByCategory != null) {
+            return fallbackSupplierByCategory.get(category.getId());
+        }
+        return null;
     }
 
     String resolveUnit(Product p) {

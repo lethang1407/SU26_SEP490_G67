@@ -1,78 +1,203 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Search } from 'lucide-react';
 import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import ProductFacet from '../components/ProductFacet';
-import ProductBulkBar from '../components/ProductBulkBar';
 import ProductImportTable from '../components/ProductImportTable';
 import ImportPanel from '../components/ImportPanel';
 import ProductDetailDrawer from '../components/ProductDetailDrawer';
 import { productsApi } from '../api';
 import { importOrderApi } from '../api/importOrderApi';
-import {
-  DEMO_CATEGORY_NAMES,
-  MOCK_SUGGESTIONS,
-  PAGE_SIZE,
-  PRODUCT_ROUTES,
-} from '../constants';
-import { getMockProducts, paginateLocal } from '../utils/productUtils';
+import { categoriesApi } from '../../category/api';
+import { suppliersApi } from '../../supplier/api';
+import { PAGE_SIZE } from '../constants';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Product.css';
 
+function buildCoverOverrides(productIds, overrides) {
+  const map = {};
+  productIds.forEach((id) => {
+    if (overrides[id]?.coverDays != null) {
+      map[id] = overrides[id].coverDays;
+    }
+  });
+  return map;
+}
+
+function resolveOrderDate(item, ov) {
+  const timing =
+    ov?.orderTiming ?? (item.orderToday === false ? 'lead' : 'today');
+  if (timing !== 'lead') {
+    return new Date().toISOString().slice(0, 10);
+  }
+  const lead = Number(ov?.leadTimeDays ?? item.leadTimeDays ?? 3);
+  const d = new Date();
+  d.setDate(d.getDate() + Math.max(lead, 0));
+  return d.toISOString().slice(0, 10);
+}
+
+function confirmOpenPoAdd(entries) {
+  if (!entries.length) return true;
+  const sample = entries
+    .slice(0, 3)
+    .map((e) => `${e.name || `#${e.id}`} (${e.code})`)
+    .join(', ');
+  const more = entries.length > 3 ? ` và ${entries.length - 3} SP khác` : '';
+  return window.confirm(
+    `Các sản phẩm sau đang nằm trên phiếu tạm DRAFT: ${sample}${more}.\nVẫn thêm vào đơn mới?`,
+  );
+}
+
+function validateLines(panelItems, overrides) {
+  const errors = [];
+  if (!panelItems.length) {
+    errors.push('Chưa có sản phẩm nào để tạo đơn.');
+    return errors;
+  }
+
+  panelItems.forEach((item) => {
+    const ov = overrides[item.productId] || {};
+    const unitBase = Number(ov.unitBase ?? 1) || 1;
+    const packQty = ov.quantity ?? item.suggestedQty;
+    const qty = Math.round(Number(packQty || 0) * unitBase);
+    const supplierId = ov.supplierId ?? item.supplierId;
+    const name = item.productName || `#${item.productId}`;
+
+    if (!item.productId) {
+      errors.push(`Thiếu mã sản phẩm: ${name}`);
+    }
+    if (!supplierId || Number(supplierId) <= 0) {
+      errors.push(`Chưa có nhà cung cấp hợp lệ cho “${name}”.`);
+    }
+    if (packQty == null || Number(packQty) <= 0 || qty <= 0) {
+      errors.push(`Số lượng phải > 0 cho “${name}”.`);
+    }
+  });
+
+  return errors;
+}
+
 export default function ProductImportPage() {
-  const navigate = useNavigate();
   const [facet, setFacet] = useState('hot');
   const [keyword, setKeyword] = useState('');
   const [categoryId, setCategoryId] = useState(null);
+  const [categories, setCategories] = useState([]);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [selectedIds, setSelectedIds] = useState(() => new Set([1, 2]));
-  const [panelItems, setPanelItems] = useState(MOCK_SUGGESTIONS);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [panelItems, setPanelItems] = useState([]);
   const [overrides, setOverrides] = useState({});
-  const [activeTab, setActiveTab] = useState('product');
   const [step, setStep] = useState('setup');
   const [creating, setCreating] = useState(false);
-  const [usingMock, setUsingMock] = useState(true);
+  const [suggesting, setSuggesting] = useState(false);
   const [detailProduct, setDetailProduct] = useState(null);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [openPoById, setOpenPoById] = useState(() => ({}));
+  const [supplierFallback, setSupplierFallback] = useState([]);
+
+  const selectedIdsRef = useRef(selectedIds);
+  selectedIdsRef.current = selectedIds;
+  const panelIdsRef = useRef(new Set());
+  panelIdsRef.current = new Set(panelItems.map((p) => p.productId));
+  const detailRequestRef = useRef(0);
+
+  const openDetail = useCallback(async (listItem) => {
+    if (!listItem?.id) return;
+    const requestId = ++detailRequestRef.current;
+    // Hiện ngay từ list (đã có giá/NCC sau khi BE trả đủ field)
+    setDetailProduct(listItem);
+    try {
+      const detail = await productsApi.getById(listItem.id);
+      if (detailRequestRef.current !== requestId || !detail) return;
+      setDetailProduct({
+        ...listItem,
+        ...detail,
+        // Giữ metric list (tồn / tốc độ / facet) — detail CRUD không có
+        avgDailyRate: listItem.avgDailyRate,
+        avgWeeklyRate: listItem.avgWeeklyRate,
+        onHand: listItem.onHand,
+        coverDaysLeft: listItem.coverDaysLeft,
+        facetStatus: listItem.facetStatus,
+        unitName: detail.baseUnitName || listItem.unitName,
+        supplierName: detail.supplierName || listItem.supplierName,
+        categoryCoverDays: listItem.categoryCoverDays ?? detail.categoryCoverDays,
+      });
+    } catch (err) {
+      console.error(err);
+      // Giữ list item — đủ để hiện nếu BE list đã enrich
+    }
+  }, []);
+
+  const closeDetail = () => {
+    detailRequestRef.current += 1;
+    setDetailProduct(null);
+  };
+
+  useEffect(() => {
+    categoriesApi
+      .getAllCategories()
+      .then((list) => setCategories(Array.isArray(list) ? list : []))
+      .catch(() => setCategories([]));
+    suppliersApi
+      .getSuppliers({ page: 0, size: 200 })
+      .then((pageRes) => {
+        const list = pageRes?.content || pageRes?.items || [];
+        setSupplierFallback(
+          (Array.isArray(list) ? list : []).map((s) => ({
+            id: s.id,
+            name: s.name,
+            leadTimeDays: s.leadTimeDays ?? 3,
+            costPerUnit: null,
+            cheapest: false,
+          })),
+        );
+      })
+      .catch(() => setSupplierFallback([]));
+  }, []);
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
+    setErrorMsg('');
     try {
       const result = await productsApi.getProducts({
         facet,
         categoryId: typeof categoryId === 'number' ? categoryId : undefined,
-        keyword,
+        keyword: keyword || undefined,
         page,
         size: PAGE_SIZE,
       });
-      if (result.content?.length) {
-        setProducts(result.content);
-        setTotalElements(result.totalElements);
-        setTotalPages(Math.max(1, result.totalPages));
-        setUsingMock(false);
-      } else {
-        const mock = getMockProducts(facet).filter((p) =>
-          !keyword ? true : p.name.toLowerCase().includes(keyword.toLowerCase()),
-        );
-        const paged = paginateLocal(mock, page, PAGE_SIZE);
-        setProducts(paged.content);
-        setTotalElements(paged.totalElements);
-        setTotalPages(paged.totalPages);
-        setUsingMock(true);
-      }
-    } catch {
-      const mock = getMockProducts(facet).filter((p) =>
-        !keyword ? true : p.name.toLowerCase().includes(keyword.toLowerCase()),
+      const content = result.content || [];
+      setProducts(content);
+      setTotalElements(result.totalElements || 0);
+      setTotalPages(Math.max(1, result.totalPages || 1));
+      setOpenPoById((prev) => {
+        const next = { ...prev };
+        content.forEach((p) => {
+          if (p.openPoCode) {
+            next[p.id] = {
+              code: p.openPoCode,
+              qty: p.openPoQty,
+              name: p.name,
+            };
+          } else {
+            delete next[p.id];
+          }
+        });
+        return next;
+      });
+    } catch (err) {
+      console.error(err);
+      setProducts([]);
+      setTotalElements(0);
+      setTotalPages(1);
+      setErrorMsg(
+        err?.response?.data?.message ||
+          'Không tải được danh sách sản phẩm. Kiểm tra kết nối API.',
       );
-      const paged = paginateLocal(mock, page, PAGE_SIZE);
-      setProducts(paged.content);
-      setTotalElements(paged.totalElements);
-      setTotalPages(paged.totalPages);
-      setUsingMock(true);
     } finally {
       setLoading(false);
     }
@@ -83,6 +208,32 @@ export default function ProductImportPage() {
   }, [loadProducts]);
 
   useEffect(() => {
+    const timers = new Map();
+    const onScroll = (e) => {
+      const el = e.target;
+      if (!(el instanceof Element) || !el.classList.contains('pi-autohide-scroll')) {
+        return;
+      }
+      el.classList.add('is-scrolling');
+      const prev = timers.get(el);
+      if (prev) clearTimeout(prev);
+      timers.set(
+        el,
+        setTimeout(() => {
+          el.classList.remove('is-scrolling');
+          timers.delete(el);
+        }, 1000),
+      );
+    };
+    document.addEventListener('scroll', onScroll, true);
+    return () => {
+      document.removeEventListener('scroll', onScroll, true);
+      timers.forEach((id) => clearTimeout(id));
+      timers.clear();
+    };
+  }, []);
+
+  useEffect(() => {
     if (!detailProduct) return undefined;
     const onKey = (e) => {
       if (e.key === 'Escape') setDetailProduct(null);
@@ -91,122 +242,234 @@ export default function ProductImportPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [detailProduct]);
 
+  const removeFromPanel = useCallback((ids) => {
+    const removeSet = new Set(ids);
+    setPanelItems((prev) => prev.filter((p) => !removeSet.has(p.productId)));
+    setOverrides((prev) => {
+      const next = { ...prev };
+      removeSet.forEach((id) => {
+        delete next[id];
+      });
+      return next;
+    });
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      removeSet.forEach((id) => next.delete(id));
+      selectedIdsRef.current = next;
+      return next;
+    });
+  }, []);
+
+  /** Gộp gợi ý vào panel — giữ SP đã chọn từ facet khác */
+  const addToPanel = useCallback(
+    async (ids, { skipOpenPoConfirm = false } = {}) => {
+      const want = [...new Set(ids)].filter((id) => id != null);
+      if (!want.length) return;
+
+      if (!skipOpenPoConfirm) {
+        const openEntries = want
+          .filter((id) => openPoById[id] && !panelIdsRef.current.has(id))
+          .map((id) => ({
+            id,
+            name: openPoById[id].name,
+            code: openPoById[id].code,
+          }));
+        if (!confirmOpenPoAdd(openEntries)) return;
+      }
+
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        want.forEach((id) => next.add(id));
+        selectedIdsRef.current = next;
+        return next;
+      });
+
+      const missing = want.filter((id) => !panelIdsRef.current.has(id));
+      if (!missing.length) {
+        setStep('setup');
+        return;
+      }
+
+      setSuggesting(true);
+      setErrorMsg('');
+      setSuccessMsg('');
+      try {
+        const coverOverrides = buildCoverOverrides(missing, overrides);
+        const suggestions = await importOrderApi.getSuggestions(missing, coverOverrides);
+
+        setPanelItems((prev) => {
+          const byId = new Map(prev.map((p) => [p.productId, p]));
+          const selected = selectedIdsRef.current;
+          (suggestions || []).forEach((s) => {
+            if (selected.has(s.productId) && !byId.has(s.productId)) {
+              byId.set(s.productId, s);
+            }
+          });
+          const kept = prev.filter((p) => selected.has(p.productId));
+          const keptIds = new Set(kept.map((p) => p.productId));
+          const added = (suggestions || []).filter(
+            (s) => selected.has(s.productId) && !keptIds.has(s.productId),
+          );
+          return [...kept, ...added];
+        });
+        setOverrides((prev) => {
+          const next = { ...prev };
+          (suggestions || []).forEach((s) => {
+            if (!selectedIdsRef.current.has(s.productId)) return;
+            const units = Array.isArray(s.units) ? s.units : [];
+            const baseUnit =
+              units.find((u) => u.isBase || Number(u.unitBase) === 1) ||
+              units[0];
+            const unitBase = Number(baseUnit?.unitBase ?? 1) || 1;
+            const existing = next[s.productId] || {};
+            next[s.productId] = {
+              ...existing,
+              supplierId: existing.supplierId ?? s.supplierId,
+              supplierName: existing.supplierName ?? s.supplierName,
+              costPerUnit: existing.costPerUnit ?? s.costPerUnit,
+              leadTimeDays: existing.leadTimeDays ?? s.leadTimeDays,
+              productUnitId: existing.productUnitId ?? baseUnit?.id ?? null,
+              unitName: existing.unitName ?? baseUnit?.name ?? 'sp',
+              unitBase: existing.unitBase ?? unitBase,
+              quantity:
+                existing.quantity ??
+                Math.max(1, Math.ceil(Number(s.suggestedQty || 0) / unitBase)),
+            };
+          });
+          return next;
+        });
+        setStep('setup');
+      } catch (err) {
+        console.error(err);
+        // Rollback selection cho SP chưa vào được panel
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          missing.forEach((id) => {
+            if (!panelIdsRef.current.has(id)) next.delete(id);
+          });
+          return next;
+        });
+        setErrorMsg(
+          err?.response?.data?.message ||
+            'Không lấy được gợi ý nhập hàng. Kiểm tra API / quyền truy cập.',
+        );
+      } finally {
+        setSuggesting(false);
+      }
+    },
+    [overrides, openPoById],
+  );
+
   const handleFacetChange = (key) => {
     setFacet(key);
     setPage(0);
-    setSelectedIds(new Set());
+    // Giữ selectedIds + panelItems khi đổi trạng thái / danh mục
     setDetailProduct(null);
+    setSuccessMsg('');
   };
 
   const handleToggle = (id) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    if (selectedIds.has(id)) {
+      removeFromPanel([id]);
+    } else {
+      addToPanel([id]);
+    }
   };
 
   const handleToggleAll = (checked) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      products.forEach((p) => {
-        if (checked) next.add(p.id);
-        else next.delete(p.id);
-      });
-      return next;
-    });
+    const pageIds = products.map((p) => p.id).filter(Boolean);
+    if (!pageIds.length) return;
+    if (checked) {
+      addToPanel(pageIds);
+    } else {
+      removeFromPanel(pageIds);
+    }
   };
 
-  const closeDetail = () => setDetailProduct(null);
-
-  const handlePrepare = async (forcedIds) => {
-    const ids = forcedIds?.length ? forcedIds : Array.from(selectedIds);
-    if (!ids.length) return;
-
-    if (usingMock) {
-      const mockMap = Object.fromEntries(MOCK_SUGGESTIONS.map((s) => [s.productId, s]));
-      let selectedProducts = products.filter((p) => ids.includes(p.id));
-      if (!selectedProducts.length && detailProduct && ids.includes(detailProduct.id)) {
-        selectedProducts = [detailProduct];
-      }
-      const items = selectedProducts.map((p) => {
-        if (mockMap[p.id]) return mockMap[p.id];
-        return {
-          productId: p.id,
-          productName: p.name,
-          emoji: p.productImg,
-          whyFacts: `Tồn ${p.onHand} · ~${p.avgDailyRate}/${p.unitName || 'sp'}/ngày`,
-          whyResult: `→ Gợi ý nhập ${Math.max(1, Math.ceil((p.avgDailyRate || 1) * 7))}`,
-          suggestedQty: Math.max(1, Math.ceil((p.avgDailyRate || 1) * 7)),
-          orderToday: (p.onHand || 0) <= 0,
-          supplierId: 1,
-          supplierName: p.supplierName || 'NCC mặc định',
-          leadTimeDays: 3,
-          coverDays: p.coverDaysOverride || p.categoryCoverDays || 7,
-          coverSource: p.coverDaysOverride ? 'PRODUCT' : 'CATEGORY',
-          coverSourceLabel: p.coverDaysOverride ? 'Cài riêng SP' : `Nhóm ${p.categoryName || ''}`,
-          costPerUnit: p.costPrice || 20000,
-          onHand: p.onHand,
-          avgDailyRate: p.avgDailyRate,
-        };
-      });
-      setPanelItems(items.length ? items : MOCK_SUGGESTIONS);
-      setOverrides({});
-      setStep('setup');
-      setActiveTab('product');
-      setDetailProduct(null);
-      return;
-    }
-
-    try {
-      const suggestions = await importOrderApi.getSuggestions(ids, {});
-      setPanelItems(suggestions);
-      setOverrides({});
-      setStep('setup');
-      setActiveTab('product');
-      setDetailProduct(null);
-    } catch (err) {
-      console.error(err);
-      setPanelItems(MOCK_SUGGESTIONS);
-      setDetailProduct(null);
-    }
+  const clearAllSelection = () => {
+    selectedIdsRef.current = new Set();
+    setSelectedIds(new Set());
+    setPanelItems([]);
+    setOverrides({});
+    setStep('setup');
+    setErrorMsg('');
   };
 
   const handleCreate = async () => {
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    const validationErrors = validateLines(panelItems, overrides);
+    if (validationErrors.length) {
+      setErrorMsg(validationErrors.join('\n'));
+      setStep('setup');
+      return;
+    }
+
+    const openOnCreate = panelItems
+      .filter((item) => openPoById[item.productId])
+      .map((item) => ({
+        id: item.productId,
+        name: item.productName || openPoById[item.productId]?.name,
+        code: openPoById[item.productId].code,
+      }));
+    if (
+      openOnCreate.length &&
+      !window.confirm(
+        `Có ${openOnCreate.length} sản phẩm đang trên phiếu tạm DRAFT. Vẫn tạo đơn mới?`,
+      )
+    ) {
+      return;
+    }
+
+    const lines = panelItems.map((item) => {
+      const ov = overrides[item.productId] || {};
+      const cost = ov.costPerUnit ?? item.costPerUnit;
+      const unitBase = Number(ov.unitBase ?? 1) || 1;
+      const packQty = Number(ov.quantity ?? item.suggestedQty) || 0;
+      const baseQty = Math.max(1, Math.round(packQty * unitBase));
+      return {
+        productId: item.productId,
+        supplierId: Number(ov.supplierId ?? item.supplierId),
+        quantity: baseQty,
+        coverDays: Number(ov.coverDays ?? item.coverDays ?? 7),
+        orderDate: resolveOrderDate(item, ov),
+        ...(cost != null ? { costPerUnit: Number(cost) } : {}),
+      };
+    });
+
     setCreating(true);
     try {
-      const lines = panelItems.map((item) => ({
-        productId: item.productId,
-        supplierId: overrides[item.productId]?.supplierId ?? item.supplierId,
-        quantity: overrides[item.productId]?.quantity ?? item.suggestedQty,
-        coverDays: overrides[item.productId]?.coverDays ?? item.coverDays,
-        orderDate: new Date().toISOString().slice(0, 10),
-      }));
-
-      if (!usingMock) {
-        await importOrderApi.createOrders(lines);
-      }
-      setSelectedIds(new Set());
-      setPanelItems([]);
-      setStep('setup');
-      alert(usingMock ? 'Demo: đã mô phỏng tạo đơn thành công.' : 'Đã tạo đơn nhập thành công.');
+      const created = await importOrderApi.createOrders(lines);
+      const codes = (created || []).map((o) => o.orderCode).filter(Boolean);
+      clearAllSelection();
+      setSuccessMsg(
+        codes.length
+          ? `Đã tạo ${codes.length} đơn nhập: ${codes.join(', ')}.`
+          : 'Đã tạo đơn nhập thành công.',
+      );
+      await loadProducts();
     } catch (err) {
       console.error(err);
-      alert('Không tạo được đơn. Kiểm tra API / NCC.');
+      setErrorMsg(
+        err?.response?.data?.message ||
+          'Không tạo được đơn nhập. Kiểm tra NCC, số lượng và API.',
+      );
     } finally {
       setCreating(false);
     }
   };
 
-  const showBulk = selectedIds.size > 0 && ['hot', 'warn', 'season'].includes(facet);
+  const showStatusNote = Boolean(errorMsg || successMsg);
 
-  const summaryNote = useMemo(
+  const categoryOptions = useMemo(
     () =>
-      usingMock
-        ? 'Đang dùng dữ liệu demo. Hover 2s hoặc click SP (không phải checkbox) để xem chi tiết.'
-        : 'Chọn SP ở giữa → quyết định nhập bên phải. Hover 2s / click hàng để xem chi tiết.',
-    [usingMock],
+      categories.map((c) => ({
+        id: c.id,
+        name: c.name,
+        productCount: c.productCount ?? 0,
+      })),
+    [categories],
   );
 
   return (
@@ -220,21 +483,14 @@ export default function ProductImportPage() {
           <div className="pi-main">
             <div className="pi-head">
               <div>
-                <div className="page-kicker">Quyết định nhập hàng</div>
-                <h1>Chọn sản phẩm → chuẩn bị đơn nhập</h1>
-                <div className="page-note">{summaryNote}</div>
-              </div>
-              <div className="head-actions">
-                <button type="button" className="btn">
-                  Nhập / Xuất Excel
-                </button>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => navigate(PRODUCT_ROUTES.create)}
-                >
-                  + Thêm sản phẩm
-                </button>
+                <h1>Nhập sản phẩm</h1>
+                {showStatusNote ? (
+                  <div
+                    className={`page-note${errorMsg ? ' page-note--error' : ''}${successMsg && !errorMsg ? ' page-note--ok' : ''}`}
+                  >
+                    {errorMsg || successMsg}
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -242,7 +498,7 @@ export default function ProductImportPage() {
               <ProductFacet
                 facet={facet}
                 onFacetChange={handleFacetChange}
-                categories={DEMO_CATEGORY_NAMES}
+                categories={categoryOptions}
                 categoryId={categoryId}
                 onCategoryChange={(id) => {
                   setCategoryId(id);
@@ -250,7 +506,8 @@ export default function ProductImportPage() {
                 }}
               />
 
-              <section className="results">
+              <section className="results pi-zone">
+                <div className="pi-zone__head">Danh sách sản phẩm</div>
                 <div className="search-row">
                   <div className="search">
                     <Search size={18} />
@@ -263,17 +520,7 @@ export default function ProductImportPage() {
                       }}
                     />
                   </div>
-                  <div className="scan" title="Quét mã">Quét</div>
-                  <div className="sort" title="Sắp xếp">Bán nhiều ▾</div>
                 </div>
-
-                {showBulk && (
-                  <ProductBulkBar
-                    count={selectedIds.size}
-                    onClear={() => setSelectedIds(new Set())}
-                    onPrepare={() => handlePrepare()}
-                  />
-                )}
 
                 <ProductImportTable
                   items={products}
@@ -283,7 +530,7 @@ export default function ProductImportPage() {
                   detailProductId={detailProduct?.id ?? null}
                   onToggle={handleToggle}
                   onToggleAll={handleToggleAll}
-                  onOpenDetail={setDetailProduct}
+                  onOpenDetail={openDetail}
                   page={page}
                   totalPages={totalPages}
                   totalElements={totalElements}
@@ -294,9 +541,9 @@ export default function ProductImportPage() {
               <ImportPanel
                 panelItems={panelItems}
                 overrides={overrides}
-                activeTab={activeTab}
                 step={step}
-                onTabChange={setActiveTab}
+                suggesting={suggesting}
+                supplierFallback={supplierFallback}
                 onChangeQty={(id, quantity) =>
                   setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], quantity } }))
                 }
@@ -306,21 +553,25 @@ export default function ProductImportPage() {
                 onChangeSupplier={(id, supplier) =>
                   setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], ...supplier } }))
                 }
-                onRemove={(id) => {
-                  setPanelItems((prev) => prev.filter((p) => p.productId !== id));
-                  setSelectedIds((prev) => {
-                    const next = new Set(prev);
-                    next.delete(id);
-                    return next;
-                  });
+                onChangeOrderTiming={(id, orderTiming) =>
+                  setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], orderTiming } }))
+                }
+                onChangeUnit={(id, unitPatch) =>
+                  setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], ...unitPatch } }))
+                }
+                onRemove={(id) => removeFromPanel([id])}
+                onPreview={() => {
+                  const errs = validateLines(panelItems, overrides);
+                  if (errs.length) {
+                    setErrorMsg(errs.join('\n'));
+                    return;
+                  }
+                  setErrorMsg('');
+                  setStep('preview');
                 }}
-                onPreview={() => setStep('preview')}
                 onBackSetup={() => setStep('setup')}
                 onCreate={handleCreate}
-                onClose={() => {
-                  setPanelItems([]);
-                  setStep('setup');
-                }}
+                onClose={clearAllSelection}
                 creating={creating}
               />
             </div>
@@ -330,8 +581,8 @@ export default function ProductImportPage() {
                 product={detailProduct}
                 onClose={closeDetail}
                 onPrepareImport={(p) => {
-                  setSelectedIds((prev) => new Set(prev).add(p.id));
-                  handlePrepare([p.id]);
+                  addToPanel([p.id]);
+                  setDetailProduct(null);
                 }}
               />
             )}

@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,13 +14,20 @@ import project.be_sep490_g67.dto.request.CreateSalesOrderRequest;
 import project.be_sep490_g67.dto.response.SalesOrderListResponse;
 import project.be_sep490_g67.dto.response.SalesOrderResponse;
 import project.be_sep490_g67.entity.*;
+import project.be_sep490_g67.exception.AppException;
+import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.*;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +40,7 @@ public class SalesOrderService {
     CustomerRepository customerRepository;
     ProductUnitRepository productUnitRepository;
     StockDeductionService stockDeductionService;
+    UserRepository userRepository;
 
     @Transactional
     public SalesOrderResponse createOrder(CreateSalesOrderRequest request,
@@ -162,6 +171,35 @@ public class SalesOrderService {
         return getSalesOrderResponse(order, itemInfos);
     }
 
+    /**
+     * Admin/cashier order detail view with IDOR:
+     * ADMIN/ACCOUNTANT can access any order; cashier only own orders.
+     */
+    @Transactional(readOnly = true)
+    public SalesOrderResponse getOrderDetail(Integer orderId, Integer currentUserId, boolean isPrivileged) {
+        SalesOrder order = salesOrderRepository.findActiveById(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+        if (!isPrivileged && (order.getCreatedBy() == null || !order.getCreatedBy().equals(currentUserId))) {
+            throw new AppException(ErrorCode.INVOICE_ACCESS_DENIED);
+        }
+
+        List<SalesOrderDetail> details = new ArrayList<>(order.getSalesOrderDetails());
+        List<SalesOrderResponse.SalesOrderDetailInfo> itemInfos = details.stream()
+                .map(d -> SalesOrderResponse.SalesOrderDetailInfo.builder()
+                        .productId(d.getProduct().getId())
+                        .name(d.getProduct().getName())
+                        .unitName(d.getUnitName())
+                        .quantity(d.getQuantity())
+                        .unitPrice(d.getUnitPrice())
+                        .discountAmount(d.getDiscountAmount())
+                        .lineTotal(d.getLineTotal())
+                        .build())
+                .toList();
+
+        return getSalesOrderResponse(order, itemInfos);
+    }
+
     private SalesOrderResponse getSalesOrderResponse(SalesOrder order, List<SalesOrderResponse.SalesOrderDetailInfo> itemInfos) {
         SalesOrderResponse.CustomerInfo customerInfo = null;
         if (order.getCustomer() != null) {
@@ -170,6 +208,19 @@ public class SalesOrderService {
                     .fullName(order.getCustomer().getFullName())
                     .phoneNumber(order.getCustomer().getPhoneNumber())
                     .build();
+        }
+
+        BigDecimal paid = order.getPaidAmount() != null ? order.getPaidAmount() : BigDecimal.ZERO;
+        BigDecimal total = order.getTotalAmount() != null ? order.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal remainingDebt = Boolean.TRUE.equals(order.getIsDebt())
+                ? total.subtract(paid).max(BigDecimal.ZERO)
+                : BigDecimal.ZERO;
+
+        String cashierName = null;
+        if (order.getCreatedBy() != null) {
+            cashierName = userRepository.findActiveById(order.getCreatedBy())
+                    .map(u -> u.getFullName() != null ? u.getFullName() : u.getUsername())
+                    .orElse(null);
         }
 
         return SalesOrderResponse.builder()
@@ -182,7 +233,12 @@ public class SalesOrderService {
                 .discountAmount(order.getDiscountAmount())
                 .totalAmount(order.getTotalAmount())
                 .paidAmount(order.getPaidAmount())
+                .remainingDebt(remainingDebt)
                 .createdAt(order.getCreatedAt())
+                .dueDate(order.getDueDate())
+                .note(order.getNote())
+                .createdBy(order.getCreatedBy())
+                .cashierName(cashierName)
                 .customer(customerInfo)
                 .items(itemInfos)
                 .build();
@@ -216,6 +272,9 @@ public class SalesOrderService {
             String search,
             Instant dateFrom,
             Instant dateTo,
+            String orderStatus,
+            String paymentMethod,
+            Boolean isDebt,
             int page,
             int size
     ) {
@@ -224,10 +283,16 @@ public class SalesOrderService {
                 ? null
                 : "%" + search.toLowerCase() + "%";
 
+        String statusFilter = blankToNull(orderStatus);
+        String paymentFilter = blankToNull(paymentMethod);
+
         Page<SalesOrder> pg = salesOrderRepository.findHistory(
                 createdByFilter, likeSearch, dateFrom, dateTo,
-                PageRequest.of(page, safeSize)
+                statusFilter, paymentFilter, isDebt,
+                PageRequest.of(page, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"))
         );
+
+        Map<Integer, String> staffNames = loadStaffNames(pg.getContent());
 
         List<SalesOrderListResponse.Item> items = pg.getContent().stream()
                 .map(o -> SalesOrderListResponse.Item.builder()
@@ -235,9 +300,13 @@ public class SalesOrderService {
                         .orderCode(o.getOrderCode())
                         .createdAt(o.getCreatedAt())
                         .customerName(o.getCustomer() != null ? o.getCustomer().getFullName() : null)
+                        .staffName(o.getCreatedBy() == null
+                                ? "—"
+                                : staffNames.getOrDefault(o.getCreatedBy(), "—"))
                         .totalAmount(o.getTotalAmount())
                         .orderStatus(o.getOrderStatus())
                         .paymentMethod(o.getPaymentMethod())
+                        .isDebt(o.getIsDebt())
                         .build())
                 .toList();
 
@@ -248,5 +317,27 @@ public class SalesOrderService {
                 .totalElements(pg.getTotalElements())
                 .totalPages(pg.getTotalPages())
                 .build();
+    }
+
+    private Map<Integer, String> loadStaffNames(List<SalesOrder> orders) {
+        Set<Integer> ids = orders.stream()
+                .map(SalesOrder::getCreatedBy)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<Integer, String> map = new HashMap<>();
+        for (User u : userRepository.findAllById(ids)) {
+            map.put(u.getId(), u.getFullName() != null ? u.getFullName() : u.getUsername());
+        }
+        return map;
+    }
+
+    private static String blankToNull(String value) {
+        if (value == null || value.isBlank() || "ALL".equalsIgnoreCase(value)) {
+            return null;
+        }
+        return value.trim();
     }
 }

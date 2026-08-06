@@ -39,7 +39,7 @@ export default function ProductDetailDrawer({
 
   const facet = product.facetStatus || 'hot';
   const pill = FACET_PILL[facet] || FACET_PILL.hot;
-  const unit = product.unitName || 'sp';
+  const unit = product.unitName || product.baseUnitName || 'sp';
   const selling = product.sellingPrice ?? product.price ?? null;
   const cost = product.costPrice ?? null;
   const margin = selling != null ? marginPct(selling, cost) : null;
@@ -63,7 +63,7 @@ export default function ProductDetailDrawer({
           </button>
         </div>
 
-        <div className="d-body">
+        <div className="d-body pi-autohide-scroll">
           <div className="d-hero">
             <Thumb product={product} />
             <div className="d-hero-meta">

@@ -113,20 +113,20 @@ public class ImportOrderService {
     @Transactional
     public List<ImportOrderResponseDTO> createOrders(CreateImportOrderRequest request) {
         if (request == null || request.getLines() == null || request.getLines().isEmpty()) {
-            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+            throw new AppException(ErrorCode.IMPORT_ORDER_LINES_REQUIRED);
         }
 
         Map<Integer, List<CreateImportOrderRequest.OrderLine>> bySupplier = new LinkedHashMap<>();
         for (CreateImportOrderRequest.OrderLine line : request.getLines()) {
             if (line.getSupplierId() == null || line.getProductId() == null || line.getQuantity() == null
                     || line.getQuantity() <= 0) {
-                continue;
+                throw new AppException(ErrorCode.IMPORT_ORDER_LINE_INVALID);
             }
             bySupplier.computeIfAbsent(line.getSupplierId(), k -> new ArrayList<>()).add(line);
         }
 
         if (bySupplier.isEmpty()) {
-            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+            throw new AppException(ErrorCode.IMPORT_ORDER_LINES_REQUIRED);
         }
 
         List<ImportOrderResponseDTO> created = new ArrayList<>();
@@ -134,15 +134,16 @@ public class ImportOrderService {
 
         for (Map.Entry<Integer, List<CreateImportOrderRequest.OrderLine>> entry : bySupplier.entrySet()) {
             Supplier supplier = supplierRepository.findById(entry.getKey())
-                    .orElseThrow(() -> new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION));
+                    .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
 
             ImportOrder order = new ImportOrder();
             order.setSupplier(supplier);
             order.setOrderCode("PO-" + datePart + "-" + String.format("%03d", SEQ.getAndIncrement()));
             order.setReceivedDate(null);
-            order.setOrderStatus("PENDING_CHECK");
-            order.setNote("Tạo từ màn chuẩn bị đơn nhập");
+            order.setOrderStatus(ImportOrderConstants.ORDER_STATUS_DRAFT);
+            order.setNote("Tạo từ màn nhập sản phẩm");
             order.setTotalCost(BigDecimal.ZERO);
+            order.setIsRemoved(false);
             order = importOrderRepository.save(order);
 
             BigDecimal total = BigDecimal.ZERO;
@@ -150,10 +151,12 @@ public class ImportOrderService {
             boolean urgent = false;
 
             for (CreateImportOrderRequest.OrderLine lineReq : entry.getValue()) {
-                Product product = productRepository.findById(lineReq.getProductId())
-                        .orElseThrow(() -> new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION));
+                Product product = productRepository.findByIdAndIsRemovedFalse(lineReq.getProductId())
+                        .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
-                BigDecimal cost = product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO;
+                BigDecimal cost = lineReq.getCostPerUnit() != null
+                        ? lineReq.getCostPerUnit()
+                        : (product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO);
                 BigDecimal lineTotal = cost.multiply(BigDecimal.valueOf(lineReq.getQuantity()))
                         .setScale(2, RoundingMode.HALF_UP);
 
@@ -163,6 +166,7 @@ public class ImportOrderService {
                 detail.setQuantity(lineReq.getQuantity());
                 detail.setCostPerUnit(cost);
                 detail.setLineTotal(lineTotal);
+                detail.setIsRemoved(false);
                 importOrderDetailRepository.save(detail);
 
                 total = total.add(lineTotal);

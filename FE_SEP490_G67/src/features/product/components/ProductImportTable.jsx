@@ -1,13 +1,40 @@
-import { useEffect, useRef } from 'react';
 import {
   coverClass,
   formatCoverDays,
-  formatRate,
   rowClass,
   stockClass,
 } from '../utils/productUtils';
 
-const HOVER_OPEN_MS = 2000;
+function salesPaceLabel(facetStatus) {
+  switch (facetStatus) {
+    case 'hot':
+    case 'warn':
+      return 'Bán chạy';
+    case 'slow':
+      return 'Ít bán';
+    case 'stop':
+      return 'Ngừng bán';
+    case 'ok':
+    case 'season':
+    default:
+      return 'Bình thường';
+  }
+}
+
+/** Một số ngắn: ưu tiên /tuần (dễ hình dung), fallback /ngày */
+function salesPaceStat(product) {
+  const format = (n, suffix) => {
+    const text = Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, '');
+    return `~${text}${suffix}`;
+  };
+  const weekly = Number(product.avgWeeklyRate);
+  if (Number.isFinite(weekly) && weekly > 0) return format(weekly, '/tuần');
+  const daily = Number(product.avgDailyRate);
+  if (Number.isFinite(daily) && daily > 0) return format(daily, '/ngày');
+  if (Number.isFinite(weekly) && weekly === 0) return '~0/tuần';
+  if (Number.isFinite(daily) && daily === 0) return '~0/ngày';
+  return '—';
+}
 
 function ProductThumb({ product }) {
   const img = product.productImg;
@@ -30,48 +57,17 @@ export default function ProductImportTable({
   onToggle,
   onToggleAll,
   onOpenDetail,
-  onHoverDetailCancel,
+  onOpenPo,
   page,
   totalPages,
   totalElements,
   onPageChange,
 }) {
   const allChecked = items.length > 0 && items.every((p) => selectedIds.has(p.id));
-  const hoverTimerRef = useRef(null);
-  const hoverIdRef = useRef(null);
-
-  useEffect(() => {
-    return () => {
-      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-    };
-  }, []);
-
-  const clearHoverTimer = () => {
-    if (hoverTimerRef.current) {
-      clearTimeout(hoverTimerRef.current);
-      hoverTimerRef.current = null;
-    }
-    hoverIdRef.current = null;
-  };
-
-  const handleRowEnter = (product) => {
-    clearHoverTimer();
-    hoverIdRef.current = product.id;
-    hoverTimerRef.current = setTimeout(() => {
-      if (hoverIdRef.current === product.id) {
-        onOpenDetail?.(product);
-      }
-    }, HOVER_OPEN_MS);
-  };
-
-  const handleRowLeave = () => {
-    clearHoverTimer();
-    onHoverDetailCancel?.();
-  };
 
   return (
     <div className={`tablewrap ${detailProductId ? 'tablewrap--detail-open' : ''}`}>
-      <div className="tscroll">
+      <div className="tscroll pi-autohide-scroll">
         <table>
           <thead>
             <tr>
@@ -87,7 +83,7 @@ export default function ProductImportTable({
                 />
               </th>
               <th className="col-prod">Sản phẩm</th>
-              <th className="col-rate" title="Tốc độ bán">Tốc độ</th>
+              <th className="col-rate" title="Mức bán">Mức bán</th>
               <th className="col-stock" title="Tồn kho">Tồn</th>
               <th className="col-cover" title="Còn bán được">Còn bán</th>
             </tr>
@@ -110,7 +106,6 @@ export default function ProductImportTable({
             {!loading &&
               items.map((p) => {
                 const checked = selectedIds.has(p.id);
-                const unit = p.unitName || 'sp';
                 const isDetailFocus = detailProductId === p.id;
                 return (
                   <tr
@@ -118,9 +113,6 @@ export default function ProductImportTable({
                     className={`${rowClass(facet || p.facetStatus, checked)} ${
                       isDetailFocus ? 'detail-focus' : ''
                     } ${detailProductId && !isDetailFocus ? 'detail-dimmed' : ''}`.trim()}
-                    onClick={() => onOpenDetail?.(p)}
-                    onMouseEnter={() => handleRowEnter(p)}
-                    onMouseLeave={handleRowLeave}
                   >
                     <td
                       className="col-cb"
@@ -131,18 +123,48 @@ export default function ProductImportTable({
                     >
                       <span className={`cb ${checked ? 'on' : ''}`} />
                     </td>
-                    <td className="col-prod">
+                    <td
+                      className="col-prod"
+                      onClick={() => onOpenDetail?.(p)}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <div className="prod">
                         <ProductThumb product={p} />
-                        <div className="prod-name" title={p.name}>{p.name}</div>
+                        <div className="prod-text">
+                          <div className="prod-name" title={p.name}>
+                            {p.name}
+                          </div>
+                          {p.openPoCode ? (
+                            <span
+                              className="open-po-badge"
+                              title={`Đang nằm trong phiếu tạm ${p.openPoCode}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onOpenPo?.(p);
+                              }}
+                            >
+                              Đang {p.openPoCode}
+                              {p.openPoQty != null ? ` · SL ${p.openPoQty}` : ''}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     </td>
                     <td className="col-rate">
-                      <div className="rate-main" title={formatRate(p.avgDailyRate, `${unit}/ngày`)}>
-                        {formatRate(p.avgDailyRate, `${unit}/ngày`)}
+                      <div
+                        className={`rate-label rate-label--${facet || p.facetStatus || 'ok'}`}
+                      >
+                        {salesPaceLabel(facet || p.facetStatus)}
                       </div>
-                      <div className="rate-sub" title={formatRate(p.avgWeeklyRate, `${unit}/tuần`)}>
-                        {formatRate(p.avgWeeklyRate, `${unit}/tuần`)}
+                      <div
+                        className="rate-stat"
+                        title={
+                          p.avgDailyRate != null
+                            ? `Trung bình ~${Number(p.avgDailyRate).toFixed(1).replace(/\.0$/, '')}/${p.unitName || 'sp'}/ngày (14 ngày gần nhất)`
+                            : undefined
+                        }
+                      >
+                        {salesPaceStat(p)}
                       </div>
                     </td>
                     <td className={`col-stock ${stockClass(p.onHand, facet || p.facetStatus)}`}>

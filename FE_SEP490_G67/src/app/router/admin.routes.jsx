@@ -13,8 +13,11 @@ import ImportHistoryPage from '../../features/importHistory/pages/ImportHistoryP
 import CategoryListPage from '../../features/category/pages/CategoryListPage';
 import ImportOrderListPage from '../../features/import-order/pages/ImportOrderListPage';
 import POSScreen from '../../features/pos-screen/pages/POS';
+import ExchangeOrder from '../../features/pos-screen/components/ExchangeOrder';
 import CustomerDebtPage from '../../features/customer/pages/CustomerDebtPage';
 import CustomerDetailPage from '../../features/customer/pages/CustomerDetailPage';
+import SalesOrderListPage from '../../features/sales-order/pages/SalesOrderListPage';
+import SalesOrderDetailPage from '../../features/sales-order/pages/SalesOrderDetailPage';
 
 const adminRoutes = [
     {
@@ -80,6 +83,18 @@ const adminRoutes = [
     {
         path: '/admin/pos',
         element: <POSScreen />,
+    },
+    {
+        path: '/admin/orders/:orderId',
+        element: <SalesOrderDetailPage />,
+    },
+    {
+        path: '/admin/orders',
+        element: <SalesOrderListPage />,
+    },
+    {
+        path: '/admin/exchange-order/:orderId',
+        element: <ExchangeOrder />,
     },
     {
         path: '/admin/customer/:customerId',
