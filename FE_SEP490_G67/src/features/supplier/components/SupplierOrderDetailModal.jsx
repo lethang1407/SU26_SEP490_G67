@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
-import { IMPORT_ORDER_STATUS_LABEL } from '../constants/mockSupplierDetails';
+import { IMPORT_ORDER_STATUS_LABEL } from '../constants';
 import { formatCurrency, formatDate } from '../utils/supplierUtils';
 import { suppliersApi } from '../api';
 

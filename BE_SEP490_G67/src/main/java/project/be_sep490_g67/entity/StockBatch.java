@@ -30,6 +30,10 @@ public class StockBatch extends BaseEntity {
     @JoinColumn(name = "import_order_id")
     private ImportOrder importOrder;
 
+    /** Mã lô chung theo phiếu nhập (cùng NCC trong một phiếu dùng chung mã). */
+    @Column(name = "batch_code", nullable = false, length = 50)
+    private String batchCode;
+
     @Column(name = "cost_per_unit", precision = 15, scale = 2)
     private BigDecimal costPerUnit;
 

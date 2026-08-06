@@ -9,10 +9,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.be_sep490_g67.dto.request.AddNewSupplierRequest;
 import project.be_sep490_g67.dto.response.AddNewSupplierResponse;
+import project.be_sep490_g67.dto.response.CategoryResponse;
 import project.be_sep490_g67.dto.response.SupplierDetailResponse;
 import project.be_sep490_g67.dto.response.SupplierListItemResponse;
 import project.be_sep490_g67.dto.response.SupplierListPageResponse;
-import project.be_sep490_g67.entity.Category;
 import project.be_sep490_g67.entity.ImportOrder;
 import project.be_sep490_g67.entity.Supplier;
 import project.be_sep490_g67.entity.User;
@@ -26,6 +26,7 @@ import project.be_sep490_g67.repository.UserRepository;
 import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -42,12 +43,11 @@ public class SupplierService {
     UserRepository userRepository;
 
     @Transactional(readOnly = true)
-    public SupplierListPageResponse findAllSuppliers(String search, String debtFilter, int page, int size) {
+    public SupplierListPageResponse findAllSuppliers(String search, Integer categoryId, int page, int size) {
         String safeSearch = (search == null || search.isBlank()) ? "" : search.trim();
-        String safeFilter = (debtFilter == null || debtFilter.isBlank()) ? "ALL" : debtFilter.toUpperCase();
 
-        // Bước 1: Lấy tất cả NCC khớp với từ khóa tìm kiếm
-        List<Supplier> suppliers = supplierRepository.searchSuppliers(safeSearch);
+        // Bước 1: Lấy NCC khớp từ khóa + danh mục (nếu có)
+        List<Supplier> suppliers = supplierRepository.searchSuppliers(safeSearch, categoryId);
 
         // Bước 2: Tính nợ hiện tại của từng NCC — derive từ (totalCost - đã trả),
         // KHÔNG đọc từ cột cache nào để tránh lệch số liệu khi thanh toán mới phát sinh.
@@ -65,27 +65,29 @@ public class SupplierService {
                         .build())
                 .toList();
 
-        // Bước 4: Lọc theo debtFilter (ALL / HAS_DEBT / NO_DEBT)
-        List<SupplierListItemResponse> filtered = switch (safeFilter) {
-            case "HAS_DEBT" -> allItems.stream()
-                    .filter(item -> item.getCurrentDebt().compareTo(BigDecimal.ZERO) > 0)
-                    .toList();
-            case "NO_DEBT" -> allItems.stream()
-                    .filter(item -> item.getCurrentDebt().compareTo(BigDecimal.ZERO) == 0)
-                    .toList();
-            default -> allItems;
-        };
+        // Bước 4: Sort nợ giảm dần (ưu tiên NCC nợ nhiều), cùng nợ thì theo tên A–Z
+        List<SupplierListItemResponse> sorted = allItems.stream()
+                .sorted(Comparator
+                        .comparing(SupplierListItemResponse::getCurrentDebt,
+                                Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(item -> item.getName() == null ? "" : item.getName(),
+                                String.CASE_INSENSITIVE_ORDER))
+                .toList();
 
         // Bước 5: Phân trang thủ công
-        int totalElements = filtered.size();
+        int totalElements = sorted.size();
         int totalPages    = Math.max(1, (int) Math.ceil((double) totalElements / size));
         int safePage      = Math.min(page, totalPages - 1);
         int from          = safePage * size;
         int to            = Math.min(from + size, totalElements);
-        List<SupplierListItemResponse> pageContent = filtered.subList(from, to);
+        List<SupplierListItemResponse> pageContent =
+                totalElements == 0 ? List.of() : sorted.subList(from, to);
 
-        // Bước 6: Tổng nợ toàn hệ thống (không bị ảnh hưởng bởi filter/search)
+        // Bước 6: Tổng nợ + số NCC đang nợ toàn hệ thống (không bị ảnh hưởng bởi filter/search)
         BigDecimal totalDebt = debtMap.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        long debtSupplierCount = debtMap.values().stream()
+                .filter(debt -> debt.compareTo(BigDecimal.ZERO) > 0)
+                .count();
 
         return SupplierListPageResponse.builder()
                 .content(pageContent)
@@ -94,6 +96,7 @@ public class SupplierService {
                 .totalElements(totalElements)
                 .totalPages(totalPages)
                 .totalDebt(totalDebt)
+                .debtSupplierCount(debtSupplierCount)
                 .build();
     }
 
@@ -125,11 +128,15 @@ public class SupplierService {
                 
         BigDecimal currentDebt = calculateDebtPerSupplier().getOrDefault(id, BigDecimal.ZERO);
 
-        List<String> categories = supplier.getCategories() == null
+        List<CategoryResponse> categories = supplier.getCategories() == null
                 ? List.of()
                 : supplier.getCategories().stream()
-                        .map(Category::getName)
-                        .sorted(Comparator.naturalOrder())
+                        .map(category -> CategoryResponse.builder()
+                                .id(category.getId())
+                                .name(category.getName())
+                                .description(category.getDescription())
+                                .build())
+                        .sorted(Comparator.comparing(CategoryResponse::getName, Comparator.nullsLast(String::compareToIgnoreCase)))
                         .toList();
 
         return SupplierDetailResponse.builder()
@@ -143,6 +150,47 @@ public class SupplierService {
                 .categories(categories)
                 .currentDebt(currentDebt)
                 .build();
+    }
+
+    @Transactional
+    public SupplierDetailResponse updateSupplier(Integer id, AddNewSupplierRequest request) {
+        Supplier supplier = supplierRepository.findByIdAndIsRemovedFalse(id)
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
+
+        String newCode = request.getSupplierCode() == null ? "" : request.getSupplierCode().trim();
+        if (supplierRepository.existsBySupplierCodeAndIdNot(newCode, id)) {
+            throw new AppException(ErrorCode.EXISTED_SUPPLIER);
+        }
+
+        supplier.setName(request.getName());
+        supplier.setContactPerson(request.getContactPerson());
+        supplier.setSupplierCode(newCode);
+        supplier.setAddress(request.getAddress());
+        supplier.setPhoneNumber(request.getPhoneNumber());
+        supplier.setNotes(request.getNotes());
+        supplier.setCategories(request.getCategories() != null
+                ? request.getCategories()
+                : new HashSet<>());
+
+        supplierRepository.save(supplier);
+        log.info("Updated supplier id={} code={}", id, newCode);
+
+        return getSupplierDetail(id);
+    }
+
+    @Transactional
+    public void deleteSupplier(Integer id) {
+        Supplier supplier = supplierRepository.findByIdAndIsRemovedFalse(id)
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
+
+        BigDecimal currentDebt = calculateDebtPerSupplier().getOrDefault(id, BigDecimal.ZERO);
+        if (currentDebt.compareTo(BigDecimal.ZERO) > 0) {
+            throw new AppException(ErrorCode.SUPPLIER_HAS_DEBT);
+        }
+
+        supplier.setIsRemoved(true);
+        supplierRepository.save(supplier);
+        log.info("Soft-deleted supplier id={} code={}", id, supplier.getSupplierCode());
     }
 
     @Transactional

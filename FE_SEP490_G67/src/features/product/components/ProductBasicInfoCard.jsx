@@ -17,21 +17,6 @@ export default function ProductBasicInfoCard({ product }) {
         <section className="product-detail-card">
             <h2 className="product-detail-card__title">Thông tin cơ bản</h2>
 
-            <div className="product-detail-gallery">
-                <div className="product-detail-gallery__main" />
-                <div className="product-detail-gallery__thumbs">
-                    <button
-                        type="button"
-                        className="product-detail-gallery__thumb product-detail-gallery__thumb--active"
-                    />
-                    <button type="button" className="product-detail-gallery__thumb product-detail-gallery__thumb--empty" />
-                    <button type="button" className="product-detail-gallery__thumb product-detail-gallery__thumb--empty" />
-                    <button type="button" className="product-detail-gallery__thumb product-detail-gallery__thumb--add">
-                        +
-                    </button>
-                </div>
-            </div>
-
             <div className="product-detail-info-grid">
                 <div className="product-detail-info-item">
                     <span className="product-detail-info-item__label">Mã vạch</span>

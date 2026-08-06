@@ -43,4 +43,13 @@ public interface SupplierPaymentRepository extends JpaRepository<SupplierPayment
             ORDER BY sp.paymentDate ASC, sp.id ASC
             """)
     List<SupplierPayment> findAllBySupplierOrderByPaymentDateAsc(@Param("supplierId") Integer supplierId);
+
+    @Query("""
+            SELECT sp FROM SupplierPayment sp
+            LEFT JOIN FETCH sp.importOrder io
+            WHERE sp.importOrder.id = :importOrderId
+              AND sp.isRemoved = false
+            ORDER BY sp.paymentDate ASC, sp.id ASC
+            """)
+    List<SupplierPayment> findAllByImportOrderOrderByPaymentDateAsc(@Param("importOrderId") Integer importOrderId);
 }

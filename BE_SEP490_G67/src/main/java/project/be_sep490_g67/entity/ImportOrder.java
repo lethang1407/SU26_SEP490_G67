@@ -32,13 +32,29 @@ public class ImportOrder extends BaseEntity {
     @Column(name = "total_cost", precision = 15, scale = 2)
     private BigDecimal totalCost;
 
+   
+    @ColumnDefault("0.00")
+    @Column(name = "discount_amount", precision = 15, scale = 2)
+    private BigDecimal discountAmount;
+
     @Column(name = "received_date")
     private LocalDate receivedDate;
+
+    /**
+     * DRAFT | IMPORTED — không default; gán tường minh khi tạo/xác nhận đơn
+     * (hoặc cập nhật thủ công cho dữ liệu cũ).
+     */
+    @Column(name = "order_status", length = 20)
+    private String orderStatus;
 
     @Lob
     @Column(name = "note")
     private String note;
-    
+
+
+    @Column(name = "invoice_image", length = 500)
+    private String invoiceImage;
+
     @OneToMany(mappedBy = "importOrder")
     private Set<ImportOrderDetail> importOrderDetails = new LinkedHashSet<>();
 
