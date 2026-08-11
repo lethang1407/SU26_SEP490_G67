@@ -15,6 +15,8 @@ import java.time.Instant;
 @AllArgsConstructor
 public class DebtOrderResponse {
     private Integer id;
+    private Integer customerId;
+    private String customerName;
     private String orderCode;
     private Instant orderDate;
     private Instant dueDate;

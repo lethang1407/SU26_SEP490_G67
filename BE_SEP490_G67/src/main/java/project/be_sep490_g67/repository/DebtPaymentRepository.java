@@ -10,6 +10,7 @@ import project.be_sep490_g67.entity.DebtPayment;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 @Repository
 public interface DebtPaymentRepository extends JpaRepository<DebtPayment, Integer> {
@@ -55,4 +56,6 @@ public interface DebtPaymentRepository extends JpaRepository<DebtPayment, Intege
             @Param("keyword") String keyword,
             Pageable pageable
     );
+
+    List<DebtPayment> findAllByCreatedAtBetween(Instant start, Instant end);
 }
