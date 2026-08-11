@@ -21,6 +21,7 @@ import project.be_sep490_g67.exception.InsufficientStockException;
 import project.be_sep490_g67.repository.*;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -57,6 +58,12 @@ class SalesOrderServiceTest {
 
     @Mock
     private StockBatchRepository stockBatchRepository;
+
+    @Mock
+    private DebtPaymentRepository debtPaymentRepository;
+
+    @Mock
+    private ReturnOrderRepository returnOrderRepository;
 
     @InjectMocks
     private SalesOrderService salesOrderService;
@@ -169,7 +176,7 @@ class SalesOrderServiceTest {
         stubOrderSave(999);
         when(productRepository.findById(1)).thenReturn(Optional.of(buildProduct(1, "Product A")));
         doThrow(new InsufficientStockException("Không đủ tồn kho"))
-                .when(stockDeductionService).deductStock(1, 100, 999, 100);
+                .when(stockDeductionService).deductStock(1, 100, 999, 100, null);
 
         assertThatThrownBy(() -> salesOrderService.createOrder(req, false, 100))
                 .isInstanceOf(InsufficientStockException.class)
@@ -223,7 +230,7 @@ class SalesOrderServiceTest {
         assertThat(response.getItems()).hasSize(1);
         assertThat(response.getItems().get(0).getUnitName()).isEqualTo("BaseUnit");
 
-        verify(stockDeductionService, times(1)).deductStock(1, 2, 999, 100);
+        verify(stockDeductionService, times(1)).deductStock(1, 2, 999, 100, null);
         verify(salesOrderDetailRepository, times(1)).saveAll(anyList());
     }
 
@@ -254,7 +261,7 @@ class SalesOrderServiceTest {
         assertThat(response.getPaidAmount()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(response.getItems().get(0).getUnitName()).isEqualTo("Box");
 
-        verify(stockDeductionService, times(1)).deductStock(1, 2, 999, 100);
+        verify(stockDeductionService, times(1)).deductStock(1, 2, 999, 100, null);
     }
 
     // -------------------------------------------------------------------------
@@ -284,8 +291,8 @@ class SalesOrderServiceTest {
         assertThat(response.getTotalAmount()).isEqualByComparingTo(new BigDecimal("155"));
         assertThat(response.getItems()).hasSize(2);
 
-        verify(stockDeductionService, times(1)).deductStock(1, 2, 999, 100);
-        verify(stockDeductionService, times(1)).deductStock(2, 3, 999, 100);
+        verify(stockDeductionService, times(1)).deductStock(1, 2, 999, 100, null);
+        verify(stockDeductionService, times(1)).deductStock(2, 3, 999, 100, null);
         verifyNoMoreInteractions(stockDeductionService);
     }
 
@@ -308,7 +315,7 @@ class SalesOrderServiceTest {
 
         InOrder inOrder = inOrder(salesOrderRepository, stockDeductionService, salesOrderDetailRepository);
         inOrder.verify(salesOrderRepository).save(any(SalesOrder.class));
-        inOrder.verify(stockDeductionService).deductStock(eq(1), eq(1), eq(999), eq(100));
+        inOrder.verify(stockDeductionService).deductStock(eq(1), eq(1), eq(999), eq(100), isNull());
         inOrder.verify(salesOrderDetailRepository).saveAll(anyList());
     }
 
@@ -381,6 +388,79 @@ class SalesOrderServiceTest {
 
         verify(salesOrderRepository, times(1)).findHistory(
                 eq(100), eq("%search%"), isNull(), isNull(), isNull(), any(), any(), any(Pageable.class));
+    }
+
+    // -------------------------------------------------------------------------
+    // 11b. getOrderHistory - Debt columns
+    // Condition: page mixes a cash order, an in-debt order, an overdue one and
+    //            one already settled; some have partial debt payments
+    // Confirm: debtStatus/remainingDebt only filled for isDebt orders, and the
+    //          remaining amount subtracts both paidAmount and debt payments
+    // Result: Type N
+    // -------------------------------------------------------------------------
+    @Test
+    @DisplayName("Should map debt status and remaining debt per order")
+    void getOrderHistory_mapsDebtColumns() {
+        Instant past = Instant.now().minus(java.time.Duration.ofDays(3));
+        Instant future = Instant.now().plus(java.time.Duration.ofDays(3));
+
+        // Trả tiền ngay: không có thông tin nợ
+        SalesOrder cash = new SalesOrder();
+        cash.setId(1);
+        cash.setIsDebt(false);
+        cash.setTotalAmount(new BigDecimal("100"));
+        cash.setPaidAmount(new BigDecimal("100"));
+
+        // Nợ 100, đã trả 30 -> còn 70, chưa tới hạn
+        SalesOrder inDebt = new SalesOrder();
+        inDebt.setId(2);
+        inDebt.setIsDebt(true);
+        inDebt.setTotalAmount(new BigDecimal("100"));
+        inDebt.setPaidAmount(BigDecimal.ZERO);
+        inDebt.setDueDate(future);
+
+        // Nợ 100, chưa trả đồng nào, quá hạn
+        SalesOrder overdue = new SalesOrder();
+        overdue.setId(3);
+        overdue.setIsDebt(true);
+        overdue.setTotalAmount(new BigDecimal("100"));
+        overdue.setPaidAmount(BigDecimal.ZERO);
+        overdue.setDueDate(past);
+
+        // Nợ 100, trả trước 40 + trả nợ 60 -> PAID dù đã quá hạn
+        SalesOrder settled = new SalesOrder();
+        settled.setId(4);
+        settled.setIsDebt(true);
+        settled.setTotalAmount(new BigDecimal("100"));
+        settled.setPaidAmount(new BigDecimal("40"));
+        settled.setDueDate(past);
+
+        Page<SalesOrder> page = new PageImpl<>(
+                List.of(cash, inDebt, overdue, settled), PageRequest.of(0, 10), 4);
+        when(salesOrderRepository.findHistory(any(), any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(page);
+        when(returnOrderRepository.findAllBySalesOrderIds(anyList())).thenReturn(List.of());
+        when(debtPaymentRepository.sumPaidBySalesOrderIds(anyList())).thenReturn(List.of(
+                new Object[] { 2, new BigDecimal("30") },
+                new Object[] { 4, new BigDecimal("60") }));
+
+        List<SalesOrderListResponse.Item> items = salesOrderService
+                .getOrderHistory(null, null, null, null, null, null, null, 0, 10)
+                .getContent();
+
+        assertThat(items.get(0).getIsDebt()).isFalse();
+        assertThat(items.get(0).getDebtStatus()).isNull();
+        assertThat(items.get(0).getRemainingDebt()).isNull();
+
+        assertThat(items.get(1).getDebtStatus()).isEqualTo("IN_DEBT");
+        assertThat(items.get(1).getRemainingDebt()).isEqualByComparingTo("70");
+        assertThat(items.get(1).getDueDate()).isEqualTo(future);
+
+        assertThat(items.get(2).getDebtStatus()).isEqualTo("OVERDUE");
+        assertThat(items.get(2).getRemainingDebt()).isEqualByComparingTo("100");
+
+        assertThat(items.get(3).getDebtStatus()).isEqualTo("PAID");
+        assertThat(items.get(3).getRemainingDebt()).isEqualByComparingTo("0");
     }
 
     // -------------------------------------------------------------------------

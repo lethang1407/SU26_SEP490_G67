@@ -144,6 +144,7 @@ public class ExchangeOrderService {
             detail.setLineRefund(lineRefund);
             detail.setResolutionType(line.resolution().name());
             detail.setItemCondition(line.condition().name());
+            detail.setNote(line.itemNote());
             detail.setCreatedBy(staffId);
             detail.setUpdatedBy(staffId);
             detail.setCreatedAt(Instant.now());
@@ -319,7 +320,17 @@ public class ExchangeOrderService {
             int quantity,
             ResolutionType resolution,
             ItemCondition condition,
+            String itemNote,
             String pairedExchangeItemRef) {
+    }
+
+    /** Ghi chu rong va ghi chu toan khoang trang deu la "khong co ghi chu". */
+    private static String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private SalesOrder createExchangeOrder(SalesOrder originalOrder, Integer staffId) {
@@ -459,6 +470,7 @@ public class ExchangeOrderService {
                     returnItem.getQuantity(),
                     parseResolution(returnItem.getResolutionType()),
                     condition,
+                    trimToNull(returnItem.getItemNote()),
                     returnItem.getPairedExchangeItemRef()));
         }
 

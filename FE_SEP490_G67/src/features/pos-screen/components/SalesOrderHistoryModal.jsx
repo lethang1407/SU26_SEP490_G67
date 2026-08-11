@@ -4,6 +4,7 @@ import { X, Search, Eye, ClipboardList, History, RotateCcw } from 'lucide-react'
 import { useSalesOrderHistory } from '../hooks/useSalesOrderHistory';
 import { printInvoice } from '../utils/printInvoice';
 import OrderStatusBadge from './OrderStatusBadge';
+import DebtBadge from './DebtBadge';
 import { formatVnDateTime, formatCustomerLabel } from '../utils/orderDisplay';
 import { getInvoiceData } from '../api';
 import '../../../css/SalesOrderHistoryModal.css';
@@ -193,9 +194,28 @@ export default function SalesOrderHistoryModal({ onClose, onExchange }) {
                                             onClick={() => handleExchange(order.id)}
                                         >
                                             <td>
-                                                <span className="hist-order-code">
-                                                    {order.orderCode ?? `#${order.id}`}
-                                                </span>
+                                                {/* Trả toàn bộ: mã phiếu trả (HDT) là mã chính, mã bán gốc hiển thị phụ */}
+                                                {order.returnCode && order.orderStatus === 'RETURNED' ? (
+                                                    <>
+                                                        <span className="hist-order-code">
+                                                            {order.returnCode}
+                                                        </span>
+                                                        <div className="hist-order-code-sub">
+                                                            HĐ gốc: {order.orderCode ?? `#${order.id}`}
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span className="hist-order-code">
+                                                            {order.orderCode ?? `#${order.id}`}
+                                                        </span>
+                                                        {order.returnCode && (
+                                                            <div className="hist-order-code-sub">
+                                                                Phiếu trả: {order.returnCode}
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                )}
                                             </td>
                                             <td className="hist-time">
                                                 {formatVnDateTime(order.createdAt)}
@@ -205,7 +225,14 @@ export default function SalesOrderHistoryModal({ onClose, onExchange }) {
                                                 {Number(order.totalAmount ?? 0).toLocaleString('vi-VN')}đ
                                             </td>
                                             <td>
-                                                <OrderStatusBadge status={order.orderStatus} />
+                                                <div className="hist-badge-group">
+                                                    <OrderStatusBadge status={order.orderStatus} />
+                                                    <DebtBadge
+                                                        debtStatus={order.debtStatus}
+                                                        remainingDebt={order.remainingDebt}
+                                                        dueDate={order.dueDate}
+                                                    />
+                                                </div>
                                             </td>
                                             <td onClick={(e) => e.stopPropagation()}>
                                                 <div className="hist-actions">

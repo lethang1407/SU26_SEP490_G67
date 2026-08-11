@@ -15,12 +15,15 @@ import project.be_sep490_g67.dto.response.SalesOrderResponse;
 import project.be_sep490_g67.entity.*;
 import project.be_sep490_g67.enums.DocumentType;
 import project.be_sep490_g67.repository.*;
+import project.be_sep490_g67.utils.DebtCalculator;
 import project.be_sep490_g67.utils.UnitQuantityConverter;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +38,8 @@ public class SalesOrderService {
         CustomerRepository customerRepository;
         ProductUnitRepository productUnitRepository;
         StockDeductionService stockDeductionService;
+        DebtPaymentRepository debtPaymentRepository;
+        ReturnOrderRepository returnOrderRepository;
 
         @Transactional
         public SalesOrderResponse createOrder(CreateSalesOrderRequest request,
@@ -106,7 +111,8 @@ public class SalesOrderService {
                                         item.getProductId(),
                                         UnitQuantityConverter.toBaseUnits(resolvedUnit, item.getQuantity()),
                                         saved.getId(),
-                                        createdBy);
+                                        createdBy,
+                                        item.getLocationId());
 
                         // Calculate total
                         BigDecimal lineDiscount = item.getDiscountAmount() != null
@@ -235,20 +241,37 @@ public class SalesOrderService {
                                 dateFrom, dateTo,
                                 PageRequest.of(page, safeSize));
 
+                List<Integer> orderIds = pg.getContent().stream()
+                                .map(SalesOrder::getId)
+                                .toList();
+
+                // Mã phiếu trả mới nhất của từng hóa đơn trong trang
+                Map<Integer, String> returnCodeByOrderId = orderIds.isEmpty()
+                                ? Map.of()
+                                : returnOrderRepository.findAllBySalesOrderIds(orderIds).stream()
+                                                .filter(r -> r.getReturnCode() != null)
+                                                .collect(Collectors.toMap(
+                                                                r -> r.getSalesOrder().getId(),
+                                                                ReturnOrder::getReturnCode,
+                                                                (first, latest) -> latest));
+
+                // Tổng đã trả nợ của cả trang trong một query — tránh lazy-load
+                // o.getDebtPayments() cho từng dòng.
+                Map<Integer, BigDecimal> debtPaidByOrderId = orderIds.isEmpty()
+                                ? Map.of()
+                                : debtPaymentRepository.sumPaidBySalesOrderIds(orderIds).stream()
+                                                .collect(Collectors.toMap(
+                                                                row -> (Integer) row[0],
+                                                                row -> (BigDecimal) row[1]));
+
+                Instant now = Instant.now();
+
                 List<SalesOrderListResponse.Item> items = pg.getContent().stream()
-                                .map(o -> SalesOrderListResponse.Item.builder()
-                                                .id(o.getId())
-                                                .orderCode(o.getOrderCode())
-                                                .createdAt(o.getCreatedAt())
-                                                .customerName(o.getCustomer() != null ? o.getCustomer().getFullName()
-                                                                : null)
-                                                .customerPhone(o.getCustomer() != null
-                                                                ? o.getCustomer().getPhoneNumber()
-                                                                : null)
-                                                .totalAmount(o.getTotalAmount())
-                                                .orderStatus(o.getOrderStatus())
-                                                .paymentMethod(o.getPaymentMethod())
-                                                .build())
+                                .map(o -> toHistoryItem(
+                                                o,
+                                                returnCodeByOrderId.get(o.getId()),
+                                                debtPaidByOrderId.getOrDefault(o.getId(), BigDecimal.ZERO),
+                                                now))
                                 .toList();
 
                 return SalesOrderListResponse.builder()
@@ -257,6 +280,38 @@ public class SalesOrderService {
                                 .size(pg.getSize())
                                 .totalElements(pg.getTotalElements())
                                 .totalPages(pg.getTotalPages())
+                                .build();
+        }
+
+        /**
+         * Một dòng lịch sử hóa đơn. Thông tin công nợ chỉ được tính cho hóa đơn
+         * bán nợ; đơn trả tiền ngay để null để FE không hiện badge nợ.
+         */
+        private SalesOrderListResponse.Item toHistoryItem(SalesOrder o,
+                        String returnCode,
+                        BigDecimal debtPaid,
+                        Instant now) {
+                boolean isDebt = Boolean.TRUE.equals(o.getIsDebt());
+                BigDecimal remainingDebt = isDebt
+                                ? DebtCalculator.remaining(o.getTotalAmount(), o.getPaidAmount(), debtPaid)
+                                : null;
+
+                return SalesOrderListResponse.Item.builder()
+                                .id(o.getId())
+                                .orderCode(o.getOrderCode())
+                                .returnCode(returnCode)
+                                .createdAt(o.getCreatedAt())
+                                .customerName(o.getCustomer() != null ? o.getCustomer().getFullName() : null)
+                                .customerPhone(o.getCustomer() != null ? o.getCustomer().getPhoneNumber() : null)
+                                .totalAmount(o.getTotalAmount())
+                                .orderStatus(o.getOrderStatus())
+                                .paymentMethod(o.getPaymentMethod())
+                                .isDebt(isDebt)
+                                .dueDate(isDebt ? o.getDueDate() : null)
+                                .remainingDebt(remainingDebt)
+                                .debtStatus(isDebt
+                                                ? DebtCalculator.deriveStatus(remainingDebt, o.getDueDate(), now).name()
+                                                : null)
                                 .build();
         }
 

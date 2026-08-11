@@ -21,14 +21,17 @@ import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { useCheckout } from '../hooks/useCheckout';
 import { useProductSearch } from '../hooks/useProductSearch';
 import { useCustomerSearch } from '../hooks/useCustomerSearch';
-import BatchSelectModal from '../components/BatchSelectModal';
+import {
+    locationKey, selectedLocation, isLocationShort, needsLocationPick,
+    hasLocationProblem, formatLocationOption, formatLocationShort,
+} from '../utils/cartLocation';
 import ProductSearchDropdown from '../components/ProductSearchDropdown';
 import CustomerSearchDropdown from '../components/CustomerSearchDropdown';
 import SalesOrderHistoryModal from '../components/SalesOrderHistoryModal';
 import ProductInfoModal from '../components/ProductInfoModal';
 import ExchangeOrder from '../components/ExchangeOrder';
 import { saveActiveCart, loadActiveCart } from '../utils/cartStorage';
-import { createQuickCustomer } from '../api';
+import { createQuickCustomer, getProductPosInfo } from '../api';
 
 const MAX_TABS = 10;
 
@@ -156,7 +159,7 @@ const POSScreen = () => {
 
     const [historyOpen, setHistoryOpen] = useState(false);
     const [searchInput, setSearchInput] = useState('');
-    const [pendingProduct, setPendingProduct] = useState(null);
+    const [posInfoError, setPosInfoError] = useState(null);
     const [infoProductId, setInfoProductId] = useState(null);
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [cashGivenInput, setCashGivenInput] = useState('');
@@ -169,20 +172,32 @@ const POSScreen = () => {
     const [discountEditing, setDiscountEditing] = useState(false);
     const discountInputRef = useRef(null);
 
-    const addProductToCart = useCallback((product, batchId) => {
+    const addProductToCart = useCallback((product, posInfo) => {
         const units = product.productUnits ?? [];
         const defaultUnit = units.find((u) => u.isDefault)
             ?? units.find((u) => Number(u.unitBase) === 1)
             ?? units[0];
+
+        // Ô mặc định là lô trên khu bán; BE đã sắp sẵn khu bán trước rồi FIFO.
+        const locations = posInfo?.locations ?? [];
+        const defaultLoc = locations.find(
+            (loc) => loc.locationId === posInfo?.defaultLocationId
+                && loc.batchId === posInfo?.defaultBatchId
+        ) ?? null;
+        const key = locationKey(defaultLoc);
+
         const newItem = {
-            id: `${product.id}-${batchId}`,
+            // Hai lô khác nhau của cùng SP là hai dòng giỏ hàng khác nhau.
+            id: `${product.id}-${key || 'chua-chon'}`,
             productId: product.id,
             code: product.barcode ?? product.id,
             name: product.name,
             units,
             productUnitId: defaultUnit?.id ?? null,
             unit: defaultUnit?.name ?? '—',
-            batch: batchId,
+            locations,
+            locationKey: key,
+            batch: defaultLoc?.batchId ?? null,
             qty: 1,
             price: defaultUnit?.sellingPrice ?? product.sellingPrice ?? 0,
         };
@@ -195,15 +210,28 @@ const POSScreen = () => {
         });
     }, [setCartItems]);
 
-    const onProductFound = useCallback((product) => {
-        const batches = product.stockBatches ?? [];
-        if (batches.length > 1) {
-            setPendingProduct(product);
-            return;
+    const onProductFound = useCallback(async (product) => {
+        // Vị trí + lô lấy từ pos-info chứ không đoán từ stockBatches, vì chỉ
+        // pos-info mới biết hàng đang nằm ở ô nào.
+        try {
+            const posInfo = await getProductPosInfo(product.id);
+            setPosInfoError(null);
+            addProductToCart(product, posInfo);
+        } catch {
+            setPosInfoError(`Không tải được vị trí để hàng của "${product.name}". Vui lòng thử lại.`);
         }
-        const batchId = batches[0]?.id ?? '';
-        addProductToCart(product, batchId);
     }, [addProductToCart]);
+
+    /** Thu ngân đổi ô lấy hàng: đổi luôn lô kèm theo ô đó. */
+    const changeLocation = useCallback((id, key) => {
+        setCartItems((prev) =>
+            prev.map((item) => {
+                if (item.id !== id) return item;
+                const loc = (item.locations ?? []).find((l) => locationKey(l) === key);
+                return { ...item, locationKey: key, batch: loc?.batchId ?? null };
+            })
+        );
+    }, [setCartItems]);
 
     const changeUnit = useCallback((id, productUnitId) => {
         setCartItems((prev) =>
@@ -332,6 +360,9 @@ const POSScreen = () => {
         setQtyInputs((prev) => { const n = { ...prev }; delete n[id]; return n; });
     };
 
+    // Chặn thanh toán khi còn dòng chưa chọn được vị trí hoặc vị trí không đủ hàng.
+    const locationBlocked = cartItems.some(hasLocationProblem);
+
     const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
     const totalItems = cartItems.reduce((sum, item) => sum + item.qty, 0);
     const safeDiscount = Math.min(discount, subtotal);
@@ -351,7 +382,7 @@ const POSScreen = () => {
         setCartItems([]);
         setQtyInputs({});
         setSearchInput('');
-        setPendingProduct(null);
+        setPosInfoError(null);
         clearResults();
         resetCheckout();
         clearScanError();
@@ -468,6 +499,19 @@ const POSScreen = () => {
                 </div>
             )}
 
+            {/* POS-INFO ERROR BANNER */}
+            {posInfoError && (
+                <div className="scan-error-banner">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <AlertCircle size={16} />
+                        {posInfoError}
+                    </span>
+                    <button onClick={() => setPosInfoError(null)} title="Đóng">
+                        <X size={16} />
+                    </button>
+                </div>
+            )}
+
             <div className="pos-main" style={isReturnTab ? { display: 'none' } : undefined}>
 
                 {/* LEFT COLUMN - CART */}
@@ -480,6 +524,7 @@ const POSScreen = () => {
                                     <th>MÃ SKU</th>
                                     <th>TÊN HÀNG</th>
                                     <th>ĐVT</th>
+                                    <th>VỊ TRÍ</th>
                                     <th className="text-center">SỐ LƯỢNG</th>
                                     <th className="text-right">ĐƠN GIÁ</th>
                                     <th className="text-right">THÀNH TIỀN</th>
@@ -488,7 +533,7 @@ const POSScreen = () => {
                             <tbody>
                                 {cartItems.length === 0 && (
                                     <tr>
-                                        <td colSpan={7} style={{ textAlign: 'center', color: '#9ca3af', padding: '40px 0' }}>
+                                        <td colSpan={8} style={{ textAlign: 'center', color: '#9ca3af', padding: '40px 0' }}>
                                             Quét mã vạch hoặc tìm kiếm để thêm sản phẩm
                                         </td>
                                     </tr>
@@ -497,6 +542,11 @@ const POSScreen = () => {
                                     const rawVal = qtyInputs[item.id];
                                     const displayVal = rawVal !== undefined ? rawVal : item.qty;
                                     const isInvalid = isQtyInvalid(rawVal);
+                                    const locOptions = item.locations ?? [];
+                                    const currentLoc = selectedLocation(item);
+                                    const short = isLocationShort(item);
+                                    const mustPick = needsLocationPick(item);
+                                    const showPicker = mustPick || short || locOptions.length > 1;
                                     return (
                                         <tr key={item.id}>
                                             <td>
@@ -535,6 +585,34 @@ const POSScreen = () => {
                                                     </select>
                                                 ) : (
                                                     item.unit
+                                                )}
+                                            </td>
+                                            <td>
+                                                {showPicker ? (
+                                                    <select
+                                                        className={`location-select${(mustPick || short) ? ' location-select-warn' : ''}`}
+                                                        value={item.locationKey ?? ''}
+                                                        onChange={(e) => changeLocation(item.id, e.target.value)}
+                                                    >
+                                                        {mustPick && <option value="">— Chọn vị trí —</option>}
+                                                        {locOptions.map((loc) => (
+                                                            <option key={locationKey(loc)} value={locationKey(loc)}>
+                                                                {formatLocationOption(loc)}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <span className="location-static">
+                                                        {formatLocationShort(currentLoc) ?? '—'}
+                                                    </span>
+                                                )}
+                                                {mustPick && (
+                                                    <div className="location-msg">Sản phẩm chưa có hàng ở vị trí nào</div>
+                                                )}
+                                                {!mustPick && short && (
+                                                    <div className="location-msg">
+                                                        Vị trí này chỉ còn {Number(currentLoc?.quantity ?? 0).toLocaleString('vi-VN')}
+                                                    </div>
                                                 )}
                                             </td>
                                             <td>
@@ -784,6 +862,15 @@ const POSScreen = () => {
                             )}
                         </div>
 
+                        {locationBlocked && (
+                            <div className="scan-error-banner" style={{ marginTop: '12px', borderRadius: '4px' }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <AlertCircle size={16} />
+                                    Có dòng chưa chọn vị trí lấy hàng hoặc vị trí không đủ số lượng.
+                                </span>
+                            </div>
+                        )}
+
                         {/* Checkout error */}
                         {checkoutError && (
                             <div className="scan-error-banner" style={{ marginTop: '12px', borderRadius: '4px' }}>
@@ -799,7 +886,7 @@ const POSScreen = () => {
                     <div className="payment-footer">
                         <button
                             className="btn-checkout"
-                            disabled={submitting || cartItems.length === 0}
+                            disabled={submitting || cartItems.length === 0 || locationBlocked}
                             onClick={async () => {
                                 const ok = await submitCheckout(cartItems, paymentMethod);
                                 if (ok) handleNewOrder();
@@ -833,18 +920,6 @@ const POSScreen = () => {
                     />
                 </div>
             ))}
-
-            {/* BATCH SELECT MODAL */}
-            {pendingProduct && (
-                <BatchSelectModal
-                    product={pendingProduct}
-                    onSelect={(batchId) => {
-                        addProductToCart(pendingProduct, batchId);
-                        setPendingProduct(null);
-                    }}
-                    onClose={() => setPendingProduct(null)}
-                />
-            )}
 
             {/* HISTORY MODAL */}
             {historyOpen && (

@@ -3,6 +3,10 @@ import { X, AlertCircle, MapPin } from 'lucide-react';
 import { getProductPosInfo } from '../api';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 
+/** Ngày dạng ISO (yyyy-MM-dd) từ BE -> dd/MM/yyyy, rỗng thì gạch ngang. */
+const formatVnDate = (isoDate) =>
+    isoDate ? new Date(isoDate).toLocaleDateString('vi-VN') : '—';
+
 export default function ProductInfoModal({ productId, onClose }) {
     const [info, setInfo] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -114,22 +118,26 @@ export default function ProductInfoModal({ productId, onClose }) {
                                 <thead>
                                     <tr>
                                         <th>Vị trí</th>
+                                        <th>Khu</th>
+                                        <th>Lô</th>
                                         <th className="text-right">Số lượng</th>
-                                        <th className="text-right">HSD gần nhất</th>
+                                        <th className="text-right">Ngày nhập</th>
+                                        <th className="text-right">HSD</th>
                                     </tr>
                                 </thead>
                                 <tbody>
+                                    {/* Mỗi dòng là một lô tại một ô — một ô kho có thể chứa
+                                        nhiều lô của cùng SP nên key phải gồm cả batchId. */}
                                     {info.locations.map((loc) => (
-                                        <tr key={loc.locationId}>
+                                        <tr key={`${loc.locationId}-${loc.batchId}`}>
                                             <td>{loc.label}</td>
+                                            <td>{loc.zoneType === 'SALES' ? 'Quầy' : 'Kho'}</td>
+                                            <td>{loc.batchCode ?? '—'}</td>
                                             <td className="text-right">
                                                 {Number(loc.quantity ?? 0).toLocaleString('vi-VN')}
                                             </td>
-                                            <td className="text-right">
-                                                {loc.nearestExpiryDate
-                                                    ? new Date(loc.nearestExpiryDate).toLocaleDateString('vi-VN')
-                                                    : '—'}
-                                            </td>
+                                            <td className="text-right">{formatVnDate(loc.receivedDate)}</td>
+                                            <td className="text-right">{formatVnDate(loc.expiryDate)}</td>
                                         </tr>
                                     ))}
                                 </tbody>

@@ -71,8 +71,10 @@ public class ProductService {
     public ProductDetailResponse getProductById(Integer productId) {
         Product product = findActiveProduct(productId);
         int stock = loadStock(product.getId());
-        List<ProductUnit> units = productUnitRepository.findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(product.getId());
-        List<ProductAttribute> attributes = productAttributeRepository.findByProduct_IdAndIsRemovedFalse(product.getId());
+        List<ProductUnit> units = productUnitRepository
+                .findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(product.getId());
+        List<ProductAttribute> attributes = productAttributeRepository
+                .findByProduct_IdAndIsRemovedFalse(product.getId());
 
         return productMapper.toDetailResponse(product, stock, units, attributes);
     }
@@ -300,8 +302,8 @@ public class ProductService {
             String attributeName,
             String value,
             Integer actorId) {
-        List<ProductAttribute> existingAttributes =
-                productAttributeRepository.findByProduct_IdAndIsRemovedFalse(product.getId());
+        List<ProductAttribute> existingAttributes = productAttributeRepository
+                .findByProduct_IdAndIsRemovedFalse(product.getId());
 
         ProductAttribute existingAttribute = existingAttributes.stream()
                 .filter(item -> item.getAttribute() != null
@@ -353,8 +355,8 @@ public class ProductService {
     }
 
     private void syncUnits(Product product, UpdateProductRequest request, Integer actorId) {
-        List<ProductUnit> existingUnits =
-                productUnitRepository.findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(product.getId());
+        List<ProductUnit> existingUnits = productUnitRepository
+                .findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(product.getId());
 
         ProductUnit baseUnit = existingUnits.stream()
                 .filter(unit -> unit.getUnitBase() != null
@@ -376,8 +378,8 @@ public class ProductService {
         }
 
         Set<Integer> retainedConversionUnitIds = new HashSet<>();
-        List<ProductConversionUnitRequest> conversionUnits =
-                request.getConversionUnits() == null ? List.of() : request.getConversionUnits();
+        List<ProductConversionUnitRequest> conversionUnits = request.getConversionUnits() == null ? List.of()
+                : request.getConversionUnits();
 
         for (ProductConversionUnitRequest conversionUnitRequest : conversionUnits) {
             if (conversionUnitRequest.getName() == null || conversionUnitRequest.getName().isBlank()) {
@@ -460,7 +462,7 @@ public class ProductService {
         String productCode = ProductConstants.formatProductCode(product.getId()).toLowerCase(Locale.ROOT);
 
         return (product.getName() != null
-                        && product.getName().toLowerCase(Locale.ROOT).contains(normalizedKeyword))
+                && product.getName().toLowerCase(Locale.ROOT).contains(normalizedKeyword))
                 || (product.getBarcode() != null && product.getBarcode().contains(normalizedKeyword))
                 || productCode.contains(normalizedKeyword);
     }
@@ -522,7 +524,8 @@ public class ProductService {
         List<ProductPosInfoResponse.UnitInfo> unitInfos = product.getProductUnits().stream()
                 .filter(u -> Boolean.FALSE.equals(u.getIsRemoved()))
                 .sorted(Comparator.comparing(u -> u.getUnitBase() == null
-                        ? BigDecimal.ZERO : u.getUnitBase()))
+                        ? BigDecimal.ZERO
+                        : u.getUnitBase()))
                 .map(u -> ProductPosInfoResponse.UnitInfo.builder()
                         .id(u.getId())
                         .name(u.getName())
@@ -530,22 +533,25 @@ public class ProductService {
                         .build())
                 .toList();
 
-        Map<Integer, LocationAccumulator> byLocation = new LinkedHashMap<>();
-        for (BatchLocation bl : batchLocationRepository.findAvailableByProductId(productId)) {
-            StorageLocation location = bl.getLocation();
-            LocationAccumulator acc = byLocation.computeIfAbsent(
-                    location.getId(), id -> new LocationAccumulator(location));
-            acc.add(bl.getQuantity(), bl.getBatch().getExpiryDate());
-        }
+        // Đã sắp xếp sẵn ở query: khu bán trước, rồi FIFO theo ngày nhập (null xuống cuối).
+        List<ProductPosInfoResponse.LocationStockInfo> locationInfos =
+                batchLocationRepository.findPosLinesByProductId(productId).stream()
+                        .map(ProductService::toLocationStockInfo)
+                        .toList();
 
-        List<ProductPosInfoResponse.LocationStockInfo> locationInfos = byLocation.values().stream()
-                .sorted(Comparator.comparing(LocationAccumulator::quantity).reversed())
-                .map(LocationAccumulator::toResponse)
-                .toList();
-
+        int salesZoneQty = locationInfos.stream()
+                .filter(l -> SALES_ZONE_TYPE.equals(l.getZoneType()))
+                .mapToInt(ProductPosInfoResponse.LocationStockInfo::getQuantity)
+                .sum();
         int available = locationInfos.stream()
                 .mapToInt(ProductPosInfoResponse.LocationStockInfo::getQuantity)
                 .sum();
+
+        // Dòng khu bán đầu tiên là ô POS chọn sẵn; không có nghĩa là SP chưa ra quầy.
+        ProductPosInfoResponse.LocationStockInfo defaultLine = locationInfos.stream()
+                .filter(l -> SALES_ZONE_TYPE.equals(l.getZoneType()))
+                .findFirst()
+                .orElse(null);
 
         return ProductPosInfoResponse.builder()
                 .id(product.getId())
@@ -555,53 +561,47 @@ public class ProductService {
                 .description(product.getDescription())
                 .sellingPrice(product.getSellingPrice())
                 .availableQuantity(available)
+                .salesZoneQuantity(salesZoneQty)
+                .warehouseQuantity(available - salesZoneQty)
                 .minStock(product.getMinStock())
                 .belowMinStock(product.getMinStock() != null && available <= product.getMinStock())
+                .defaultLocationId(defaultLine != null ? defaultLine.getLocationId() : null)
+                .defaultBatchId(defaultLine != null ? defaultLine.getBatchId() : null)
                 .units(unitInfos)
                 .locations(locationInfos)
                 .build();
     }
 
-    private static final class LocationAccumulator {
-        private final StorageLocation location;
-        private int quantity;
-        private LocalDate nearestExpiry;
+    private static final String SALES_ZONE_TYPE = "SALES";
 
-        private LocationAccumulator(StorageLocation location) {
-            this.location = location;
-        }
+    private static ProductPosInfoResponse.LocationStockInfo toLocationStockInfo(BatchLocation bl) {
+        StorageLocation location = bl.getLocation();
+        StockBatch batch = bl.getBatch();
+        StorageZone zone = location.getStorageZone();
+        return ProductPosInfoResponse.LocationStockInfo.builder()
+                .locationId(location.getId())
+                .label(describeLocation(location))
+                .zoneCode(location.getZoneCode())
+                .zoneType(zone != null ? zone.getZoneType() : null)
+                .locationFull(Boolean.TRUE.equals(location.getIsFull()))
+                .batchId(batch.getId())
+                .batchCode(StockBatchUtils.resolveBatchCode(batch))
+                .receivedDate(batch.getReceivedDate() != null ? batch.getReceivedDate().toString() : null)
+                .expiryDate(batch.getExpiryDate() != null ? batch.getExpiryDate().toString() : null)
+                .quantity(bl.getQuantity() != null ? bl.getQuantity() : 0)
+                .build();
+    }
 
-        private void add(Integer qty, LocalDate expiryDate) {
-            quantity += qty == null ? 0 : qty;
-            if (expiryDate != null && (nearestExpiry == null || expiryDate.isBefore(nearestExpiry))) {
-                nearestExpiry = expiryDate;
-            }
+    private static String describeLocation(StorageLocation location) {
+        if (location.getLabel() != null && !location.getLabel().isBlank()) {
+            return location.getLabel();
         }
-
-        private int quantity() {
-            return quantity;
-        }
-
-        private ProductPosInfoResponse.LocationStockInfo toResponse() {
-            return ProductPosInfoResponse.LocationStockInfo.builder()
-                    .locationId(location.getId())
-                    .label(describe(location))
-                    .quantity(quantity)
-                    .nearestExpiryDate(nearestExpiry != null ? nearestExpiry.toString() : null)
-                    .build();
-        }
-
-        private static String describe(StorageLocation location) {
-            if (location.getLabel() != null && !location.getLabel().isBlank()) {
-                return location.getLabel();
-            }
-            String composed = Stream.of(location.getZone(), location.getAisle(),
-                            location.getShelf(), location.getBin())
-                    .filter(part -> part != null && !part.isBlank())
-                    .reduce((a, b) -> a + " - " + b)
-                    .orElse("");
-            return composed.isBlank() ? "Chưa gán vị trí" : composed;
-        }
+        String composed = Stream.of(location.getZoneCode(), location.getAisle(),
+                location.getShelf(), location.getBin())
+                .filter(part -> part != null && !part.isBlank())
+                .reduce((a, b) -> a + " - " + b)
+                .orElse("");
+        return composed.isBlank() ? "Chưa gán vị trí" : composed;
     }
 
     @Transactional(readOnly = true)

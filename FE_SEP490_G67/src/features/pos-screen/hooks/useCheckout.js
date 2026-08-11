@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { getCustomerByPhone, createInvoice, createDebtInvoice, getInvoiceData } from '../api';
 import { printInvoice } from '../utils/printInvoice';
+import { selectedLocation, hasLocationProblem } from '../utils/cartLocation';
 
 
 export function useCheckout() {
@@ -47,6 +48,12 @@ export function useCheckout() {
             return false;
         }
 
+        const badLine = cartItems.find(hasLocationProblem);
+        if (badLine) {
+            setError(`"${badLine.name}": chưa chọn vị trí lấy hàng hoặc vị trí không đủ số lượng.`);
+            return false;
+        }
+
         // Debt orders must have an attached customer
         if (paymentMethod === 'debt' && !customer) {
             setError('Đơn nợ phải có thông tin khách hàng. Vui lòng tìm hoặc thêm khách hàng.');
@@ -60,13 +67,19 @@ export function useCheckout() {
             const payload = {
                 paymentMethod: paymentMethod.toUpperCase(),
                 discountAmount,
-                items: cartItems.map((item) => ({
-                    productId: item.productId,
-                    batchId: item.batch,
-                    productUnitId: item.productUnitId,
-                    quantity: item.qty,
-                    unitPrice: item.price,
-                })),
+                items: cartItems.map((item) => {
+                    // Vị trí thu ngân đã chọn là một phần của đơn: BE không được
+                    // tự suy lại, vì hàng có thể đã được chuyển ô kể từ lúc chọn.
+                    const loc = selectedLocation(item);
+                    return {
+                        productId: item.productId,
+                        locationId: loc?.locationId ?? null,
+                        batchId: loc?.batchId ?? null,
+                        productUnitId: item.productUnitId,
+                        quantity: item.qty,
+                        unitPrice: item.price,
+                    };
+                }),
 
                 ...(customer?.id ? { customerId: customer.id } : {}),
             };

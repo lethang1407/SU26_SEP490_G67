@@ -319,6 +319,13 @@
     cursor: pointer;
 }
 
+/* Mã phụ dưới mã chính: HĐ gốc, hoặc mã phiếu trả */
+.hist-order-code-sub {
+    margin-top: 2px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
 .hist-order-code:hover {
     text-decoration: underline;
 }
@@ -366,9 +373,27 @@
     color: #c2410c;
 }
 
+/* ── Badge công nợ (trục riêng, xếp dưới badge trạng thái hóa đơn) ── */
+.hist-badge-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
 .badge-debt {
     background: #fef9c3;
     color: #a16207;
+}
+
+.badge-overdue {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.badge-paid {
+    background: #e0f2fe;
+    color: #0369a1;
 }
 
 .badge-default {

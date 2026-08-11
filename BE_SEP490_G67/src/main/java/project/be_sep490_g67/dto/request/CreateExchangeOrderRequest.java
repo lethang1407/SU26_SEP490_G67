@@ -62,6 +62,13 @@ public class CreateExchangeOrderRequest {
 
         String itemCondition;
 
+        /**
+         * Ghi chú của riêng dòng này. itemCondition chỉ có 4 giá trị cố định;
+         * những lý do nằm ngoài 4 giá trị đó (cận date, bao bì móp, khách đổi ý)
+         * được ghi ở đây chứ không dồn vào returnNote của cả phiếu.
+         */
+        String itemNote;
+
         String pairedExchangeItemRef;
     }
 

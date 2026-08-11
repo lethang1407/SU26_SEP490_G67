@@ -43,7 +43,6 @@ public enum ErrorCode {
     NOT_FOUND_IMPORT_ORDER(1025, "Không tìm thấy đơn nhập hàng", HttpStatus.NOT_FOUND),
     INVALID_PAYMENT_AMOUNT(1026, "Số tiền thanh toán không hợp lệ", HttpStatus.BAD_REQUEST),
     PAYMENT_EXCEEDS_DEBT(1027, "Số tiền vượt quá số nợ còn lại của đơn hàng", HttpStatus.BAD_REQUEST),
-    CUSTOMER_NOT_FOUND(1028, "Không tìm thấy khách hàng", HttpStatus.NOT_FOUND),
     PRODUCT_NOT_FOUND(1046, "Không tìm thấy sản phẩm", HttpStatus.NOT_FOUND),
     BARCODE_EXISTED(1047, "Mã vạch đã được sử dụng", HttpStatus.CONFLICT),
     INVALID_PRODUCT_PRICE(1048, "Giá sản phẩm không hợp lệ", HttpStatus.BAD_REQUEST),
@@ -87,6 +86,12 @@ public enum ErrorCode {
     ORDER_TOTAL_MISMATCH(3005, "Tổng tiền đơn hàng không khớp, cần kiểm tra lại dữ liệu", HttpStatus.UNPROCESSABLE_ENTITY),
     INVOICE_ACCESS_DENIED(3006, "Bạn không có quyền truy cập hóa đơn này", HttpStatus.FORBIDDEN),
     PRODUCT_UNIT_NOT_FOUND(3007, "Không tìm thấy đơn vị sản phẩm", HttpStatus.NOT_FOUND),
+
+    // Customer errors(4xxx)
+    CUSTOMER_NOT_FOUND(4001, "Không tìm thấy khách hàng", HttpStatus.NOT_FOUND),
+    ALLOW_DEBT_REQUIRED(4002, "Trạng thái cho phép nợ là bắt buộc", HttpStatus.BAD_REQUEST),
+    ORDER_IS_NOT_A_DEBT_ORDER(4003, "Đơn hàng không phải là đơn hàng nợ", HttpStatus.BAD_REQUEST),
+    PAYMENT_AMOUNT_EXCEEDS_REMAINING_DEBT(4004, "Số tiền thanh toán vượt quá số nợ còn lại", HttpStatus.BAD_REQUEST),
     // PRODUCT_NOT_FOUND đã có ở nhóm 1xxx (1046) từ nhánh dev — dùng lại,
     // không định nghĩa bản 3008 song song (enum không cho trùng tên).
 

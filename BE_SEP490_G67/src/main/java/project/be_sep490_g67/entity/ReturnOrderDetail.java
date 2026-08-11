@@ -54,6 +54,10 @@ public class ReturnOrderDetail extends BaseEntity {
     @Column(name = "item_condition", length = 20, nullable = false)
     private String itemCondition;
 
+    /** Lý do trả của riêng dòng này (cận date, bao bì móp, khách đổi ý...). */
+    @Column(name = "note", length = 500)
+    private String note;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "paired_out_detail_id", unique = true)
     private SalesOrderDetail pairedOutDetail;

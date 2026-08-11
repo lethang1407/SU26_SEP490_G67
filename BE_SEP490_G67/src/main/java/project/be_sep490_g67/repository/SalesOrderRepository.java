@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import project.be_sep490_g67.entity.SalesOrder;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.time.Instant;
 
@@ -101,4 +102,6 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
             @Param("now") Instant now,
             Pageable pageable
     );
+
+    List<SalesOrder> findAllByIsDebtTrueAndCreatedAtBetween(Instant start, Instant end);
 }

@@ -17,4 +17,16 @@ public interface ReturnOrderRepository extends JpaRepository<ReturnOrder, Intege
 
     @Query("SELECT r FROM ReturnOrder r WHERE r.salesOrder.id = :salesOrderId AND r.isRemoved = false ORDER BY r.createdAt ASC")
     List<ReturnOrder> findAllBySalesOrderId(@Param("salesOrderId") Integer salesOrderId);
+
+    /**
+     * Phiếu trả của nhiều hóa đơn cùng lúc (dùng cho lịch sử hóa đơn, tránh N+1).
+     * Sắp xếp tăng dần theo thời gian: phiếu cuối cùng của mỗi hóa đơn là phiếu mới nhất.
+     */
+    @Query("""
+            SELECT r FROM ReturnOrder r
+            WHERE r.salesOrder.id IN :salesOrderIds
+              AND r.isRemoved = false
+            ORDER BY r.createdAt ASC, r.id ASC
+            """)
+    List<ReturnOrder> findAllBySalesOrderIds(@Param("salesOrderIds") List<Integer> salesOrderIds);
 }
