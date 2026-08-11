@@ -27,6 +27,18 @@ public class ImportReturnDetail extends BaseEntity {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "stock_batch_id")
+    private StockBatch stockBatch;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "supplier_id")
+    private Supplier supplier;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "import_order_id")
+    private ImportOrder importOrder;
+
     @Column(name = "quantity")
     private Integer quantity;
 
@@ -36,4 +48,22 @@ public class ImportReturnDetail extends BaseEntity {
     @Column(name = "return_reason")
     private String returnReason;
 
+    /** RETURN | EXCHANGE */
+    @Column(name = "method", length = 20, nullable = false)
+    private String method = "RETURN";
+
+    /** WAITING_SUPPLIER | DONE */
+    @Column(name = "line_status", length = 30, nullable = false)
+    private String lineStatus = "WAITING_SUPPLIER";
+
+    @Column(name = "note", length = 500)
+    private String note;
+
+    /** Đã trừ tồn khi lưu nháp. */
+    @Column(name = "stock_reserved", nullable = false)
+    private Boolean stockReserved = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "exchange_batch_id")
+    private StockBatch exchangeBatch;
 }

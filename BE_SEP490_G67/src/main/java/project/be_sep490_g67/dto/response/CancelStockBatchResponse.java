@@ -7,23 +7,14 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
-import java.math.BigDecimal;
-
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class InventoryCheckLineResponse {
-    Integer id;
-    Integer productId;
-    String productCode;
-    String productName;
-    String unit;
-    Integer stockBatchId;
+public class CancelStockBatchResponse {
+    Integer batchId;
     String batchCode;
-    Integer systemQty;
-    Integer actualQty;
-    BigDecimal importPrice;
-    String note;
+    Integer cancelledQuantity;
+    Integer remainingQuantity;
 }

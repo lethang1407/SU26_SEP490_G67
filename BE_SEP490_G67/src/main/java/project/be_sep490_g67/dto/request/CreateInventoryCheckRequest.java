@@ -29,6 +29,9 @@ public class CreateInventoryCheckRequest {
         @NotNull(message = "productId không được để trống")
         Integer productId;
 
+        /** NULL = tất cả lô của SP */
+        Integer stockBatchId;
+
         @NotNull(message = "Số lượng thực tế không được để trống")
         @Min(value = 0, message = "Số lượng thực tế không hợp lệ")
         Integer actualQty;

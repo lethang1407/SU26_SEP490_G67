@@ -6,18 +6,21 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.be_sep490_g67.dto.request.CreateInventoryCheckRequest;
+import project.be_sep490_g67.dto.response.InventoryCheckAttentionItemResponse;
 import project.be_sep490_g67.dto.response.InventoryCheckDetailResponse;
 import project.be_sep490_g67.dto.response.InventoryCheckLineResponse;
 import project.be_sep490_g67.dto.response.InventoryCheckListItemResponse;
 import project.be_sep490_g67.dto.response.InventoryCheckProductPreviewResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.entity.BatchLocation;
+import project.be_sep490_g67.entity.ImportOrder;
 import project.be_sep490_g67.entity.InventoryCheck;
 import project.be_sep490_g67.entity.InventoryCheckDetail;
 import project.be_sep490_g67.entity.Product;
 import project.be_sep490_g67.entity.ProductUnit;
 import project.be_sep490_g67.entity.StockBatch;
 import project.be_sep490_g67.entity.StockMovement;
+import project.be_sep490_g67.entity.Supplier;
 import project.be_sep490_g67.entity.User;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
@@ -35,7 +38,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -100,8 +105,70 @@ public class InventoryCheckService {
         return toProductPreview(product);
     }
 
+    @Transactional(readOnly = true)
+    public List<InventoryCheckAttentionItemResponse> getAttentionItems() {
+        LocalDate today = LocalDate.now();
+        LocalDate until = today.plusDays(30);
+        Instant checkedSince = today.minusDays(30).atStartOfDay(ZoneId.systemDefault()).toInstant();
+
+        List<InventoryCheckAttentionItemResponse> items = new ArrayList<>();
+
+        for (StockBatch batch : stockBatchRepository.findExpiredWithStock()) {
+            items.add(toAttentionItem(batch, "EXPIRED", "Đã hết hạn"));
+        }
+        for (StockBatch batch : stockBatchRepository.findExpiringSoonWithStock(until)) {
+            items.add(toAttentionItem(batch, "EXPIRING_SOON", "Sắp hết hạn"));
+        }
+
+        Set<Integer> recentlyChecked = new HashSet<>(
+                inventoryCheckDetailRepository.findProductIdsCheckedSince(checkedSince));
+
+        Set<Integer> seenProducts = new HashSet<>();
+        for (StockBatch batch : stockBatchRepository.findExpiredWithStock()) {
+            seenProducts.add(batch.getProduct().getId());
+        }
+        for (StockBatch batch : stockBatchRepository.findExpiringSoonWithStock(until)) {
+            seenProducts.add(batch.getProduct().getId());
+        }
+
+        // SP còn tồn nhưng lâu chưa kiểm / chưa từng kiểm
+        List<StockBatch> anyStock = stockBatchRepository.findAll().stream()
+                .filter(sb -> !Boolean.TRUE.equals(sb.getIsRemoved()))
+                .filter(sb -> sb.getQuantityIn() != null && sb.getQuantityIn() > 0)
+                .filter(sb -> sb.getProduct() != null && !Boolean.TRUE.equals(sb.getProduct().getIsRemoved()))
+                .toList();
+
+        Map<Integer, Integer> qtyByProduct = new HashMap<>();
+        Map<Integer, Product> productById = new HashMap<>();
+        for (StockBatch batch : anyStock) {
+            Integer pid = batch.getProduct().getId();
+            if (seenProducts.contains(pid) || recentlyChecked.contains(pid)) {
+                continue;
+            }
+            qtyByProduct.merge(pid, batch.getQuantityIn(), Integer::sum);
+            productById.putIfAbsent(pid, batch.getProduct());
+        }
+
+        for (Map.Entry<Integer, Product> entry : productById.entrySet()) {
+            Product product = entry.getValue();
+            items.add(InventoryCheckAttentionItemResponse.builder()
+                    .productId(product.getId())
+                    .productCode(resolveProductCode(product))
+                    .productName(product.getName())
+                    .batchId(null)
+                    .batchCode(null)
+                    .reasonCode("NOT_CHECKED_RECENTLY")
+                    .reason("Lâu chưa kiểm / chưa từng kiểm")
+                    .expiryDate(null)
+                    .quantity(qtyByProduct.getOrDefault(entry.getKey(), 0))
+                    .build());
+        }
+
+        return items;
+    }
+
     /**
-     * Tạo phiếu kiểm kho theo sản phẩm và hoàn tất ngay: điều chỉnh tồn SP.
+     * Tạo phiếu kiểm kho theo sản phẩm/lô và hoàn tất ngay: điều chỉnh tồn.
      */
     @Transactional
     public InventoryCheckDetailResponse createCheck(CreateInventoryCheckRequest request, Integer createdBy) {
@@ -109,13 +176,28 @@ public class InventoryCheckService {
             throw new AppException(ErrorCode.INVENTORY_CHECK_ITEMS_EMPTY);
         }
 
-        Set<Integer> seen = new HashSet<>();
+        Set<String> seenKeys = new HashSet<>();
+        Set<Integer> allScopeProducts = new HashSet<>();
+        Set<Integer> batchScopeProducts = new HashSet<>();
+
         for (CreateInventoryCheckRequest.InventoryCheckLineRequest line : request.getLines()) {
-            if (!seen.add(line.getProductId())) {
-                throw new AppException(ErrorCode.INVENTORY_CHECK_DUPLICATE_LINE);
-            }
             if (line.getActualQty() == null || line.getActualQty() < 0) {
                 throw new AppException(ErrorCode.INVALID_INVENTORY_CHECK_QTY);
+            }
+            String key = lineKey(line.getProductId(), line.getStockBatchId());
+            if (!seenKeys.add(key)) {
+                throw new AppException(ErrorCode.INVENTORY_CHECK_DUPLICATE_LINE);
+            }
+            if (line.getStockBatchId() == null) {
+                allScopeProducts.add(line.getProductId());
+            } else {
+                batchScopeProducts.add(line.getProductId());
+            }
+        }
+
+        for (Integer productId : allScopeProducts) {
+            if (batchScopeProducts.contains(productId)) {
+                throw new AppException(ErrorCode.INVENTORY_CHECK_BATCH_CONFLICT);
             }
         }
 
@@ -138,13 +220,26 @@ public class InventoryCheckService {
                     .filter(p -> !Boolean.TRUE.equals(p.getIsRemoved()))
                     .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
-            int systemQty = resolveProductSystemQty(product.getId());
+            StockBatch targetBatch = null;
+            int systemQty;
+            if (lineReq.getStockBatchId() != null) {
+                targetBatch = stockBatchRepository.findActiveWithProductById(lineReq.getStockBatchId())
+                        .orElseThrow(() -> new AppException(ErrorCode.STOCK_BATCH_NOT_FOUND));
+                if (!Objects.equals(targetBatch.getProduct().getId(), product.getId())) {
+                    throw new AppException(ErrorCode.STOCK_BATCH_NOT_FOUND);
+                }
+                systemQty = targetBatch.getQuantityIn() != null ? targetBatch.getQuantityIn() : 0;
+            } else {
+                systemQty = resolveProductSystemQty(product.getId());
+            }
+
             int actualQty = lineReq.getActualQty();
             int delta = actualQty - systemQty;
 
             InventoryCheckDetail detail = new InventoryCheckDetail();
             detail.setInventoryCheck(savedCheck);
             detail.setProduct(product);
+            detail.setStockBatch(targetBatch);
             detail.setSystemQty(systemQty);
             detail.setActualQty(actualQty);
             detail.setNote(trimToNull(lineReq.getNote()));
@@ -152,13 +247,37 @@ public class InventoryCheckService {
             inventoryCheckDetailRepository.save(detail);
 
             if (delta != 0) {
-                applyProductStockAdjustment(product, delta, savedCheck);
+                if (targetBatch != null) {
+                    applySingleBatchAdjustment(targetBatch, delta, savedCheck);
+                } else {
+                    applyProductStockAdjustment(product, delta, savedCheck);
+                }
             }
         }
 
         InventoryCheck refreshed = inventoryCheckRepository.findDetailById(savedCheck.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.INVENTORY_CHECK_NOT_FOUND));
         return toDetailResponse(refreshed);
+    }
+
+    private String lineKey(Integer productId, Integer stockBatchId) {
+        return productId + ":" + (stockBatchId == null ? "ALL" : stockBatchId);
+    }
+
+    private InventoryCheckAttentionItemResponse toAttentionItem(
+            StockBatch batch, String reasonCode, String reason) {
+        Product product = batch.getProduct();
+        return InventoryCheckAttentionItemResponse.builder()
+                .productId(product.getId())
+                .productCode(resolveProductCode(product))
+                .productName(product.getName())
+                .batchId(batch.getId())
+                .batchCode(batch.getBatchCode())
+                .reasonCode(reasonCode)
+                .reason(reason)
+                .expiryDate(batch.getExpiryDate() != null ? batch.getExpiryDate().toString() : null)
+                .quantity(batch.getQuantityIn())
+                .build();
     }
 
     private int resolveProductSystemQty(Integer productId) {
@@ -178,6 +297,37 @@ public class InventoryCheckService {
             return;
         }
         increaseProductStock(product, delta, check);
+    }
+
+    private void applySingleBatchAdjustment(StockBatch batch, int delta, InventoryCheck check) {
+        int current = batch.getQuantityIn() != null ? batch.getQuantityIn() : 0;
+        if (delta < 0) {
+            int need = -delta;
+            int deduct = Math.min(current, need);
+            int next = current - deduct;
+            batch.setQuantityIn(next);
+            stockBatchRepository.save(batch);
+            deductFromBatchLocations(batch, deduct);
+            saveMovement(batch, check.getId(), -deduct, next);
+            return;
+        }
+
+        int next = current + delta;
+        batch.setQuantityIn(next);
+        stockBatchRepository.save(batch);
+        saveMovement(batch, check.getId(), delta, next);
+    }
+
+    private void saveMovement(StockBatch batch, Integer checkId, int quantityDelta, int stockAfter) {
+        StockMovement movement = new StockMovement();
+        movement.setStockBatch(batch);
+        movement.setMovementType(MOVEMENT_TYPE);
+        movement.setReferenceType(REFERENCE_TYPE);
+        movement.setReferenceId(checkId);
+        movement.setQuantityDelta(quantityDelta);
+        movement.setStockAfter(stockAfter);
+        movement.setIsRemoved(false);
+        stockMovementRepository.save(movement);
     }
 
     private void deductProductStock(Integer productId, int quantityNeed, Integer checkId) {
@@ -281,13 +431,34 @@ public class InventoryCheckService {
     }
 
     private InventoryCheckProductPreviewResponse toProductPreview(Product product) {
+        List<StockBatch> batches = stockBatchRepository.findAvailableWithImportByProductId(product.getId());
+        List<InventoryCheckProductPreviewResponse.BatchOption> options = batches.stream()
+                .map(this::toBatchOption)
+                .toList();
+        int systemQty = options.stream().mapToInt(b -> b.getQuantity() != null ? b.getQuantity() : 0).sum();
+
         return InventoryCheckProductPreviewResponse.builder()
                 .productId(product.getId())
                 .productCode(resolveProductCode(product))
                 .productName(product.getName())
                 .unit(resolveBaseUnitName(product.getId()))
-                .systemQty(resolveProductSystemQty(product.getId()))
+                .systemQty(systemQty)
                 .importPrice(product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO)
+                .batches(options)
+                .build();
+    }
+
+    private InventoryCheckProductPreviewResponse.BatchOption toBatchOption(StockBatch batch) {
+        ImportOrder importOrder = batch.getImportOrder();
+        Supplier supplier = importOrder != null ? importOrder.getSupplier() : null;
+        return InventoryCheckProductPreviewResponse.BatchOption.builder()
+                .id(batch.getId())
+                .batchCode(batch.getBatchCode())
+                .quantity(batch.getQuantityIn() != null ? batch.getQuantityIn() : 0)
+                .expiryDate(batch.getExpiryDate() != null ? batch.getExpiryDate().toString() : null)
+                .importOrderId(importOrder != null ? importOrder.getId() : null)
+                .supplierId(supplier != null ? supplier.getId() : null)
+                .supplierName(supplier != null ? supplier.getName() : null)
                 .build();
     }
 
@@ -333,12 +504,15 @@ public class InventoryCheckService {
 
     private InventoryCheckLineResponse toLineResponse(InventoryCheckDetail detail) {
         Product product = detail.getProduct();
+        StockBatch batch = detail.getStockBatch();
         return InventoryCheckLineResponse.builder()
                 .id(detail.getId())
                 .productId(product != null ? product.getId() : null)
                 .productCode(product != null ? resolveProductCode(product) : null)
                 .productName(product != null ? product.getName() : null)
                 .unit(product != null ? resolveBaseUnitName(product.getId()) : "Cái")
+                .stockBatchId(batch != null ? batch.getId() : null)
+                .batchCode(batch != null ? batch.getBatchCode() : null)
                 .systemQty(detail.getSystemQty())
                 .actualQty(detail.getActualQty())
                 .importPrice(product != null && product.getCostPrice() != null

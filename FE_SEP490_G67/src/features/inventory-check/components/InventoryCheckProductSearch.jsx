@@ -19,7 +19,11 @@ function mapProduct(product) {
     };
 }
 
-export default function InventoryCheckProductSearch({ onSelect }) {
+export default function InventoryCheckProductSearch({
+    onSelect,
+    showAddProduct = true,
+    placeholder = 'Tìm hàng hóa theo mã hoặc tên để thêm vào phiếu kiểm...',
+}) {
     const [keyword, setKeyword] = useState('');
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -86,14 +90,14 @@ export default function InventoryCheckProductSearch({ onSelect }) {
                 <input
                     type="text"
                     className="ioc-search__input"
-                    placeholder="Tìm hàng hóa theo mã hoặc tên để thêm vào phiếu kiểm..."
+                    placeholder={placeholder}
                     value={keyword}
                     onChange={(event) => {
                         setKeyword(event.target.value);
                         setOpen(true);
                     }}
                     onFocus={() => setOpen(true)}
-                    aria-label="Tìm sản phẩm kiểm kho"
+                    aria-label="Tìm sản phẩm"
                 />
 
                 {showDropdown && (
@@ -130,14 +134,16 @@ export default function InventoryCheckProductSearch({ onSelect }) {
                 )}
             </div>
 
-            <Link
-                to="/admin/products/create"
-                className="ioc-search-add"
-                title="Thêm hàng hóa mới"
-                aria-label="Thêm hàng hóa mới"
-            >
-                <Plus size={20} />
-            </Link>
+            {showAddProduct ? (
+                <Link
+                    to="/admin/products/create"
+                    className="ioc-search-add"
+                    title="Thêm hàng hóa mới"
+                    aria-label="Thêm hàng hóa mới"
+                >
+                    <Plus size={20} />
+                </Link>
+            ) : null}
         </div>
     );
 }

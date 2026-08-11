@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -16,29 +15,35 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class InventoryCheckProductPreviewResponse {
-    Integer productId;
-    String productCode;
-    String productName;
-    String unit;
-    Integer systemQty;
-    BigDecimal importPrice;
+public class ImportReturnDraftResponse {
 
-    @Builder.Default
-    List<BatchOption> batches = new ArrayList<>();
+    Integer id;
+    String status;
+    String source;
+    Integer inventoryCheckId;
+    String returnCode;
+    BigDecimal totalRefund;
+    String note;
+    List<Line> lines;
 
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class BatchOption {
-        Integer id;
+    public static class Line {
+        Integer detailId;
+        Integer stockBatchId;
         String batchCode;
+        Integer productId;
+        String productCode;
+        String productName;
         Integer quantity;
-        String expiryDate;
-        Integer importOrderId;
+        BigDecimal returnPrice;
+        String returnReason;
         Integer supplierId;
         String supplierName;
+        Integer importOrderId;
+        Integer maxQuantity;
     }
 }

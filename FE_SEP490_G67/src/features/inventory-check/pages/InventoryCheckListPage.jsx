@@ -102,8 +102,9 @@ export default function InventoryCheckListPage() {
                     <div className="dashboard-container inventory-check-page">
                         <header className="inventory-page__header">
                             <div>
-                                <h1 className="inventory-page__title">Phiếu kiểm kho</h1>
+                                <h1 className="inventory-page__title">Lịch sử kiểm kho</h1>
                                 <p className="inventory-page__subtitle">
+                                    Các phiếu kiểm đã lưu.
                                 </p>
                             </div>
                             <div className="inventory-page__actions">

@@ -69,6 +69,10 @@ const adminRoutes = [
     },
     {
         path: '/admin/warehouse/check',
+        element: <CreateInventoryCheckPage />,
+    },
+    {
+        path: '/admin/warehouse/check/history',
         element: <InventoryCheckListPage />,
     },
     {

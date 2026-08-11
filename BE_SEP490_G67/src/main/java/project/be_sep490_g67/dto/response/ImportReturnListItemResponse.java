@@ -14,16 +14,16 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class InventoryCheckLineResponse {
+public class ImportReturnListItemResponse {
+
     Integer id;
-    Integer productId;
-    String productCode;
-    String productName;
-    String unit;
-    Integer stockBatchId;
-    String batchCode;
-    Integer systemQty;
-    Integer actualQty;
-    BigDecimal importPrice;
+    String returnCode;
+    String status;
+    String source;
+    Integer itemCount;
+    Integer totalQuantity;
+    BigDecimal totalRefund;
     String note;
+    String createdAt;
+    String createdByName;
 }
