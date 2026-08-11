@@ -13,7 +13,6 @@ import {
     AlertCircle,
     Loader,
     CheckCircle,
-    Info,
 } from "lucide-react";
 import "../../../css/POS.css";
 import { isValidQtyInput, isValidQtyValue, isQtyInvalid, parseQty } from '../utils/validation';
@@ -28,7 +27,6 @@ import {
 import ProductSearchDropdown from '../components/ProductSearchDropdown';
 import CustomerSearchDropdown from '../components/CustomerSearchDropdown';
 import SalesOrderHistoryModal from '../components/SalesOrderHistoryModal';
-import ProductInfoModal from '../components/ProductInfoModal';
 import ExchangeOrder from '../components/ExchangeOrder';
 import { saveActiveCart, loadActiveCart } from '../utils/cartStorage';
 import { createQuickCustomer, getProductPosInfo } from '../api';
@@ -160,7 +158,6 @@ const POSScreen = () => {
     const [historyOpen, setHistoryOpen] = useState(false);
     const [searchInput, setSearchInput] = useState('');
     const [posInfoError, setPosInfoError] = useState(null);
-    const [infoProductId, setInfoProductId] = useState(null);
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [cashGivenInput, setCashGivenInput] = useState('');
 
@@ -211,8 +208,7 @@ const POSScreen = () => {
     }, [setCartItems]);
 
     const onProductFound = useCallback(async (product) => {
-        // Vị trí + lô lấy từ pos-info chứ không đoán từ stockBatches, vì chỉ
-        // pos-info mới biết hàng đang nằm ở ô nào.
+        // Vị trí + lô lấy từ pos-info chứ không đoán từ stockBatches
         try {
             const posInfo = await getProductPosInfo(product.id);
             setPosInfoError(null);
@@ -251,17 +247,22 @@ const POSScreen = () => {
         );
     }, [setCartItems]);
 
-    // Product name search hook (debounced)
+    // Product name search hook
     const { results: searchResults, loading: searchLoading, error: searchError, clearResults } =
         useProductSearch(searchInput);
 
     const showDropdown = searchInput.trim().length >= 2 && (searchLoading || searchError || searchResults.length >= 0);
+    const returnPaneRefs = useRef({});
 
     const handleSearchSelect = useCallback((product) => {
-        onProductFound(product);
+        if (isReturnTab) {
+            returnPaneRefs.current[activeTabId]?.addExchangeProduct(product);
+        } else {
+            onProductFound(product);
+        }
         setSearchInput('');
         clearResults();
-    }, [onProductFound, clearResults]);
+    }, [isReturnTab, activeTabId, onProductFound, clearResults]);
 
     const { scanning, error: scanError, clearError: clearScanError } =
         useBarcodeScanner({ onProductFound, enabled: !isReturnTab });
@@ -270,7 +271,6 @@ const POSScreen = () => {
     const {
         phone, setPhone,
         customer,
-        invoiceType,
         discount, setDiscount,
         submitting,
         error: checkoutError,
@@ -406,33 +406,30 @@ const POSScreen = () => {
         <div className="pos-container">
             <header className="pos-header">
                 <div className="pos-header-left">
-                    {/* Tab trả hàng có ô tìm hàng đổi riêng bên trong */}
-                    {!isReturnTab && (
-                        <div className="search-wrapper">
-                            <Search className="search-icon" size={18} />
-                            <input
-                                type="text"
-                                placeholder="Tìm kiếm hàng hóa..."
-                                className="search-input"
-                                value={searchInput}
-                                onChange={(e) => setSearchInput(e.target.value)}
-                                disabled={scanning}
-                                autoFocus
+                    <div className="search-wrapper">
+                        <Search className="search-icon" size={18} />
+                        <input
+                            type="text"
+                            placeholder="Thêm sản phẩm vào đơn"
+                            className="search-input"
+                            value={searchInput}
+                            onChange={(e) => setSearchInput(e.target.value)}
+                            disabled={scanning}
+                            autoFocus
+                        />
+                        {showDropdown && (
+                            <ProductSearchDropdown
+                                results={searchResults}
+                                loading={searchLoading}
+                                error={searchError}
+                                onSelect={handleSearchSelect}
+                                onClose={() => {
+                                    setSearchInput('');
+                                    clearResults();
+                                }}
                             />
-                            {showDropdown && (
-                                <ProductSearchDropdown
-                                    results={searchResults}
-                                    loading={searchLoading}
-                                    error={searchError}
-                                    onSelect={handleSearchSelect}
-                                    onClose={() => {
-                                        setSearchInput('');
-                                        clearResults();
-                                    }}
-                                />
-                            )}
-                        </div>
-                    )}
+                        )}
+                    </div>
 
                     {/* ── Order Tabs ── */}
                     <div className="pos-header-tabs">
@@ -521,7 +518,7 @@ const POSScreen = () => {
                             <thead>
                                 <tr>
                                     <th className="col-stt">STT</th>
-                                    <th>MÃ SKU</th>
+                                    <th>MÃ SẢN PHẨM</th>
                                     <th>TÊN HÀNG</th>
                                     <th>ĐVT</th>
                                     <th>VỊ TRÍ</th>
@@ -558,18 +555,7 @@ const POSScreen = () => {
                                                 </div>
                                             </td>
                                             <td className="font-bold">{item.code}</td>
-                                            <td>
-                                                <div className="cart-name-cell">
-                                                    <span>{item.name}</span>
-                                                    <button
-                                                        className="btn-product-info"
-                                                        title="Xem thông tin sản phẩm"
-                                                        onClick={() => setInfoProductId(item.productId)}
-                                                    >
-                                                        <Info size={16} />
-                                                    </button>
-                                                </div>
-                                            </td>
+                                            <td>{item.name}</td>
                                             <td>
                                                 {(item.units ?? []).length > 1 ? (
                                                     <select
@@ -642,12 +628,6 @@ const POSScreen = () => {
                         </table>
                     </div>
 
-                    {/* LEFT FOOTER */}
-                    <div className="cart-footer">
-                        <div className="total-items">
-                            Tổng cộng: <span>{totalItems} mặt hàng</span>
-                        </div>
-                    </div>
                 </div>
 
                 {/* RIGHT COLUMN - PAYMENT */}
@@ -689,11 +669,11 @@ const POSScreen = () => {
                                 onClick={handleUserPlus}
                                 disabled={!phone.trim() || quickAddLoading || !!customer}
                             >
-                                <UserPlus size={20} />
+                                <Plus size={20} />
                             </button>
                         </div>
 
-                        {/* ── Quick-add inline form ── */}
+                        {/* Quick-add inline form */}
                         {showQuickAdd && !customer && (
                             <div className="quick-add-form">
                                 <div className="quick-add-title">
@@ -756,12 +736,15 @@ const POSScreen = () => {
                             </div>
                         )}
                         <div className="summary-row">
-                            <span>Tổng tiền hàng</span>
+                            <span>
+                                Tổng tiền
+                                <span className="summary-item-count">({totalItems} mặt hàng)</span>
+                            </span>
                             <span className="font-bold">{subtotal.toLocaleString()}</span>
                         </div>
 
-                        {/* ── Discount row ── */}
-                        <div className="summary-row dashed-border">
+                        {/* Discount row */}
+                        <div className="summary-row summary-row--divider">
                             <span
                                 style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: '#2563eb' }}
                                 onClick={handleDiscountEditToggle}
@@ -799,15 +782,14 @@ const POSScreen = () => {
                                 </span>
                             )}
                         </div>
-
-                        <div className="summary-row" style={{ marginTop: '16px' }}>
-                            <span className="font-bold">KHÁCH PHẢI TRẢ</span>
+                        <div className="summary-row summary-row--major" style={{ marginTop: '16px' }}>
+                            <span className="summary-major-label">Khách phải trả</span>
                             <span className="text-blue-large">{amountDue.toLocaleString()}</span>
                         </div>
 
                         {paymentMethod === 'cash' && (
-                            <div className="summary-row">
-                                <span className="font-bold">TIỀN KHÁCH ĐƯA</span>
+                            <div className="summary-row summary-row--major">
+                                <span className="summary-major-label">Tiền khách đưa</span>
                                 <input
                                     type="number"
                                     min={0}
@@ -821,52 +803,49 @@ const POSScreen = () => {
                         )}
 
                         {/* Payment Methods */}
+                        {paymentMethod === 'cash' && (
+                            <div className={`summary-row summary-row--major change-due-row${changeDue > 0 ? '' : ' is-zero'}${changeDue < 0 ? '' : ' summary-row--divider'}`}>
+                                <span className="summary-major-label">Tiền thừa trả khách</span>
+                                <span className="change-due-amount">
+                                    {Math.max(0, changeDue).toLocaleString('vi-VN')}
+                                </span>
+                            </div>
+                        )}
+
+                        {paymentMethod === 'cash' && changeDue < 0 && (
+                            <div className="summary-row summary-row--major summary-row--divider cash-short-row">
+                                <span className="summary-major-label">Khách đưa còn thiếu</span>
+                                <span className="change-due-amount">
+                                    {Math.abs(changeDue).toLocaleString('vi-VN')}
+                                </span>
+                            </div>
+                        )}
                         <div>
                             <span className="payment-methods-title">Hình thức thanh toán</span>
                             <div className="methods-grid">
-                                {['cash', 'transfer', 'debt'].map((method) => (
+                                {PAYMENT_METHODS.map(({ value, label }) => (
                                     <label
-                                        key={method}
-                                        className={`method-label ${paymentMethod === method ? 'active' : ''}`}
+                                        key={value}
+                                        className={`method-label ${paymentMethod === value ? 'active' : ''}`}
                                     >
                                         <input
                                             type="radio"
-                                            checked={paymentMethod === method}
-                                            onChange={() => setPaymentMethod(method)}
+                                            checked={paymentMethod === value}
+                                            onChange={() => setPaymentMethod(value)}
                                         />
-                                        <span>
-                                            {method === 'cash' && 'Tiền mặt'}
-                                            {method === 'transfer' && 'Chuyển khoản'}
-                                            {method === 'debt' && 'Bán nợ'}
-                                        </span>
+                                        <span>{label}</span>
                                     </label>
                                 ))}
                             </div>
 
-                            {paymentMethod === 'cash' && (
-                                <div className={`change-due-row${changeDue > 0 ? '' : ' is-zero'}`}>
-                                    <span>Tiền thừa trả khách</span>
-                                    <span className="change-due-amount">
-                                        {Math.max(0, changeDue).toLocaleString('vi-VN')}
-                                    </span>
-                                </div>
-                            )}
 
-                            {paymentMethod === 'cash' && changeDue < 0 && (
-                                <div className="cash-short-row">
-                                    <span>Khách đưa còn thiếu</span>
-                                    <span className="change-due-amount">
-                                        {Math.abs(changeDue).toLocaleString('vi-VN')}
-                                    </span>
-                                </div>
-                            )}
                         </div>
 
                         {locationBlocked && (
                             <div className="scan-error-banner" style={{ marginTop: '12px', borderRadius: '4px' }}>
                                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <AlertCircle size={16} />
-                                    Có dòng chưa chọn vị trí lấy hàng hoặc vị trí không đủ số lượng.
+                                    Chưa chọn lô hàng hoặc lô không đủ số lượng.
                                 </span>
                             </div>
                         )}
@@ -898,14 +877,6 @@ const POSScreen = () => {
                 </div>
             </div>
 
-            {/* PRODUCT INFO MODAL */}
-            {infoProductId && (
-                <ProductInfoModal
-                    productId={infoProductId}
-                    onClose={() => setInfoProductId(null)}
-                />
-            )}
-
             {/* RETURN TABS */}
             {tabs.filter(t => t.type === 'RETURN').map(tab => (
                 <div
@@ -914,6 +885,10 @@ const POSScreen = () => {
                 >
                     <ExchangeOrder
                         embedded
+                        ref={(handle) => {
+                            if (handle) returnPaneRefs.current[tab.id] = handle;
+                            else delete returnPaneRefs.current[tab.id];
+                        }}
                         orderId={tab.orderId}
                         onDone={() => closeTab(tab.id)}
                         onDirtyChange={(dirty) => handleReturnDirtyChange(tab.id, dirty)}

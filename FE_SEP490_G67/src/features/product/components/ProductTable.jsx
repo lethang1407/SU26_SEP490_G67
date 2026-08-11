@@ -100,8 +100,8 @@ export default function ProductTable({
                                     <td>
                                         <span
                                             className={`product-table__status${isOutOfStock
-                                                    ? ' product-table__status--out-of-stock'
-                                                    : ' product-table__status--in-stock'
+                                                ? ' product-table__status--out-of-stock'
+                                                : ' product-table__status--in-stock'
                                                 }`}
                                         >
                                             {getProductStatusLabel(product.stock)}

@@ -16,6 +16,8 @@ public class ProductSearchResponse {
     String name;
     String barcode;
     BigDecimal sellingPrice;
+    /** Tổng tồn kho theo đơn vị cơ bản, gộp mọi lô và mọi vị trí. */
+    Integer stockQuantity;
     List<ProductUnitInfo> productUnits;
     List<StockBatchInfo> stockBatches;
 

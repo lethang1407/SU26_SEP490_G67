@@ -1,3 +1,16 @@
+/*
+ * Bảng màu dùng chung cho POS và màn đổi trả. Một thông tin chỉ có một tín hiệu
+ * màu: tiền/hàng ra khỏi cửa hàng = đỏ, tiền/hàng vào = xanh lá, xanh dương chỉ
+ * dùng cho liên kết và tiêu điểm thao tác.
+ */
+:root {
+    --pos-out: #dc2626;
+    --pos-in: #16a34a;
+    --pos-accent: #2563eb;
+    --pos-warn: #b45309;
+    --pos-line: #e5e7eb;
+}
+
 /* Layout tổng thể */
 .pos-container {
     display: flex;
@@ -8,33 +21,36 @@
 }
 
 /* Header */
+
+/*
+ * Tab cao bằng đúng thanh header: header bỏ padding dọc và cho các con kéo giãn
+ * (stretch), những thứ không phải tab thì tự căn giữa lại bằng align-self.
+ */
 .pos-header {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     justify-content: space-between;
     background-color: #2563eb;
     color: white;
-    padding: 8px;
+    padding: 0 8px;
+    min-height: 52px;
 }
 
 .pos-header-left {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     gap: 16px;
-    flex: 1;
-    min-width: 0;
+    width: 50%;
+}
+
+.pos-header .search-wrapper {
+    align-self: center;
 }
 
 .search-wrapper {
     position: relative;
     width: 100%;
     max-width: 400px;
-}
-
-.pos-header-left:has(.pos-header-tabs) .search-wrapper,
-.pos-header-left:has(.pos-header-center) .search-wrapper {
-    flex: 0 0 320px;
-    width: 320px;
 }
 
 .search-icon {
@@ -56,9 +72,8 @@
 
 .pos-header-center {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     gap: 8px;
-    height: 100%;
     min-width: 0;
 }
 
@@ -72,9 +87,8 @@
 
 .pos-header-tabs {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     gap: 8px;
-    height: 100%;
     flex: 1;
     min-width: 0;
     overflow-x: auto;
@@ -83,6 +97,7 @@
 
 .pos-header-tabs::-webkit-scrollbar {
     display: none;
+    height: 100%;
 }
 
 .tab-active {
@@ -94,10 +109,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-top: 8px;
     cursor: pointer;
     border: none;
-
 }
 
 .tab-inactive {
@@ -109,7 +122,6 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-top: 8px;
     cursor: pointer;
     border: none;
     transition: background 0.15s;
@@ -117,12 +129,6 @@
 
 .tab-inactive:hover {
     background-color: rgba(255, 255, 255, 0.28);
-}
-
-.tab-active,
-.tab-inactive {
-    flex: 0 0 auto;
-    white-space: nowrap;
 }
 
 .tab-close {
@@ -139,6 +145,7 @@
 }
 
 .btn-add-tab {
+    align-self: center;
     padding: 0 12px;
     font-size: 20px;
     font-weight: bold;
@@ -146,16 +153,11 @@
     border: none;
     color: white;
     cursor: pointer;
-    flex: 0 0 auto;
-}
-
-.btn-add-tab:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
 }
 
 .pos-header-right {
     display: flex;
+    align-self: center;
     align-items: center;
     gap: 16px;
     padding-right: 16px;
@@ -173,6 +175,7 @@
 .pos-main {
     display: flex;
     flex: 1;
+    gap: 5px;
     overflow: hidden;
 }
 
@@ -321,16 +324,6 @@
     color: #b45309;
 }
 
-/* Footer của cột trái */
-.cart-footer {
-    border-top: 1px solid #e5e7eb;
-    padding: 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: white;
-}
-
 .note-wrapper {
     position: relative;
     width: 50%;
@@ -349,20 +342,14 @@
     border-color: #3b82f6;
 }
 
-.total-items {
-    margin-left: auto;
-    color: #374151;
-    font-weight: 500;
-}
-
-.total-items span {
-    color: #2563eb;
-    font-weight: bold;
-}
-
-/* Cột phải: Thanh toán */
+/*
+ * Cột phải: Thanh toán
+ * Rộng theo tỉ lệ màn hình thay vì cố định 400px — 1366px cho ~355px, 1920px
+ * cho 420px — để bảng bên trái luôn còn đủ chỗ trên máy thu ngân thật.
+ */
 .pos-payment-section {
-    width: 400px;
+    width: clamp(320px, 26%, 420px);
+    flex: 0 0 auto;
     background-color: white;
     border-left: 1px solid #e5e7eb;
     display: flex;
@@ -378,23 +365,40 @@
 
 .customer-search {
     display: flex;
+    align-items: center;
     gap: 8px;
     margin-bottom: 8px;
 }
 
+/* Ô tìm khách hàng chiếm hết bề ngang cột thanh toán */
+.customer-search .search-wrapper {
+    flex: 1;
+    width: auto;
+    max-width: none;
+}
+
+.customer-search .search-icon {
+    left: 4px;
+}
+
+/* Chỉ gạch chân thay vì khung viền bao quanh */
 .customer-input {
     width: 100%;
-    padding: 8px 16px 8px 32px;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
+    padding: 8px 4px 8px 28px;
+    border: none;
+    border-bottom: 2px solid #d1d5db;
+    border-radius: 0;
+    background-color: transparent;
     outline: none;
+    transition: border-bottom-color 0.15s;
 }
 
 .customer-input:focus {
-    border-color: #3b82f6;
+    border-bottom-color: #2563eb;
 }
 
 .btn-add-customer {
+    flex-shrink: 0;
     padding: 8px;
     border: 1px solid #d1d5db;
     border-radius: 4px;
@@ -411,19 +415,67 @@
     margin-bottom: 16px;
 }
 
-.summary-row.dashed-border {
-    border-bottom: 1px dashed #d1d5db;
+/* Số mặt hàng đi kèm nhãn "Tổng tiền" */
+.summary-item-count {
+    margin-left: 6px;
+    color: #2563eb;
+    font-weight: 600;
+}
+
+/*
+ * Nhóm dòng tiền quan trọng: cùng lề (padding ngang = 0 như .summary-row),
+ * cùng canh theo chân chữ để nhãn 15px đứng ngang số 24px.
+ */
+.summary-row--major {
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 4px 0;
+}
+
+.summary-major-label {
+    font-size: 15px;
+    font-weight: bold;
+    color: #374151;
+    white-space: nowrap;
+}
+
+/*
+ * Nhóm thông tin trong cột thanh toán — dùng chung cho hóa đơn bán và hóa đơn
+ * đổi trả để hai màn hình có cùng một format phiếu.
+ */
+.pos-panel-group {
     padding-bottom: 16px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--pos-line);
+}
+
+.pos-panel-group--last {
+    padding-bottom: 0;
+    margin-bottom: 0;
+    border-bottom: none;
+}
+
+.pos-panel-group-title {
+    margin: 0 0 12px;
+    font-size: 12px;
+    font-weight: bold;
+    color: #6b7280;
+    text-transform: uppercase;
+}
+
+/* Đường kẻ liền ngăn giữa các nhóm của bảng thanh toán */
+.summary-row--divider {
+    border-bottom: 1px solid #d1d5db;
+    padding-bottom: 16px;
+}
+
+.summary-row--major.summary-row--divider {
+    padding-bottom: 12px;
 }
 
 .text-blue-large {
     color: #2563eb;
-    font-size: 24px;
-    font-weight: bold;
-}
-
-.text-black-large {
-    color: rgba(0, 0, 0, 0.677);
     font-size: 24px;
     font-weight: bold;
 }
@@ -690,28 +742,7 @@
     font-size: 14px;
 }
 
-/*  Product Info Modal — nút "i" trên dòng giỏ hàng  */
-.cart-name-cell {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.btn-product-info {
-    display: inline-flex;
-    align-items: center;
-    background: none;
-    border: none;
-    padding: 2px;
-    cursor: pointer;
-    color: #9ca3af;
-    flex-shrink: 0;
-}
-
-.btn-product-info:hover {
-    color: #2563eb;
-}
-
+/*  Product Info Modal  */
 .product-info-modal {
     width: 520px;
     max-height: 90vh;
@@ -1064,6 +1095,20 @@
     border-radius: 3px;
 }
 
+.psd-stock {
+    font-size: 11px;
+    color: #4b5563;
+    background-color: #f3f4f6;
+    padding: 1px 6px;
+    border-radius: 3px;
+}
+
+/* Hết hàng thì báo đỏ ngay trên dòng kết quả */
+.psd-stock--empty {
+    color: #b91c1c;
+    background-color: #fef2f2;
+}
+
 .psd-price {
     font-size: 12px;
     font-weight: 600;
@@ -1167,21 +1212,30 @@
 }
 
 /*  Tiền khách đưa / hình thức thanh toán / tiền thừa  */
+/*
+ * Bằng cỡ số của "Khách phải trả" (.text-blue-large). field-sizing co ô theo
+ * nội dung để gạch chân ôm sát con số; width chỉ là mức dự phòng cho trình
+ * duyệt chưa hỗ trợ.
+ */
 .cash-given-input {
+    field-sizing: content;
     width: 150px;
+    min-width: 96px;
+    max-width: 190px;
     text-align: right;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
-    padding: 6px 10px;
-    font-size: 20px;
+    border: none;
+    border-radius: 0;
+    border-bottom: 2px solid #d1d5db;
+    padding: 0 2px 2px;
+    font-size: 24px;
     font-weight: bold;
     color: rgba(0, 0, 0, 0.677);
     outline: none;
-    transition: border-color 0.15s;
+    transition: border-bottom-color 0.15s;
 }
 
 .cash-given-input:focus {
-    border-color: #2563eb;
+    border-bottom-color: #2563eb;
 }
 
 /* Placeholder ở đây là số khách phải trả, không phải gợi ý — phải đọc được */
@@ -1207,37 +1261,24 @@
     border-color: #2563eb;
 }
 
+/*
+ * Bố cục (flex / lề / canh chữ) đã do .summary-row--major lo; ở đây chỉ còn màu.
+ */
 .change-due-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 12px;
-    padding: 10px 12px;
-    border-radius: 6px;
-    color: #6b7280;
-    font-weight: 600;
+    color: #16a34a;
 }
 
 .change-due-row.is-zero {
-    background-color: #f9fafb;
-    border-color: #e5e7eb;
-    color: #1e1f20;
+    color: #374151;
 }
 
 .change-due-amount {
-    font-size: 20px;
+    font-size: 24px;
     font-weight: bold;
 }
 
 .cash-short-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 12px;
-    padding: 10px 12px;
-    border-radius: 6px;
-    color: #070707bd;
-    font-weight: 600;
+    color: #dc2626;
 }
 
 .spin-icon {

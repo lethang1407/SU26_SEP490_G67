@@ -27,6 +27,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Service
@@ -533,11 +534,12 @@ public class ProductService {
                         .build())
                 .toList();
 
-        // Đã sắp xếp sẵn ở query: khu bán trước, rồi FIFO theo ngày nhập (null xuống cuối).
-        List<ProductPosInfoResponse.LocationStockInfo> locationInfos =
-                batchLocationRepository.findPosLinesByProductId(productId).stream()
-                        .map(ProductService::toLocationStockInfo)
-                        .toList();
+        // Đã sắp xếp sẵn ở query: khu bán trước, rồi FIFO theo ngày nhập (null xuống
+        // cuối).
+        List<ProductPosInfoResponse.LocationStockInfo> locationInfos = batchLocationRepository
+                .findPosLinesByProductId(productId).stream()
+                .map(ProductService::toLocationStockInfo)
+                .toList();
 
         int salesZoneQty = locationInfos.stream()
                 .filter(l -> SALES_ZONE_TYPE.equals(l.getZoneType()))
@@ -610,14 +612,28 @@ public class ProductService {
             return List.of();
         }
         List<Product> productList = productRepository.searchByNameAndBarcode(query.trim());
-        return productList.stream()
+        List<Product> visible = productList.stream()
                 .filter(p -> Boolean.FALSE.equals(p.getIsRemoved())) // loại sp đã deactivate
                 .limit(20)
+                .toList();
+
+        // Tồn kho lấy một lượt cho cả danh sách
+        Map<Integer, Integer> stockByProductId = visible.isEmpty()
+                ? Map.of()
+                : batchLocationRepository
+                        .sumQuantityByProductIds(visible.stream().map(Product::getId).toList())
+                        .stream()
+                        .collect(Collectors.toMap(
+                                row -> (Integer) row[0],
+                                row -> ((Number) row[1]).intValue()));
+
+        return visible.stream()
                 .map(product -> ProductSearchResponse.builder()
                         .id(product.getId())
                         .name(product.getName())
                         .barcode(product.getBarcode())
                         .sellingPrice(product.getSellingPrice())
+                        .stockQuantity(stockByProductId.getOrDefault(product.getId(), 0))
                         .productUnits(product.getProductUnits().stream()
                                 .filter(u -> Boolean.FALSE.equals(u.getIsRemoved()))
                                 .map(u -> ProductSearchResponse.ProductUnitInfo

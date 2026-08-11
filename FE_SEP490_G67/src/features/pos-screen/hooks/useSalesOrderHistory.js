@@ -3,10 +3,6 @@ import { getSalesOrderHistory } from '../api';
 
 const PAGE_SIZE = 10;
 
-/**
- * DATE_FILTER options: 'today' | 'yesterday' | '7days' | 'custom'
- * For 'custom', caller sets customFrom / customTo (ISO date strings YYYY-MM-DD).
- */
 function buildDateParams(dateFilter, customFrom, customTo) {
     const now = new Date();
     const toLocalDate = (d) => d.toISOString().slice(0, 10); // YYYY-MM-DD

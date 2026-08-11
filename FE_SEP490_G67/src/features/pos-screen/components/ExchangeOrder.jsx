@@ -1,19 +1,19 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, useImperativeHandle } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
     Search,
     Home,
     Trash2,
     AlertCircle,
-    Info,
+    Printer,
     CornerUpLeft,
     ShoppingCart
 } from "lucide-react";
 import "../../../css/POS.css";
 import "../../../css/ExchangeOrder.css";
 import ExchangeOrderPicker from '../components/ExchangeOrderPicker';
-import ProductInfoModal from '../components/ProductInfoModal';
-import { getOrderForExchange, processExchangeOrder, searchProductsByName } from "../api";
+import { getOrderForExchange, processExchangeOrder, searchProductsByName, getInvoiceData } from "../api";
+import { printInvoice } from '../utils/printInvoice';
 import { getApiErrorMessage } from "../../../utils/api-utils";
 
 const ITEM_CONDITIONS = [
@@ -25,7 +25,7 @@ const ITEM_CONDITIONS = [
 
 const CONDITION_OVERRIDES_POLICY = ['DAMAGED', 'EXPIRED'];
 
-export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, onDone, onDirtyChange }) {
+export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, onDone, onDirtyChange, ref }) {
     const params = useParams();
     const orderId = orderIdProp ?? params.orderId;
     const navigate = useNavigate();
@@ -43,7 +43,8 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
     const [submitError, setSubmitError] = useState(null);
 
     const [validationErrors, setValidationErrors] = useState({});
-    const [infoProductId, setInfoProductId] = useState(null);
+    const [submitResult, setSubmitResult] = useState(null);
+    const [printing, setPrinting] = useState(false);
 
     // Load original order data
     useEffect(() => {
@@ -225,6 +226,15 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
         setValidationErrors(prev => ({ ...prev, exchangeItems: null }));
     }, [exchangeItems]);
 
+    /*
+     * Khi nhúng trong POS, ô tìm kiếm nằm trên header của POS (dùng chung một ô
+     * duy nhất cho cả bán hàng lẫn đổi trả). POS gọi ngược xuống đây để thêm
+     * hàng khách lấy đi.
+     */
+    useImperativeHandle(ref, () => ({
+        addExchangeProduct: handleAddExchangeProduct,
+    }), [handleAddExchangeProduct]);
+
     const handleRemoveExchangeItem = useCallback((index) => {
         setExchangeItems(prev => prev.filter((_, i) => i !== index));
     }, []);
@@ -311,23 +321,83 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
             };
 
             const result = await processExchangeOrder(payload);
-            const money = Math.abs(netAmount).toLocaleString();
-            alert(
-                `${isExchange ? 'Đổi hàng' : 'Trả hàng'} thành công!\n`
-                + `Mã phiếu: ${result.returnCode}\n`
-                + (direction === 'refund' ? `Hoàn lại khách: ${money} đ`
-                    : direction === 'collect' ? `Khách thanh toán thêm: ${money} đ`
-                        : 'Không phát sinh tiền')
-            );
-            if (embedded) {
-                onDone?.();
-            } else {
-                navigate('/admin/pos');
-            }
+
+            /*
+             * Chốt lại số liệu tại thời điểm gửi để in phiếu — không đọc lại state
+             * vì sau khi đóng màn hình các mảng này sẽ bị dọn.
+             */
+            setSubmitResult({
+                returnCode: result.returnCode,
+                direction,
+                isExchange,
+                netAmount,
+                returnSubtotal,
+                exchangeSubtotal,
+                refundMethod: refundMethod.toUpperCase(),
+                returnLines: selectedItems.map(item => ({
+                    productName: item.productName,
+                    unitName: item.unitName,
+                    quantity: item.returnQty,
+                    unitPrice: item.unitPrice,
+                    lineTotal: item.total,
+                })),
+                exchangeLines: exchangeItems.map(item => ({
+                    productName: item.productName,
+                    unitName: item.unitName,
+                    quantity: item.qty,
+                    unitPrice: item.price,
+                    lineTotal: item.total,
+                })),
+            });
         } catch (err) {
             setSubmitError(getApiErrorMessage(err, 'Không thể xử lý đổi trả hàng'));
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const handleCloseResult = () => {
+        setSubmitResult(null);
+        if (embedded) {
+            onDone?.();
+        } else {
+            navigate('/admin/pos');
+        }
+    };
+
+    const handlePrintResult = async () => {
+        if (!submitResult || printing) return;
+        setPrinting(true);
+        try {
+            let head = {};
+            try {
+                const invoice = await getInvoiceData(orderId);
+                head = {
+                    storeName: invoice?.storeName,
+                    storeAddress: invoice?.storeAddress,
+                    taxCode: invoice?.taxCode,
+                    currency: invoice?.currency,
+                    cashierName: invoice?.cashierName,
+                };
+            } catch {
+            }
+
+            printInvoice({
+                ...head,
+                kind: 'EXCHANGE',
+                orderCode: submitResult.returnCode,
+                originalOrderCode: originalOrder?.orderCode,
+                createdAtVn: new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }),
+                customer: originalOrder?.customer ?? null,
+                refundMethod: submitResult.refundMethod,
+                returnItems: submitResult.returnLines,
+                exchangeItems: submitResult.exchangeLines,
+                returnSubtotal: submitResult.returnSubtotal,
+                exchangeSubtotal: submitResult.exchangeSubtotal,
+                netAmount: submitResult.netAmount,
+            });
+        } finally {
+            setPrinting(false);
         }
     };
 
@@ -363,14 +433,51 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
         );
     }
 
-    /** Tổng số cột của bảng — dùng cho các dòng gộp (nhóm / trống). */
     const COLUMN_COUNT = 11;
+    const searchBox = (
+        <div className="search-wrapper">
+            <Search className="search-icon" size={18} />
+            <input
+                type="text"
+                placeholder="Tìm kiếm sản phẩm"
+                className="search-input"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+            />
+            {searchInput.length >= 2 && (
+                <div className="exchange-dropdown">
+                    {searchLoading ? (
+                        <div className="exchange-dropdown-state">Đang tìm...</div>
+                    ) : searchResults.length > 0 ? (
+                        searchResults.map(product => (
+                            <div
+                                key={product.id}
+                                className="exchange-dropdown-item"
+                                onClick={() => handleAddExchangeProduct(product)}
+                            >
+                                <div className="exchange-dropdown-item-name">{product.name}</div>
+                                <div className="exchange-dropdown-item-price">
+                                    Giá: {(product.sellingPrice || 0).toLocaleString()} đ
+                                    <span className={`psd-stock${Number(product.stockQuantity ?? 0) <= 0 ? ' psd-stock--empty' : ''}`}>
+                                        Tồn kho: {Number(product.stockQuantity ?? 0).toLocaleString('vi-VN')}
+                                    </span>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="exchange-dropdown-state exchange-dropdown-empty">Không tìm thấy sản phẩm</div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
 
     return shell(
         <>
             {!embedded && (
                 <header className="pos-header">
                     <div className="pos-header-left">
+                        {searchBox}
                         <div className="pos-header-center">
                             <button className="tab-active">
                                 Đổi trả hàng - {originalOrder?.orderCode}
@@ -387,7 +494,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
             )}
 
             <div className="pos-main">
-                {/* ══ CỘT TRÁI: MỘT BẢNG DUY NHẤT ══ */}
+                {/* CỘT TRÁI*/}
                 <div className="pos-cart-section exchange-cart-section">
                     <div className="exch-toolbar">
                         <div className="exch-toolbar-title">
@@ -404,38 +511,6 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                             <span>Ẩn dòng không đổi trả</span>
                         </label>
 
-                        <div className="search-wrapper exch-toolbar-search">
-                            <Search className="search-icon" size={18} />
-                            <input
-                                type="text"
-                                placeholder="Tìm hàng để khách lấy đi (đổi sang món khác)"
-                                className="search-input"
-                                value={searchInput}
-                                onChange={(e) => setSearchInput(e.target.value)}
-                            />
-                            {searchInput.length >= 2 && (
-                                <div className="exchange-dropdown">
-                                    {searchLoading ? (
-                                        <div className="exchange-dropdown-state">Đang tìm...</div>
-                                    ) : searchResults.length > 0 ? (
-                                        searchResults.map(product => (
-                                            <div
-                                                key={product.id}
-                                                className="exchange-dropdown-item"
-                                                onClick={() => handleAddExchangeProduct(product)}
-                                            >
-                                                <div className="exchange-dropdown-item-name">{product.name}</div>
-                                                <div className="exchange-dropdown-item-price">
-                                                    Giá: {(product.sellingPrice || 0).toLocaleString()} đ
-                                                </div>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="exchange-dropdown-state exchange-dropdown-empty">Không tìm thấy sản phẩm</div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
                     </div>
 
                     <div className="exch-table-scroll">
@@ -456,11 +531,14 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                                 </tr>
                             </thead>
 
-                            {/* ── Phần 1: hàng khách TRẢ VỀ cửa hàng ── */}
+                            {/* Phần 1: hàng khách TRẢ VỀ cửa hàng  */}
                             <tbody>
                                 <tr className="exch-group-row exch-group-row--return">
                                     <td colSpan={COLUMN_COUNT}>
-                                        <CornerUpLeft size={14} /> Sản Phẩm Trả
+                                        <CornerUpLeft size={14} /> Hàng khách trả lại
+                                        <span className="exch-group-count">
+                                            {selectedItems.length} / {returnItems.length} dòng được chọn trả
+                                        </span>
                                     </td>
                                 </tr>
 
@@ -489,18 +567,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                                         </td>
                                         <td>{index + 1}</td>
                                         <td className="font-bold product-code-cell">{item.productCode}</td>
-                                        <td>
-                                            <div className="cart-name-cell">
-                                                <span>{item.productName}</span>
-                                                <button
-                                                    className="btn-product-info"
-                                                    title="Xem thông tin sản phẩm"
-                                                    onClick={() => setInfoProductId(item.productId)}
-                                                >
-                                                    <Info size={16} />
-                                                </button>
-                                            </div>
-                                        </td>
+                                        <td>{item.productName}</td>
                                         <td>{item.unitName}</td>
                                         <td className="text-center">
                                             {item.quantityPurchased}
@@ -561,11 +628,14 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                                 ))}
                             </tbody>
 
-                            {/* ── Phần 2: hàng khách LẤY ĐI (đổi sang món khác) ── */}
+                            {/* Phần 2: hàng khách LẤY ĐI (đổi sang món khác) */}
                             <tbody>
                                 <tr className="exch-group-row exch-group-row--new">
                                     <td colSpan={COLUMN_COUNT}>
-                                        <ShoppingCart size={14} /> Sản Phẩm Đổi
+                                        <ShoppingCart size={14} /> Hàng khách lấy mới
+                                        <span className="exch-group-count">
+                                            {exchangeItems.length} dòng
+                                        </span>
                                     </td>
                                 </tr>
 
@@ -588,18 +658,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                                         </td>
                                         <td>{index + 1}</td>
                                         <td className="font-bold product-code-cell">{item.productCode}</td>
-                                        <td>
-                                            <div className="cart-name-cell">
-                                                <span>{item.productName}</span>
-                                                <button
-                                                    className="btn-product-info"
-                                                    title="Xem thông tin sản phẩm"
-                                                    onClick={() => setInfoProductId(item.productId)}
-                                                >
-                                                    <Info size={16} />
-                                                </button>
-                                            </div>
-                                        </td>
+                                        <td>{item.productName}</td>
                                         <td>
                                             {(item.units ?? []).length > 1 ? (
                                                 <select
@@ -642,7 +701,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                     )}
                 </div>
 
-                {/* ══ CỘT PHẢI: ĐÚNG BỐ CỤC HÓA ĐƠN THƯỜNG ══ */}
+                {/* CỘT PHẢI: HÓA ĐƠN THƯỜNG  */}
                 <div className="pos-payment-section">
                     <div className="payment-content">
 
@@ -669,23 +728,23 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                                 </span>
                             </div>
                             <div className="summary-row">
-                                <span>Hàng khách lấy đi</span>
-                                <span className="font-bold exch-amount-in">
-                                    {exchangeSubtotal.toLocaleString()}
+                                <span>Hàng trả lại</span>
+                                <span className="font-bold exch-amount-out">
+                                    {returnSubtotal.toLocaleString()}
                                 </span>
                             </div>
                             <div className="summary-row">
-                                <span>Trừ tiền hàng trả lại</span>
-                                <span className="font-bold exch-amount-out">
-                                    {returnSubtotal.toLocaleString()}
+                                <span>Hàng lấy mới</span>
+                                <span className="font-bold exch-amount-in">
+                                    {exchangeSubtotal.toLocaleString()}
                                 </span>
                             </div>
 
                             <div className={`exch-net-row exch-net-row--${direction}`}>
                                 <span className="exch-net-label">
-                                    {direction === 'refund' ? 'HOÀN LẠI KHÁCH'
-                                        : direction === 'collect' ? 'KHÁCH TRẢ THÊM'
-                                            : 'KHÔNG PHÁT SINH TIỀN'}
+                                    {direction === 'refund' ? 'Tiền hoàn cho khách'
+                                        : direction === 'collect' ? 'Khách cần thanh toán thêm'
+                                            : 'Không phát sinh tiền'}
                                 </span>
                                 <span className="exch-net-value">
                                     {Math.abs(netAmount).toLocaleString()}
@@ -757,11 +816,48 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                 </div>
             </div>
 
-            {infoProductId && (
-                <ProductInfoModal
-                    productId={infoProductId}
-                    onClose={() => setInfoProductId(null)}
-                />
+            {submitResult && (
+                <div className="batch-modal-overlay">
+                    <div className="batch-modal exch-result-modal">
+                        <div className="batch-modal-header">
+                            <div>
+                                <div className="batch-modal-title">
+                                    {submitResult.isExchange ? 'Đổi hàng thành công' : 'Trả hàng thành công'}
+                                </div>
+                                <div className="batch-modal-subtitle">
+                                    Mã phiếu: {submitResult.returnCode}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="exch-result-body">
+                            <div className={`exch-net-row exch-net-row--${submitResult.direction}`}>
+                                <span className="exch-net-label">
+                                    {submitResult.direction === 'refund' ? 'Tiền hoàn cho khách'
+                                        : submitResult.direction === 'collect' ? 'Khách cần thanh toán thêm'
+                                            : 'Không phát sinh tiền'}
+                                </span>
+                                <span className="exch-net-value">
+                                    {Math.abs(submitResult.netAmount).toLocaleString()}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="receipt-actions">
+                            <button
+                                className="btn-checkout"
+                                onClick={handlePrintResult}
+                                disabled={printing}
+                            >
+                                <Printer size={18} style={{ marginRight: 8 }} />
+                                {printing ? 'Đang chuẩn bị...' : 'In phiếu đổi trả'}
+                            </button>
+                            <button className="receipt-close-btn" onClick={handleCloseResult}>
+                                Đóng
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </>
     );

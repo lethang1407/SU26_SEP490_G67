@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import project.be_sep490_g67.entity.BatchLocation;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -49,6 +50,20 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
               AND bl.isRemoved = false
             """)
     Integer sumQuantityByBatchId(@Param("batchId") Integer batchId);
+
+    /**
+     * Tổng tồn của nhiều sản phẩm trong một lượt truy vấn — tránh N+1 khi trả về
+     * danh sách kết quả tìm kiếm. Mỗi phần tử là [productId, tổng số lượng].
+     */
+    @Query("""
+            SELECT sb.product.id, COALESCE(SUM(bl.quantity), 0)
+            FROM BatchLocation bl
+            JOIN bl.batch sb
+            WHERE sb.product.id IN :productIds
+              AND bl.isRemoved = false
+            GROUP BY sb.product.id
+            """)
+    List<Object[]> sumQuantityByProductIds(@Param("productIds") Collection<Integer> productIds);
 
     @Query("""
             SELECT bl FROM BatchLocation bl
