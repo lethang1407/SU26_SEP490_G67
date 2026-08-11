@@ -10,7 +10,6 @@ import {
   Form,
   Breadcrumb,
   Tabs,
-  Tab,
   Spinner,
 } from "react-bootstrap";
 
@@ -86,6 +85,7 @@ export default function CustomerDetailPage() {
     onConfirm: () => {},
   });
   const [refreshKey, setRefreshKey] = useState(0);
+  const [activeTab, setActiveTab] = useState('invoice');
 
   const fetchCustomer = async () => {
     setIsLoading(true);
@@ -373,35 +373,39 @@ export default function CustomerDetailPage() {
 
         <Card className="border-0 shadow-sm rounded-4">
           <Card.Body className="p-0">
-            <Tabs defaultActiveKey="invoice" className="px-4 pt-3">
-              {/* ================= HÓA ĐƠN ================= */}
+            <div className="customer-detail-tabs">
+              <div className="customer-detail-tabs__nav" role="tablist">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === 'invoice'}
+                  className={`customer-detail-tabs__btn ${activeTab === 'invoice' ? 'customer-detail-tabs__btn--active' : ''}`}
+                  onClick={() => setActiveTab('invoice')}
+                >
+                  <FiFileText className="me-2" />
+                  Hóa đơn nợ
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === 'history'}
+                  className={`customer-detail-tabs__btn ${activeTab === 'history' ? 'customer-detail-tabs__btn--active' : ''}`}
+                  onClick={() => setActiveTab('history')}
+                >
+                  <FiRotateCcw className="me-2" />
+                  Lịch sử thu nợ
+                </button>
+              </div>
 
-              <Tab
-                eventKey="invoice"
-                title={
-                  <>
-                    <FiFileText className="me-2" />
-                    Hóa đơn nợ
-                  </>
-                }
-              >
-                <CustomerDebtInvoices customerId={customerId} refreshKey={refreshKey} />
-              </Tab>
-
-              {/* ================= LỊCH SỬ THU NỢ ================= */}
-
-              <Tab
-                eventKey="history"
-                title={
-                  <>
-                    <FiRotateCcw className="me-2" />
-                    Lịch sử thu nợ
-                  </>
-                }
-              >
-                <CustomerPaymentHistory customerId={customerId} refreshKey={refreshKey} />
-              </Tab>
-            </Tabs>
+              <div className="customer-detail-tabs__panel" role="tabpanel">
+                {activeTab === 'invoice' && (
+                  <CustomerDebtInvoices customerId={customerId} refreshKey={refreshKey} />
+                )}
+                {activeTab === 'history' && (
+                  <CustomerPaymentHistory customerId={customerId} refreshKey={refreshKey} />
+                )}
+              </div>
+            </div>
           </Card.Body>
         </Card>
 

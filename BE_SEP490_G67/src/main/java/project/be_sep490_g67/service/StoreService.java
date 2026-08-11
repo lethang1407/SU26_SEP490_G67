@@ -29,7 +29,6 @@ public class StoreService {
         StoreConfig store = storeRepository
                 .findById(storeId)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_STORE));
-        log.info("Get Store Config by store id {}", store.getId());
 
         return StoreResponse.builder()
                 .id(store.getId())

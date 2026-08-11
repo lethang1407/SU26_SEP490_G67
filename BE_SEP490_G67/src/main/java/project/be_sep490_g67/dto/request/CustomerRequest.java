@@ -2,6 +2,7 @@ package project.be_sep490_g67.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -10,16 +11,18 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class CreateCustomerRequest {
+public class CustomerRequest {
     @NotBlank(message = "Tên khách hàng không được để trống")
+    @Size(max = 100, message = "Tên khách hàng không được vượt quá 100 ký tự")
     String fullName;
 
     @Pattern(
-            regexp = "^(03[2-9]|05[689]|07[06789]|08[1-689]|09[0-46-9])\\d{7}$",
+            regexp = "^$|^(03[2-9]|05[689]|07[06789]|08[1-689]|09[0-46-9])\\d{7}$",
             message = "Số điện thoại không hợp lệ"
     )
     String phoneNumber;
 
     String address;
     String note;
+    Boolean allowDebt;
 }
