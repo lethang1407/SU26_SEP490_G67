@@ -19,12 +19,14 @@ import {
   FiPlus,
   FiFilter,
   FiChevronDown,
-  FiUsers,
+  FiTrendingUp,
 } from "react-icons/fi";
 import SideBar from "../../../components/ui/sidebar/SideBar";
 import Header from "../../../components/ui/header-footer/Header";
-import { getOverviewCustomer, getCustomerDebts } from "../api";
+import { getOverviewCustomer, getCustomerDebts, getTodayDebtSummary } from "../api";
 import CreateCustomerDebtModal from "../components/CreateCustomerDebtModal";
+import TodayPaymentsModal from "../components/TodayPaymentsModal";
+import TodayDebtSalesModal from "../components/TodayDebtSalesModal";
 import '../../../css/CustomerDebt.css'; 
 
 const formatCurrency = (value) => {
@@ -92,6 +94,9 @@ export default function CustomerDebtPage() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showTodayPaymentsModal, setShowTodayPaymentsModal] = useState(false);
+  const [showTodayDebtSalesModal, setShowTodayDebtSalesModal] = useState(false);
+  const [todayDebtSummary, setTodayDebtSummary] = useState(null);
   const [activeAccordionKey, setActiveAccordionKey] = useState(["debt"]); // 'debt' or 'no-debt'
 
   const [noDebtCustomers, setNoDebtCustomers] = useState({
@@ -166,14 +171,18 @@ export default function CustomerDebtPage() {
 
   useEffect(() => {
     const fetchOverview = async () => {
-      try {
-        const overviewRes = await getOverviewCustomer();
-        setOverview(overviewRes);
-      } catch (error) {
-        console.error("Failed to fetch overview:", error);
-      }
+        try {
+            const [overviewRes, todayDebtSummaryRes] = await Promise.all([
+                getOverviewCustomer(),
+                getTodayDebtSummary(),
+            ]);
+            setOverview({ ...overviewRes, ...todayDebtSummaryRes });
+            setTodayDebtSummary(todayDebtSummaryRes);
+        } catch (error) {
+            console.error("Failed to fetch summary data:", error);
+        }
     };
-    fetchOverview();
+    fetchOverview(); // This will now fetch both overview and today's debt summary
     // Initial fetch for both lists
     fetchDebtData();
     fetchNoDebtData();
@@ -372,7 +381,7 @@ export default function CustomerDebtPage() {
 
           {/* Statistic Cards */}
           <Row className="mb-4">
-            <Col >
+            <Col md={4}>
               <Card className="shadow-sm border-0 h-100">
                 <Card.Body>
                   <div className="d-flex align-items-center gap-3">
@@ -388,8 +397,8 @@ export default function CustomerDebtPage() {
               </Card>
             </Col>
 
-            <Col >
-              <Card className="shadow-sm border-0 h-100 d-none d-md-block">
+            <Col md={4}>
+              <Card className="shadow-sm border-0 h-100 d-none d-md-block" onClick={() => setShowTodayPaymentsModal(true)} style={{ cursor: 'pointer' }}>
                 <Card.Body>
                   <div className="d-flex align-items-center gap-3">
                     <div className="stat-icon bg-success-soft"><FiCheckCircle className="text-success" size={24} /></div>
@@ -398,6 +407,27 @@ export default function CustomerDebtPage() {
                       <h3 className="fw-bold text-success mt-2">
                         {formatCurrency(overview?.todayCollectedAmount)}
                       </h3>
+                    </div>
+                  </div>
+                </Card.Body>
+              </Card>
+            </Col>
+
+            <Col md={4}>
+              <Card className="shadow-sm border-0 h-100" onClick={() => setShowTodayDebtSalesModal(true)} style={{ cursor: 'pointer' }}>
+                <Card.Body>
+                  <div className="d-flex align-items-center gap-3">
+                    <div className="stat-icon bg-warning-soft"><FiTrendingUp className="text-warning" size={24} /></div>
+                    <div>
+                      <small className="text-muted">PHÁT SINH NỢ HÔM NAY</small>
+                      <h3 className="fw-bold text-warning mb-0 mt-1">
+                        {formatCurrency(overview?.totalDebtAmountIncurredToday)}
+                      </h3>
+                      {overview?.totalDebtSalesCount > 0 && (
+                        <small className="text-muted d-block mt-1">
+                          {overview.totalDebtSalesCount} đơn / {overview.uniqueCustomersInDebtCount} khách
+                        </small>
+                      )}
                     </div>
                   </div>
                 </Card.Body>
@@ -493,6 +523,17 @@ export default function CustomerDebtPage() {
           show={showCreateModal}
           onHide={() => setShowCreateModal(false)}
           onSuccess={handleCreationSuccess}
+        />
+
+        <TodayPaymentsModal
+          show={showTodayPaymentsModal}
+          onHide={() => setShowTodayPaymentsModal(false)}
+        />
+
+        <TodayDebtSalesModal
+          show={showTodayDebtSalesModal}
+          onHide={() => setShowTodayDebtSalesModal(false)}
+          data={todayDebtSummary}
         />
       </div>
     </div>

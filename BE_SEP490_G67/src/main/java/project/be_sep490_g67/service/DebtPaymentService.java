@@ -9,6 +9,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.be_sep490_g67.dto.request.DebtPaymentRequest;
+import project.be_sep490_g67.dto.response.CustomerDebtOverviewResponse;
+import project.be_sep490_g67.dto.response.CustomerDebtSummaryResponse;
 import project.be_sep490_g67.dto.response.DebtPaymentHistoryResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.entity.Customer;
@@ -38,6 +40,41 @@ public class DebtPaymentService {
     private final SalesOrderRepository salesOrderRepository;
     private final CustomerRepository customerRepository;
     private final UserRepository userRepository;
+
+    @Transactional(readOnly = true)
+    public CustomerDebtOverviewResponse getDebtOverview() {
+
+        ZoneId zoneId = ZoneId.of("Asia/Ho_Chi_Minh");
+
+        LocalDate today = LocalDate.now(zoneId);
+
+        Instant startOfDay = today
+                .atStartOfDay(zoneId)
+                .toInstant();
+
+        Instant endOfDay = today
+                .plusDays(1)
+                .atStartOfDay(zoneId)
+                .toInstant();
+
+        return CustomerDebtOverviewResponse.builder()
+                .totalDebt(customerRepository.getTotalDebt())
+                .debtCustomerCount(customerRepository.countInDebtCustomers())
+                .todayCollectedAmount(
+                        debtPaymentRepository.getTodayCollectedAmount(
+                                startOfDay,
+                                endOfDay
+                        )
+                )
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public CustomerDebtSummaryResponse getDebtSummary() {
+        long inDebtCount = customerRepository.countInDebtCustomers();
+        long debtFreeCount = customerRepository.countDebtFreeCustomers();
+        return new CustomerDebtSummaryResponse(inDebtCount, debtFreeCount);
+    }
 
     @Transactional
     public DebtPaymentHistoryResponse createDebtPayment(DebtPaymentRequest request) {
@@ -148,5 +185,11 @@ public class DebtPaymentService {
                 .totalElements(debtPaymentPage.getTotalElements())
                 .totalPages(debtPaymentPage.getTotalPages())
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<DebtPaymentHistoryResponse> getTodaysDebtPayments(int page, int size) {
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+        return getDebtPaymentHistory(today, today, null, null, null, page, size);
     }
 }

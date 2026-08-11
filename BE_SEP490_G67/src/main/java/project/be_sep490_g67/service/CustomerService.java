@@ -16,6 +16,7 @@ import project.be_sep490_g67.dto.request.CustomerRequest;
 import project.be_sep490_g67.dto.response.CustomerResponse;
 import project.be_sep490_g67.dto.response.DebtOrderResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
+import project.be_sep490_g67.dto.response.TodaysDebtSalesSummaryResponse;
 import project.be_sep490_g67.entity.Customer;
 import project.be_sep490_g67.entity.DebtPayment;
 import project.be_sep490_g67.entity.User;
@@ -281,7 +282,6 @@ public class CustomerService {
         Page<SalesOrder> salesOrderPage = salesOrderRepository.findDebtOrdersByCustomerIdWithPriority(customerId, keyword, now, pageable);
 
         List<DebtOrderResponse> responses = salesOrderPage.getContent().stream().map(so -> {
-            // Correctly calculate total paid amount
             BigDecimal initialPaidAmount = so.getPaidAmount() != null ? so.getPaidAmount() : BigDecimal.ZERO;
             BigDecimal subsequentPayments = so.getDebtPayments().stream()
                     .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
@@ -309,6 +309,8 @@ public class CustomerService {
 
             return DebtOrderResponse.builder()
                     .id(so.getId())
+                    .customerId(customerId)
+                    .customerName(so.getCustomer().getFullName())
                     .orderCode(so.getOrderCode())
                     .orderDate(so.getCreatedAt())
                     .dueDate(so.getDueDate())
@@ -362,6 +364,64 @@ public class CustomerService {
                 .note(updatedCustomer.getNote())
                 .allowDebt(updatedCustomer.getAllowDebt())
                 .totalDebt(updatedCustomer.getTotalDebt())
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public TodaysDebtSalesSummaryResponse getTodaysDebtSalesSummary() {
+        ZoneId zoneId = ZoneId.of("Asia/Ho_Chi_Minh");
+        LocalDate today = LocalDate.now(zoneId);
+        Instant startOfDay = today.atStartOfDay(zoneId).toInstant();
+        Instant endOfDay = today.plusDays(1).atStartOfDay(zoneId).toInstant();
+
+        List<SalesOrder> todaysDebtSales = salesOrderRepository.findAllByIsDebtTrueAndCreatedAtBetween(startOfDay, endOfDay);
+
+        List<DebtOrderResponse> debtOrderDetails = todaysDebtSales.stream().map(so -> {
+            BigDecimal initialPaidAmount = so.getPaidAmount() != null ? so.getPaidAmount() : BigDecimal.ZERO;
+            BigDecimal subsequentPayments = so.getDebtPayments().stream()
+                    .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal totalPaid = initialPaidAmount.add(subsequentPayments);
+            BigDecimal amountRemaining = so.getTotalAmount().subtract(totalPaid);
+
+            String createdByName = "N/A";
+            if (so.getCreatedBy() != null) {
+                createdByName = userRepository.findById(so.getCreatedBy())
+                        .map(User::getFullName)
+                        .orElse("Không rõ");
+            }
+
+            return DebtOrderResponse.builder()
+                    .id(so.getId())
+                    .customerId(so.getCustomer().getId())
+                    .customerName(so.getCustomer().getFullName())
+                    .orderCode(so.getOrderCode())
+                    .orderDate(so.getCreatedAt())
+                    .dueDate(so.getDueDate())
+                    .totalAmount(so.getTotalAmount())
+                    .amountPaid(totalPaid)
+                    .amountRemaining(amountRemaining)
+                    .status(amountRemaining.compareTo(BigDecimal.ZERO) <= 0 ? DebtOrderStatus.PAID : DebtOrderStatus.IN_DEBT)
+                    .createdBy(createdByName)
+                    .build();
+        }).collect(Collectors.toList());
+
+        BigDecimal totalDebtAmountIncurred = debtOrderDetails.stream()
+                .map(DebtOrderResponse::getAmountRemaining)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        long uniqueCustomersCount = todaysDebtSales.stream()
+                .map(SalesOrder::getCustomer)
+                .filter(Objects::nonNull)
+                .map(Customer::getId)
+                .distinct()
+                .count();
+
+        return TodaysDebtSalesSummaryResponse.builder()
+                .totalDebtSalesCount(todaysDebtSales.size())
+                .uniqueCustomersInDebtCount(uniqueCustomersCount)
+                .totalDebtAmountIncurredToday(totalDebtAmountIncurred)
+                .debtSalesDetails(debtOrderDetails)
                 .build();
     }
 }

@@ -50,4 +50,16 @@ public class DebtPaymentController {
                 .message("Lấy lịch sử thu nợ thành công")
                 .build();
     }
+
+    @GetMapping("/today")
+    public ApiResponse<PageResponse<DebtPaymentHistoryResponse>> getTodaysDebtPayments(
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer size
+    ) {
+        PageResponse<DebtPaymentHistoryResponse> result = debtPaymentService.getTodaysDebtPayments(page, size);
+        return ApiResponse.<PageResponse<DebtPaymentHistoryResponse>>builder()
+                .result(result)
+                .message("Lấy danh sách thu nợ trong ngày thành công")
+                .build();
+    }
 }

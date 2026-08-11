@@ -30,9 +30,19 @@ export async function getCustomerDebtOrders(customerId, params) {
     return response.result;
 }
 
+export async function getTodayDebtSummary() {
+    const response = await api.get('/customers/today-debt-summary');
+    return response.result;
+}
+
 
 export async function getDebtPaymentHistory(params) {
     const response = await api.get('/debt-payments', { params });
+    return response.result;
+}
+
+export async function getTodayDebtPayments(params) {
+    const response = await api.get('/debt-payments/today', { params });
     return response.result;
 }
 
