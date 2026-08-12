@@ -63,8 +63,8 @@ public class SalesOrder extends BaseEntity {
     private Boolean isDebt;
 
     @ColumnDefault("0")
-    @Column(name = "is_check_debt")
-    private Boolean isCheckDebt;
+    @Column(name = "is_check_unstable_debt")
+    private Boolean isCheckDebtUnstable;
 
     @Lob
     @Column(name = "note")
