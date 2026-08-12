@@ -19,7 +19,6 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CreateExchangeOrderRequest {
 
-    @NotNull(message = "ID đơn hàng gốc không được để trống")
     Integer originalOrderId;
 
     @NotEmpty(message = "Phải có ít nhất một sản phẩm trả lại")
@@ -36,11 +35,17 @@ public class CreateExchangeOrderRequest {
 
     BigDecimal returnDiscount;
     BigDecimal exchangeDiscount;
+    String bearerName;
+    String bearerPhone;
+    Integer approvedBy;
 
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ReturnItemRequest {
+
+        Integer salesOrderDetailId;
+
         @NotNull(message = "ID sản phẩm không được để trống")
         Integer productId;
 
@@ -48,16 +53,31 @@ public class CreateExchangeOrderRequest {
         @Min(value = 1, message = "Số lượng trả phải lớn hơn 0")
         Integer quantity;
 
-        @NotNull(message = "Đơn giá không được để trống")
+        @Deprecated
         BigDecimal unitPrice;
 
         String unitName;
+
+        String resolutionType;
+
+        String itemCondition;
+
+        /**
+         * Ghi chú của riêng dòng này. itemCondition chỉ có 4 giá trị cố định;
+         * những lý do nằm ngoài 4 giá trị đó (cận date, bao bì móp, khách đổi ý)
+         * được ghi ở đây chứ không dồn vào returnNote của cả phiếu.
+         */
+        String itemNote;
+
+        String pairedExchangeItemRef;
     }
 
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ExchangeItemRequest {
+        String ref;
+
         @NotNull(message = "ID sản phẩm không được để trống")
         Integer productId;
 

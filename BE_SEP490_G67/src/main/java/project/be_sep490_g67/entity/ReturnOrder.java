@@ -19,9 +19,21 @@ public class ReturnOrder extends BaseEntity {
     @Column(name = "id", nullable = false)
     private Integer id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "sales_order_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sales_order_id")
     private SalesOrder salesOrder;
+
+    @Column(name = "bearer_name", length = 100)
+    private String bearerName;
+
+    @Column(name = "bearer_phone", length = 15)
+    private String bearerPhone;
+
+    @Column(name = "bearer_is_owner")
+    private Boolean bearerIsOwner;
+
+    @Column(name = "approved_by")
+    private Integer approvedBy;
 
     @Column(name = "return_code", length = 30)
     private String returnCode;

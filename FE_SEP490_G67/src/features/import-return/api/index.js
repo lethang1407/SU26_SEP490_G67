@@ -1,103 +1,103 @@
-const STORAGE_KEY = 'import-return-history-v1';
+import { api } from '@/lib/api-clien';
 
-const SEED_RETURNS = [
-    {
-        id: 1,
-        returnCode: 'TH-9021',
-        supplierName: 'Công ty TNHH Nam Ngư',
-        totalRefund: 450000,
-        totalQuantity: 24,
-        itemCount: 2,
-        note: 'Hàng gần HSD',
-        createdAt: '2026-07-20T09:15:00',
-    },
-    {
-        id: 2,
-        returnCode: 'TH-9022',
-        supplierName: 'Vinamilk Distributor',
-        totalRefund: 1280000,
-        totalQuantity: 48,
-        itemCount: 3,
-        note: 'Bao bì lỗi',
-        createdAt: '2026-07-18T14:40:00',
-    },
-    {
-        id: 3,
-        returnCode: 'TH-9023',
-        supplierName: 'Acecook Việt Nam',
-        totalRefund: 320000,
-        totalQuantity: 10,
-        itemCount: 1,
-        note: '',
-        createdAt: '2026-07-15T11:05:00',
-    },
-];
+export async function fetchImportReturns({
+    status,
+    statuses,
+    source,
+    q = '',
+    days,
+    from,
+    to,
+    page = 0,
+    size = 8,
+} = {}) {
+    const response = await api.get('/import-returns', {
+        params: {
+            status: status || undefined,
+            statuses: Array.isArray(statuses) ? statuses.join(',') : statuses || undefined,
+            source: source || undefined,
+            q: q || undefined,
+            days: days || undefined,
+            from: from || undefined,
+            to: to || undefined,
+            page,
+            size,
+        },
+    });
+    return response.result;
+}
 
-function readLocalHistory() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) {
-            return [...SEED_RETURNS];
-        }
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed : [...SEED_RETURNS];
-    } catch {
-        return [...SEED_RETURNS];
+export async function fetchImportReturnById(id) {
+    const response = await api.get(`/import-returns/${id}`);
+    return response.result;
+}
+
+export async function createImportReturnDraft(payload) {
+    const response = await api.post('/import-returns/drafts', payload);
+    return response.result;
+}
+
+export async function updateImportReturnDraft(id, payload) {
+    const response = await api.put(`/import-returns/drafts/${id}`, payload);
+    return response.result;
+}
+
+export async function deleteImportReturnDraft(id) {
+    const response = await api.delete(`/import-returns/drafts/${id}`);
+    return response.result;
+}
+
+export async function deleteImportReturnDraftLine(returnId, detailId) {
+    const response = await api.delete(`/import-returns/drafts/${returnId}/lines/${detailId}`);
+    return response.result;
+}
+
+export async function submitImportReturn(id) {
+    const response = await api.post(`/import-returns/${id}/submit`);
+    return response.result;
+}
+
+export async function createAndSubmitImportReturn(payload) {
+    const response = await api.post('/import-returns', payload);
+    return response.result;
+}
+
+export async function updateImportReturnLineStatus(
+    returnId,
+    detailId,
+    lineStatus,
+    exchangeExpiryDate,
+) {
+    const payload = { lineStatus };
+    if (exchangeExpiryDate !== undefined) {
+        payload.exchangeExpiryDate = exchangeExpiryDate || null;
     }
+    const response = await api.patch(`/import-returns/${returnId}/lines/${detailId}/status`, payload);
+    return response.result;
 }
 
-function writeLocalHistory(items) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+export async function updateImportReturnExchangeExpiry(returnId, detailId, exchangeExpiryDate) {
+    const response = await api.patch(`/import-returns/${returnId}/lines/${detailId}/exchange-expiry`, {
+        exchangeExpiryDate: exchangeExpiryDate || null,
+    });
+    return response.result;
 }
 
-/** FE mock — chưa nối BE */
-export async function fetchImportReturns({ search = '', page = 0, size = 20 } = {}) {
-    const all = readLocalHistory();
-    const keyword = search.trim().toLowerCase();
-    const filtered = keyword
-        ? all.filter(
-              (item) =>
-                  item.returnCode?.toLowerCase().includes(keyword) ||
-                  item.supplierName?.toLowerCase().includes(keyword) ||
-                  item.note?.toLowerCase().includes(keyword),
-          )
-        : all;
-
-    const sorted = [...filtered].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
-    const start = page * size;
-    const content = sorted.slice(start, start + size);
-
-    return {
-        content,
-        page,
-        size,
-        totalElements: sorted.length,
-        totalPages: Math.max(1, Math.ceil(sorted.length / size) || 1),
-    };
+export async function createImportReturnDraftFromInventoryCheck({ inventoryCheckId, lines }) {
+    const response = await api.post('/import-returns/draft/from-inventory-check', {
+        inventoryCheckId,
+        lines,
+    });
+    return response.result;
 }
 
-/** FE mock — chưa nối BE */
-export async function createImportReturn(payload) {
-    const history = readLocalHistory();
-    const nextId = history.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0) + 1;
-    const created = {
-        id: nextId,
-        returnCode: `TH-${9000 + nextId}`,
-        supplierName: payload.supplierName || 'Nhà cung cấp',
-        totalRefund: (payload.items ?? []).reduce(
-            (sum, item) => sum + Number(item.quantity || 0) * Number(item.returnPrice || 0),
-            0,
-        ),
-        totalQuantity: (payload.items ?? []).reduce(
-            (sum, item) => sum + Number(item.quantity || 0),
-            0,
-        ),
-        itemCount: payload.items?.length ?? 0,
-        note: payload.note || '',
-        createdAt: new Date().toISOString(),
-    };
-    writeLocalHistory([created, ...history]);
-    return created;
+/** Compat — latest inventory-check draft for banner. */
+export async function fetchImportReturnDraft({
+    source = 'INVENTORY_CHECK',
+    createIfMissing = false,
+} = {}) {
+    const response = await api.get('/import-returns/draft', {
+        params: { source, createIfMissing },
+    });
+    return response.result;
 }

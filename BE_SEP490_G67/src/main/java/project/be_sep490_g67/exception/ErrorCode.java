@@ -43,7 +43,6 @@ public enum ErrorCode {
     NOT_FOUND_IMPORT_ORDER(1025, "Không tìm thấy đơn nhập hàng", HttpStatus.NOT_FOUND),
     INVALID_PAYMENT_AMOUNT(1026, "Số tiền thanh toán không hợp lệ", HttpStatus.BAD_REQUEST),
     PAYMENT_EXCEEDS_DEBT(1027, "Số tiền vượt quá số nợ còn lại của đơn hàng", HttpStatus.BAD_REQUEST),
-    CUSTOMER_NOT_FOUND(1028, "Không tìm thấy khách hàng", HttpStatus.NOT_FOUND),
     PRODUCT_NOT_FOUND(1046, "Không tìm thấy sản phẩm", HttpStatus.NOT_FOUND),
     BARCODE_EXISTED(1047, "Mã vạch đã được sử dụng", HttpStatus.CONFLICT),
     INVALID_PRODUCT_PRICE(1048, "Giá sản phẩm không hợp lệ", HttpStatus.BAD_REQUEST),
@@ -59,7 +58,7 @@ public enum ErrorCode {
     SALES_ZONE_BATCH_SPLIT(1058, "Không thể tách cùng một lô sang nhiều ô trên khu bán", HttpStatus.BAD_REQUEST),
     STOCK_BATCH_NOT_FOUND(1033, "Không tìm thấy lô hàng", HttpStatus.NOT_FOUND),
     BATCH_LOCATION_NOT_FOUND(1034, "Không tìm thấy phân bổ lô trên kệ", HttpStatus.NOT_FOUND),
-    STORAGE_LOCATION_PRODUCT_MISMATCH(1035, "Kệ đang chứa sản phẩm khác. Mỗi kệ chỉ chứa một loại sản phẩm", HttpStatus.BAD_REQUEST),
+    STORAGE_LOCATION_PRODUCT_MISMATCH(1035, "Ô khu kho đang chứa sản phẩm khác. Mỗi ô khu kho chỉ chứa một loại sản phẩm", HttpStatus.BAD_REQUEST),
     INSUFFICIENT_UNPLACED_QUANTITY(1036, "Số lượng xếp vượt quá số lượng lô chưa xếp kệ", HttpStatus.BAD_REQUEST),
     INSUFFICIENT_BATCH_LOCATION_QUANTITY(1037, "Số lượng chuyển vượt quá số lượng đang có trên kệ", HttpStatus.BAD_REQUEST),
     INVALID_BATCH_LOCATION_MOVE(1038, "Không thể chuyển lô về cùng một kệ", HttpStatus.BAD_REQUEST),
@@ -69,7 +68,19 @@ public enum ErrorCode {
     INVENTORY_CHECK_NOT_FOUND(1042, "Không tìm thấy phiếu kiểm kho", HttpStatus.NOT_FOUND),
     INVENTORY_CHECK_ITEMS_EMPTY(1043, "Phiếu kiểm kho phải có ít nhất một dòng", HttpStatus.BAD_REQUEST),
     INVALID_INVENTORY_CHECK_QTY(1044, "Số lượng thực tế kiểm kho không hợp lệ", HttpStatus.BAD_REQUEST),
-    INVENTORY_CHECK_DUPLICATE_LINE(1045, "Không được kiểm trùng một sản phẩm trong một phiếu", HttpStatus.BAD_REQUEST),
+    INVENTORY_CHECK_DUPLICATE_LINE(1045, "Không được kiểm trùng cùng sản phẩm và lô trong một phiếu", HttpStatus.BAD_REQUEST),
+    INVENTORY_CHECK_BATCH_CONFLICT(1060, "Không thể vừa kiểm tất cả lô vừa kiểm từng lô của cùng sản phẩm", HttpStatus.BAD_REQUEST),
+    INVALID_CANCEL_BATCH_QTY(1061, "Số lượng hủy lô không hợp lệ", HttpStatus.BAD_REQUEST),
+    BATCH_NOT_RETURNABLE(1062, "Lô này không gắn phiếu nhập, không thể trả nhà cung cấp", HttpStatus.BAD_REQUEST),
+    IMPORT_RETURN_NOT_FOUND(1063, "Không tìm thấy phiếu trả hàng nhập", HttpStatus.NOT_FOUND),
+    IMPORT_RETURN_NOT_DRAFT(1064, "Chỉ thao tác được trên phiếu trả nháp", HttpStatus.BAD_REQUEST),
+    IMPORT_RETURN_ITEMS_EMPTY(1065, "Phiếu trả nháp chưa có dòng nào", HttpStatus.BAD_REQUEST),
+    IMPORT_RETURN_DETAIL_NOT_FOUND(1066, "Không tìm thấy dòng trả hàng", HttpStatus.NOT_FOUND),
+    INVALID_IMPORT_RETURN_QTY(1067, "Số lượng trả NCC không hợp lệ", HttpStatus.BAD_REQUEST),
+    IMPORT_RETURN_NOT_IN_PROGRESS(1068, "Chỉ cập nhật trạng thái trên phiếu đang đổi trả", HttpStatus.BAD_REQUEST),
+    IMPORT_RETURN_INVALID_LINE_STATUS(1069, "Trạng thái dòng đổi trả không hợp lệ", HttpStatus.BAD_REQUEST),
+    IMPORT_RETURN_LINE_ALREADY_DONE(1070, "Dòng đổi trả đã hoàn tất, không thể thay đổi", HttpStatus.BAD_REQUEST),
+    IMPORT_RETURN_INVALID_STATUS_FILTER(1071, "Bộ lọc trạng thái phiếu đổi trả không hợp lệ", HttpStatus.BAD_REQUEST),
 
     INSUFFICIENT_STOCK(1029, "Không đủ tồn kho", HttpStatus.BAD_REQUEST),
     SUPPLIER_HAS_DEBT(1030, "Không thể xóa nhà cung cấp đang còn công nợ. Vui lòng thanh toán hết trước khi xóa.", HttpStatus.BAD_REQUEST),
@@ -87,6 +98,45 @@ public enum ErrorCode {
     ORDER_TOTAL_MISMATCH(3005, "Tổng tiền đơn hàng không khớp, cần kiểm tra lại dữ liệu", HttpStatus.UNPROCESSABLE_ENTITY),
     INVOICE_ACCESS_DENIED(3006, "Bạn không có quyền truy cập hóa đơn này", HttpStatus.FORBIDDEN),
     PRODUCT_UNIT_NOT_FOUND(3007, "Không tìm thấy đơn vị sản phẩm", HttpStatus.NOT_FOUND),
+
+    // Customer errors(4xxx)
+    CUSTOMER_NOT_FOUND(4001, "Không tìm thấy khách hàng", HttpStatus.NOT_FOUND),
+    ALLOW_DEBT_REQUIRED(4002, "Trạng thái cho phép nợ là bắt buộc", HttpStatus.BAD_REQUEST),
+    ORDER_IS_NOT_A_DEBT_ORDER(4003, "Đơn hàng không phải là đơn hàng nợ", HttpStatus.BAD_REQUEST),
+    PAYMENT_AMOUNT_EXCEEDS_REMAINING_DEBT(4004, "Số tiền thanh toán vượt quá số nợ còn lại", HttpStatus.BAD_REQUEST),
+    // PRODUCT_NOT_FOUND đã có ở nhóm 1xxx (1046) từ nhánh dev — dùng lại,
+    // không định nghĩa bản 3008 song song (enum không cho trùng tên).
+
+    // Return / exchange errors (31xx)
+    ORIGINAL_ORDER_NOT_FOUND(3101, "Không tìm thấy đơn hàng gốc", HttpStatus.NOT_FOUND),
+    ORDER_ALREADY_RETURNED(3102, "Đơn hàng này đã được đổi trả trước đó", HttpStatus.BAD_REQUEST),
+    RETURN_LINE_NOT_IN_ORDER(3103, "Sản phẩm trả lại không có trong đơn hàng gốc", HttpStatus.BAD_REQUEST),
+    RETURN_LINE_AMBIGUOUS(3104, "Sản phẩm xuất hiện trên nhiều dòng của đơn hàng gốc, cần chỉ rõ dòng cần trả", HttpStatus.BAD_REQUEST),
+    RETURN_QUANTITY_EXCEEDS_PURCHASED(3105, "Số lượng trả vượt quá số lượng đã mua", HttpStatus.BAD_REQUEST),
+    RETURN_QUANTITY_EXCEEDS_REMAINING(3110, "Số lượng trả vượt quá số lượng còn có thể trả của dòng hàng này", HttpStatus.BAD_REQUEST),
+    RETURN_WINDOW_EXPIRED(3111, "Đơn hàng đã quá thời hạn đổi trả", HttpStatus.BAD_REQUEST),
+    RETURN_PRODUCT_NOT_FOUND(3106, "Không tìm thấy sản phẩm cần trả", HttpStatus.NOT_FOUND),
+    // STOCK_BATCH_NOT_FOUND đã có ở nhóm 1xxx (1033) từ nhánh dev — dùng lại,
+    // không định nghĩa bản 3107 song song.
+    NO_AVAILABLE_STOCK_BATCH(3108, "Không tìm thấy lô hàng khả dụng cho sản phẩm", HttpStatus.BAD_REQUEST),
+    INVALID_UNIT_CONVERSION(3109, "Quy đổi đơn vị của sản phẩm không hợp lệ", HttpStatus.UNPROCESSABLE_ENTITY),
+
+    // Document code errors (32xx)
+    DOCUMENT_CODE_GENERATION_FAILED(3201, "Không thể cấp mã chứng từ, vui lòng thử lại", HttpStatus.INTERNAL_SERVER_ERROR),
+
+    // Resolution / pairing errors (33xx)
+    INVALID_RESOLUTION_TYPE(3301, "Hình thức xử lý không hợp lệ", HttpStatus.BAD_REQUEST),
+    EXCHANGE_REQUIRES_PAIRING(3302, "Dòng hàng đổi phải được ghép cặp với sản phẩm thay thế", HttpStatus.BAD_REQUEST),
+    PAIRING_NOT_ALLOWED_FOR_RESOLUTION(3303, "Hoàn tiền hoặc ghi có không được ghép cặp với sản phẩm thay thế", HttpStatus.BAD_REQUEST),
+    PAIRED_ITEM_NOT_FOUND(3304, "Không tìm thấy sản phẩm thay thế được ghép cặp", HttpStatus.BAD_REQUEST),
+    PAIRED_ITEM_ALREADY_USED(3305, "Một sản phẩm thay thế chỉ được ghép với một dòng hàng trả", HttpStatus.BAD_REQUEST),
+    EXCHANGE_EVEN_AMOUNT_MISMATCH(3306, "Đổi ngang giá yêu cầu hai bên bằng giá, vui lòng chọn đổi có chênh lệch", HttpStatus.BAD_REQUEST),
+    MANAGER_APPROVAL_REQUIRED(3307, "Hoàn tiền mặt cho người không đứng tên hóa đơn cần quản lý phê duyệt", HttpStatus.FORBIDDEN),
+
+    // Item condition errors (34xx)
+    ITEM_CONDITION_REQUIRED(3401, "Vui lòng chọn tình trạng hàng hóa cho từng dòng trả", HttpStatus.BAD_REQUEST),
+    INVALID_ITEM_CONDITION(3402, "Tình trạng hàng hóa không hợp lệ", HttpStatus.BAD_REQUEST),
+    PRODUCT_NOT_RETURNABLE(3403, "Sản phẩm này không được phép trả lại", HttpStatus.BAD_REQUEST),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

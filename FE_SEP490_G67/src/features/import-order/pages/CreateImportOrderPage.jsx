@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import SupplierAddNewModal from '../../supplier/components/SupplierAddNewModal';
 import { suppliersApi } from '../../supplier/api';
@@ -720,9 +719,8 @@ export default function CreateImportOrderPage() {
     };
 
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <AdminHeader />
                 <main className="admin-main admin-main--ioc-create">
                     <div className="dashboard-container ioc-page ioc-page--create">
@@ -828,6 +826,5 @@ export default function CreateImportOrderPage() {
                     </div>
                 </main>
             </div>
-        </div>
     );
 }

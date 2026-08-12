@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
     Search, X,
     RefreshCcw,
@@ -20,11 +20,28 @@ import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { useCheckout } from '../hooks/useCheckout';
 import { useProductSearch } from '../hooks/useProductSearch';
 import { useCustomerSearch } from '../hooks/useCustomerSearch';
-import BatchSelectModal from '../components/BatchSelectModal';
+import {
+    locationKey, selectedLocation, isLocationShort, needsLocationPick,
+    hasLocationProblem, formatLocationOption, formatLocationShort,
+} from '../utils/cartLocation';
 import ProductSearchDropdown from '../components/ProductSearchDropdown';
 import CustomerSearchDropdown from '../components/CustomerSearchDropdown';
 import SalesOrderHistoryModal from '../components/SalesOrderHistoryModal';
-import { createQuickCustomer } from '../api';
+import ExchangeOrder from '../components/ExchangeOrder';
+import { saveActiveCart, loadActiveCart } from '../utils/cartStorage';
+import { createQuickCustomer, getProductPosInfo } from '../api';
+
+const MAX_TABS = 10;
+
+// Hằng số dùng chung cho tab không có giỏ
+const EMPTY_CART = [];
+const EMPTY_QTY_INPUTS = {};
+
+const PAYMENT_METHODS = [
+    { value: 'cash', label: 'Tiền mặt' },
+    { value: 'transfer', label: 'Chuyển khoản' },
+    { value: 'debt', label: 'Bán nợ' },
+];
 
 let _tabCounter = 1;
 function nextTabId() { return ++_tabCounter; }
@@ -32,21 +49,43 @@ function nextTabId() { return ++_tabCounter; }
 function createTab(id = 1) {
     return {
         id,
-        label: `Hóa đơn ${id}`,
+        type: 'SALE',
         cartItems: [],
         qtyInputs: {},
     };
 }
 
+function createReturnTab(id, orderId) {
+    return { id, type: 'RETURN', orderId: String(orderId) };
+}
+
 const POSScreen = () => {
     const navigate = useNavigate();
-    const [tabs, setTabs] = useState([createTab(1)]);
-    const [activeTabId, setActiveTabId] = useState(1);
+    const [searchParams] = useSearchParams();
+    const [tabs, setTabs] = useState(() => {
+        const saved = loadActiveCart();
+        const saleTab = saved ? { ...createTab(1), ...saved } : createTab(1);
+        const returnOrderId = searchParams.get('return');
+        return returnOrderId
+            ? [saleTab, createReturnTab(nextTabId(), returnOrderId)]
+            : [saleTab];
+    });
+    const [activeTabId, setActiveTabId] = useState(() => tabs[tabs.length - 1].id);
 
     const activeTab = tabs.find(t => t.id === activeTabId) ?? tabs[0];
+    const isReturnTab = activeTab.type === 'RETURN';
 
-    const cartItems = activeTab.cartItems;
-    const qtyInputs = activeTab.qtyInputs;
+    const tabLabels = useMemo(() => {
+        let sale = 0;
+        let ret = 0;
+        return Object.fromEntries(tabs.map(t => [
+            t.id,
+            t.type === 'RETURN' ? `Trả hàng ${++ret}` : `Hóa đơn ${++sale}`,
+        ]));
+    }, [tabs]);
+
+    const cartItems = useMemo(() => activeTab.cartItems ?? EMPTY_CART, [activeTab.cartItems]);
+    const qtyInputs = useMemo(() => activeTab.qtyInputs ?? EMPTY_QTY_INPUTS, [activeTab.qtyInputs]);
 
     const setCartItems = useCallback((updater) => {
         setTabs(prev => prev.map(t =>
@@ -64,18 +103,41 @@ const POSScreen = () => {
         ));
     }, [activeTabId]);
 
-    // Add new tab
+    // Add new tab (tối đa MAX_TABS hóa đơn)
     const handleAddTab = useCallback(() => {
+        if (tabs.length >= MAX_TABS) return;
         const id = nextTabId();
         setTabs(prev => [...prev, createTab(id)]);
         setActiveTabId(id);
+    }, [tabs.length]);
+
+    const handleOpenReturnTab = useCallback((orderId) => {
+        const key = String(orderId);
+        const existing = tabs.find(t => t.type === 'RETURN' && t.orderId === key);
+        if (existing) {
+            setActiveTabId(existing.id);
+            return;
+        }
+        if (tabs.length >= MAX_TABS) return;
+        const id = nextTabId();
+        setTabs(prev => [...prev, createReturnTab(id, key)]);
+        setActiveTabId(id);
+    }, [tabs]);
+
+    const returnDirtyRef = useRef({});
+    const handleReturnDirtyChange = useCallback((tabId, dirty) => {
+        returnDirtyRef.current[tabId] = dirty;
     }, []);
 
-    // Close tab
-    const handleCloseTab = useCallback((tabId, e) => {
-        e.stopPropagation();
+    const closeTab = useCallback((tabId) => {
+        delete returnDirtyRef.current[tabId];
         setTabs(prev => {
-            if (prev.length === 1) return prev;
+            if (prev.length === 1) {
+                if (prev[0].type !== 'RETURN') return prev;
+                const fresh = createTab(nextTabId());
+                setActiveTabId(fresh.id);
+                return [fresh];
+            }
             const next = prev.filter(t => t.id !== tabId);
             if (activeTabId === tabId) {
                 setActiveTabId(next[next.length - 1].id);
@@ -84,38 +146,55 @@ const POSScreen = () => {
         });
     }, [activeTabId]);
 
-    //  History modal 
+    const handleCloseTab = useCallback((tabId, e) => {
+        e.stopPropagation();
+        if (returnDirtyRef.current[tabId]
+            && !window.confirm('Đóng thông tin của đơn sẽ không lưu lại. Bạn có chắc muốn đóng không?')) {
+            return;
+        }
+        closeTab(tabId);
+    }, [closeTab]);
+
     const [historyOpen, setHistoryOpen] = useState(false);
-
-    //  Other state 
     const [searchInput, setSearchInput] = useState('');
-    const [pendingProduct, setPendingProduct] = useState(null);
+    const [posInfoError, setPosInfoError] = useState(null);
     const [paymentMethod, setPaymentMethod] = useState('cash');
+    const [cashGivenInput, setCashGivenInput] = useState('');
 
-    //  Quick-add form state 
     const [showQuickAdd, setShowQuickAdd] = useState(false);
     const [quickAddName, setQuickAddName] = useState('');
     const [quickAddLoading, setQuickAddLoading] = useState(false);
     const [quickAddError, setQuickAddError] = useState(null);
 
-    //  Discount state 
     const [discountEditing, setDiscountEditing] = useState(false);
     const discountInputRef = useRef(null);
 
-    const addProductToCart = useCallback((product, batchId) => {
+    const addProductToCart = useCallback((product, posInfo) => {
         const units = product.productUnits ?? [];
         const defaultUnit = units.find((u) => u.isDefault)
             ?? units.find((u) => Number(u.unitBase) === 1)
             ?? units[0];
+
+        // Ô mặc định là lô trên khu bán; BE đã sắp sẵn khu bán trước rồi FIFO.
+        const locations = posInfo?.locations ?? [];
+        const defaultLoc = locations.find(
+            (loc) => loc.locationId === posInfo?.defaultLocationId
+                && loc.batchId === posInfo?.defaultBatchId
+        ) ?? null;
+        const key = locationKey(defaultLoc);
+
         const newItem = {
-            id: `${product.id}-${batchId}`,
+            // Hai lô khác nhau của cùng SP là hai dòng giỏ hàng khác nhau.
+            id: `${product.id}-${key || 'chua-chon'}`,
             productId: product.id,
             code: product.barcode ?? product.id,
             name: product.name,
             units,
             productUnitId: defaultUnit?.id ?? null,
             unit: defaultUnit?.name ?? '—',
-            batch: batchId,
+            locations,
+            locationKey: key,
+            batch: defaultLoc?.batchId ?? null,
             qty: 1,
             price: defaultUnit?.sellingPrice ?? product.sellingPrice ?? 0,
         };
@@ -128,15 +207,27 @@ const POSScreen = () => {
         });
     }, [setCartItems]);
 
-    const onProductFound = useCallback((product) => {
-        const batches = product.stockBatches ?? [];
-        if (batches.length > 1) {
-            setPendingProduct(product);
-            return;
+    const onProductFound = useCallback(async (product) => {
+        // Vị trí + lô lấy từ pos-info chứ không đoán từ stockBatches
+        try {
+            const posInfo = await getProductPosInfo(product.id);
+            setPosInfoError(null);
+            addProductToCart(product, posInfo);
+        } catch {
+            setPosInfoError(`Không tải được vị trí để hàng của "${product.name}". Vui lòng thử lại.`);
         }
-        const batchId = batches[0]?.id ?? '';
-        addProductToCart(product, batchId);
     }, [addProductToCart]);
+
+    /** Thu ngân đổi ô lấy hàng: đổi luôn lô kèm theo ô đó. */
+    const changeLocation = useCallback((id, key) => {
+        setCartItems((prev) =>
+            prev.map((item) => {
+                if (item.id !== id) return item;
+                const loc = (item.locations ?? []).find((l) => locationKey(l) === key);
+                return { ...item, locationKey: key, batch: loc?.batchId ?? null };
+            })
+        );
+    }, [setCartItems]);
 
     const changeUnit = useCallback((id, productUnitId) => {
         setCartItems((prev) =>
@@ -156,27 +247,30 @@ const POSScreen = () => {
         );
     }, [setCartItems]);
 
-    // Product name search hook (debounced)
+    // Product name search hook
     const { results: searchResults, loading: searchLoading, error: searchError, clearResults } =
         useProductSearch(searchInput);
 
     const showDropdown = searchInput.trim().length >= 2 && (searchLoading || searchError || searchResults.length >= 0);
+    const returnPaneRefs = useRef({});
 
     const handleSearchSelect = useCallback((product) => {
-        onProductFound(product);
+        if (isReturnTab) {
+            returnPaneRefs.current[activeTabId]?.addExchangeProduct(product);
+        } else {
+            onProductFound(product);
+        }
         setSearchInput('');
         clearResults();
-    }, [onProductFound, clearResults]);
+    }, [isReturnTab, activeTabId, onProductFound, clearResults]);
 
-    // Barcode scanner hook
     const { scanning, error: scanError, clearError: clearScanError } =
-        useBarcodeScanner({ onProductFound });
+        useBarcodeScanner({ onProductFound, enabled: !isReturnTab });
 
     // Checkout hook
     const {
         phone, setPhone,
         customer,
-        invoiceType,
         discount, setDiscount,
         submitting,
         error: checkoutError,
@@ -185,7 +279,6 @@ const POSScreen = () => {
         resetCheckout,
     } = useCheckout();
 
-    // Customer phone search hook
     const { results: customerResults, loading: customerSearchLoading, error: customerSearchError, clearResults: clearCustomerResults } =
         useCustomerSearch(customer ? '' : phone);
 
@@ -267,17 +360,29 @@ const POSScreen = () => {
         setQtyInputs((prev) => { const n = { ...prev }; delete n[id]; return n; });
     };
 
-    // Derived values
+    // Chặn thanh toán khi còn dòng chưa chọn được vị trí hoặc vị trí không đủ hàng.
+    const locationBlocked = cartItems.some(hasLocationProblem);
+
     const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
     const totalItems = cartItems.reduce((sum, item) => sum + item.qty, 0);
     const safeDiscount = Math.min(discount, subtotal);
     const amountDue = subtotal - safeDiscount;
 
+    const cashGiven = cashGivenInput.trim() === ''
+        ? amountDue
+        : (parseFloat(cashGivenInput) || 0);
+    const changeDue = cashGiven - amountDue;
+
+    useEffect(() => {
+        if (isReturnTab) return;
+        saveActiveCart(cartItems, qtyInputs);
+    }, [cartItems, qtyInputs, isReturnTab]);
+
     const handleNewOrder = () => {
         setCartItems([]);
         setQtyInputs({});
         setSearchInput('');
-        setPendingProduct(null);
+        setPosInfoError(null);
         clearResults();
         resetCheckout();
         clearScanError();
@@ -286,6 +391,7 @@ const POSScreen = () => {
         setQuickAddName('');
         setQuickAddError(null);
         setDiscountEditing(false);
+        setCashGivenInput('');
     };
 
     // Discount editing
@@ -296,7 +402,6 @@ const POSScreen = () => {
         }
     };
 
-    // Render 
     return (
         <div className="pos-container">
             <header className="pos-header">
@@ -305,7 +410,7 @@ const POSScreen = () => {
                         <Search className="search-icon" size={18} />
                         <input
                             type="text"
-                            placeholder="Tìm kiếm hàng hóa..."
+                            placeholder="Thêm sản phẩm vào đơn"
                             className="search-input"
                             value={searchInput}
                             onChange={(e) => setSearchInput(e.target.value)}
@@ -325,35 +430,46 @@ const POSScreen = () => {
                             />
                         )}
                     </div>
-                </div>
 
-                {/* ── Order Tabs ── */}
-                <div className="pos-header-center">
-                    {tabs.map(tab => (
-                        <button
-                            key={tab.id}
-                            className={tab.id === activeTabId ? 'tab-active' : 'tab-inactive'}
-                            onClick={() => setActiveTabId(tab.id)}
-                        >
-                            {tab.label}
-                            <span
-                                className="tab-close"
-                                onClick={(e) => handleCloseTab(tab.id, e)}
-                                title="Đóng hóa đơn này"
+                    {/* ── Order Tabs ── */}
+                    <div className="pos-header-tabs">
+                        {tabs.map((tab) => (
+                            <button
+                                key={tab.id}
+                                className={tab.id === activeTabId ? 'tab-active' : 'tab-inactive'}
+                                onClick={() => setActiveTabId(tab.id)}
                             >
-                                <X size={14} strokeWidth={2.5} />
-                            </span>
+                                {tabLabels[tab.id]}
+                                {tabs.length > 1 && (
+                                    <span
+                                        className="tab-close"
+                                        onClick={(e) => handleCloseTab(tab.id, e)}
+                                        title="Đóng hóa đơn này"
+                                    >
+                                        <X size={14} strokeWidth={2.5} />
+                                    </span>
+                                )}
+                            </button>
+                        ))}
+                        <button
+                            className="btn-add-tab"
+                            onClick={handleAddTab}
+                            disabled={tabs.length >= MAX_TABS}
+                            title={tabs.length >= MAX_TABS
+                                ? `Chỉ được mở tối đa ${MAX_TABS} hóa đơn`
+                                : 'Tạo hóa đơn mới'}
+                        >
+                            <Plus size={24} strokeWidth={3} />
                         </button>
-                    ))}
-                    <button className="btn-add-tab" onClick={handleAddTab} title="Tạo hóa đơn mới">
-                        <Plus size={24} strokeWidth={3} />
-                    </button>
+                    </div>
                 </div>
 
                 <div className="pos-header-right">
-                    <button className="icon-btn" onClick={handleNewOrder} title="Làm mới đơn hiện tại">
-                        <RefreshCcw size={20} />
-                    </button>
+                    {!isReturnTab && (
+                        <button className="icon-btn" onClick={handleNewOrder} title="Làm mới đơn hiện tại">
+                            <RefreshCcw size={20} />
+                        </button>
+                    )}
                     <button
                         className="icon-btn"
                         onClick={() => setHistoryOpen(true)}
@@ -380,7 +496,20 @@ const POSScreen = () => {
                 </div>
             )}
 
-            <div className="pos-main">
+            {/* POS-INFO ERROR BANNER */}
+            {posInfoError && (
+                <div className="scan-error-banner">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <AlertCircle size={16} />
+                        {posInfoError}
+                    </span>
+                    <button onClick={() => setPosInfoError(null)} title="Đóng">
+                        <X size={16} />
+                    </button>
+                </div>
+            )}
+
+            <div className="pos-main" style={isReturnTab ? { display: 'none' } : undefined}>
 
                 {/* LEFT COLUMN - CART */}
                 <div className="pos-cart-section">
@@ -389,9 +518,10 @@ const POSScreen = () => {
                             <thead>
                                 <tr>
                                     <th className="col-stt">STT</th>
-                                    <th>MÃ HÀNG</th>
+                                    <th>MÃ SẢN PHẨM</th>
                                     <th>TÊN HÀNG</th>
                                     <th>ĐVT</th>
+                                    <th>VỊ TRÍ</th>
                                     <th className="text-center">SỐ LƯỢNG</th>
                                     <th className="text-right">ĐƠN GIÁ</th>
                                     <th className="text-right">THÀNH TIỀN</th>
@@ -400,7 +530,7 @@ const POSScreen = () => {
                             <tbody>
                                 {cartItems.length === 0 && (
                                     <tr>
-                                        <td colSpan={7} style={{ textAlign: 'center', color: '#9ca3af', padding: '40px 0' }}>
+                                        <td colSpan={8} style={{ textAlign: 'center', color: '#9ca3af', padding: '40px 0' }}>
                                             Quét mã vạch hoặc tìm kiếm để thêm sản phẩm
                                         </td>
                                     </tr>
@@ -409,6 +539,11 @@ const POSScreen = () => {
                                     const rawVal = qtyInputs[item.id];
                                     const displayVal = rawVal !== undefined ? rawVal : item.qty;
                                     const isInvalid = isQtyInvalid(rawVal);
+                                    const locOptions = item.locations ?? [];
+                                    const currentLoc = selectedLocation(item);
+                                    const short = isLocationShort(item);
+                                    const mustPick = needsLocationPick(item);
+                                    const showPicker = mustPick || short || locOptions.length > 1;
                                     return (
                                         <tr key={item.id}>
                                             <td>
@@ -439,6 +574,34 @@ const POSScreen = () => {
                                                 )}
                                             </td>
                                             <td>
+                                                {showPicker ? (
+                                                    <select
+                                                        className={`location-select${(mustPick || short) ? ' location-select-warn' : ''}`}
+                                                        value={item.locationKey ?? ''}
+                                                        onChange={(e) => changeLocation(item.id, e.target.value)}
+                                                    >
+                                                        {mustPick && <option value="">— Chọn vị trí —</option>}
+                                                        {locOptions.map((loc) => (
+                                                            <option key={locationKey(loc)} value={locationKey(loc)}>
+                                                                {formatLocationOption(loc)}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <span className="location-static">
+                                                        {formatLocationShort(currentLoc) ?? '—'}
+                                                    </span>
+                                                )}
+                                                {mustPick && (
+                                                    <div className="location-msg">Sản phẩm chưa có hàng ở vị trí nào</div>
+                                                )}
+                                                {!mustPick && short && (
+                                                    <div className="location-msg">
+                                                        Vị trí này chỉ còn {Number(currentLoc?.quantity ?? 0).toLocaleString('vi-VN')}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td>
                                                 <div className="qty-control">
                                                     <button className="qty-btn" onClick={() => changeQty(item.id, -1)}>-</button>
                                                     <input
@@ -465,12 +628,6 @@ const POSScreen = () => {
                         </table>
                     </div>
 
-                    {/* LEFT FOOTER */}
-                    <div className="cart-footer">
-                        <div className="total-items">
-                            Tổng cộng: <span>{totalItems} mặt hàng</span>
-                        </div>
-                    </div>
                 </div>
 
                 {/* RIGHT COLUMN - PAYMENT */}
@@ -512,11 +669,11 @@ const POSScreen = () => {
                                 onClick={handleUserPlus}
                                 disabled={!phone.trim() || quickAddLoading || !!customer}
                             >
-                                <UserPlus size={20} />
+                                <Plus size={20} />
                             </button>
                         </div>
 
-                        {/* ── Quick-add inline form ── */}
+                        {/* Quick-add inline form */}
                         {showQuickAdd && !customer && (
                             <div className="quick-add-form">
                                 <div className="quick-add-title">
@@ -579,12 +736,15 @@ const POSScreen = () => {
                             </div>
                         )}
                         <div className="summary-row">
-                            <span>Tổng tiền hàng</span>
+                            <span>
+                                Tổng tiền
+                                <span className="summary-item-count">({totalItems} mặt hàng)</span>
+                            </span>
                             <span className="font-bold">{subtotal.toLocaleString()}</span>
                         </div>
 
-                        {/* ── Discount row ── */}
-                        <div className="summary-row dashed-border">
+                        {/* Discount row */}
+                        <div className="summary-row summary-row--divider">
                             <span
                                 style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: '#2563eb' }}
                                 onClick={handleDiscountEditToggle}
@@ -622,36 +782,73 @@ const POSScreen = () => {
                                 </span>
                             )}
                         </div>
-
-                        <div className="summary-row" style={{ marginTop: '16px' }}>
-                            <span className="font-bold">KHÁCH CẦN TRẢ</span>
+                        <div className="summary-row summary-row--major" style={{ marginTop: '16px' }}>
+                            <span className="summary-major-label">Khách phải trả</span>
                             <span className="text-blue-large">{amountDue.toLocaleString()}</span>
                         </div>
 
+                        {paymentMethod === 'cash' && (
+                            <div className="summary-row summary-row--major">
+                                <span className="summary-major-label">Tiền khách đưa</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    step={1000}
+                                    className="cash-given-input"
+                                    value={cashGivenInput}
+                                    placeholder={amountDue.toLocaleString('vi-VN')}
+                                    onChange={(e) => setCashGivenInput(e.target.value)}
+                                />
+                            </div>
+                        )}
+
                         {/* Payment Methods */}
+                        {paymentMethod === 'cash' && (
+                            <div className={`summary-row summary-row--major change-due-row${changeDue > 0 ? '' : ' is-zero'}${changeDue < 0 ? '' : ' summary-row--divider'}`}>
+                                <span className="summary-major-label">Tiền thừa trả khách</span>
+                                <span className="change-due-amount">
+                                    {Math.max(0, changeDue).toLocaleString('vi-VN')}
+                                </span>
+                            </div>
+                        )}
+
+                        {paymentMethod === 'cash' && changeDue < 0 && (
+                            <div className="summary-row summary-row--major summary-row--divider cash-short-row">
+                                <span className="summary-major-label">Khách đưa còn thiếu</span>
+                                <span className="change-due-amount">
+                                    {Math.abs(changeDue).toLocaleString('vi-VN')}
+                                </span>
+                            </div>
+                        )}
                         <div>
                             <span className="payment-methods-title">Hình thức thanh toán</span>
                             <div className="methods-grid">
-                                {['cash', 'transfer', 'debt'].map((method) => (
+                                {PAYMENT_METHODS.map(({ value, label }) => (
                                     <label
-                                        key={method}
-                                        className={`method-label ${paymentMethod === method ? 'active' : ''}`}
+                                        key={value}
+                                        className={`method-label ${paymentMethod === value ? 'active' : ''}`}
                                     >
                                         <input
                                             type="radio"
-                                            checked={paymentMethod === method}
-                                            onChange={() => setPaymentMethod(method)}
+                                            checked={paymentMethod === value}
+                                            onChange={() => setPaymentMethod(value)}
                                         />
-                                        <span>
-                                            {method === 'cash' && 'Tiền mặt'}
-                                            {method === 'transfer' && 'Chuyển khoản'}
-                                            {method === 'debt' && 'Bán nợ'}
-                                        </span>
+                                        <span>{label}</span>
                                     </label>
                                 ))}
                             </div>
 
+
                         </div>
+
+                        {locationBlocked && (
+                            <div className="scan-error-banner" style={{ marginTop: '12px', borderRadius: '4px' }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <AlertCircle size={16} />
+                                    Chưa chọn lô hàng hoặc lô không đủ số lượng.
+                                </span>
+                            </div>
+                        )}
 
                         {/* Checkout error */}
                         {checkoutError && (
@@ -668,7 +865,7 @@ const POSScreen = () => {
                     <div className="payment-footer">
                         <button
                             className="btn-checkout"
-                            disabled={submitting || cartItems.length === 0}
+                            disabled={submitting || cartItems.length === 0 || locationBlocked}
                             onClick={async () => {
                                 const ok = await submitCheckout(cartItems, paymentMethod);
                                 if (ok) handleNewOrder();
@@ -680,27 +877,36 @@ const POSScreen = () => {
                 </div>
             </div>
 
-            {/* BATCH SELECT MODAL */}
-            {pendingProduct && (
-                <BatchSelectModal
-                    product={pendingProduct}
-                    onSelect={(batchId) => {
-                        addProductToCart(pendingProduct, batchId);
-                        setPendingProduct(null);
-                    }}
-                    onClose={() => setPendingProduct(null)}
-                />
-            )}
+            {/* RETURN TABS */}
+            {tabs.filter(t => t.type === 'RETURN').map(tab => (
+                <div
+                    key={tab.id}
+                    className={`pos-return-pane${tab.id === activeTabId ? ' is-active' : ''}`}
+                >
+                    <ExchangeOrder
+                        embedded
+                        ref={(handle) => {
+                            if (handle) returnPaneRefs.current[tab.id] = handle;
+                            else delete returnPaneRefs.current[tab.id];
+                        }}
+                        orderId={tab.orderId}
+                        onDone={() => closeTab(tab.id)}
+                        onDirtyChange={(dirty) => handleReturnDirtyChange(tab.id, dirty)}
+                    />
+                </div>
+            ))}
 
             {/* HISTORY MODAL */}
             {historyOpen && (
                 <SalesOrderHistoryModal
                     onClose={() => setHistoryOpen(false)}
-                    onViewInvoice={(orderId) => {
+                    onExchange={(orderId) => {
                         setHistoryOpen(false);
+                        handleOpenReturnTab(orderId);
                     }}
                 />
             )}
+
         </div>
     );
 };

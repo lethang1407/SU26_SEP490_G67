@@ -138,8 +138,9 @@ public class StorageLocationService {
             throw new AppException(ErrorCode.INSUFFICIENT_UNPLACED_QUANTITY);
         }
 
-        assertCanPlaceProduct(location, batch.getProduct().getId());
-        assertSalesZoneBatchRule(batch, location, null, false);
+        // Khu kho: mỗi ô 1 loại SP. Khu bán: mỗi SP chỉ 1 mã lô (được tách nhiều ô).
+        assertWarehouseSingleProduct(location, batch.getProduct().getId());
+        assertSalesZoneBatchRule(batch, location);
 
         upsertBatchLocation(batch, location, quantity);
 
@@ -169,10 +170,8 @@ public class StorageLocationService {
         }
 
         StockBatch batch = source.getBatch();
-        assertCanPlaceProduct(destination, batch.getProduct().getId());
-
-        boolean fullRelocate = quantity >= available;
-        assertSalesZoneBatchRule(batch, destination, source.getLocation().getId(), fullRelocate);
+        assertWarehouseSingleProduct(destination, batch.getProduct().getId());
+        assertSalesZoneBatchRule(batch, destination);
 
         int remainingOnSource = available - quantity;
         if (remainingOnSource <= 0) {
@@ -239,13 +238,9 @@ public class StorageLocationService {
 
     /**
      * Khu bán: mỗi SP tối đa 1 StockBatch trên toàn bộ khu bán.
-     * Cùng lô chỉ được nằm trên 1 ô bán; chuyển hết sang ô bán khác thì được.
+     * Cùng một lô được tách sang nhiều ô bán.
      */
-    private void assertSalesZoneBatchRule(
-            StockBatch batch,
-            StorageLocation destination,
-            Integer sourceLocationId,
-            boolean fullRelocateFromSource) {
+    private void assertSalesZoneBatchRule(StockBatch batch, StorageLocation destination) {
         if (!storageZoneService.isSalesZone(destination.getStorageZone())) {
             return;
         }
@@ -257,26 +252,21 @@ public class StorageLocationService {
 
         for (BatchLocation existing : salesLines) {
             Integer existingBatchId = existing.getBatch().getId();
-            Integer existingLocationId = existing.getLocation().getId();
-
-            if (Objects.equals(existingLocationId, destination.getId())
-                    && Objects.equals(existingBatchId, batchId)) {
-                continue;
-            }
-
             if (!Objects.equals(existingBatchId, batchId)) {
                 throw new AppException(ErrorCode.SALES_ZONE_PRODUCT_BATCH_EXISTS);
             }
-
-            // Cùng batch đang ở ô bán khác
-            if (Objects.equals(existingLocationId, sourceLocationId) && fullRelocateFromSource) {
-                continue;
-            }
-            throw new AppException(ErrorCode.SALES_ZONE_BATCH_SPLIT);
         }
     }
 
-    private void assertCanPlaceProduct(StorageLocation location, Integer productId) {
+    /**
+     * Khu kho: mỗi ô chỉ chứa 1 loại sản phẩm (có thể nhiều lô cùng SP).
+     * Khu bán: bỏ ràng buộc này — 1 ô được nhiều mặt hàng / nhiều lô.
+     */
+    private void assertWarehouseSingleProduct(StorageLocation location, Integer productId) {
+        if (storageZoneService.isSalesZone(location.getStorageZone())) {
+            return;
+        }
+
         Integer occupiedProductId = location.getBatchLocations().stream()
                 .filter(bl -> !Boolean.TRUE.equals(bl.getIsRemoved()))
                 .filter(bl -> bl.getQuantity() != null && bl.getQuantity() > 0)
@@ -326,21 +316,10 @@ public class StorageLocationService {
     }
 
     private List<StorageLocationContentResponse> mapContents(StorageLocation location) {
-        List<BatchLocation> activeLocations = location.getBatchLocations().stream()
+        return location.getBatchLocations().stream()
                 .filter(batchLocation -> !Boolean.TRUE.equals(batchLocation.getIsRemoved()))
                 .filter(batchLocation -> batchLocation.getQuantity() != null && batchLocation.getQuantity() > 0)
                 .sorted(Comparator.comparing(BatchLocation::getId))
-                .toList();
-
-        if (activeLocations.isEmpty()) {
-            return List.of();
-        }
-
-        Integer primaryProductId = activeLocations.get(0).getBatch().getProduct().getId();
-
-        return activeLocations.stream()
-                .filter(batchLocation ->
-                        Objects.equals(batchLocation.getBatch().getProduct().getId(), primaryProductId))
                 .map(this::toContentResponse)
                 .toList();
     }

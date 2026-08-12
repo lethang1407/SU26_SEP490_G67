@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import SupplierPagination from '../../supplier/components/SupplierPagination';
 import ImportOrderToolbar from '../components/ImportOrderToolbar';
@@ -100,66 +99,63 @@ export default function ImportOrderListPage() {
     const totalItems = data.totalElements ?? 0;
 
     return (
-        <div className="admin-layout">
+        <div className="admin-content">
             {successMessage ? (
                 <ImportOrderSuccessToast
                     message={successMessage}
                     onDismiss={() => setSuccessMessage(null)}
                 />
             ) : null}
-            <SideBar />
-            <div className="admin-content">
-                <AdminHeader />
-                <main className="admin-main">
-                    <div className="dashboard-container supplier-page import-order-page">
-                        <header className="supplier-page__header">
-                            <div>
-                                <h1 className="supplier-page__title">Danh sách nhập hàng</h1>
-                                <p className="supplier-page__subtitle">
-                                    Theo dõi các phiếu nhập hàng từ nhà cung cấp
-                                </p>
-                            </div>
-                            <div className="supplier-page__actions">
-                                <Link to="/admin/warehouse/import/create" className="supplier-btn supplier-btn--primary">
-                                    <Plus size={20} />
-                                    Tạo phiếu nhập
-                                </Link>
-                            </div>
-                        </header>
+            <AdminHeader />
+            <main className="admin-main">
+                <div className="dashboard-container supplier-page import-order-page">
+                    <header className="supplier-page__header">
+                        <div>
+                            <h1 className="supplier-page__title">Danh sách nhập hàng</h1>
+                            <p className="supplier-page__subtitle">
+                                Theo dõi các phiếu nhập hàng từ nhà cung cấp
+                            </p>
+                        </div>
+                        <div className="supplier-page__actions">
+                            <Link to="/admin/warehouse/import/create" className="supplier-btn supplier-btn--primary">
+                                <Plus size={20} />
+                                Tạo phiếu nhập
+                            </Link>
+                        </div>
+                    </header>
 
-                        <ImportOrderToolbar
-                            keyword={keyword}
-                            orderStatusFilter={orderStatusFilter}
-                            fromDate={fromDate}
-                            toDate={toDate}
-                            onKeywordChange={setKeyword}
-                            onOrderStatusFilterChange={handleOrderStatusFilterChange}
-                            onDateRangeChange={handleDateRangeChange}
-                        />
+                    <ImportOrderToolbar
+                        keyword={keyword}
+                        orderStatusFilter={orderStatusFilter}
+                        fromDate={fromDate}
+                        toDate={toDate}
+                        onKeywordChange={setKeyword}
+                        onOrderStatusFilterChange={handleOrderStatusFilterChange}
+                        onDateRangeChange={handleDateRangeChange}
+                    />
 
-                        <ImportOrderTable
-                            items={data.content ?? []}
-                            loading={loading}
-                            expandedId={expandedId}
-                            onToggleExpand={handleToggleExpand}
-                            onDraftCancelled={handleDraftCancelled}
-                        />
+                    <ImportOrderTable
+                        items={data.content ?? []}
+                        loading={loading}
+                        expandedId={expandedId}
+                        onToggleExpand={handleToggleExpand}
+                        onDraftCancelled={handleDraftCancelled}
+                    />
 
-                        <SupplierPagination
-                            page={page}
-                            totalPages={data.totalPages ?? 1}
-                            startIndex={totalItems === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}
-                            endIndex={Math.min(page * PAGE_SIZE, totalItems)}
-                            totalItems={totalItems}
-                            onPageChange={(nextPage) => {
-                                setExpandedId(null);
-                                setPage(nextPage);
-                            }}
-                            itemLabel="đơn nhập"
-                        />
-                    </div>
-                </main>
-            </div>
+                    <SupplierPagination
+                        page={page}
+                        totalPages={data.totalPages ?? 1}
+                        startIndex={totalItems === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}
+                        endIndex={Math.min(page * PAGE_SIZE, totalItems)}
+                        totalItems={totalItems}
+                        onPageChange={(nextPage) => {
+                            setExpandedId(null);
+                            setPage(nextPage);
+                        }}
+                        itemLabel="đơn nhập"
+                    />
+                </div>
+            </main>
         </div>
     );
 }

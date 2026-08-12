@@ -33,6 +33,11 @@ public class SalesOrderDetail extends BaseEntity {
     @JoinColumn(name = "product_unit_id")
     private ProductUnit productUnit;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @OnDelete(action = OnDeleteAction.SET_NULL)
+    @JoinColumn(name = "stock_batch_id")
+    private StockBatch stockBatch;
+
     @Column(name = "quantity")
     private Integer quantity;
 

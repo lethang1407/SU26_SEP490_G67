@@ -48,6 +48,13 @@ public class Product extends BaseEntity {
     @Column(name = "min_stock")
     private Integer minStock;
 
+    /**
+     * DAMAGED / EXPIRED goods override the flag.
+     */
+    @ColumnDefault("1")
+    @Column(name = "is_returnable", nullable = false)
+    private Boolean isReturnable = true;
+
     @Column(name = "description")
     private String description;
 

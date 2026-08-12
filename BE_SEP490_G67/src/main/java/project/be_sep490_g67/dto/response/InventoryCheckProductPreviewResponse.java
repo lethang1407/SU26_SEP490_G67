@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @Builder
@@ -21,4 +23,22 @@ public class InventoryCheckProductPreviewResponse {
     String unit;
     Integer systemQty;
     BigDecimal importPrice;
+
+    @Builder.Default
+    List<BatchOption> batches = new ArrayList<>();
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class BatchOption {
+        Integer id;
+        String batchCode;
+        Integer quantity;
+        String expiryDate;
+        Integer importOrderId;
+        Integer supplierId;
+        String supplierName;
+    }
 }

@@ -8,12 +8,7 @@
  * @returns {Object} - { isValid: boolean, error: string }
  */
 export const validatePhoneNumber = (phoneNumber) => {
-  if (!phoneNumber || phoneNumber.trim() === '') {
-    return {
-      isValid: false,
-      error: 'Vui lòng nhập số điện thoại'
-    };
-  }
+  if (!phoneNumber || !phoneNumber.trim()) return { isValid: true, error: '' };
 
   // Remove spaces, dots, dashes
   const cleanedPhone = phoneNumber.replace(/[\s.\-]/g, '');

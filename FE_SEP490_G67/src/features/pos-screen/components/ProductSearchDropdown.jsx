@@ -60,6 +60,10 @@ export default function ProductSearchDropdown({ results, loading, error, onSelec
                                 {product.barcode && (
                                     <span className="psd-barcode">{product.barcode}</span>
                                 )}
+                                {/* Tồn kho để thu ngân biết còn hàng hay không trước khi thêm */}
+                                <span className={`psd-stock${Number(product.stockQuantity ?? 0) <= 0 ? ' psd-stock--empty' : ''}`}>
+                                    Tồn kho: {Number(product.stockQuantity ?? 0).toLocaleString('vi-VN')}
+                                </span>
                                 <span className="psd-price">
                                     {product.sellingPrice != null
                                         ? Number(product.sellingPrice).toLocaleString() + ' ₫'

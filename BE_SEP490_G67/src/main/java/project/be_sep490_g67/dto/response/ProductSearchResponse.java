@@ -23,6 +23,8 @@ public class ProductSearchResponse {
      * ưu tiên cost_per_unit lô mới nhất; không có lô thì = costPrice.
      */
     BigDecimal lastCostPerBase;
+    /** Tổng tồn kho theo đơn vị cơ bản, gộp mọi lô và mọi vị trí. */
+    Integer stockQuantity;
     List<ProductUnitInfo> productUnits;
     List<StockBatchInfo> stockBatches;
 

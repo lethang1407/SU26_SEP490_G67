@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Spinner } from 'react-bootstrap';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import ProductToolbar from '../components/ProductToolbar';
 import ProductTable from '../components/ProductTable';
@@ -149,9 +148,8 @@ export default function ProductListPage() {
     };
 
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container product-page">
@@ -213,6 +211,5 @@ export default function ProductListPage() {
                     </div>
                 </main>
             </div>
-        </div>
     );
 }

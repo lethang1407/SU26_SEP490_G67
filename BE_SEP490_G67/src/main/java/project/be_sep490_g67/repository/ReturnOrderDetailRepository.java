@@ -13,4 +13,26 @@ public interface ReturnOrderDetailRepository extends JpaRepository<ReturnOrderDe
 
     @Query("SELECT rd FROM ReturnOrderDetail rd WHERE rd.returnOrder.id = :returnOrderId AND rd.isRemoved = false")
     List<ReturnOrderDetail> findByReturnOrderId(@Param("returnOrderId") Integer returnOrderId);
+
+    @Query("""
+            SELECT rd.salesOrderDetail.id, SUM(rd.quantity)
+            FROM ReturnOrderDetail rd
+            WHERE rd.salesOrderDetail.salesOrder.id = :salesOrderId
+              AND rd.salesOrderDetail.id IS NOT NULL
+              AND rd.isRemoved = false
+              AND rd.returnOrder.isRemoved = false
+            GROUP BY rd.salesOrderDetail.id
+            """)
+    List<Object[]> sumReturnedQuantityByOrder(@Param("salesOrderId") Integer salesOrderId);
+
+    @Query("""
+            SELECT rd.salesOrderDetail.salesOrder.id, rd.salesOrderDetail.id, SUM(rd.quantity)
+            FROM ReturnOrderDetail rd
+            WHERE rd.salesOrderDetail.salesOrder.id IN :salesOrderIds
+              AND rd.salesOrderDetail.id IS NOT NULL
+              AND rd.isRemoved = false
+              AND rd.returnOrder.isRemoved = false
+            GROUP BY rd.salesOrderDetail.salesOrder.id, rd.salesOrderDetail.id
+            """)
+    List<Object[]> sumReturnedQuantityByOrders(@Param("salesOrderIds") List<Integer> salesOrderIds);
 }

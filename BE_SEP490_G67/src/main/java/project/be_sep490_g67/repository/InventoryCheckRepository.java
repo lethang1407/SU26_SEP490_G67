@@ -27,6 +27,7 @@ public interface InventoryCheckRepository extends JpaRepository<InventoryCheck, 
             SELECT DISTINCT ic FROM InventoryCheck ic
             LEFT JOIN FETCH ic.details d
             LEFT JOIN FETCH d.product p
+            LEFT JOIN FETCH d.stockBatch sb
             WHERE ic.id = :id
               AND ic.isRemoved = false
             """)

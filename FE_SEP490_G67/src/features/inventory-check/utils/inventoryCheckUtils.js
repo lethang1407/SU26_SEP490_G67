@@ -53,6 +53,7 @@ export function buildCheckSummary(lines) {
 
     return {
         totalLines: enriched.length,
+        mismatchLineCount: countedLines.filter((line) => (line.diffQty || 0) !== 0).length,
         totalSystemQty,
         totalActualQty: countedLines.length === enriched.length ? totalActualQty : null,
         totalDiffQty: countedLines.length === enriched.length ? totalDiffQty : null,

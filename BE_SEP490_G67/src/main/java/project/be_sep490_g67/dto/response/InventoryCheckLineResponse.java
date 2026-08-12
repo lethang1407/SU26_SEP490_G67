@@ -20,6 +20,8 @@ public class InventoryCheckLineResponse {
     String productCode;
     String productName;
     String unit;
+    Integer stockBatchId;
+    String batchCode;
     Integer systemQty;
     Integer actualQty;
     BigDecimal importPrice;

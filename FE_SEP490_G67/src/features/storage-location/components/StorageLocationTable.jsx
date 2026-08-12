@@ -41,11 +41,20 @@ export default function StorageLocationTable({ locations, selectedLocationId, on
                 <tbody>
                     {sorted.map((location) => {
                         const status = getLocationStatus(location);
-                        const { batchCount, totalQty, product } = getLocationMetrics(location);
+                        const { batchCount, totalQty, product, productCount, products } =
+                            getLocationMetrics(location);
                         const sizeKey = normalizeShelfSize(location.size);
                         const zoneType = location.zoneType === ZONE_TYPE.SALES
                             ? ZONE_TYPE.SALES
                             : ZONE_TYPE.WAREHOUSE;
+                        const productLabel =
+                            productCount > 1
+                                ? products
+                                      .slice(0, 2)
+                                      .map((p) => p.productName)
+                                      .join(', ') +
+                                  (productCount > 2 ? ` +${productCount - 2}` : '')
+                                : product?.productName ?? '—';
 
                         return (
                             <tr
@@ -69,11 +78,11 @@ export default function StorageLocationTable({ locations, selectedLocationId, on
                                         {LOCATION_STATUS_LABEL[status]}
                                     </span>
                                 </td>
-                                <td className="storage-location-table__product">
-                                    {product?.productName ?? '—'}
+                                <td className="storage-location-table__product" title={productLabel}>
+                                    {productLabel}
                                 </td>
-                                <td>{product ? batchCount : '—'}</td>
-                                <td>{product ? totalQty : '—'}</td>
+                                <td>{productCount > 0 ? batchCount : '—'}</td>
+                                <td>{productCount > 0 ? totalQty : '—'}</td>
                                 <td className="storage-location-table__desc">
                                     {location.description || '—'}
                                 </td>
