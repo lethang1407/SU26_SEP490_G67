@@ -42,6 +42,12 @@ public class CreateSalesOrderRequest {
         // @NotNull(message = "batchId không được để trống")
         private Integer batchId;
 
+        /**
+         * Ô lấy hàng do thu ngân chọn trên POS. Null thì hệ thống tự trừ FEFO
+         * toàn kho như cũ (dùng cho các client chưa cập nhật).
+         */
+        Integer locationId;
+
         Integer productUnitId;
 
         @NotNull(message = "quantity không được để trống")

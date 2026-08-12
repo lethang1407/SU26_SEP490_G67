@@ -37,11 +37,15 @@ public class ExchangeOrderDetailResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class OrderItemInfo {
+        Integer salesOrderDetailId;
         Integer productId;
         String productCode;
         String productName;
         String unitName;
         Integer quantityPurchased;
+        Integer quantityReturned;
+        Integer quantityReturnable;
+        Boolean productReturnable;
         BigDecimal unitPrice;
         BigDecimal lineTotal;
     }

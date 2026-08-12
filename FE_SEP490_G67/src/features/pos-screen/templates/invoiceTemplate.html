@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>Hóa đơn - {{ORDER_CODE}}</title>
+  <title>{{PAGE_TITLE}}</title>
   <style>
     * {
       box-sizing: border-box;
@@ -98,9 +98,45 @@
       justify-content: flex-end
     }
 
+    /* Nhóm hàng trả / hàng mới trên phiếu đổi trả */
+    .group td {
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 10.5px;
+      letter-spacing: .04em;
+      padding: 5px 6px
+    }
+
+    .group-out td {
+      color: #dc2626;
+      background: #fef2f2;
+      border-top: 1.5px solid #dc2626
+    }
+
+    .group-in td {
+      color: #16a34a;
+      background: #f0fdf4;
+      border-top: 1.5px solid #16a34a
+    }
+
+    .out {
+      color: #dc2626
+    }
+
+    .in {
+      color: #16a34a
+    }
+
+    .empty td {
+      text-align: center;
+      color: #6b7280;
+      font-style: italic
+    }
+
     .label {
       color: #374151;
-      min-width: 130px;
+      /* 150px thay vì 130px: nhãn phiếu đổi trả dài hơn ("KHÁCH THANH TOÁN THÊM:") */
+      min-width: 150px;
       text-align: right
     }
 
@@ -136,7 +172,7 @@
 
   <hr />
 
-  <div class="inv-title">Hóa đơn bán hàng</div>
+  <div class="inv-title">{{DOC_HEADING}}</div>
   <div class="inv-code">Mã: {{ORDER_CODE}}</div>
 
   {{CANCEL_BADGE}}
@@ -146,7 +182,7 @@
     <span>Ngày: <strong>{{CREATED_AT}}</strong></span>
     <span>Thu ngân: <strong>{{CASHIER_NAME}}</strong></span>
     {{CUSTOMER_SECTION}}
-    <span>Thanh toán: <strong>{{PAYMENT_LABEL}}</strong></span>
+    {{PAYMENT_SECTION}}
   </div>
 
   <hr />
@@ -168,18 +204,7 @@
 
   <hr />
 
-  <div class="totals">
-    <div class="row">
-      <span class="label">Tổng tiền hàng:</span>
-      <span class="value">{{SUBTOTAL}}</span>
-    </div>
-    {{DISCOUNT_ROW}}
-    <div class="row grand">
-      <span class="label">TỔNG CỘNG:</span>
-      <span class="value">{{TOTAL_AMOUNT}}</span>
-    </div>
-    {{DEBT_ROWS}}
-  </div>
+  <div class="totals">{{TOTAL_ROWS}}</div>
 
   <hr />
   <div class="footer">Cảm ơn quý khách! Hẹn gặp lại.</div>

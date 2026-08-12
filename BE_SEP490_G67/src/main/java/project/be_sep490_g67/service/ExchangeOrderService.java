@@ -3,18 +3,24 @@ package project.be_sep490_g67.service;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 import project.be_sep490_g67.dto.request.CreateExchangeOrderRequest;
 import project.be_sep490_g67.dto.response.ExchangeOrderDetailResponse;
 import project.be_sep490_g67.dto.response.ExchangeOrderResponse;
 import project.be_sep490_g67.entity.*;
+import project.be_sep490_g67.enums.DocumentType;
+import project.be_sep490_g67.enums.ItemCondition;
+import project.be_sep490_g67.enums.ResolutionType;
+import project.be_sep490_g67.enums.SalesOrderStatus;
+import project.be_sep490_g67.exception.AppException;
+import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.*;
+import project.be_sep490_g67.utils.UnitQuantityConverter;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -23,6 +29,7 @@ import java.util.stream.Collectors;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ExchangeOrderService {
 
+    DocumentCodeService documentCodeService;
     SalesOrderRepository salesOrderRepository;
     SalesOrderDetailRepository salesOrderDetailRepository;
     ReturnOrderRepository returnOrderRepository;
@@ -31,23 +38,14 @@ public class ExchangeOrderService {
     StockBatchRepository stockBatchRepository;
     StockMovementRepository stockMovementRepository;
     ProductUnitRepository productUnitRepository;
+    StoreConfigRepository storeConfigRepository;
+    BatchLocationRepository batchLocationRepository;
 
-    /**
-     * Get original order details for exchange order page
-     */
     @Transactional(readOnly = true)
     public ExchangeOrderDetailResponse getOrderForExchange(Integer orderId) {
         SalesOrder order = salesOrderRepository.findByIdWithDetails(orderId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng"));
-
-        // Check if order already has a return/exchange
-        Optional<ReturnOrder> existingReturn = returnOrderRepository.findBySalesOrderId(orderId);
-        if (existingReturn.isPresent()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, 
-                    "Đơn hàng này đã được đổi trả trước đó");
-        }
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+        Map<Integer, Integer> returnedByLine = returnedQuantityByLine(orderId);
 
         ExchangeOrderDetailResponse.CustomerInfo customerInfo = null;
         if (order.getCustomer() != null) {
@@ -62,12 +60,19 @@ public class ExchangeOrderService {
                 .filter(detail -> !detail.getIsRemoved())
                 .map(detail -> {
                     Product product = detail.getProduct();
+                    int alreadyReturned = returnedByLine.getOrDefault(detail.getId(), 0);
                     return ExchangeOrderDetailResponse.OrderItemInfo.builder()
+                            .salesOrderDetailId(detail.getId())
                             .productId(product.getId())
-                            .productCode(product.getBarcode() != null ? product.getBarcode() : "SP" + String.format("%06d", product.getId()))
+                            .productCode(product.getBarcode() != null ? product.getBarcode()
+                                    : "SP" + String.format("%06d", product.getId()))
                             .productName(product.getName())
                             .unitName(detail.getUnitName())
                             .quantityPurchased(detail.getQuantity())
+                            .quantityReturned(alreadyReturned)
+                            .quantityReturnable(detail.getQuantity() - alreadyReturned)
+                            .productReturnable(product.getIsReturnable() == null
+                                    || product.getIsReturnable())
                             .unitPrice(detail.getUnitPrice())
                             .lineTotal(detail.getLineTotal())
                             .build();
@@ -91,57 +96,55 @@ public class ExchangeOrderService {
      */
     @Transactional
     public ExchangeOrderResponse processExchangeOrder(
-            CreateExchangeOrderRequest request, 
+            CreateExchangeOrderRequest request,
             Integer staffId) {
-        
-        // 1. Validate original order exists
+
+        // Validate original order exists
         SalesOrder originalOrder = salesOrderRepository.findByIdWithDetails(request.getOriginalOrderId())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng gốc"));
+                .orElseThrow(() -> new AppException(ErrorCode.ORIGINAL_ORDER_NOT_FOUND));
+        Map<Integer, Integer> returnedByLine = returnedQuantityByLine(originalOrder.getId());
+        List<ResolvedReturnLine> resolvedLines = resolveReturnLines(request.getReturnItems(), originalOrder,
+                returnedByLine);
 
-        // 2. Check if order already has a return/exchange
-        Optional<ReturnOrder> existingReturn = returnOrderRepository.findBySalesOrderId(request.getOriginalOrderId());
-        if (existingReturn.isPresent()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, 
-                    "Đơn hàng này đã được đổi trả trước đó");
-        }
-
-        // 3. Validate return items against original order
-        validateReturnItems(request.getReturnItems(), originalOrder);
-
-        // 4. Create ReturnOrder
+        assertWithinReturnWindow(originalOrder, resolvedLines);
+        assertBearerRulesSatisfied(request, originalOrder, resolvedLines);
         ReturnOrder returnOrder = new ReturnOrder();
         returnOrder.setSalesOrder(originalOrder);
-        returnOrder.setReturnCode("RT-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        returnOrder.setReturnCode(documentCodeService.generate(DocumentType.CREDIT_NOTE));
         returnOrder.setReturnReason(request.getReturnNote());
-        returnOrder.setResolutionType("EXCHANGE"); // Can be EXCHANGE or REFUND
         returnOrder.setNote(request.getReturnNote());
+        returnOrder.setBearerName(request.getBearerName());
+        returnOrder.setBearerPhone(request.getBearerPhone());
+        returnOrder.setBearerIsOwner(isBearerTheOwner(request, originalOrder));
+        returnOrder.setApprovedBy(request.getApprovedBy());
         returnOrder.setCreatedBy(staffId);
         returnOrder.setUpdatedBy(staffId);
         returnOrder.setCreatedAt(Instant.now());
         returnOrder.setUpdatedAt(Instant.now());
         returnOrder.setIsRemoved(false);
 
-        // 5. Calculate return amounts
+        // Calculate return amounts.
         BigDecimal returnSubtotal = BigDecimal.ZERO;
         List<ReturnOrderDetail> returnDetails = new ArrayList<>();
 
-        for (CreateExchangeOrderRequest.ReturnItemRequest returnItem : request.getReturnItems()) {
-            Product product = productRepository.findById(returnItem.getProductId())
-                    .orElseThrow(() -> new ResponseStatusException(
-                            HttpStatus.NOT_FOUND, 
-                            "Không tìm thấy sản phẩm ID: " + returnItem.getProductId()));
+        for (ResolvedReturnLine line : resolvedLines) {
+            SalesOrderDetail soldLine = line.soldLine();
 
-            BigDecimal lineRefund = returnItem.getUnitPrice()
-                    .multiply(BigDecimal.valueOf(returnItem.getQuantity()));
+            BigDecimal unitPrice = soldLine.getUnitPrice();
+            BigDecimal lineRefund = unitPrice.multiply(BigDecimal.valueOf(line.quantity()));
 
             ReturnOrderDetail detail = new ReturnOrderDetail();
             detail.setReturnOrder(returnOrder);
-            detail.setProduct(product);
-            detail.setQuantity(returnItem.getQuantity());
-            detail.setUnitPrice(returnItem.getUnitPrice());
+            detail.setProduct(soldLine.getProduct());
+            detail.setSalesOrderDetail(soldLine);
+            detail.setProductUnit(soldLine.getProductUnit());
+            detail.setUnitName(soldLine.getUnitName());
+            detail.setQuantity(line.quantity());
+            detail.setUnitPrice(unitPrice);
             detail.setLineRefund(lineRefund);
+            detail.setResolutionType(line.resolution().name());
+            detail.setItemCondition(line.condition().name());
+            detail.setNote(line.itemNote());
             detail.setCreatedBy(staffId);
             detail.setUpdatedBy(staffId);
             detail.setCreatedAt(Instant.now());
@@ -150,31 +153,59 @@ public class ExchangeOrderService {
 
             returnDetails.add(detail);
             returnSubtotal = returnSubtotal.add(lineRefund);
-
-            // Add stock back for returned items
-            addStockBack(product.getId(), returnItem.getQuantity(), returnOrder.getId(), staffId);
         }
 
-        BigDecimal returnDiscount = request.getReturnDiscount() != null 
-                ? request.getReturnDiscount() : BigDecimal.ZERO;
+        BigDecimal returnDiscount = request.getReturnDiscount() != null
+                ? request.getReturnDiscount()
+                : BigDecimal.ZERO;
         BigDecimal totalReturnAmount = returnSubtotal.subtract(returnDiscount);
         returnOrder.setRefundAmount(totalReturnAmount);
 
-        // 6. Save return order first to get ID
+        // Save return order first to get ID
         ReturnOrder savedReturnOrder = returnOrderRepository.save(returnOrder);
         returnDetails.forEach(d -> d.setReturnOrder(savedReturnOrder));
-        returnOrderDetailRepository.saveAll(returnDetails);
+        for (ResolvedReturnLine line : resolvedLines) {
+            addStockBack(
+                    line.soldLine(),
+                    UnitQuantityConverter.toBaseUnits(line.soldLine().getProductUnit(),
+                            line.quantity()),
+                    line.condition(),
+                    savedReturnOrder.getId(),
+                    staffId);
+        }
 
-        // 7. Process exchange items (new products purchased)
         BigDecimal exchangeSubtotal = BigDecimal.ZERO;
         List<SalesOrderDetail> exchangeDetails = new ArrayList<>();
+        SalesOrder exchangeOrder = null;
+        Map<String, SalesOrderDetail> exchangeLinesByRef = new HashMap<>();
 
         if (request.getExchangeItems() != null && !request.getExchangeItems().isEmpty()) {
+            exchangeOrder = createExchangeOrder(originalOrder, staffId);
+
             for (CreateExchangeOrderRequest.ExchangeItemRequest exchangeItem : request.getExchangeItems()) {
                 Product product = productRepository.findById(exchangeItem.getProductId())
-                        .orElseThrow(() -> new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "Không tìm thấy sản phẩm ID: " + exchangeItem.getProductId()));
+                        .orElseThrow(() -> new AppException(
+                                ErrorCode.RETURN_PRODUCT_NOT_FOUND));
+                ProductUnit resolvedUnit = null;
+                String resolvedUnitName;
+
+                if (exchangeItem.getProductUnitId() != null) {
+                    resolvedUnit = productUnitRepository.findById(exchangeItem.getProductUnitId())
+                            .orElseThrow(() -> new AppException(
+                                    ErrorCode.PRODUCT_UNIT_NOT_FOUND));
+                    resolvedUnitName = resolvedUnit.getName();
+                } else {
+                    resolvedUnit = product.getProductUnits().stream()
+                            .filter(u -> u.getUnitBase() != null
+                                    && u.getUnitBase()
+                                    .compareTo(BigDecimal.ONE) == 0)
+                            .findFirst()
+                            .orElse(null);
+                    resolvedUnitName = resolvedUnit != null ? resolvedUnit.getName() : null;
+                }
+
+                int baseQuantity = UnitQuantityConverter.toBaseUnits(resolvedUnit,
+                        exchangeItem.getQuantity());
 
                 // Resolve batch
                 Integer resolvedBatchId = exchangeItem.getBatchId();
@@ -183,24 +214,20 @@ public class ExchangeOrderService {
                 if (resolvedBatchId == null || resolvedBatchId <= 0) {
                     batch = stockBatchRepository
                             .findFirstAvailableBatchByProductId(exchangeItem.getProductId())
-                            .orElseThrow(() -> new ResponseStatusException(
-                                    HttpStatus.BAD_REQUEST,
-                                    "Không tìm thấy lô hàng khả dụng cho sản phẩm: " + product.getName()));
+                            .orElseThrow(() -> new AppException(
+                                    ErrorCode.NO_AVAILABLE_STOCK_BATCH));
                     resolvedBatchId = batch.getId();
                 } else {
                     batch = stockBatchRepository.findById(resolvedBatchId)
-                            .orElseThrow(() -> new ResponseStatusException(
-                                    HttpStatus.NOT_FOUND,
-                                    "Không tìm thấy lô hàng"));
+                            .orElseThrow(() -> new AppException(
+                                    ErrorCode.STOCK_BATCH_NOT_FOUND));
                 }
 
                 // Check stock availability
                 int currentStock = stockMovementRepository
                         .sumQuantityDeltaByBatchId(resolvedBatchId);
-                if (currentStock < exchangeItem.getQuantity()) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "Sản phẩm " + product.getName() +
-                                    " không đủ tồn kho. Còn lại: " + currentStock);
+                if (currentStock < baseQuantity) {
+                    throw new AppException(ErrorCode.INSUFFICIENT_STOCK);
                 }
 
                 // Deduct stock
@@ -209,39 +236,21 @@ public class ExchangeOrderService {
                 movement.setMovementType("SALE");
                 movement.setReferenceType("EXCHANGE_ORDER");
                 movement.setReferenceId(savedReturnOrder.getId());
-                movement.setQuantityDelta(-exchangeItem.getQuantity());
-                movement.setStockAfter(currentStock - exchangeItem.getQuantity());
+                movement.setQuantityDelta(-baseQuantity);
+                movement.setStockAfter(currentStock - baseQuantity);
                 movement.setCreatedBy(staffId);
                 movement.setCreatedAt(Instant.now());
                 stockMovementRepository.save(movement);
 
-                // Resolve unit
-                ProductUnit resolvedUnit = null;
-                String resolvedUnitName = null;
-
-                if (exchangeItem.getProductUnitId() != null) {
-                    resolvedUnit = productUnitRepository.findById(exchangeItem.getProductUnitId())
-                            .orElseThrow(() -> new ResponseStatusException(
-                                    HttpStatus.NOT_FOUND,
-                                    "Không tìm thấy đơn vị sản phẩm ID: " + exchangeItem.getProductUnitId()));
-                    resolvedUnitName = resolvedUnit.getName();
-                } else {
-                    resolvedUnitName = product.getProductUnits().stream()
-                            .filter(u -> u.getUnitBase() != null
-                                    && u.getUnitBase().compareTo(BigDecimal.ONE) == 0)
-                            .findFirst()
-                            .map(ProductUnit::getName)
-                            .orElse(null);
-                }
-
                 BigDecimal lineDiscount = exchangeItem.getDiscountAmount() != null
-                        ? exchangeItem.getDiscountAmount() : BigDecimal.ZERO;
+                        ? exchangeItem.getDiscountAmount()
+                        : BigDecimal.ZERO;
                 BigDecimal lineTotal = exchangeItem.getUnitPrice()
                         .multiply(BigDecimal.valueOf(exchangeItem.getQuantity()))
                         .subtract(lineDiscount);
 
                 SalesOrderDetail detail = new SalesOrderDetail();
-                detail.setSalesOrder(originalOrder);
+                detail.setSalesOrder(exchangeOrder);
                 detail.setProduct(product);
                 detail.setProductUnit(resolvedUnit);
                 detail.setUnitName(resolvedUnitName);
@@ -257,20 +266,36 @@ public class ExchangeOrderService {
 
                 exchangeDetails.add(detail);
                 exchangeSubtotal = exchangeSubtotal.add(lineTotal);
+
+                if (exchangeItem.getRef() != null) {
+                    exchangeLinesByRef.put(exchangeItem.getRef(), detail);
+                }
             }
 
-            // Save exchange order details
             salesOrderDetailRepository.saveAll(exchangeDetails);
+
+            exchangeOrder.setSubtotal(exchangeSubtotal);
+            exchangeOrder.setTotalAmount(exchangeSubtotal.subtract(
+                    request.getExchangeDiscount() != null
+                            ? request.getExchangeDiscount()
+                            : BigDecimal.ZERO));
+            exchangeOrder.setDiscountAmount(request.getExchangeDiscount() != null
+                    ? request.getExchangeDiscount()
+                    : BigDecimal.ZERO);
+            salesOrderRepository.save(exchangeOrder);
+
+            originalOrder.setExchangeSalesOrder(exchangeOrder);
         }
 
-        BigDecimal exchangeDiscount = request.getExchangeDiscount() != null 
-                ? request.getExchangeDiscount() : BigDecimal.ZERO;
+        applyPairing(resolvedLines, returnDetails, exchangeLinesByRef);
+        returnOrderDetailRepository.saveAll(returnDetails);
+
+        BigDecimal exchangeDiscount = request.getExchangeDiscount() != null
+                ? request.getExchangeDiscount()
+                : BigDecimal.ZERO;
         BigDecimal totalExchangeAmount = exchangeSubtotal.subtract(exchangeDiscount);
-
-        // Calculate net amount (positive = refund to customer, negative = customer pays)
         BigDecimal netAmount = totalReturnAmount.subtract(totalExchangeAmount);
-
-        originalOrder.setOrderStatus("TRẢ HÀNG");
+        originalOrder.setOrderStatus(deriveOrderStatus(originalOrder).name());
         originalOrder.setUpdatedBy(staffId);
         originalOrder.setUpdatedAt(Instant.now());
         salesOrderRepository.save(originalOrder);
@@ -278,7 +303,7 @@ public class ExchangeOrderService {
         return buildExchangeOrderResponse(
                 savedReturnOrder,
                 originalOrder,
-                returnDetails,
+                resolvedLines,
                 exchangeDetails,
                 returnSubtotal,
                 returnDiscount,
@@ -287,66 +312,305 @@ public class ExchangeOrderService {
                 exchangeDiscount,
                 totalExchangeAmount,
                 netAmount,
-                request.getRefundMethod()
-        );
+                request.getRefundMethod());
     }
 
-    /**
-     * Validate return items against original order
-     */
-    private void validateReturnItems(
-            List<CreateExchangeOrderRequest.ReturnItemRequest> returnItems,
-            SalesOrder originalOrder) {
-        
-        Map<Integer, Integer> purchasedQuantities = originalOrder.getSalesOrderDetails().stream()
-                .filter(detail -> !detail.getIsRemoved())
-                .collect(Collectors.toMap(
-                        detail -> detail.getProduct().getId(),
-                        SalesOrderDetail::getQuantity,
-                        Integer::sum
-                ));
+    private record ResolvedReturnLine(
+            SalesOrderDetail soldLine,
+            int quantity,
+            ResolutionType resolution,
+            ItemCondition condition,
+            String itemNote,
+            String pairedExchangeItemRef) {
+    }
 
-        for (CreateExchangeOrderRequest.ReturnItemRequest returnItem : returnItems) {
-            Integer purchasedQty = purchasedQuantities.get(returnItem.getProductId());
-            
-            if (purchasedQty == null) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Sản phẩm ID " + returnItem.getProductId() + " không có trong đơn hàng gốc");
+    /** Ghi chu rong va ghi chu toan khoang trang deu la "khong co ghi chu". */
+    private static String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private SalesOrder createExchangeOrder(SalesOrder originalOrder, Integer staffId) {
+        SalesOrder exchangeOrder = new SalesOrder();
+        exchangeOrder.setCustomer(originalOrder.getCustomer());
+        exchangeOrder.setOrderCode(documentCodeService.generate(DocumentType.EXCHANGE_INVOICE));
+        exchangeOrder.setOrderStatus(SalesOrderStatus.COMPLETED.name());
+        exchangeOrder.setPaymentMethod(originalOrder.getPaymentMethod());
+        exchangeOrder.setIsDebt(false);
+        exchangeOrder.setSubtotal(BigDecimal.ZERO);
+        exchangeOrder.setDiscountAmount(BigDecimal.ZERO);
+        exchangeOrder.setTotalAmount(BigDecimal.ZERO);
+        exchangeOrder.setPaidAmount(BigDecimal.ZERO);
+        exchangeOrder.setNote("Đổi hàng từ " + originalOrder.getOrderCode());
+        exchangeOrder.setCreatedBy(staffId);
+        exchangeOrder.setUpdatedBy(staffId);
+        exchangeOrder.setCreatedAt(Instant.now());
+        exchangeOrder.setUpdatedAt(Instant.now());
+        exchangeOrder.setIsRemoved(false);
+        return salesOrderRepository.save(exchangeOrder);
+    }
+
+    private void applyPairing(
+            List<ResolvedReturnLine> resolvedLines,
+            List<ReturnOrderDetail> returnDetails,
+            Map<String, SalesOrderDetail> exchangeLinesByRef) {
+
+        Set<String> usedRefs = new HashSet<>();
+
+        for (int i = 0; i < resolvedLines.size(); i++) {
+            ResolvedReturnLine line = resolvedLines.get(i);
+            ReturnOrderDetail detail = returnDetails.get(i);
+            String ref = line.pairedExchangeItemRef();
+
+            if (!line.resolution().requiresPairing()) {
+                if (ref != null) {
+                    throw new AppException(ErrorCode.PAIRING_NOT_ALLOWED_FOR_RESOLUTION);
+                }
+                continue;
             }
 
-            if (returnItem.getQuantity() > purchasedQty) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Số lượng trả (" + returnItem.getQuantity() + 
-                        ") vượt quá số lượng đã mua (" + purchasedQty + ")");
+            if (ref == null) {
+                throw new AppException(ErrorCode.EXCHANGE_REQUIRES_PAIRING);
             }
+            if (!usedRefs.add(ref)) {
+                throw new AppException(ErrorCode.PAIRED_ITEM_ALREADY_USED);
+            }
+
+            SalesOrderDetail replacement = exchangeLinesByRef.get(ref);
+            if (replacement == null) {
+                throw new AppException(ErrorCode.PAIRED_ITEM_NOT_FOUND);
+            }
+
+            if (line.resolution() == ResolutionType.EXCHANGE_EVEN
+                    && detail.getLineRefund().compareTo(replacement.getLineTotal()) != 0) {
+                throw new AppException(ErrorCode.EXCHANGE_EVEN_AMOUNT_MISMATCH);
+            }
+
+            detail.setPairedOutDetail(replacement);
         }
     }
 
-    /**
-     * Add stock back when items are returned
-     */
-    private void addStockBack(Integer productId, Integer quantity, Integer returnOrderId, Integer staffId) {
-        // Find the most recent batch for this product
-        StockBatch batch = stockBatchRepository
-                .findFirstAvailableBatchByProductId(productId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Không tìm thấy lô hàng cho sản phẩm ID: " + productId));
+    private boolean isBearerTheOwner(CreateExchangeOrderRequest request, SalesOrder originalOrder) {
+        Customer owner = originalOrder.getCustomer();
+        if (owner == null) {
+            return true;
+        }
+        if (request.getBearerPhone() == null || request.getBearerPhone().isBlank()) {
+            return true;
+        }
+        return request.getBearerPhone().equals(owner.getPhoneNumber());
+    }
+
+    private void assertBearerRulesSatisfied(
+            CreateExchangeOrderRequest request,
+            SalesOrder originalOrder,
+            List<ResolvedReturnLine> resolvedLines) {
+
+        boolean anyCashRefund = resolvedLines.stream()
+                .anyMatch(line -> line.resolution() == ResolutionType.REFUND);
+
+        if (!anyCashRefund || !"CASH".equalsIgnoreCase(request.getRefundMethod())) {
+            return;
+        }
+        if (isBearerTheOwner(request, originalOrder)) {
+            return;
+        }
+        boolean approved = request.getApprovedBy() != null
+                && request.getBearerName() != null
+                && !request.getBearerName().isBlank();
+        if (!approved) {
+            throw new AppException(ErrorCode.MANAGER_APPROVAL_REQUIRED);
+        }
+    }
+
+    private ResolutionType parseResolution(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return ResolutionType.REFUND;
+        }
+        try {
+            return ResolutionType.valueOf(raw.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new AppException(ErrorCode.INVALID_RESOLUTION_TYPE);
+        }
+    }
+
+    private List<ResolvedReturnLine> resolveReturnLines(
+            List<CreateExchangeOrderRequest.ReturnItemRequest> returnItems,
+            SalesOrder originalOrder,
+            Map<Integer, Integer> returnedByLine) {
+
+        List<SalesOrderDetail> activeLines = originalOrder.getSalesOrderDetails().stream()
+                .filter(detail -> !detail.getIsRemoved())
+                .toList();
+
+        List<ResolvedReturnLine> resolved = new ArrayList<>();
+
+        Map<Integer, Integer> claimedInThisRequest = new HashMap<>();
+
+        for (CreateExchangeOrderRequest.ReturnItemRequest returnItem : returnItems) {
+            SalesOrderDetail soldLine = matchLine(returnItem, activeLines);
+
+            int alreadyReturned = returnedByLine.getOrDefault(soldLine.getId(), 0);
+            int claimedSoFar = claimedInThisRequest.getOrDefault(soldLine.getId(), 0);
+            int remaining = soldLine.getQuantity() - alreadyReturned - claimedSoFar;
+
+            if (returnItem.getQuantity() > remaining) {
+                throw new AppException(ErrorCode.RETURN_QUANTITY_EXCEEDS_REMAINING);
+            }
+
+            ItemCondition condition = parseCondition(returnItem.getItemCondition());
+            assertProductIsReturnable(soldLine, condition);
+
+            claimedInThisRequest.put(soldLine.getId(), claimedSoFar + returnItem.getQuantity());
+            resolved.add(new ResolvedReturnLine(
+                    soldLine,
+                    returnItem.getQuantity(),
+                    parseResolution(returnItem.getResolutionType()),
+                    condition,
+                    trimToNull(returnItem.getItemNote()),
+                    returnItem.getPairedExchangeItemRef()));
+        }
+
+        return resolved;
+    }
+
+    private Map<Integer, Integer> returnedQuantityByLine(Integer salesOrderId) {
+        Map<Integer, Integer> returned = new HashMap<>();
+        for (Object[] row : returnOrderDetailRepository.sumReturnedQuantityByOrder(salesOrderId)) {
+            returned.put((Integer) row[0], ((Number) row[1]).intValue());
+        }
+        return returned;
+    }
+
+    private SalesOrderStatus deriveOrderStatus(SalesOrder order) {
+        Map<Integer, Integer> returnedByLine = returnedQuantityByLine(order.getId());
+
+        List<SalesOrderDetail> activeLines = order.getSalesOrderDetails().stream()
+                .filter(detail -> !detail.getIsRemoved())
+                .toList();
+
+        if (activeLines.isEmpty() || returnedByLine.isEmpty()) {
+            return SalesOrderStatus.PARTIALLY_RETURNED;
+        }
+
+        boolean allFullyReturned = activeLines.stream()
+                .allMatch(line -> returnedByLine.getOrDefault(line.getId(), 0) >= line.getQuantity());
+
+        return allFullyReturned ? SalesOrderStatus.RETURNED : SalesOrderStatus.PARTIALLY_RETURNED;
+    }
+
+    private boolean isReturnWindowExpired(SalesOrder order) {
+        Integer windowDays = storeConfigRepository.findFirstByOrderByIdAsc()
+                .orElseThrow(() -> new AppException(ErrorCode.STORE_CONFIG_MISSING))
+                .getReturnWindowDays();
+
+        if (windowDays == null || order.getCreatedAt() == null) {
+            return false;
+        }
+
+        Instant deadline = order.getCreatedAt().plus(windowDays, ChronoUnit.DAYS);
+        return Instant.now().isAfter(deadline);
+    }
+
+    private void assertWithinReturnWindow(SalesOrder order, List<ResolvedReturnLine> resolvedLines) {
+        if (!isReturnWindowExpired(order)) {
+            return;
+        }
+
+        boolean allOverride = resolvedLines.stream()
+                .allMatch(line -> line.condition().overridesNonReturnablePolicy());
+
+        if (!allOverride) {
+            throw new AppException(ErrorCode.RETURN_WINDOW_EXPIRED);
+        }
+    }
+
+    private SalesOrderDetail matchLine(
+            CreateExchangeOrderRequest.ReturnItemRequest returnItem,
+            List<SalesOrderDetail> activeLines) {
+
+        if (returnItem.getSalesOrderDetailId() != null) {
+            return activeLines.stream()
+                    .filter(line -> line.getId().equals(returnItem.getSalesOrderDetailId()))
+                    .findFirst()
+                    .orElseThrow(() -> new AppException(ErrorCode.RETURN_LINE_NOT_IN_ORDER));
+        }
+
+        List<SalesOrderDetail> candidates = activeLines.stream()
+                .filter(line -> line.getProduct().getId().equals(returnItem.getProductId()))
+                .toList();
+
+        if (candidates.isEmpty()) {
+            throw new AppException(ErrorCode.RETURN_LINE_NOT_IN_ORDER);
+        }
+        if (candidates.size() > 1) {
+            throw new AppException(ErrorCode.RETURN_LINE_AMBIGUOUS);
+        }
+        return candidates.get(0);
+    }
+
+    private void addStockBack(SalesOrderDetail soldLine, int quantity, ItemCondition condition,
+                              Integer returnOrderId, Integer staffId) {
+
+        StockBatch batch = soldLine.getStockBatch() != null
+                ? soldLine.getStockBatch()
+                : stockBatchRepository
+                .findFirstAvailableBatchByProductId(soldLine.getProduct().getId())
+                .orElseThrow(() -> new AppException(ErrorCode.NO_AVAILABLE_STOCK_BATCH));
 
         int currentStock = stockMovementRepository.sumQuantityDeltaByBatchId(batch.getId());
 
         StockMovement movement = new StockMovement();
         movement.setStockBatch(batch);
-        movement.setMovementType("RETURN");
         movement.setReferenceType("RETURN_ORDER");
         movement.setReferenceId(returnOrderId);
-        movement.setQuantityDelta(quantity); // Positive for return
-        movement.setStockAfter(currentStock + quantity);
         movement.setCreatedBy(staffId);
         movement.setCreatedAt(Instant.now());
+
+        if (condition.isSellable()) {
+            BatchLocation location = batchLocationRepository
+                    .findFirstByBatchId(batch.getId())
+                    .orElse(null);
+
+            movement.setMovementType("RETURN");
+            movement.setBatchLocation(location);
+            movement.setQuantityDelta(quantity);
+            movement.setStockAfter(currentStock + quantity);
+
+            if (location != null) {
+                location.setQuantity(location.getQuantity() + quantity);
+                location.setUpdatedAt(Instant.now());
+                location.setUpdatedBy(staffId);
+                batchLocationRepository.save(location);
+            }
+        } else {
+            movement.setMovementType("WRITE_OFF");
+            movement.setQuantityDelta(0);
+            movement.setStockAfter(currentStock);
+        }
+
         stockMovementRepository.save(movement);
+    }
+
+    private void assertProductIsReturnable(SalesOrderDetail soldLine, ItemCondition condition) {
+        Boolean returnable = soldLine.getProduct().getIsReturnable();
+        if (returnable != null && !returnable && !condition.overridesNonReturnablePolicy()) {
+            throw new AppException(ErrorCode.PRODUCT_NOT_RETURNABLE);
+        }
+    }
+
+    private ItemCondition parseCondition(String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new AppException(ErrorCode.ITEM_CONDITION_REQUIRED);
+        }
+        try {
+            return ItemCondition.valueOf(raw.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new AppException(ErrorCode.INVALID_ITEM_CONDITION);
+        }
     }
 
     /**
@@ -355,7 +619,7 @@ public class ExchangeOrderService {
     private ExchangeOrderResponse buildExchangeOrderResponse(
             ReturnOrder returnOrder,
             SalesOrder originalOrder,
-            List<ReturnOrderDetail> returnDetails,
+            List<ResolvedReturnLine> resolvedLines,
             List<SalesOrderDetail> exchangeDetails,
             BigDecimal returnSubtotal,
             BigDecimal returnDiscount,
@@ -366,17 +630,22 @@ public class ExchangeOrderService {
             BigDecimal netAmount,
             String refundMethod) {
 
-        List<ExchangeOrderResponse.ReturnItemInfo> returnItems = returnDetails.stream()
-                .map(detail -> {
-                    Product product = detail.getProduct();
+        List<ExchangeOrderResponse.ReturnItemInfo> returnItems = resolvedLines.stream()
+                .map(line -> {
+                    SalesOrderDetail soldLine = line.soldLine();
+                    Product product = soldLine.getProduct();
+                    BigDecimal unitPrice = soldLine.getUnitPrice();
                     return ExchangeOrderResponse.ReturnItemInfo.builder()
+                            .salesOrderDetailId(soldLine.getId())
                             .productId(product.getId())
-                            .productCode(product.getBarcode() != null ? product.getBarcode() : "SP" + String.format("%06d", product.getId()))
+                            .productCode(product.getBarcode() != null ? product.getBarcode()
+                                    : "SP" + String.format("%06d", product.getId()))
                             .productName(product.getName())
-                            .unitName("—") // Unit name from return request
-                            .quantity(detail.getQuantity())
-                            .unitPrice(detail.getUnitPrice())
-                            .lineTotal(detail.getLineRefund())
+                            .unitName(soldLine.getUnitName())
+                            .quantity(line.quantity())
+                            .unitPrice(unitPrice)
+                            .lineTotal(unitPrice
+                                    .multiply(BigDecimal.valueOf(line.quantity())))
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -386,7 +655,8 @@ public class ExchangeOrderService {
                     Product product = detail.getProduct();
                     return ExchangeOrderResponse.ExchangeItemInfo.builder()
                             .productId(product.getId())
-                            .productCode(product.getBarcode() != null ? product.getBarcode() : "SP" + String.format("%06d", product.getId()))
+                            .productCode(product.getBarcode() != null ? product.getBarcode()
+                                    : "SP" + String.format("%06d", product.getId()))
                             .productName(product.getName())
                             .unitName(detail.getUnitName())
                             .quantity(detail.getQuantity())
