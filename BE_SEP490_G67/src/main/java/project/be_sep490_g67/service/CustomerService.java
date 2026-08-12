@@ -285,6 +285,7 @@ public class CustomerService {
         List<DebtOrderResponse> responses = salesOrderPage.getContent().stream().map(so -> {
             BigDecimal initialPaidAmount = so.getPaidAmount() != null ? so.getPaidAmount() : BigDecimal.ZERO;
             BigDecimal subsequentPayments = so.getDebtPayments().stream()
+                    .filter(dp -> !Boolean.TRUE.equals(dp.getIsRemoved()))
                     .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal totalPaid = initialPaidAmount.add(subsequentPayments);
@@ -369,7 +370,7 @@ public class CustomerService {
         Instant startOfDay = today.atStartOfDay(zoneId).toInstant();
         Instant endOfDay = today.plusDays(1).atStartOfDay(zoneId).toInstant();
 
-        List<SalesOrder> todaysDebtSales = salesOrderRepository.findAllByIsDebtTrueAndCreatedAtBetween(startOfDay, endOfDay);
+        List<SalesOrder> todaysDebtSales = salesOrderRepository.findActiveDebtSalesCreatedBetween(startOfDay, endOfDay);
 
         List<DebtOrderResponse> debtOrderDetails = todaysDebtSales.stream().map(so -> {
             BigDecimal initialPaidAmount = so.getPaidAmount() != null ? so.getPaidAmount() : BigDecimal.ZERO;
@@ -377,7 +378,8 @@ public class CustomerService {
                     .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal totalPaid = initialPaidAmount.add(subsequentPayments);
-            BigDecimal amountRemaining = so.getTotalAmount().subtract(totalPaid);
+            BigDecimal totalAmount = so.getTotalAmount() != null ? so.getTotalAmount() : BigDecimal.ZERO;
+            BigDecimal amountRemaining = totalAmount.subtract(totalPaid);
 
             String createdByName = "N/A";
             if (so.getCreatedBy() != null) {
@@ -393,7 +395,7 @@ public class CustomerService {
                     .orderCode(so.getOrderCode())
                     .orderDate(so.getCreatedAt())
                     .dueDate(so.getDueDate())
-                    .totalAmount(so.getTotalAmount())
+                    .totalAmount(totalAmount)
                     .amountPaid(totalPaid)
                     .amountRemaining(amountRemaining)
                     .status(amountRemaining.compareTo(BigDecimal.ZERO) <= 0 ? DebtOrderStatus.PAID : DebtOrderStatus.IN_DEBT)
@@ -401,21 +403,7 @@ public class CustomerService {
                     .build();
         }).collect(Collectors.toList());
 
-        BigDecimal totalDebtAmountIncurred = debtOrderDetails.stream()
-                .map(DebtOrderResponse::getAmountRemaining)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        long uniqueCustomersCount = todaysDebtSales.stream()
-                .map(SalesOrder::getCustomer)
-                .filter(Objects::nonNull)
-                .map(Customer::getId)
-                .distinct()
-                .count();
-
         return TodaysDebtSalesSummaryResponse.builder()
-                .totalDebtSalesCount(todaysDebtSales.size())
-                .uniqueCustomersInDebtCount(uniqueCustomersCount)
-                .totalDebtAmountIncurredToday(totalDebtAmountIncurred)
                 .debtSalesDetails(debtOrderDetails)
                 .build();
     }

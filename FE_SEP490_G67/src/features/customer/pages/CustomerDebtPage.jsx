@@ -22,8 +22,7 @@ import {
   FiTrendingUp,
 } from "react-icons/fi";
 import SideBar from "../../../components/ui/sidebar/SideBar";
-import Header from "../../../components/ui/header-footer/Header";
-import { getOverviewCustomer, getCustomerDebts, getTodayDebtSummary } from "../api";
+import Header from "../../../components/ui/header-footer/Header";import { getOverviewCustomer, getCustomerDebts } from "../api";
 import CreateCustomerDebtModal from "../components/CreateCustomerDebtModal";
 import TodayPaymentsModal from "../components/TodayPaymentsModal";
 import TodayDebtSalesModal from "../components/TodayDebtSalesModal";
@@ -96,7 +95,6 @@ export default function CustomerDebtPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showTodayPaymentsModal, setShowTodayPaymentsModal] = useState(false);
   const [showTodayDebtSalesModal, setShowTodayDebtSalesModal] = useState(false);
-  const [todayDebtSummary, setTodayDebtSummary] = useState(null);
   const [activeAccordionKey, setActiveAccordionKey] = useState(["debt"]); // 'debt' or 'no-debt'
 
   const [noDebtCustomers, setNoDebtCustomers] = useState({
@@ -171,18 +169,14 @@ export default function CustomerDebtPage() {
 
   useEffect(() => {
     const fetchOverview = async () => {
-        try {
-            const [overviewRes, todayDebtSummaryRes] = await Promise.all([
-                getOverviewCustomer(),
-                getTodayDebtSummary(),
-            ]);
-            setOverview({ ...overviewRes, ...todayDebtSummaryRes });
-            setTodayDebtSummary(todayDebtSummaryRes);
-        } catch (error) {
-            console.error("Failed to fetch summary data:", error);
-        }
+      try {
+        const overviewRes = await getOverviewCustomer();
+        setOverview(overviewRes);
+      } catch (error) {
+        console.error("Failed to fetch summary data:", error);
+      }
     };
-    fetchOverview(); // This will now fetch both overview and today's debt summary
+    fetchOverview();
     // Initial fetch for both lists
     fetchDebtData();
     fetchNoDebtData();
@@ -533,7 +527,6 @@ export default function CustomerDebtPage() {
         <TodayDebtSalesModal
           show={showTodayDebtSalesModal}
           onHide={() => setShowTodayDebtSalesModal(false)}
-          data={todayDebtSummary}
         />
       </div>
     </div>

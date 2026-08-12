@@ -103,5 +103,15 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
             Pageable pageable
     );
 
-    List<SalesOrder> findAllByIsDebtTrueAndCreatedAtBetween(Instant start, Instant end);
+    @Query("""
+            SELECT DISTINCT so FROM SalesOrder so
+            LEFT JOIN FETCH so.customer
+            LEFT JOIN FETCH so.debtPayments
+            WHERE so.isRemoved = false
+              AND so.isDebt = true
+              AND so.createdAt >= :start
+              AND so.createdAt < :end
+            ORDER BY so.createdAt DESC
+            """)
+    List<SalesOrder> findActiveDebtSalesCreatedBetween(@Param("start") Instant start, @Param("end") Instant end);
 }

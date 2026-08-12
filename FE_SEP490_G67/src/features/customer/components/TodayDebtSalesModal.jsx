@@ -1,90 +1,99 @@
-import { Modal, Table, Badge } from "react-bootstrap";
-import { FiTrendingUp } from "react-icons/fi";
+import { useState, useEffect } from 'react';
+import { Modal, Table, Spinner, Alert } from 'react-bootstrap';
+import { getTodayDebtSummary } from '../api';
 
 const formatCurrency = (value) => {
-    if (value === null || value === undefined) return "0 đ";
+    if (!value) return "0 đ";
     return new Intl.NumberFormat("vi-VN", {
         style: "currency",
         currency: "VND",
     }).format(value);
 };
 
-const formatDateTime = (isoString) => {
-    if (!isoString) return 'N/A';
-    return new Date(isoString).toLocaleString('vi-VN', {
-        hour: '2-digit',
-        minute: '2-digit',
+const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleString('vi-VN', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
     });
 };
 
-export default function TodayDebtSalesModal({ show, onHide, data }) {
-    const { debtSalesDetails = [], totalDebtAmountIncurredToday = 0 } = data || {};
+export default function TodayDebtSalesModal({ show, onHide }) {
+    const [data, setData] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        if (show) {
+            const fetchData = async () => {
+                setIsLoading(true);
+                setError(null);
+                try {
+                    const result = await getTodayDebtSummary();
+                    setData(result);
+                } catch (err) {
+                    setError("Không thể tải dữ liệu. Vui lòng thử lại.");
+                    console.error(err);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+            fetchData();
+        }
+    }, [show]);
+
+    const renderContent = () => {
+        if (isLoading) {
+            return <div className="text-center p-5"><Spinner animation="border" /></div>;
+        }
+        if (error) {
+            return <Alert variant="danger">{error}</Alert>;
+        }
+        if (!data || !data.debtSalesDetails || data.debtSalesDetails.length === 0) {
+            return <p className="text-muted text-center p-4">Không có đơn bán nợ nào phát sinh trong hôm nay.</p>;
+        }
+
+        return (
+            <Table striped bordered hover responsive>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Mã đơn</th>
+                        <th>Khách hàng</th>
+                        <th>Thời gian</th>
+                        <th className="text-end">Giá trị đơn</th>
+                        <th className="text-end">Còn nợ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {data.debtSalesDetails.map((item, index) => (
+                        <tr key={item.id}>
+                            <td>{index + 1}</td>
+                            <td>{item.orderCode}</td>
+                            <td>{item.customerName}</td>
+                            <td>{formatDate(item.orderDate)}</td>
+                            <td className="text-end">{formatCurrency(item.totalAmount)}</td>
+                            <td className="text-end fw-bold text-danger">{formatCurrency(item.amountRemaining)}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </Table>
+        );
+    };
 
     return (
         <Modal show={show} onHide={onHide} size="lg" centered>
             <Modal.Header closeButton>
-                <Modal.Title>
-                    <div className="d-flex align-items-center gap-2">
-                        <FiTrendingUp className="text-warning" />
-                        <span>Chi tiết đơn bán nợ hôm nay</span>
-                    </div>
-                </Modal.Title>
+                <Modal.Title>Các đơn bán nợ phát sinh hôm nay</Modal.Title>
             </Modal.Header>
             <Modal.Body>
-                {debtSalesDetails.length > 0 ? (
-                    <Table striped bordered hover responsive="sm" className="align-middle">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Mã đơn</th>
-                                <th>Thời gian</th>
-                                <th>Người Nợ</th>
-                                <th>Tổng tiền</th>
-                                <th>Còn lại</th>
-                                <th>Người tạo</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {debtSalesDetails.map((order, index) => (
-                                <tr key={order.id}>
-                                    <td>{index + 1}</td>
-                                    <td>
-                                        <Badge bg="secondary">{order.orderCode}</Badge>
-                                    </td>
-                                    <td>{formatDateTime(order.orderDate)}</td>
-                                    <td>{order.customerName}</td>
-                                    <td className="text-end">{formatCurrency(order.totalAmount)}</td>
-                                    <td className="text-end fw-bold text-danger">
-                                        {formatCurrency(order.amountRemaining)}
-                                    </td>
-                                    <td>{order.createdBy}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                        <tfoot>
-                            <tr className="table-light">
-                                <td colSpan="4" className="text-end fw-bold">
-                                    Tổng nợ phát sinh
-                                </td>
-                                <td colSpan="2" className="text-end fw-bold fs-5 text-warning">
-                                    {formatCurrency(totalDebtAmountIncurredToday)}
-                                </td>
-                            </tr>
-                        </tfoot>
-                    </Table>
-                ) : (
-                    <div className="text-center text-muted py-4">
-                        <p>Không có đơn bán nợ nào được tạo trong hôm nay.</p>
-                    </div>
-                )}
+                {renderContent()}
             </Modal.Body>
             <Modal.Footer>
-                <button className="btn btn-secondary" onClick={onHide}>
-                    Đóng
-                </button>
+                <button className="btn btn-secondary" onClick={onHide}>Đóng</button>
             </Modal.Footer>
         </Modal>
     );
