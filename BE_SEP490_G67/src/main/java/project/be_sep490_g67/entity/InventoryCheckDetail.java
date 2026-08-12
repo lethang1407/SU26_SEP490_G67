@@ -34,7 +34,12 @@ public class InventoryCheckDetail extends BaseEntity {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
-    /** Tồn hệ thống tại thời điểm kiểm (snapshot theo sản phẩm) */
+    /** NULL = kiểm tất cả lô của SP; có giá trị = đúng 1 lô. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "stock_batch_id")
+    private StockBatch stockBatch;
+
+    /** Tồn hệ thống tại thời điểm kiểm (snapshot theo SP hoặc theo lô) */
     @Column(name = "system_qty", nullable = false)
     private Integer systemQty;
 

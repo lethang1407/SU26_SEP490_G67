@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Alert } from 'react-bootstrap';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import StaffInfoForm from '../components/StaffInfoForm';
 import { createStaff } from '../api';
@@ -34,9 +33,8 @@ export default function AddStaffPage() {
     };
 
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container">
@@ -74,6 +72,5 @@ export default function AddStaffPage() {
                     </div>
                 </main>
             </div>
-        </div>
     );
 }

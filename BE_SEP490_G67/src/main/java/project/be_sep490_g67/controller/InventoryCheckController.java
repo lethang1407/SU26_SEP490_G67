@@ -15,12 +15,15 @@ import org.springframework.web.bind.annotation.RestController;
 import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.request.CreateInventoryCheckRequest;
 import project.be_sep490_g67.dto.response.ApiResponse;
+import project.be_sep490_g67.dto.response.InventoryCheckAttentionItemResponse;
 import project.be_sep490_g67.dto.response.InventoryCheckDetailResponse;
 import project.be_sep490_g67.dto.response.InventoryCheckListItemResponse;
 import project.be_sep490_g67.dto.response.InventoryCheckProductPreviewResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.repository.UserRepository;
 import project.be_sep490_g67.service.InventoryCheckService;
+
+import java.util.List;
 
 @RestController
 @RequestMapping(ApiPath.INVENTORY_CHECKS)
@@ -40,6 +43,14 @@ public class InventoryCheckController {
         return ApiResponse.<PageResponse<InventoryCheckListItemResponse>>builder()
                 .result(inventoryCheckService.getChecks(search, status, page, size))
                 .message("Lấy danh sách phiếu kiểm kho thành công")
+                .build();
+    }
+
+    @GetMapping("/attention")
+    public ApiResponse<List<InventoryCheckAttentionItemResponse>> getAttentionItems() {
+        return ApiResponse.<List<InventoryCheckAttentionItemResponse>>builder()
+                .result(inventoryCheckService.getAttentionItems())
+                .message("Lấy danh sách cần kiểm ngay thành công")
                 .build();
     }
 

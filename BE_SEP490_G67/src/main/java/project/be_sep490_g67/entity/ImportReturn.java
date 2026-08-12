@@ -19,12 +19,30 @@ public class ImportReturn extends BaseEntity {
     @Column(name = "id", nullable = false)
     private Integer id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "import_order_id", nullable = false)
+    /** Có thể null với phiếu trả đa NCC / nháp. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "import_order_id")
     private ImportOrder importOrder;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "supplier_id")
+    private Supplier supplier;
 
     @Column(name = "return_code", length = 30)
     private String returnCode;
+
+    @ColumnDefault("'COMPLETED'")
+    @Column(name = "status", length = 20)
+    private String status;
+
+    /** MANUAL | INVENTORY_CHECK */
+    @ColumnDefault("'MANUAL'")
+    @Column(name = "source", length = 30, nullable = false)
+    private String source;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "inventory_check_id")
+    private InventoryCheck inventoryCheck;
 
     @ColumnDefault("0.00")
     @Column(name = "total_refund", precision = 15, scale = 2)
@@ -36,6 +54,4 @@ public class ImportReturn extends BaseEntity {
 
     @OneToMany(mappedBy = "importReturn")
     private Set<ImportReturnDetail> importReturnDetails = new LinkedHashSet<>();
-
-
 }

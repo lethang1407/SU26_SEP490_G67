@@ -51,6 +51,16 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
     Optional<StockBatch> findActiveWithProductById(@Param("id") Integer id);
 
     @Query("""
+            SELECT sb FROM StockBatch sb
+            JOIN FETCH sb.product p
+            LEFT JOIN FETCH sb.importOrder io
+            LEFT JOIN FETCH io.supplier
+            WHERE sb.id = :id
+              AND sb.isRemoved = false
+            """)
+    Optional<StockBatch> findActiveWithProductAndImportById(@Param("id") Integer id);
+
+    @Query("""
     SELECT sb
     FROM StockBatch sb
     JOIN sb.stockMovements sm
@@ -66,6 +76,49 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
     LIMIT 1
     """)
     Optional<StockBatch> findFirstAvailableBatchByProductId(Integer productId);
+
+    /**
+     * Số thứ tự lớn nhất trong ngày cho mã lô dạng LddMMyy-xx.
+     * dayPrefix ví dụ: L050826
+     */
+    @Query("""
+            SELECT sb FROM StockBatch sb
+            JOIN FETCH sb.product p
+            LEFT JOIN FETCH sb.importOrder io
+            LEFT JOIN FETCH io.supplier
+            WHERE sb.isRemoved = false
+              AND COALESCE(sb.quantityIn, 0) > 0
+              AND sb.expiryDate IS NOT NULL
+              AND sb.expiryDate < CURRENT_DATE
+            ORDER BY sb.expiryDate ASC, sb.id ASC
+            """)
+    List<StockBatch> findExpiredWithStock();
+
+    @Query("""
+            SELECT sb FROM StockBatch sb
+            JOIN FETCH sb.product p
+            LEFT JOIN FETCH sb.importOrder io
+            LEFT JOIN FETCH io.supplier
+            WHERE sb.isRemoved = false
+              AND COALESCE(sb.quantityIn, 0) > 0
+              AND sb.expiryDate IS NOT NULL
+              AND sb.expiryDate >= CURRENT_DATE
+              AND sb.expiryDate <= :untilDate
+            ORDER BY sb.expiryDate ASC, sb.id ASC
+            """)
+    List<StockBatch> findExpiringSoonWithStock(@Param("untilDate") java.time.LocalDate untilDate);
+
+    @Query("""
+            SELECT sb FROM StockBatch sb
+            JOIN FETCH sb.product p
+            LEFT JOIN FETCH sb.importOrder io
+            LEFT JOIN FETCH io.supplier
+            WHERE sb.product.id = :productId
+              AND sb.isRemoved = false
+              AND COALESCE(sb.quantityIn, 0) > 0
+            ORDER BY sb.receivedDate ASC, sb.id ASC
+            """)
+    List<StockBatch> findAvailableWithImportByProductId(@Param("productId") Integer productId);
 
     /**
      * Số thứ tự lớn nhất trong ngày cho mã lô dạng LddMMyy-xx.

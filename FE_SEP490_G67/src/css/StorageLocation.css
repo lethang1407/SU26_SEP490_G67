@@ -187,11 +187,33 @@
     color: #2563eb;
 }
 
-/* Zone grid */
+/* Zone grid — nửa trái Bán hàng, nửa phải Kho */
 .storage-location-grid {
     display: flex;
     flex-direction: column;
     gap: 14px;
+}
+
+.storage-location-grid--split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+}
+
+.storage-location-grid--split .storage-location-zone-block {
+    margin-bottom: 0;
+    min-height: 100%;
+    padding: 14px;
+    background: #fff;
+    border: 1px solid #eaedf3;
+    border-radius: 16px;
+}
+
+@media (max-width: 900px) {
+    .storage-location-grid--split {
+        grid-template-columns: 1fr;
+    }
 }
 
 .storage-location-grid__hint {
@@ -302,9 +324,9 @@
 }
 
 .storage-location-zone-block__title {
-    margin: 0 0 4px;
-    font-size: 15px;
-    font-weight: 700;
+    margin: 0 0 12px;
+    font-size: 18px;
+    font-weight: 750;
     color: #0f172a;
 }
 
@@ -862,6 +884,11 @@
     color: #64748b;
 }
 
+.storage-location-empty--compact {
+    padding: 24px 16px;
+    background: #f8fafc;
+}
+
 /* Location detail modal */
 .storage-location-detail-modal.modal-dialog {
     max-width: 520px;
@@ -989,6 +1016,14 @@
     font-size: 14px;
     font-weight: 700;
     color: #2563eb;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.storage-location-detail-modal__batch-product {
+    font-weight: 500;
+    font-size: 13px;
+    color: #64748b;
 }
 
 .storage-location-detail-modal__batch-details {
@@ -1064,14 +1099,16 @@
 
 .storage-location-detail-modal__footer {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: center;
     gap: 10px;
     padding: 16px 24px 24px;
     border-top: 1px solid #f1f5f9;
 }
 
 .storage-location-detail-modal__action {
-    width: 100%;
+    flex: 1;
+    width: auto;
     justify-content: center;
 }
 
@@ -1837,5 +1874,40 @@
     .storage-adjust-modal__unplaced-list {
         max-height: none;
     }
+}
+
+.place-batch-qty-modal-overlay {
+    z-index: 2100;
+}
+.place-batch-qty-modal .inventory-check-modal-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 14px;
+}
+.place-batch-qty-modal .inventory-check-modal-field span {
+    font-size: 14px;
+    font-weight: 600;
+    color: #334155;
+}
+.place-batch-qty-modal .inventory-check-modal-field input {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 15px;
+    min-height: 42px;
+}
+.place-batch-qty-modal .inventory-check-modal-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 14px;
+    color: #334155;
+    cursor: pointer;
+}
+.place-batch-qty-modal .inventory-check-modal-checkbox input {
+    width: 16px;
+    height: 16px;
 }
 

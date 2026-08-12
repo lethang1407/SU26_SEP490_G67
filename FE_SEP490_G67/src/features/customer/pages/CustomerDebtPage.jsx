@@ -21,7 +21,6 @@ import {
   FiChevronDown,
   FiTrendingUp,
 } from "react-icons/fi";
-import SideBar from "../../../components/ui/sidebar/SideBar";
 import Header from "../../../components/ui/header-footer/Header";
 import { getOverviewCustomer, getCustomerDebts, getTodayDebtSummary } from "../api";
 import CreateCustomerDebtModal from "../components/CreateCustomerDebtModal";
@@ -354,9 +353,7 @@ export default function CustomerDebtPage() {
   );
 
   return (
-    <div className="d-flex vh-100">
-      <SideBar />
-      <div className="flex-grow-1 d-flex flex-column">
+    <div className="admin-content">
         <Header />
         <main className="p-4 flex-grow-1" style={{ overflowY: "auto" }}>
           {toastMessage && <div className="customer-page__toast">{toastMessage}</div>}
@@ -536,6 +533,5 @@ export default function CustomerDebtPage() {
           data={todayDebtSummary}
         />
       </div>
-    </div>
   );
 }

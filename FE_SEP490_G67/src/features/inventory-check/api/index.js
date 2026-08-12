@@ -32,6 +32,11 @@ export async function fetchInventoryCheckProductPreview(productId) {
     return response.result;
 }
 
+export async function fetchInventoryCheckAttention() {
+    const response = await api.get('/inventory-checks/attention');
+    return response.result ?? [];
+}
+
 /** Tìm SP theo tên / barcode — dùng chung endpoint POS. */
 export async function searchProductsForCheck(query) {
     const response = await api.get('/products/search', { params: { q: query } });
@@ -40,5 +45,10 @@ export async function searchProductsForCheck(query) {
 
 export async function createInventoryCheck(payload) {
     const response = await api.post('/inventory-checks', payload);
+    return response.result;
+}
+
+export async function cancelStockBatch(batchId, quantity) {
+    const response = await api.post(`/stock-batches/${batchId}/cancel`, { quantity });
     return response.result;
 }

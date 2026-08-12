@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Alert, Spinner } from 'react-bootstrap';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import Header from '../../../components/ui/header-footer/Header';
 import { getStoreInfor } from '../api';
 import StoreForm from '../components/StoreForm';
@@ -39,9 +38,8 @@ function StoreInfo() {
     };
 
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <Header />
                 <main className="admin-main">
                     <div className="dashboard-container">
@@ -64,7 +62,6 @@ function StoreInfo() {
                     </div>
                 </main>
             </div>
-        </div>
     );
 }
 
