@@ -30,6 +30,10 @@ public class SalesOrder extends BaseEntity {
     @Column(name = "order_code", length = 30)
     private String orderCode;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "exchange_sales_order_id")
+    private SalesOrder exchangeSalesOrder;
+
     @ColumnDefault("'CASH'")
     @Column(name = "payment_method", length = 50)
     private String paymentMethod;
@@ -59,8 +63,8 @@ public class SalesOrder extends BaseEntity {
     private Boolean isDebt;
 
     @ColumnDefault("0")
-    @Column(name = "is_check_debt")
-    private Boolean isCheckDebt;
+    @Column(name = "is_check_unstable_debt")
+    private Boolean isCheckDebtUnstable;
 
     @Lob
     @Column(name = "note")

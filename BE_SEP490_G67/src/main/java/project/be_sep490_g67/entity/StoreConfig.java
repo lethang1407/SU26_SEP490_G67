@@ -37,4 +37,8 @@ public class StoreConfig extends BaseEntity{
     @ColumnDefault("'VND'")
     @Column(name = "currency", length = 10)
     private String currency;
+
+    @ColumnDefault("7")
+    @Column(name = "return_window_days")
+    private Integer returnWindowDays;
 }

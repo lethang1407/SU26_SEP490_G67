@@ -28,6 +28,7 @@ import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.CustomerRepository;
 import project.be_sep490_g67.repository.SalesOrderRepository;
 import project.be_sep490_g67.repository.UserRepository;
+import project.be_sep490_g67.utils.DebtCalculator;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -291,14 +292,8 @@ public class CustomerService {
             BigDecimal totalAmount = so.getTotalAmount() != null ? so.getTotalAmount() : BigDecimal.ZERO;
             BigDecimal amountRemaining = totalAmount.subtract(totalPaid);
 
-            DebtOrderStatus status;
-            if (amountRemaining.compareTo(BigDecimal.ZERO) <= 0) {
-                status = DebtOrderStatus.PAID;
-            } else if (so.getDueDate() != null && so.getDueDate().isBefore(now)) {
-                status = DebtOrderStatus.OVERDUE;
-            } else {
-                status = DebtOrderStatus.IN_DEBT;
-            }
+            // Dùng chung ngưỡng PAID/OVERDUE/IN_DEBT với màn lịch sử hóa đơn.
+            DebtOrderStatus status = DebtCalculator.deriveStatus(amountRemaining, so.getDueDate(), now);
 
             String createdByName = "N/A";
              if (so.getCreatedBy() != null) {

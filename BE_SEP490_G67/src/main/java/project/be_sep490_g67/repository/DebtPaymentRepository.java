@@ -10,6 +10,7 @@ import project.be_sep490_g67.entity.DebtPayment;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 
 @Repository
@@ -25,6 +26,21 @@ public interface DebtPaymentRepository extends JpaRepository<DebtPayment, Intege
             Instant startOfDay,
             Instant endOfDay
     );
+
+    /**
+     * Tổng tiền đã trả nợ của từng hóa đơn trong danh sách. Trả về từng dòng
+     * [salesOrderId, tổng tiền] để một trang lịch sử chỉ tốn một query thay vì
+     * lazy-load {@code salesOrder.debtPayments} cho mỗi dòng.
+     * Hóa đơn chưa có lần trả nợ nào sẽ không xuất hiện trong kết quả.
+     */
+    @Query("""
+            SELECT dp.salesOrder.id, COALESCE(SUM(dp.amountPaid), 0)
+            FROM DebtPayment dp
+            WHERE dp.salesOrder.id IN :salesOrderIds
+              AND dp.isRemoved = false
+            GROUP BY dp.salesOrder.id
+            """)
+    List<Object[]> sumPaidBySalesOrderIds(@Param("salesOrderIds") Collection<Integer> salesOrderIds);
 
     @Query(value = """
             SELECT dp FROM DebtPayment dp

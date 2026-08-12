@@ -20,7 +20,7 @@ export default function useInvoiceExport() {
         try {
             const data = await getInvoiceData(orderId);
             setInvoiceData(data);
-            return data;   // allow callers to chain (e.g. trigger print immediately)
+            return data;
         } catch (err) {
             const msg = err.response?.data?.message
                 ?? 'Không thể tải dữ liệu hóa đơn. Vui lòng thử lại.';

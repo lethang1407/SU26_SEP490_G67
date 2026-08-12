@@ -40,6 +40,7 @@ public class ExchangeOrderResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ReturnItemInfo {
+        Integer salesOrderDetailId;
         Integer productId;
         String productCode;
         String productName;
