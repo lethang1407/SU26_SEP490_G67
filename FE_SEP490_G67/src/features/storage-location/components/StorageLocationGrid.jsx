@@ -62,16 +62,18 @@ function ZoneSection({ group, onOpenZone }) {
 }
 
 function ZoneTypeBlock({ title, groups, onOpenZone }) {
-    if (!groups.length) {
-        return null;
-    }
-
     return (
         <div className="storage-location-zone-block">
             <h3 className="storage-location-zone-block__title">{title}</h3>
-            {groups.map((group) => (
-                <ZoneSection key={group.zone} group={group} onOpenZone={onOpenZone} />
-            ))}
+            {groups.length === 0 ? (
+                <div className="storage-location-empty storage-location-empty--compact">
+                    <p>Chưa có khu nào.</p>
+                </div>
+            ) : (
+                groups.map((group) => (
+                    <ZoneSection key={group.zone} group={group} onOpenZone={onOpenZone} />
+                ))
+            )}
         </div>
     );
 }
@@ -88,9 +90,9 @@ export default function StorageLocationGrid({ groups, onOpenZone }) {
     const { sales, warehouse } = groupZoneGroupsByType(groups);
 
     return (
-        <div className="storage-location-grid">
-            <ZoneTypeBlock title="Khu bán hàng" groups={sales} onOpenZone={onOpenZone} />
-            <ZoneTypeBlock title="Khu kho" groups={warehouse} onOpenZone={onOpenZone} />
+        <div className="storage-location-grid storage-location-grid--split">
+            <ZoneTypeBlock title="Bán hàng" groups={sales} onOpenZone={onOpenZone} />
+            <ZoneTypeBlock title="Kho" groups={warehouse} onOpenZone={onOpenZone} />
         </div>
     );
 }

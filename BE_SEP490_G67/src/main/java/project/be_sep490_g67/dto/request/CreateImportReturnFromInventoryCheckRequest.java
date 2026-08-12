@@ -32,5 +32,8 @@ public class CreateImportReturnFromInventoryCheckRequest {
         Integer quantity;
 
         String returnReason;
+
+        /** RETURN | EXCHANGE */
+        String method;
     }
 }

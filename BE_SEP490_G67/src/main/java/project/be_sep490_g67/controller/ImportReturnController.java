@@ -20,6 +20,7 @@ import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.constants.ImportReturnConstants;
 import project.be_sep490_g67.dto.request.CreateImportReturnFromInventoryCheckRequest;
 import project.be_sep490_g67.dto.request.SaveImportReturnRequest;
+import project.be_sep490_g67.dto.request.UpdateExchangeExpiryRequest;
 import project.be_sep490_g67.dto.request.UpdateImportReturnLineStatusRequest;
 import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.ImportReturnDetailResponse;
@@ -192,6 +193,18 @@ public class ImportReturnController {
         return ApiResponse.<ImportReturnDetailResponse>builder()
                 .result(importReturnService.updateLineStatus(staffId, id, detailId, request))
                 .message("Đã cập nhật trạng thái dòng")
+                .build();
+    }
+
+    @PatchMapping("/{id}/lines/{detailId}/exchange-expiry")
+    public ApiResponse<ImportReturnDetailResponse> updateExchangeExpiry(
+            @PathVariable Integer id,
+            @PathVariable Integer detailId,
+            @RequestBody UpdateExchangeExpiryRequest request) {
+        Integer staffId = resolveStaffId();
+        return ApiResponse.<ImportReturnDetailResponse>builder()
+                .result(importReturnService.updateExchangeExpiry(staffId, id, detailId, request))
+                .message("Đã cập nhật HSD lô đổi")
                 .build();
     }
 

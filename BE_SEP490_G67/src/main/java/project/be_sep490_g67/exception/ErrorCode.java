@@ -58,7 +58,7 @@ public enum ErrorCode {
     SALES_ZONE_BATCH_SPLIT(1058, "Không thể tách cùng một lô sang nhiều ô trên khu bán", HttpStatus.BAD_REQUEST),
     STOCK_BATCH_NOT_FOUND(1033, "Không tìm thấy lô hàng", HttpStatus.NOT_FOUND),
     BATCH_LOCATION_NOT_FOUND(1034, "Không tìm thấy phân bổ lô trên kệ", HttpStatus.NOT_FOUND),
-    STORAGE_LOCATION_PRODUCT_MISMATCH(1035, "Kệ đang chứa sản phẩm khác. Mỗi kệ chỉ chứa một loại sản phẩm", HttpStatus.BAD_REQUEST),
+    STORAGE_LOCATION_PRODUCT_MISMATCH(1035, "Ô khu kho đang chứa sản phẩm khác. Mỗi ô khu kho chỉ chứa một loại sản phẩm", HttpStatus.BAD_REQUEST),
     INSUFFICIENT_UNPLACED_QUANTITY(1036, "Số lượng xếp vượt quá số lượng lô chưa xếp kệ", HttpStatus.BAD_REQUEST),
     INSUFFICIENT_BATCH_LOCATION_QUANTITY(1037, "Số lượng chuyển vượt quá số lượng đang có trên kệ", HttpStatus.BAD_REQUEST),
     INVALID_BATCH_LOCATION_MOVE(1038, "Không thể chuyển lô về cùng một kệ", HttpStatus.BAD_REQUEST),

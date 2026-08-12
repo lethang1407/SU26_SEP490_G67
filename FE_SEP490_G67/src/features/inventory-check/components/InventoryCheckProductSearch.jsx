@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { searchProductsForCheck } from '../api';
 
 const DEBOUNCE_MS = 300;
@@ -21,7 +20,6 @@ function mapProduct(product) {
 
 export default function InventoryCheckProductSearch({
     onSelect,
-    showAddProduct = true,
     placeholder = 'Tìm hàng hóa theo mã hoặc tên để thêm vào phiếu kiểm...',
 }) {
     const [keyword, setKeyword] = useState('');
@@ -133,17 +131,6 @@ export default function InventoryCheckProductSearch({
                     </div>
                 )}
             </div>
-
-            {showAddProduct ? (
-                <Link
-                    to="/admin/products/create"
-                    className="ioc-search-add"
-                    title="Thêm hàng hóa mới"
-                    aria-label="Thêm hàng hóa mới"
-                >
-                    <Plus size={20} />
-                </Link>
-            ) : null}
         </div>
     );
 }

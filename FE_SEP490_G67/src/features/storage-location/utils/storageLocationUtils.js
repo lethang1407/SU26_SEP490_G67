@@ -63,13 +63,44 @@ export function getLocationProduct(location) {
     };
 }
 
+/** Danh sách SP distinct trên ô (theo productCode). */
+export function getLocationProducts(location) {
+    const contents = location.contents ?? [];
+    const map = new Map();
+    for (const item of contents) {
+        const key = item.productCode || item.productName || String(item.id);
+        if (!map.has(key)) {
+            map.set(key, {
+                productCode: item.productCode,
+                productName: item.productName,
+                unit: item.unit,
+            });
+        }
+    }
+    return [...map.values()];
+}
+
+export function getLocationProductPreview(location, maxNames = 2) {
+    const products = getLocationProducts(location);
+    if (products.length === 0) {
+        return '';
+    }
+    const names = products.map((p) => shortenProductName(p.productName)).filter(Boolean);
+    if (names.length <= maxNames) {
+        return names.join(', ');
+    }
+    return `${names.slice(0, maxNames).join(', ')} +${names.length - maxNames}`;
+}
+
 export function getLocationMetrics(location) {
     const contents = location.contents ?? [];
     const batchLineCount = contents.length;
     const totalQty = contents.reduce((sum, item) => sum + (item.quantity ?? 0), 0);
     const batchCount = new Set(contents.map((item) => item.batchCode)).size;
     const hasNearExpiry = contents.some((item) => isNearExpiry(item.expiryDate));
-    const product = getLocationProduct(location);
+    const products = getLocationProducts(location);
+    const product = products[0] ?? null;
+    const productCount = products.length;
 
     return {
         batchLineCount,
@@ -77,6 +108,8 @@ export function getLocationMetrics(location) {
         batchCount,
         hasNearExpiry,
         product,
+        products,
+        productCount,
         isEmpty: batchLineCount === 0,
     };
 }

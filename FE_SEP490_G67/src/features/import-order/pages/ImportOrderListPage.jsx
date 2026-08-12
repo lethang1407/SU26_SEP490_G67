@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import SupplierPagination from '../../supplier/components/SupplierPagination';
 import ImportOrderToolbar from '../components/ImportOrderToolbar';
@@ -89,9 +88,8 @@ export default function ImportOrderListPage() {
     const totalItems = data.totalElements ?? 0;
 
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container supplier-page import-order-page">
@@ -143,6 +141,5 @@ export default function ImportOrderListPage() {
                     </div>
                 </main>
             </div>
-        </div>
     );
 }

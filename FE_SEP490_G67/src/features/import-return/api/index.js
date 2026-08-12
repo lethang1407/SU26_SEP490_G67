@@ -62,9 +62,23 @@ export async function createAndSubmitImportReturn(payload) {
     return response.result;
 }
 
-export async function updateImportReturnLineStatus(returnId, detailId, lineStatus) {
-    const response = await api.patch(`/import-returns/${returnId}/lines/${detailId}/status`, {
-        lineStatus,
+export async function updateImportReturnLineStatus(
+    returnId,
+    detailId,
+    lineStatus,
+    exchangeExpiryDate,
+) {
+    const payload = { lineStatus };
+    if (exchangeExpiryDate !== undefined) {
+        payload.exchangeExpiryDate = exchangeExpiryDate || null;
+    }
+    const response = await api.patch(`/import-returns/${returnId}/lines/${detailId}/status`, payload);
+    return response.result;
+}
+
+export async function updateImportReturnExchangeExpiry(returnId, detailId, exchangeExpiryDate) {
+    const response = await api.patch(`/import-returns/${returnId}/lines/${detailId}/exchange-expiry`, {
+        exchangeExpiryDate: exchangeExpiryDate || null,
     });
     return response.result;
 }

@@ -109,7 +109,6 @@ public class InventoryCheckService {
     public List<InventoryCheckAttentionItemResponse> getAttentionItems() {
         LocalDate today = LocalDate.now();
         LocalDate until = today.plusDays(30);
-        Instant checkedSince = today.minusDays(30).atStartOfDay(ZoneId.systemDefault()).toInstant();
 
         List<InventoryCheckAttentionItemResponse> items = new ArrayList<>();
 
@@ -118,50 +117,6 @@ public class InventoryCheckService {
         }
         for (StockBatch batch : stockBatchRepository.findExpiringSoonWithStock(until)) {
             items.add(toAttentionItem(batch, "EXPIRING_SOON", "Sắp hết hạn"));
-        }
-
-        Set<Integer> recentlyChecked = new HashSet<>(
-                inventoryCheckDetailRepository.findProductIdsCheckedSince(checkedSince));
-
-        Set<Integer> seenProducts = new HashSet<>();
-        for (StockBatch batch : stockBatchRepository.findExpiredWithStock()) {
-            seenProducts.add(batch.getProduct().getId());
-        }
-        for (StockBatch batch : stockBatchRepository.findExpiringSoonWithStock(until)) {
-            seenProducts.add(batch.getProduct().getId());
-        }
-
-        // SP còn tồn nhưng lâu chưa kiểm / chưa từng kiểm
-        List<StockBatch> anyStock = stockBatchRepository.findAll().stream()
-                .filter(sb -> !Boolean.TRUE.equals(sb.getIsRemoved()))
-                .filter(sb -> sb.getQuantityIn() != null && sb.getQuantityIn() > 0)
-                .filter(sb -> sb.getProduct() != null && !Boolean.TRUE.equals(sb.getProduct().getIsRemoved()))
-                .toList();
-
-        Map<Integer, Integer> qtyByProduct = new HashMap<>();
-        Map<Integer, Product> productById = new HashMap<>();
-        for (StockBatch batch : anyStock) {
-            Integer pid = batch.getProduct().getId();
-            if (seenProducts.contains(pid) || recentlyChecked.contains(pid)) {
-                continue;
-            }
-            qtyByProduct.merge(pid, batch.getQuantityIn(), Integer::sum);
-            productById.putIfAbsent(pid, batch.getProduct());
-        }
-
-        for (Map.Entry<Integer, Product> entry : productById.entrySet()) {
-            Product product = entry.getValue();
-            items.add(InventoryCheckAttentionItemResponse.builder()
-                    .productId(product.getId())
-                    .productCode(resolveProductCode(product))
-                    .productName(product.getName())
-                    .batchId(null)
-                    .batchCode(null)
-                    .reasonCode("NOT_CHECKED_RECENTLY")
-                    .reason("Lâu chưa kiểm / chưa từng kiểm")
-                    .expiryDate(null)
-                    .quantity(qtyByProduct.getOrDefault(entry.getKey(), 0))
-                    .build());
         }
 
         return items;
@@ -202,9 +157,12 @@ public class InventoryCheckService {
         }
 
         Instant now = Instant.now();
+        Instant checkAt = request.getCheckDate() != null
+                ? request.getCheckDate().atStartOfDay(ZoneId.systemDefault()).toInstant()
+                : now;
         InventoryCheck check = new InventoryCheck();
         check.setCheckCode(generateCheckCode(now));
-        check.setCheckDate(now);
+        check.setCheckDate(checkAt);
         check.setStatus(STATUS_COMPLETED);
         check.setWarehouse(
                 request.getWarehouse() == null || request.getWarehouse().isBlank()
@@ -234,7 +192,10 @@ public class InventoryCheckService {
             }
 
             int actualQty = lineReq.getActualQty();
-            int delta = actualQty - systemQty;
+            int adjustQty = lineReq.getStockAdjustQty() != null
+                    ? lineReq.getStockAdjustQty()
+                    : actualQty;
+            int delta = adjustQty - systemQty;
 
             InventoryCheckDetail detail = new InventoryCheckDetail();
             detail.setInventoryCheck(savedCheck);

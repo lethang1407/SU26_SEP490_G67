@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Spinner } from 'react-bootstrap';
 import { Plus, Settings2 } from 'lucide-react';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import AdjustStorageLocationModal from '../components/AdjustStorageLocationModal';
@@ -21,6 +20,7 @@ import {
 } from '../utils/storageLocationUtils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Inventory.css';
+import '../../../css/Supplier.css';
 import '../../../css/StorageLocation.css';
 
 const DEFAULT_FILTERS = {
@@ -208,9 +208,8 @@ export default function StorageLocationListPage() {
     };
 
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container storage-location-page">
@@ -281,7 +280,6 @@ export default function StorageLocationListPage() {
                         )}
                     </div>
                 </main>
-            </div>
 
             <CreateStorageLocationModal
                 show={showCreateModal}

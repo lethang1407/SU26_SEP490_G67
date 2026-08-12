@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Alert, Spinner } from 'react-bootstrap';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import { fetchImportOrderById } from '../api';
@@ -67,9 +66,8 @@ export default function ImportOrderDetailPage() {
 
     if (loading) {
         return (
-            <div className="admin-layout">
-                <SideBar />
-                <div className="admin-content">
+            <div className="admin-content">
+                
                     <AdminHeader />
                     <main className="admin-main">
                         <div className="dashboard-container import-order-page">
@@ -80,15 +78,13 @@ export default function ImportOrderDetailPage() {
                         </div>
                     </main>
                 </div>
-            </div>
         );
     }
 
     if (!order) {
         return (
-            <div className="admin-layout">
-                <SideBar />
-                <div className="admin-content">
+            <div className="admin-content">
+                
                     <AdminHeader />
                     <main className="admin-main">
                         <div className="dashboard-container import-order-page">
@@ -105,14 +101,12 @@ export default function ImportOrderDetailPage() {
                         </div>
                     </main>
                 </div>
-            </div>
         );
     }
 
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container import-order-page import-order-detail-page">
@@ -157,6 +151,5 @@ export default function ImportOrderDetailPage() {
                     </div>
                 </main>
             </div>
-        </div>
     );
 }

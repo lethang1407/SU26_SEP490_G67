@@ -1,22 +1,29 @@
-import { ArrowLeft, Search, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Check, Pencil, Search, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import StyledSelect from '../../../components/ui/StyledSelect';
+import ConfirmNoticeModal from '../../../components/ui/ConfirmNoticeModal';
+import SuccessNoticeModal from '../../../components/ui/SuccessNoticeModal';
+import AlertNoticeModal from '../../../components/ui/AlertNoticeModal';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import {
     deleteImportReturnDraft,
     fetchImportReturnById,
     fetchImportReturns,
     submitImportReturn,
+    updateImportReturnExchangeExpiry,
     updateImportReturnLineStatus,
 } from '../api';
 import {
     DOC_STATUS,
     LINE_STATUS,
+    RETURN_METHOD,
     formatCurrency,
+    formatDateOnly,
     formatDateTime,
     formatLineStatus,
     formatMethod,
     formatReturnStatus,
-    getLineStatusClass,
+    formatTimeOnly,
     getReturnStatusClass,
 } from '../constants';
 
@@ -81,6 +88,9 @@ export default function ImportReturnListModal({
     const [from, setFrom] = useState('');
     const [to, setTo] = useState('');
     const [busy, setBusy] = useState(false);
+    const [success, setSuccess] = useState(null);
+    const [deleteTargetId, setDeleteTargetId] = useState(null);
+    const [alertMessage, setAlertMessage] = useState(null);
 
     const loadList = useCallback(async () => {
         setLoading(true);
@@ -173,15 +183,21 @@ export default function ImportReturnListModal({
         loadList();
     };
 
-    const handleDeleteDraft = async (id, event) => {
+    const handleDeleteDraft = (id, event) => {
         event.stopPropagation();
-        if (!window.confirm('Xóa phiếu nháp này? Tồn kho sẽ được hoàn lại.')) return;
+        setDeleteTargetId(id);
+    };
+
+    const confirmDeleteDraft = async () => {
+        if (deleteTargetId == null) return;
         setBusy(true);
         try {
-            await deleteImportReturnDraft(id);
+            await deleteImportReturnDraft(deleteTargetId);
+            setDeleteTargetId(null);
             await loadList();
         } catch (deleteError) {
-            setError(getApiErrorMessage(deleteError, 'Không xóa được nháp.'));
+            setDeleteTargetId(null);
+            setAlertMessage(getApiErrorMessage(deleteError, 'Không xóa được nháp.'));
         } finally {
             setBusy(false);
         }
@@ -195,8 +211,7 @@ export default function ImportReturnListModal({
             const result = await submitImportReturn(detail.id);
             setDetail(result);
             setError(null);
-            window.alert('Đã lưu đổi trả. Phiếu chuyển sang lịch sử (đang đổi trả).');
-            onClose?.();
+            setSuccess('Đã lưu đổi trả.');
         } catch (submitError) {
             setError(getApiErrorMessage(submitError, 'Không lưu đổi trả được.'));
         } finally {
@@ -204,15 +219,38 @@ export default function ImportReturnListModal({
         }
     };
 
-    const handleLineStatus = async (detailId, lineStatus) => {
+    const handleLineStatus = async (detailId, lineStatus, exchangeExpiryDate) => {
         if (!detail?.id) return;
         setBusy(true);
         setError(null);
         try {
-            const result = await updateImportReturnLineStatus(detail.id, detailId, lineStatus);
+            const result = await updateImportReturnLineStatus(
+                detail.id,
+                detailId,
+                lineStatus,
+                exchangeExpiryDate,
+            );
             setDetail(result);
         } catch (statusError) {
             setError(getApiErrorMessage(statusError, 'Không cập nhật trạng thái dòng.'));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleExchangeExpiry = async (detailId, exchangeExpiryDate) => {
+        if (!detail?.id) return;
+        setBusy(true);
+        setError(null);
+        try {
+            const result = await updateImportReturnExchangeExpiry(
+                detail.id,
+                detailId,
+                exchangeExpiryDate,
+            );
+            setDetail(result);
+        } catch (expiryError) {
+            setAlertMessage(getApiErrorMessage(expiryError, 'Không cập nhật được HSD lô đổi.'));
         } finally {
             setBusy(false);
         }
@@ -274,22 +312,22 @@ export default function ImportReturnListModal({
                                         />
                                     </div>
                                     <div className="import-return-modal__date-filters">
-                                        <select
-                                            className="import-return-modal__control"
+                                        <StyledSelect
                                             value={from || to ? 'custom' : String(days)}
-                                            onChange={(e) => {
+                                            options={[
+                                                { value: '7', label: '7 ngày' },
+                                                { value: '15', label: '15 ngày' },
+                                                { value: '30', label: '30 ngày' },
+                                                { value: 'custom', label: 'Tuỳ chọn' },
+                                            ]}
+                                            onChange={(next) => {
                                                 setPage(0);
-                                                if (e.target.value === 'custom') return;
-                                                setDays(Number(e.target.value));
+                                                if (next === 'custom') return;
+                                                setDays(Number(next));
                                                 setFrom('');
                                                 setTo('');
                                             }}
-                                        >
-                                            <option value="7">7 ngày</option>
-                                            <option value="15">15 ngày</option>
-                                            <option value="30">30 ngày</option>
-                                            <option value="custom">Tuỳ chọn</option>
-                                        </select>
+                                        />
                                         <input
                                             type="date"
                                             className="import-return-modal__control"
@@ -385,10 +423,37 @@ export default function ImportReturnListModal({
                                 onClose?.();
                             }}
                             onLineStatus={handleLineStatus}
+                            onSaveExchangeExpiry={handleExchangeExpiry}
                         />
                     )}
                 </div>
             </div>
+            <ConfirmNoticeModal
+                open={deleteTargetId != null}
+                title="Xóa phiếu nháp"
+                message="Xóa phiếu nháp này? Tồn kho sẽ được hoàn lại."
+                confirmLabel="Xóa nháp"
+                cancelLabel="Hủy"
+                danger
+                confirming={busy}
+                onClose={() => {
+                    if (!busy) setDeleteTargetId(null);
+                }}
+                onConfirm={confirmDeleteDraft}
+            />
+            <SuccessNoticeModal
+                open={Boolean(success)}
+                message={success}
+                onClose={() => {
+                    setSuccess(null);
+                    onClose?.();
+                }}
+            />
+            <AlertNoticeModal
+                open={Boolean(alertMessage)}
+                message={alertMessage}
+                onClose={() => setAlertMessage(null)}
+            />
         </div>
     );
 }
@@ -401,25 +466,85 @@ function DetailBody({
     onSubmitDraft,
     onEditDraft,
     onLineStatus,
+    onSaveExchangeExpiry,
 }) {
+    const [pendingExpiry, setPendingExpiry] = useState({});
+    const [editingExpiryId, setEditingExpiryId] = useState(null);
+    const [editExpiryValue, setEditExpiryValue] = useState('');
+
+    useEffect(() => {
+        setPendingExpiry({});
+        setEditingExpiryId(null);
+        setEditExpiryValue('');
+    }, [detail?.id]);
+
     if (loading || !detail) {
         return <p>Đang tải chi tiết...</p>;
     }
 
     const lines = detail.lines ?? [];
+    const showHistoryCols = !isDraft;
+
+    const getPendingExpiry = (line) => {
+        const key = String(line.detailId);
+        if (Object.prototype.hasOwnProperty.call(pendingExpiry, key)) {
+            return pendingExpiry[key];
+        }
+        return line.exchangeExpiryDate || '';
+    };
+
+    const startEditExpiry = (line) => {
+        setEditingExpiryId(line.detailId);
+        setEditExpiryValue(line.exchangeExpiryDate || '');
+    };
+
+    const cancelEditExpiry = () => {
+        setEditingExpiryId(null);
+        setEditExpiryValue('');
+    };
+
+    const saveEditExpiry = async (detailId) => {
+        await onSaveExchangeExpiry?.(detailId, editExpiryValue || null);
+        setEditingExpiryId(null);
+        setEditExpiryValue('');
+    };
 
     return (
         <>
-            <div className="import-return-modal__meta">
-                <span>Người tạo phiếu: {detail.createdByName || '—'}</span>
-                <span>Ngày tạo phiếu: {formatDateTime(detail.createdAt)}</span>
-                {!isDraft ? (
-                    <span>
-                        Trạng thái:{' '}
-                        <span className={getReturnStatusClass(detail.status)}>
-                            {formatReturnStatus(detail.status)}
+            <div className="import-return-modal__meta import-return-modal__meta--fields">
+                <div className="import-return-info-field">
+                    <span className="import-return-info-field__label">Người tạo phiếu</span>
+                    <div className="import-return-info-field__box">
+                        <span className="import-return-info-field__value">
+                            {detail.createdByName || '—'}
                         </span>
-                    </span>
+                    </div>
+                </div>
+                <div className="import-return-info-field">
+                    <span className="import-return-info-field__label">Ngày tạo phiếu</span>
+                    <div className="import-return-info-field__box">
+                        <span className="import-return-info-field__value">
+                            {formatDateOnly(detail.createdAt)}
+                        </span>
+                    </div>
+                </div>
+                <div className="import-return-info-field">
+                    <span className="import-return-info-field__label">Giờ tạo</span>
+                    <div className="import-return-info-field__box">
+                        <span className="import-return-info-field__value">
+                            {formatTimeOnly(detail.createdAt)}
+                        </span>
+                    </div>
+                </div>
+                {!isDraft ? (
+                    <div className="import-return-info-field">
+                        <span className="import-return-info-field__label">Trạng thái</span>
+                        <div className="import-return-info-field__box">
+                            <span className={getReturnStatusClass(detail.status)}>
+                                {formatReturnStatus(detail.status)}
+                            </span>
+                        </div>
+                    </div>
                 ) : null}
             </div>
 
@@ -435,50 +560,145 @@ function DetailBody({
                             <th>Ghi chú</th>
                             <th>Hình thức</th>
                             <th>Giá trị</th>
-                            {!isDraft ? <th>Trạng thái</th> : null}
+                            {showHistoryCols ? <th>HSD mới (nếu có)</th> : null}
+                            {showHistoryCols ? <th>Trạng thái</th> : null}
                         </tr>
                     </thead>
                     <tbody>
-                        {lines.map((line, index) => (
-                            <tr key={line.detailId}>
-                                <td>{index + 1}</td>
-                                <td>{line.productName}</td>
-                                <td>{line.batchCode || '—'}</td>
-                                <td>{line.quantity}</td>
-                                <td>{line.supplierName || '—'}</td>
-                                <td>{line.note || line.returnReason || '—'}</td>
-                                <td>{formatMethod(line.method)}</td>
-                                <td>{formatCurrency(line.lineValue)}</td>
-                                {!isDraft ? (
-                                    <td>
-                                        <select
-                                            className={getLineStatusClass(line.lineStatus)}
-                                            value={line.lineStatus || LINE_STATUS.WAITING}
-                                            disabled={
-                                                busy ||
-                                                detail.status === DOC_STATUS.COMPLETED ||
-                                                line.lineStatus === LINE_STATUS.DONE
-                                            }
-                                            onChange={(e) =>
-                                                onLineStatus(line.detailId, e.target.value)
-                                            }
-                                        >
-                                            <option value={LINE_STATUS.WAITING}>
-                                                {formatLineStatus(LINE_STATUS.WAITING)}
-                                            </option>
-                                            <option value={LINE_STATUS.DONE}>
-                                                {formatLineStatus(LINE_STATUS.DONE)}
-                                            </option>
-                                        </select>
-                                        {line.exchangeBatchCode ? (
-                                            <div className="import-return-modal__exchange-hint">
-                                                Lô đổi: {line.exchangeBatchCode}
-                                            </div>
-                                        ) : null}
-                                    </td>
-                                ) : null}
-                            </tr>
-                        ))}
+                        {lines.map((line, index) => {
+                            const isExchange =
+                                line.method === RETURN_METHOD.EXCHANGE;
+                            const isDone = line.lineStatus === LINE_STATUS.DONE;
+                            const isEditing = editingExpiryId === line.detailId;
+
+                            return (
+                                <tr key={line.detailId}>
+                                    <td>{index + 1}</td>
+                                    <td>{line.productName}</td>
+                                    <td>{line.batchCode || '—'}</td>
+                                    <td>{line.quantity}</td>
+                                    <td>{line.supplierName || '—'}</td>
+                                    <td>{line.note || line.returnReason || '—'}</td>
+                                    <td>{formatMethod(line.method)}</td>
+                                    <td>{formatCurrency(line.lineValue)}</td>
+                                    {showHistoryCols ? (
+                                        <td>
+                                            {!isExchange ? (
+                                                <span className="text-muted">—</span>
+                                            ) : isDone && !isEditing ? (
+                                                <div className="import-return-modal__hsd-cell">
+                                                    <input
+                                                        type="date"
+                                                        className="import-return-modal__control import-return-modal__hsd-input"
+                                                        value={line.exchangeExpiryDate || ''}
+                                                        disabled
+                                                        readOnly
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        className="import-return-modal__hsd-edit"
+                                                        title="Sửa HSD"
+                                                        disabled={busy}
+                                                        onClick={() => startEditExpiry(line)}
+                                                    >
+                                                        <Pencil size={15} />
+                                                    </button>
+                                                </div>
+                                            ) : isDone && isEditing ? (
+                                                <div className="import-return-modal__hsd-cell">
+                                                    <input
+                                                        type="date"
+                                                        className="import-return-modal__control import-return-modal__hsd-input"
+                                                        value={editExpiryValue}
+                                                        disabled={busy}
+                                                        onChange={(e) =>
+                                                            setEditExpiryValue(e.target.value)
+                                                        }
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        className="import-return-modal__hsd-save"
+                                                        title="Lưu HSD"
+                                                        disabled={busy}
+                                                        onClick={() =>
+                                                            saveEditExpiry(line.detailId)
+                                                        }
+                                                    >
+                                                        <Check size={15} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="import-return-modal__hsd-cancel"
+                                                        title="Hủy"
+                                                        disabled={busy}
+                                                        onClick={cancelEditExpiry}
+                                                    >
+                                                        <X size={15} />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <input
+                                                    type="date"
+                                                    className="import-return-modal__control import-return-modal__hsd-input"
+                                                    value={getPendingExpiry(line)}
+                                                    disabled={busy}
+                                                    onChange={(e) =>
+                                                        setPendingExpiry((prev) => ({
+                                                            ...prev,
+                                                            [String(line.detailId)]:
+                                                                e.target.value,
+                                                        }))
+                                                    }
+                                                />
+                                            )}
+                                        </td>
+                                    ) : null}
+                                    {showHistoryCols ? (
+                                        <td>
+                                            <StyledSelect
+                                                className={
+                                                    isDone
+                                                        ? 'styled-select--status-success'
+                                                        : 'styled-select--status-danger'
+                                                }
+                                                value={line.lineStatus || LINE_STATUS.WAITING}
+                                                disabled={
+                                                    busy ||
+                                                    detail.status === DOC_STATUS.COMPLETED ||
+                                                    isDone
+                                                }
+                                                options={[
+                                                    {
+                                                        value: LINE_STATUS.WAITING,
+                                                        label: formatLineStatus(
+                                                            LINE_STATUS.WAITING,
+                                                        ),
+                                                    },
+                                                    {
+                                                        value: LINE_STATUS.DONE,
+                                                        label: formatLineStatus(LINE_STATUS.DONE),
+                                                    },
+                                                ]}
+                                                onChange={(next) =>
+                                                    onLineStatus(
+                                                        line.detailId,
+                                                        next,
+                                                        isExchange
+                                                            ? getPendingExpiry(line) || null
+                                                            : undefined,
+                                                    )
+                                                }
+                                            />
+                                            {line.exchangeBatchCode ? (
+                                                <div className="import-return-modal__exchange-hint">
+                                                    Lô đổi: {line.exchangeBatchCode}
+                                                </div>
+                                            ) : null}
+                                        </td>
+                                    ) : null}
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>

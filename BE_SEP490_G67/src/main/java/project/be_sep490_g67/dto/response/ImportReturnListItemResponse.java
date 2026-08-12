@@ -20,6 +20,8 @@ public class ImportReturnListItemResponse {
     String returnCode;
     String status;
     String source;
+    Integer inventoryCheckId;
+    String inventoryCheckCode;
     Integer itemCount;
     Integer totalQuantity;
     BigDecimal totalRefund;

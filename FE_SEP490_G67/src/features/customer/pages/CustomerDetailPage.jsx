@@ -23,7 +23,6 @@ import {
   FiRotateCcw,
 } from "react-icons/fi";
 import { getCustomerDetail, updateCustomer } from "../api";
-import SideBar from "../../../components/ui/sidebar/SideBar";
 import Header from "../../../components/ui/header-footer/Header";
 import CustomerDebtInvoices from "../components/CustomerDebtInvoices";
 import EditCustomerModal from "../components/EditCustomerModal";
@@ -108,23 +107,16 @@ export default function CustomerDetailPage() {
   }, [customerId, refreshKey]);
 
   if (isLoading) {
-    // Render loading state within the layout
-    // Avoid re-fetching on modal close by checking if customer data already exists
-    if (!customer) {
-    }
     return (
-      <div className="d-flex vh-100">
-        <SideBar />
-        <div className="flex-grow-1 d-flex flex-column">
-          <Header />
-          <main className="p-4 flex-grow-1" style={{ overflowY: "auto" }}>
-            <div className="d-flex justify-content-center align-items-center h-100">
-              <Spinner animation="border" role="status">
-                <span className="visually-hidden">Đang tải...</span>
-              </Spinner>
-            </div>
-          </main>
-        </div>
+      <div className="admin-content">
+        <Header />
+        <main className="p-4 flex-grow-1" style={{ overflowY: "auto" }}>
+          <div className="d-flex justify-content-center align-items-center h-100">
+            <Spinner animation="border" role="status">
+              <span className="visually-hidden">Đang tải...</span>
+            </Spinner>
+          </div>
+        </main>
       </div>
     );
   }
@@ -436,14 +428,11 @@ export default function CustomerDetailPage() {
   };
 
   return (
-    <div className="d-flex vh-100">
-      <SideBar />
-      <div className="flex-grow-1 d-flex flex-column">
+    <div className="admin-content">
         <Header />
         <main className="p-4 flex-grow-1" style={{ overflowY: "auto" }}>
           {renderContent()}
         </main>
       </div>
-    </div>
   );
 }

@@ -8,14 +8,14 @@ export default function InventoryCheckReturnDraftPanel({
     onRemoveLine,
     onCommit,
     showCommit = true,
-    emptyHint = 'Chưa có dòng trả. Chọn lô và bấm “Trả NCC” trên bảng kiểm.',
+    emptyHint = 'Chưa có dòng.',
 }) {
     const lines = draft?.lines ?? [];
 
     if (loading) {
         return (
             <section className="inventory-check-side-card">
-                <h3 className="inventory-check-side-card__title">Phiếu trả NCC (nháp)</h3>
+                <h3 className="inventory-check-side-card__title">Đổi trả NCC (nháp)</h3>
                 <p className="inventory-check-side-card__hint">Đang tải...</p>
             </section>
         );
@@ -23,7 +23,7 @@ export default function InventoryCheckReturnDraftPanel({
 
     return (
         <section className="inventory-check-side-card inventory-check-return-draft">
-            <h3 className="inventory-check-side-card__title">Phiếu trả NCC (nháp)</h3>
+            <h3 className="inventory-check-side-card__title">Đổi trả NCC (nháp)</h3>
             {lines.length === 0 ? (
                 <p className="inventory-check-side-card__hint">{emptyHint}</p>
             ) : (
@@ -37,7 +37,8 @@ export default function InventoryCheckReturnDraftPanel({
                                 <div className="inventory-check-return-draft__meta">
                                     <strong>{line.productName}</strong>
                                     <span>
-                                        {line.batchCode || '—'}
+                                        {line.method === 'EXCHANGE' ? 'Đổi' : 'Trả'}
+                                        {line.batchCode ? ` · ${line.batchCode}` : ''}
                                         {line.supplierName ? ` · ${line.supplierName}` : ''}
                                     </span>
                                     <span>
@@ -66,7 +67,7 @@ export default function InventoryCheckReturnDraftPanel({
                     </ul>
                     <div className="inventory-check-return-draft__footer">
                         <div className="inventory-check-return-draft__total">
-                            Tổng hoàn:{' '}
+                            Tổng:{' '}
                             <strong>{formatCurrency(draft?.totalRefund ?? 0)}</strong>
                         </div>
                         {showCommit ? (
@@ -76,13 +77,9 @@ export default function InventoryCheckReturnDraftPanel({
                                 onClick={() => onCommit?.(draft?.id)}
                                 disabled={committing || !draft?.id}
                             >
-                                {committing ? 'Đang xác nhận...' : 'Xác nhận trả NCC'}
+                                {committing ? 'Đang xác nhận...' : 'Xác nhận đổi trả'}
                             </button>
-                        ) : (
-                            <p className="inventory-check-side-card__hint inventory-check-return-draft__hint">
-                                Xác nhận trả chỉ thực hiện ở màn Trả hàng NCC.
-                            </p>
-                        )}
+                        ) : null}
                     </div>
                 </>
             )}

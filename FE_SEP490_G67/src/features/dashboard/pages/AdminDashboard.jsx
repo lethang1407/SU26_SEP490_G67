@@ -1,4 +1,3 @@
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import AlertBanner from '../components/AlertBanner';
 import StatCards from '../components/StatCards';
@@ -10,9 +9,8 @@ import '../../../css/AdminDashboard.css';
 
 export default function AdminDashboard() {
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container">
@@ -36,6 +34,5 @@ export default function AdminDashboard() {
                     </div>
                 </main>
             </div>
-        </div>
     );
 }

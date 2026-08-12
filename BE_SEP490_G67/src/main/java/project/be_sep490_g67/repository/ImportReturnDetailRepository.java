@@ -16,6 +16,7 @@ public interface ImportReturnDetailRepository extends JpaRepository<ImportReturn
             LEFT JOIN FETCH d.stockBatch sb
             LEFT JOIN FETCH d.supplier s
             LEFT JOIN FETCH d.importOrder io
+            LEFT JOIN FETCH d.exchangeBatch eb
             WHERE d.importReturn.id = :returnId
               AND (d.isRemoved = false OR d.isRemoved IS NULL)
             ORDER BY d.id ASC
@@ -27,6 +28,7 @@ public interface ImportReturnDetailRepository extends JpaRepository<ImportReturn
             JOIN FETCH d.importReturn ir
             JOIN FETCH d.product p
             LEFT JOIN FETCH d.stockBatch sb
+            LEFT JOIN FETCH d.exchangeBatch eb
             WHERE d.id = :id
               AND (d.isRemoved = false OR d.isRemoved IS NULL)
             """)

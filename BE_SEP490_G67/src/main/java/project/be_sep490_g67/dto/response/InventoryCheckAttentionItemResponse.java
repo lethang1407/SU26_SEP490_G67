@@ -19,7 +19,7 @@ public class InventoryCheckAttentionItemResponse {
     Integer batchId;
     String batchCode;
     String reason;
-    /** EXPIRED | EXPIRING_SOON | NOT_CHECKED_RECENTLY */
+    /** EXPIRED | EXPIRING_SOON */
     String reasonCode;
     String expiryDate;
     Integer quantity;

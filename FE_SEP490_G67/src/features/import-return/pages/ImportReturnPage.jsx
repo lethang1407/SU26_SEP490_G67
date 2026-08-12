@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-bootstrap';
-import { History, FileText, X } from 'lucide-react';
-import SideBar from '../../../components/ui/sidebar/SideBar';
+import { History, FileText, ChevronDown, X } from 'lucide-react';
 import AdminHeader from '../../../components/ui/header-footer/Header';
+import SuccessNoticeModal from '../../../components/ui/SuccessNoticeModal';
+import AlertNoticeModal from '../../../components/ui/AlertNoticeModal';
+import StyledSelect from '../../../components/ui/StyledSelect';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import { fetchInventoryCheckProductPreview } from '../../inventory-check/api';
 import InventoryCheckProductSearch from '../../inventory-check/components/InventoryCheckProductSearch';
 import {
     createAndSubmitImportReturn,
     createImportReturnDraft,
-    fetchImportReturnDraft,
+    fetchImportReturns,
     submitImportReturn,
     updateImportReturnDraft,
 } from '../api';
@@ -29,28 +31,30 @@ export default function ImportReturnPage() {
     const [rows, setRows] = useState([]);
     const [note, setNote] = useState('');
     const [editingDraftId, setEditingDraftId] = useState(null);
-    const [bannerDraft, setBannerDraft] = useState(null);
-    const [bannerDismissed, setBannerDismissed] = useState(false);
+    const [checkDrafts, setCheckDrafts] = useState([]);
+    const [bannerCollapsed, setBannerCollapsed] = useState(false);
     const [modalMode, setModalMode] = useState(null);
     const [modalDetailId, setModalDetailId] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
+    const [warning, setWarning] = useState(null);
     const [loadingBatchesFor, setLoadingBatchesFor] = useState(null);
 
     const loadBanner = useCallback(async () => {
         try {
-            const draft = await fetchImportReturnDraft({
+            const page = await fetchImportReturns({
+                status: 'DRAFT',
                 source: 'INVENTORY_CHECK',
-                createIfMissing: false,
+                page: 0,
+                size: 50,
             });
-            if (draft?.id && (draft.lines?.length ?? 0) > 0) {
-                setBannerDraft(draft);
-            } else {
-                setBannerDraft(null);
-            }
+            const items = (page?.content ?? []).filter(
+                (item) => Number(item.itemCount ?? 0) > 0,
+            );
+            setCheckDrafts(items);
         } catch {
-            setBannerDraft(null);
+            setCheckDrafts([]);
         }
     }, []);
 
@@ -80,7 +84,7 @@ export default function ImportReturnPage() {
             const preview = await fetchInventoryCheckProductPreview(product.id);
             const batches = (preview.batches ?? []).filter((b) => b.importOrderId);
             if (batches.length === 0) {
-                window.alert('Sản phẩm không có lô gắn phiếu nhập để đổi/trả.');
+                setWarning('Sản phẩm không có lô gắn phiếu nhập để đổi/trả.');
                 return;
             }
             const first = batches[0];
@@ -156,13 +160,13 @@ export default function ImportReturnPage() {
 
     const validateRows = () => {
         if (rows.length === 0) {
-            window.alert('Vui lòng thêm ít nhất một sản phẩm.');
+            setWarning('Vui lòng thêm ít nhất một sản phẩm.');
             return false;
         }
         for (const row of rows) {
             const qty = Number(row.quantity);
             if (!row.stockBatchId || !Number.isFinite(qty) || qty < 1 || qty > row.maxQuantity) {
-                window.alert(`Số lượng không hợp lệ cho ${row.productName}.`);
+                setWarning(`Số lượng không hợp lệ cho ${row.productName}.`);
                 return false;
             }
         }
@@ -184,10 +188,10 @@ export default function ImportReturnPage() {
             const payload = buildPayload();
             if (editingDraftId) {
                 await updateImportReturnDraft(editingDraftId, payload);
-                setSuccess('Đã cập nhật phiếu nháp (đã điều chỉnh tồn).');
+                setSuccess('Đã lưu phiếu nháp.');
             } else {
                 await createImportReturnDraft(payload);
-                setSuccess('Đã lưu phiếu nháp và trừ tồn.');
+                setSuccess('Đã lưu phiếu nháp.');
             }
             clearWorking();
             loadBanner();
@@ -210,7 +214,7 @@ export default function ImportReturnPage() {
             } else {
                 await createAndSubmitImportReturn(buildPayload());
             }
-            setSuccess('Đã lưu đổi trả. Phiếu vào lịch sử (đang đổi trả).');
+            setSuccess('Đã lưu đổi trả.');
             clearWorking();
             loadBanner();
         } catch (saveError) {
@@ -253,24 +257,21 @@ export default function ImportReturnPage() {
                 method: line.method || RETURN_METHOD.RETURN,
             })),
         );
-        setSuccess('Đã tải phiếu nháp lên trang chính để chỉnh sửa.');
     };
 
-    const showBanner = !bannerDismissed && bannerDraft?.id;
+    const showBanner = checkDrafts.length > 0;
 
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <AdminHeader />
-                <main className="admin-main">
+                <main className="admin-main import-return-main">
                     <div className="dashboard-container import-return-page">
                         <header className="inventory-page__header">
                             <div>
-                                <h1 className="inventory-page__title">Đổi trả hàng nhà cung cấp</h1>
+                                <h1 className="inventory-page__title">Đổi trả hàng hóa</h1>
                                 <p className="inventory-page__subtitle">
-                                    Thêm sản phẩm vào bảng, chọn lô / hình thức, rồi lưu nháp hoặc lưu
-                                    đổi trả.
+                                    Đổi trả hàng hóa cho nhà cung cấp
                                 </p>
                             </div>
                             <div className="inventory-page__actions">
@@ -300,51 +301,80 @@ export default function ImportReturnPage() {
                         </header>
 
                         {error && <Alert variant="danger">{error}</Alert>}
-                        {success && <Alert variant="success">{success}</Alert>}
 
-                        {showBanner ? (
-                            <div className="import-return-check-banner">
-                                <button
-                                    type="button"
-                                    className="import-return-check-banner__main"
-                                    onClick={() => {
-                                        setModalDetailId(bannerDraft.id);
-                                        setModalMode('drafts');
-                                    }}
-                                >
-                                    <strong>
-                                        Có {(bannerDraft.lines ?? []).length} sản phẩm cần trả từ kiểm
-                                        kho
-                                    </strong>
-                                    <span>
-                                        Giá trị hoàn: {formatCurrency(bannerDraft.totalRefund)}
+                        <section className="import-return-side-card import-return-info-card">
+                            <h3>Thông tin phiếu</h3>
+                            <div className="import-return-info-fields">
+                                <div className="import-return-info-field">
+                                    <span className="import-return-info-field__label">Số dòng</span>
+                                    <div className="import-return-info-field__box">
+                                        <span className="import-return-info-field__value">
+                                            {rows.length}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="import-return-info-field">
+                                    <span className="import-return-info-field__label">Số NCC</span>
+                                    <div className="import-return-info-field__box">
+                                        <span className="import-return-info-field__value">
+                                            {supplierCount}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="import-return-info-field">
+                                    <span className="import-return-info-field__label">
+                                        Tổng hoàn
                                     </span>
-                                </button>
-                                <button
-                                    type="button"
-                                    className="import-return-check-banner__close"
-                                    onClick={() => setBannerDismissed(true)}
-                                    aria-label="Đóng"
-                                >
-                                    <X size={16} />
-                                </button>
+                                    <div className="import-return-info-field__box">
+                                        <span className="import-return-info-field__value">
+                                            {formatCurrency(totalValue)}
+                                        </span>
+                                    </div>
+                                </div>
+                                {editingDraftId ? (
+                                    <div className="import-return-info-field">
+                                        <span className="import-return-info-field__label">
+                                            Đang sửa nháp
+                                        </span>
+                                        <div className="import-return-info-field__box">
+                                            <span className="import-return-info-field__value">
+                                                #{editingDraftId}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ) : null}
+                                <div className="import-return-info-field import-return-info-field--note">
+                                    <span className="import-return-info-field__label">
+                                        Ghi chú phiếu
+                                    </span>
+                                    <div className="import-return-info-field__box">
+                                        <textarea
+                                            className="import-return-info-field__textarea"
+                                            rows={3}
+                                            value={note}
+                                            onChange={(e) => setNote(e.target.value)}
+                                            placeholder="Ghi chú chung..."
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                        ) : null}
+                        </section>
 
                         <div className="import-return-workspace">
                             <div className="import-return-workspace__main">
-                                <div className="import-return-card">
-                                    <InventoryCheckProductSearch
-                                        onSelect={handleSelectProduct}
-                                        showAddProduct={false}
-                                        placeholder="Tìm hàng hóa theo mã hoặc tên để thêm vào phiếu đổi trả..."
-                                    />
-                                    {loadingBatchesFor ? (
-                                        <p className="text-muted mt-2">Đang tải lô...</p>
-                                    ) : null}
-                                </div>
+                                <div className="import-return-card import-return-main-panel">
+                                    <div className="import-return-main-panel__search">
+                                        <InventoryCheckProductSearch
+                                            onSelect={handleSelectProduct}
+                                            showAddProduct={false}
+                                            placeholder="Tìm hàng hóa theo mã hoặc tên để thêm vào phiếu đổi trả..."
+                                        />
+                                        {loadingBatchesFor ? (
+                                            <p className="text-muted mt-2 mb-0">Đang tải lô...</p>
+                                        ) : null}
+                                    </div>
 
-                                <div className="import-return-card import-return-table-card">
+                                    <div className="import-return-main-panel__table">
                                     <div className="import-return-table-wrap">
                                         <table className="import-return-main-table">
                                             <thead>
@@ -373,22 +403,19 @@ export default function ImportReturnPage() {
                                                             <td>{index + 1}</td>
                                                             <td>{row.productName}</td>
                                                             <td>
-                                                                <select
+                                                                <StyledSelect
+                                                                    className="styled-select--compact"
                                                                     value={row.stockBatchId ?? ''}
-                                                                    onChange={(e) =>
+                                                                    options={(row.batches ?? []).map((b) => ({
+                                                                        value: b.id,
+                                                                        label: `${b.batchCode} (${b.quantity})`,
+                                                                    }))}
+                                                                    onChange={(next) =>
                                                                         updateRow(row.key, {
-                                                                            stockBatchId: Number(
-                                                                                e.target.value,
-                                                                            ),
+                                                                            stockBatchId: Number(next),
                                                                         })
                                                                     }
-                                                                >
-                                                                    {(row.batches ?? []).map((b) => (
-                                                                        <option key={b.id} value={b.id}>
-                                                                            {b.batchCode} ({b.quantity})
-                                                                        </option>
-                                                                    ))}
-                                                                </select>
+                                                                />
                                                             </td>
                                                             <td>
                                                                 <input
@@ -417,23 +444,25 @@ export default function ImportReturnPage() {
                                                                 />
                                                             </td>
                                                             <td>
-                                                                <select
+                                                                <StyledSelect
+                                                                    className="styled-select--compact"
                                                                     value={row.method}
-                                                                    onChange={(e) =>
+                                                                    options={[
+                                                                        {
+                                                                            value: RETURN_METHOD.RETURN,
+                                                                            label: 'Trả',
+                                                                        },
+                                                                        {
+                                                                            value: RETURN_METHOD.EXCHANGE,
+                                                                            label: 'Đổi',
+                                                                        },
+                                                                    ]}
+                                                                    onChange={(next) =>
                                                                         updateRow(row.key, {
-                                                                            method: e.target.value,
+                                                                            method: next,
                                                                         })
                                                                     }
-                                                                >
-                                                                    <option value={RETURN_METHOD.RETURN}>
-                                                                        Trả
-                                                                    </option>
-                                                                    <option
-                                                                        value={RETURN_METHOD.EXCHANGE}
-                                                                    >
-                                                                        Đổi
-                                                                    </option>
-                                                                </select>
+                                                                />
                                                             </td>
                                                             <td>
                                                                 {formatCurrency(
@@ -456,72 +485,95 @@ export default function ImportReturnPage() {
                                             </tbody>
                                         </table>
                                     </div>
-                                </div>
-
-                                <div className="import-return-footer-bar">
-                                    <div className="import-return-footer-bar__total">
-                                        Tổng giá trị:{' '}
-                                        <strong>{formatCurrency(totalValue)}</strong>
-                                    </div>
-                                    <div className="import-return-footer-bar__actions">
-                                        <button
-                                            type="button"
-                                            className="inventory-btn inventory-btn--secondary"
-                                            disabled={submitting}
-                                            onClick={handleSaveDraft}
-                                        >
-                                            {submitting ? 'Đang lưu...' : 'Lưu Nháp'}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="inventory-btn inventory-btn--primary"
-                                            disabled={submitting}
-                                            onClick={handleSaveSubmit}
-                                        >
-                                            {submitting ? 'Đang lưu...' : 'Lưu Đổi Trả'}
-                                        </button>
                                     </div>
                                 </div>
                             </div>
 
                             <aside className="import-return-workspace__side">
-                                <section className="import-return-side-card">
-                                    <h3>Thông tin phiếu</h3>
-                                    <dl>
-                                        <div>
-                                            <dt>Số dòng</dt>
-                                            <dd>{rows.length}</dd>
-                                        </div>
-                                        <div>
-                                            <dt>Số NCC</dt>
-                                            <dd>{supplierCount}</dd>
-                                        </div>
-                                        <div>
-                                            <dt>Tổng hoàn</dt>
-                                            <dd>{formatCurrency(totalValue)}</dd>
-                                        </div>
-                                        {editingDraftId ? (
-                                            <div>
-                                                <dt>Đang sửa nháp</dt>
-                                                <dd>#{editingDraftId}</dd>
-                                            </div>
+                                {showBanner ? (
+                                    <section
+                                        className={`import-return-check-banner${bannerCollapsed ? ' import-return-check-banner--collapsed' : ''}`}
+                                    >
+                                        <button
+                                            type="button"
+                                            className="import-return-check-banner__header"
+                                            onClick={() => setBannerCollapsed((prev) => !prev)}
+                                            aria-expanded={!bannerCollapsed}
+                                        >
+                                            <strong>
+                                                Cần đổi/trả từ kiểm kho ({checkDrafts.length})
+                                            </strong>
+                                            <ChevronDown
+                                                size={18}
+                                                className="import-return-check-banner__chevron"
+                                                aria-hidden="true"
+                                            />
+                                        </button>
+                                        {!bannerCollapsed ? (
+                                            <ul className="import-return-check-banner__list">
+                                                {checkDrafts.map((draft) => (
+                                                    <li key={draft.id}>
+                                                        <button
+                                                            type="button"
+                                                            className="import-return-check-banner__item"
+                                                            onClick={() => {
+                                                                setModalDetailId(draft.id);
+                                                                setModalMode('drafts');
+                                                            }}
+                                                        >
+                                                            <span className="import-return-check-banner__item-title">
+                                                                {draft.inventoryCheckCode
+                                                                    ? `Kiểm kho ${draft.inventoryCheckCode}`
+                                                                    : draft.returnCode ||
+                                                                      `Nháp #${draft.id}`}
+                                                            </span>
+                                                            <span className="import-return-check-banner__item-meta">
+                                                                {draft.itemCount ?? 0} sản phẩm
+                                                                {' · '}
+                                                                {formatCurrency(draft.totalRefund)}
+                                                            </span>
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
                                         ) : null}
-                                    </dl>
-                                    <label className="import-return-side-card__note">
-                                        Ghi chú phiếu
-                                        <textarea
-                                            rows={4}
-                                            value={note}
-                                            onChange={(e) => setNote(e.target.value)}
-                                            placeholder="Ghi chú chung..."
-                                        />
-                                    </label>
-                                </section>
+                                    </section>
+                                ) : (
+                                    <section className="import-return-side-card import-return-side-card--empty">
+                                        <h3>Cần đổi/trả từ kiểm kho</h3>
+                                        <p className="text-muted mb-0">
+                                            Hiện không có phiếu nháp từ kiểm kho.
+                                        </p>
+                                    </section>
+                                )}
                             </aside>
                         </div>
                     </div>
+
+                    <div className="import-return-footer-bar">
+                        <div className="import-return-footer-bar__total">
+                            Tổng giá trị: <strong>{formatCurrency(totalValue)}</strong>
+                        </div>
+                        <div className="import-return-footer-bar__actions">
+                            <button
+                                type="button"
+                                className="inventory-btn inventory-btn--secondary"
+                                disabled={submitting}
+                                onClick={handleSaveDraft}
+                            >
+                                {submitting ? 'Đang lưu...' : 'Lưu Nháp'}
+                            </button>
+                            <button
+                                type="button"
+                                className="inventory-btn inventory-btn--primary"
+                                disabled={submitting}
+                                onClick={handleSaveSubmit}
+                            >
+                                {submitting ? 'Đang lưu...' : 'Lưu Đổi Trả'}
+                            </button>
+                        </div>
+                    </div>
                 </main>
-            </div>
 
             <ImportReturnListModal
                 open={modalMode === 'drafts'}
@@ -539,6 +591,16 @@ export default function ImportReturnPage() {
                 mode="history"
                 initialDetailId={null}
                 onClose={() => setModalMode(null)}
+            />
+            <SuccessNoticeModal
+                open={Boolean(success)}
+                message={success}
+                onClose={() => setSuccess(null)}
+            />
+            <AlertNoticeModal
+                open={Boolean(warning)}
+                message={warning}
+                onClose={() => setWarning(null)}
             />
         </div>
     );

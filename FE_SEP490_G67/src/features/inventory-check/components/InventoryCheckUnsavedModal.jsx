@@ -12,7 +12,7 @@ export default function InventoryCheckUnsavedModal({
     return (
         <div className="supplier-modal-overlay" role="presentation">
             <div
-                className="supplier-modal"
+                className="supplier-modal inventory-check-unsaved-modal"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="unsaved-check-title"

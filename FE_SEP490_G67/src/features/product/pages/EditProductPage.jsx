@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Alert, Spinner } from 'react-bootstrap';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import ProductEditForm from '../components/ProductEditForm';
 import { buildUpdatePayload, getProductById, mapProductEditView, updateProduct } from '../api';
@@ -72,9 +71,8 @@ export default function EditProductPage() {
 
     if (isLoading) {
         return (
-            <div className="admin-layout">
-                <SideBar />
-                <div className="admin-content">
+            <div className="admin-content">
+                
                     <AdminHeader />
                     <main className="admin-main">
                         <div className="dashboard-container product-page text-center p-5">
@@ -84,15 +82,13 @@ export default function EditProductPage() {
                         </div>
                     </main>
                 </div>
-            </div>
         );
     }
 
     if (!product) {
         return (
-            <div className="admin-layout">
-                <SideBar />
-                <div className="admin-content">
+            <div className="admin-content">
+                
                     <AdminHeader />
                     <main className="admin-main">
                         <div className="dashboard-container product-page">
@@ -105,14 +101,12 @@ export default function EditProductPage() {
                         </div>
                     </main>
                 </div>
-            </div>
         );
     }
 
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container product-page product-edit-page">
@@ -168,6 +162,5 @@ export default function EditProductPage() {
                     </div>
                 </main>
             </div>
-        </div>
     );
 }

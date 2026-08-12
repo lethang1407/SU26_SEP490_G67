@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import project.be_sep490_g67.constants.ImportReturnConstants;
 import project.be_sep490_g67.dto.request.CreateImportReturnFromInventoryCheckRequest;
 import project.be_sep490_g67.dto.request.SaveImportReturnRequest;
+import project.be_sep490_g67.dto.request.UpdateExchangeExpiryRequest;
 import project.be_sep490_g67.dto.request.UpdateImportReturnLineStatusRequest;
 import project.be_sep490_g67.dto.response.ImportReturnDetailResponse;
 import project.be_sep490_g67.dto.response.ImportReturnListItemResponse;
@@ -209,7 +210,7 @@ public class ImportReturnService {
             line.setBatchId(src.getBatchId());
             line.setQuantity(src.getQuantity());
             line.setReturnReason(src.getReturnReason());
-            line.setMethod(ImportReturnConstants.METHOD_RETURN);
+            line.setMethod(ImportReturnConstants.normalizeMethod(src.getMethod()));
             lines.add(line);
         }
         save.setLines(lines);
@@ -245,7 +246,7 @@ public class ImportReturnService {
                 && !ImportReturnConstants.LINE_DONE.equals(current)) {
             if (ImportReturnConstants.METHOD_EXCHANGE.equals(
                     ImportReturnConstants.normalizeMethod(detail.getMethod()))) {
-                createExchangeBatch(detail);
+                createExchangeBatch(detail, request.getExchangeExpiryDate());
             }
             detail.setLineStatus(ImportReturnConstants.LINE_DONE);
             importReturnDetailRepository.save(detail);
@@ -256,6 +257,42 @@ public class ImportReturnService {
         } else {
             throw new AppException(ErrorCode.IMPORT_RETURN_INVALID_LINE_STATUS);
         }
+
+        return toDetail(header);
+    }
+
+    public ImportReturnDetailResponse updateExchangeExpiry(
+            Integer userId, Integer returnId, Integer detailId, UpdateExchangeExpiryRequest request) {
+        ImportReturn header = requireActive(returnId);
+        if (!ImportReturnConstants.STATUS_IN_PROGRESS.equals(header.getStatus())
+                && !ImportReturnConstants.STATUS_COMPLETED.equals(header.getStatus())) {
+            throw new AppException(ErrorCode.IMPORT_RETURN_NOT_IN_PROGRESS);
+        }
+        if (userId != null && header.getCreatedBy() != null && !Objects.equals(header.getCreatedBy(), userId)) {
+            throw new AppException(ErrorCode.IMPORT_RETURN_NOT_FOUND);
+        }
+
+        ImportReturnDetail detail = importReturnDetailRepository.findActiveWithReturnById(detailId)
+                .orElseThrow(() -> new AppException(ErrorCode.IMPORT_RETURN_DETAIL_NOT_FOUND));
+        if (!Objects.equals(detail.getImportReturn().getId(), header.getId())) {
+            throw new AppException(ErrorCode.IMPORT_RETURN_DETAIL_NOT_FOUND);
+        }
+        if (!ImportReturnConstants.LINE_DONE.equals(detail.getLineStatus())) {
+            throw new AppException(ErrorCode.IMPORT_RETURN_INVALID_LINE_STATUS);
+        }
+        if (!ImportReturnConstants.METHOD_EXCHANGE.equals(
+                ImportReturnConstants.normalizeMethod(detail.getMethod()))) {
+            throw new AppException(ErrorCode.IMPORT_RETURN_INVALID_LINE_STATUS);
+        }
+
+        StockBatch exchange = detail.getExchangeBatch();
+        if (exchange == null) {
+            throw new AppException(ErrorCode.STOCK_BATCH_NOT_FOUND);
+        }
+        exchange = stockBatchRepository.findActiveWithProductById(exchange.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.STOCK_BATCH_NOT_FOUND));
+        exchange.setExpiryDate(request != null ? request.getExchangeExpiryDate() : null);
+        stockBatchRepository.save(exchange);
 
         return toDetail(header);
     }
@@ -359,7 +396,7 @@ public class ImportReturnService {
         }
     }
 
-    private void createExchangeBatch(ImportReturnDetail detail) {
+    private void createExchangeBatch(ImportReturnDetail detail, LocalDate exchangeExpiryDate) {
         if (detail.getExchangeBatch() != null) {
             return;
         }
@@ -378,7 +415,7 @@ public class ImportReturnService {
         exchange.setCostPerUnit(source.getCostPerUnit());
         exchange.setQuantityIn(qty);
         exchange.setReceivedDate(LocalDate.now());
-        exchange.setExpiryDate(source.getExpiryDate());
+        exchange.setExpiryDate(exchangeExpiryDate);
         exchange.setBatchNote("Lô đổi từ phiếu trả #" + detail.getImportReturn().getId());
         exchange.setIsRemoved(false);
         stockBatchRepository.save(exchange);
@@ -495,6 +532,8 @@ public class ImportReturnService {
                 .returnCode(ir.getReturnCode())
                 .status(ir.getStatus())
                 .source(ir.getSource())
+                .inventoryCheckId(ir.getInventoryCheck() != null ? ir.getInventoryCheck().getId() : null)
+                .inventoryCheckCode(ir.getInventoryCheck() != null ? ir.getInventoryCheck().getCheckCode() : null)
                 .itemCount(lines.size())
                 .totalQuantity(totalQty)
                 .totalRefund(ir.getTotalRefund() != null ? ir.getTotalRefund() : BigDecimal.ZERO)
@@ -554,6 +593,10 @@ public class ImportReturnService {
                 .maxQuantity(batch != null && batch.getQuantityIn() != null ? batch.getQuantityIn() + qty : qty)
                 .exchangeBatchId(exchange != null ? exchange.getId() : null)
                 .exchangeBatchCode(exchange != null ? exchange.getBatchCode() : null)
+                .exchangeExpiryDate(
+                        exchange != null && exchange.getExpiryDate() != null
+                                ? exchange.getExpiryDate().toString()
+                                : null)
                 .build();
     }
 

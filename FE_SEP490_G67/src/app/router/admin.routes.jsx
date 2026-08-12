@@ -18,10 +18,10 @@ import CreateImportOrderPage from '../../features/import-order/pages/CreateImpor
 import ImportOrderDetailPage from '../../features/import-order/pages/ImportOrderDetailPage';
 import ImportReturnPage from '../../features/import-return/pages/ImportReturnPage';
 import ImportOrderListPage from '../../features/import-order/pages/ImportOrderListPage';
-import POSScreen from '../../features/pos-screen/pages/POS';
 import CustomerDebtPage from '../../features/customer/pages/CustomerDebtPage';
 import CustomerDetailPage from '../../features/customer/pages/CustomerDetailPage';
 
+/** Routes dùng AdminLayout (SideBar cố định). POS nằm ngoài vì full-screen. */
 const adminRoutes = [
     {
         path: '/admin/dashboard',
@@ -110,10 +110,6 @@ const adminRoutes = [
     {
         path: '/admin/warehouse/supplier/:id',
         element: <SupplierDetailPage />,
-    },
-    {
-        path: '/admin/pos',
-        element: <POSScreen />,
     },
     {
         path: '/admin/customer/:customerId',

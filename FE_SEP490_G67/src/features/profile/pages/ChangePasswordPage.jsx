@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import ChangePasswordForm from '../components/ChangePasswordForm';
 import { getProfile } from '../api';
@@ -22,9 +21,8 @@ export default function ChangePasswordPage() {
 	}, []);
 
 	return (
-		<div className="admin-layout">
-			<SideBar />
-			<div className="admin-content">
+		<div className="admin-content">
+			
 				<AdminHeader user={profile} activePage="profile" />
 				<main className="admin-main">
 					<div className="dashboard-container">
@@ -73,6 +71,5 @@ export default function ChangePasswordPage() {
 					</div>
 				</main>
 			</div>
-		</div>
 	);
 }

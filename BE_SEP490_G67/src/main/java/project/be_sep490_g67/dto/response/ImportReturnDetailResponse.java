@@ -55,5 +55,7 @@ public class ImportReturnDetailResponse {
         Integer maxQuantity;
         Integer exchangeBatchId;
         String exchangeBatchCode;
+        /** HSD lô đổi mới (yyyy-MM-dd), null nếu chưa có / không áp dụng. */
+        String exchangeExpiryDate;
     }
 }
