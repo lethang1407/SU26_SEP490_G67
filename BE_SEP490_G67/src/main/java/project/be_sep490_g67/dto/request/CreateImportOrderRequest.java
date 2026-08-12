@@ -55,6 +55,9 @@ public class CreateImportOrderRequest {
         @NotNull(message = "productId không được để trống")
         Integer productId;
 
+        /** ĐVT chọn trên phiếu; null → BE dùng đơn vị cơ bản (unit_base = 1). */
+        Integer productUnitId;
+
         @NotNull(message = "Số lượng không được để trống")
         @Min(value = 1, message = "Số lượng phải lớn hơn 0")
         Integer quantity;

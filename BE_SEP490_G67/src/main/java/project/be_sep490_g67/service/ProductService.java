@@ -519,22 +519,34 @@ public class ProductService {
         return productList.stream()
                 .filter(p -> Boolean.FALSE.equals(p.getIsRemoved())) // loại sp đã deactivate
                 .limit(20)
-                .map(product -> ProductSearchResponse.builder()
-                        .id(product.getId())
-                        .name(product.getName())
-                        .barcode(product.getBarcode())
-                        .sellingPrice(product.getSellingPrice())
-                        .productUnits(product.getProductUnits().stream()
-                                .filter(u -> Boolean.FALSE.equals(u.getIsRemoved()))
-                                .map(u -> ProductSearchResponse.ProductUnitInfo
-                                        .builder()
-                                        .id(u.getId())
-                                        .name(u.getName())
-                                        .unitBase(u.getUnitBase())
-                                        .build())
-                                .toList())
-                        .build())
+                .map(this::toSearchResponse)
                 .toList();
+    }
 
+    private ProductSearchResponse toSearchResponse(Product product) {
+        BigDecimal costPrice = product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO;
+        BigDecimal lastCostPerBase = stockBatchRepository
+                .findFirstByProduct_IdAndIsRemovedFalseOrderByReceivedDateDescIdDesc(product.getId())
+                .map(StockBatch::getCostPerUnit)
+                .filter(cost -> cost != null)
+                .orElse(costPrice);
+
+        return ProductSearchResponse.builder()
+                .id(product.getId())
+                .name(product.getName())
+                .barcode(product.getBarcode())
+                .sellingPrice(product.getSellingPrice())
+                .costPrice(costPrice)
+                .lastCostPerBase(lastCostPerBase)
+                .productUnits(product.getProductUnits().stream()
+                        .filter(u -> Boolean.FALSE.equals(u.getIsRemoved()))
+                        .map(u -> ProductSearchResponse.ProductUnitInfo
+                                .builder()
+                                .id(u.getId())
+                                .name(u.getName())
+                                .unitBase(u.getUnitBase())
+                                .build())
+                        .toList())
+                .build();
     }
 }

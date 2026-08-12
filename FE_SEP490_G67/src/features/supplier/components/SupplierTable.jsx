@@ -16,7 +16,7 @@ function SupplierTableSkeleton() {
                             <th>Mã NCC</th>
                             <th>Tên nhà cung cấp</th>
                             <th>Số điện thoại</th>
-                            <th>Địa chỉ</th>
+                            <th>Ghi chú</th>
                             <th>Nợ cần trả hiện tại</th>
                         </tr>
                     </thead>
@@ -54,7 +54,6 @@ export default function SupplierTable({
     onToggleExpand,
     onPaymentSuccess,
     onSupplierUpdated,
-    onSupplierDeleted,
 }) {
     if (loading) {
         return <SupplierTableSkeleton />;
@@ -77,13 +76,14 @@ export default function SupplierTable({
                             <th>Mã NCC</th>
                             <th>Tên nhà cung cấp</th>
                             <th>Số điện thoại</th>
-                            <th>Địa chỉ</th>
+                            <th>Ghi chú</th>
                             <th>Nợ cần trả hiện tại</th>
                         </tr>
                     </thead>
                     <tbody>
                         {items.map((supplier) => {
                             const isExpanded = expandedId === supplier.id;
+                            const noteText = supplier.notes?.trim() || '';
 
                             return (
                                 <Fragment key={supplier.id}>
@@ -99,8 +99,13 @@ export default function SupplierTable({
                                         <td className="supplier-table__phone">
                                             <SupplierPhoneCell phoneNumber={supplier.phoneNumber} stopRowClick />
                                         </td>
-                                        <td className="supplier-table__address" title={supplier.address}>
-                                            {supplier.address}
+                                        <td
+                                            className={`supplier-table__notes ${
+                                                noteText ? '' : 'supplier-table__notes--empty'
+                                            }`}
+                                            title={noteText || undefined}
+                                        >
+                                            {noteText || '—'}
                                         </td>
                                         <td
                                             className={`supplier-table__debt ${
@@ -118,7 +123,6 @@ export default function SupplierTable({
                                                     listDebt={supplier.currentDebt}
                                                     onPaymentSuccess={onPaymentSuccess}
                                                     onUpdated={onSupplierUpdated}
-                                                    onDeleted={onSupplierDeleted}
                                                 />
                                             </td>
                                         </tr>

@@ -16,6 +16,13 @@ public class ProductSearchResponse {
     String name;
     String barcode;
     BigDecimal sellingPrice;
+    /** Giá vốn tham chiếu trên master SP (fallback khi chưa có lô). Đã theo ĐVT cơ bản. */
+    BigDecimal costPrice;
+    /**
+     * Giá nhập gần nhất theo ĐVT cơ bản:
+     * ưu tiên cost_per_unit lô mới nhất; không có lô thì = costPrice.
+     */
+    BigDecimal lastCostPerBase;
     List<ProductUnitInfo> productUnits;
     List<StockBatchInfo> stockBatches;
 

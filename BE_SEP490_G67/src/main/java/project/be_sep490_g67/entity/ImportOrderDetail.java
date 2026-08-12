@@ -29,6 +29,10 @@ public class ImportOrderDetail extends BaseEntity {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_unit_id")
+    private ProductUnit productUnit;
+
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
 
@@ -44,9 +48,6 @@ public class ImportOrderDetail extends BaseEntity {
     @Column(name = "note", length = 500)
     private String note;
 
-    /**
-     * true = hàng khuyến mại / trả thưởng: không tính vào tổng thanh toán, vẫn nhập kho.
-     */
     @ColumnDefault("0")
     @Column(name = "is_promotion", nullable = false)
     private Boolean isPromotion = false;

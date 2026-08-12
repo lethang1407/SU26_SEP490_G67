@@ -87,7 +87,6 @@ export default function ImportOrderInfoTab({ order }) {
                 <table className="import-order-expand__table">
                     <thead>
                         <tr>
-                            <th>Mã hàng</th>
                             <th>Tên hàng</th>
                             <th className="import-order-expand__col-num">Số lượng</th>
                             <th className="import-order-expand__col-num">Đơn giá</th>
@@ -97,21 +96,13 @@ export default function ImportOrderInfoTab({ order }) {
                     <tbody>
                         {items.length === 0 ? (
                             <tr>
-                                <td colSpan={5} className="import-order-expand__empty-cell">
+                                <td colSpan={4} className="import-order-expand__empty-cell">
                                     Phiếu chưa có dòng hàng.
                                 </td>
                             </tr>
                         ) : (
                             items.map((item, index) => (
                                 <tr key={item.id || `${order.id}-${index}`}>
-                                    <td>
-                                        <span className="import-order-expand__sku">
-                                            {item.productCode ||
-                                                (item.productId
-                                                    ? `SP${String(item.productId).padStart(6, '0')}`
-                                                    : '—')}
-                                        </span>
-                                    </td>
                                     <td>
                                         <div className="import-order-expand__product-name-row">
                                             <div className="import-order-expand__product-name">
@@ -140,7 +131,19 @@ export default function ImportOrderInfoTab({ order }) {
                                         </div>
                                     </td>
                                     <td className="import-order-expand__col-num">
-                                        {item.quantity ?? '—'}
+                                        {item.quantity != null ? (
+                                            <>
+                                                {item.quantity}
+                                                {item.unitName ? (
+                                                    <span className="import-order-expand__unit-label">
+                                                        {' '}
+                                                        {item.unitName}
+                                                    </span>
+                                                ) : null}
+                                            </>
+                                        ) : (
+                                            '—'
+                                        )}
                                     </td>
                                     <td className="import-order-expand__col-num">
                                         {formatMoneyPlain(item.costPerUnit)}

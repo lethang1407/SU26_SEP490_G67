@@ -9,6 +9,7 @@ import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 @Builder
@@ -20,10 +21,29 @@ public class ImportOrderItemResponse {
     Integer productId;
     String productCode;
     String productName;
+    Integer productUnitId;
+    /** Tên ĐVT lấy từ product_units (join), không lưu snapshot trên phiếu. */
+    String unitName;
+    List<ProductUnitOption> productUnits;
     Integer quantity;
     BigDecimal costPerUnit;
+    /** Giá vốn gần nhất theo ĐVT cơ bản (lô mới nhất / cost_price) — dùng gợi ý & cảnh báo. */
+    BigDecimal lastCostPerBase;
+    /** Giá bán hiện tại — dùng cảnh báo lỗ. */
+    BigDecimal sellingPrice;
     BigDecimal lineTotal;
     LocalDate expiryDate;
     String note;
     Boolean isPromotion;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class ProductUnitOption {
+        Integer id;
+        String name;
+        BigDecimal unitBase;
+    }
 }

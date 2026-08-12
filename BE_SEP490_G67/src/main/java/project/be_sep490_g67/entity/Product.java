@@ -26,6 +26,10 @@ public class Product extends BaseEntity {
     @JoinColumn(name = "category_id")
     private Category category;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private Product parent;
+
     @Column(name = "name", length = 200)
     private String name;
 
@@ -74,4 +78,6 @@ public class Product extends BaseEntity {
     @OneToMany(mappedBy = "product")
     private Set<StockBatch> stockBatches = new LinkedHashSet<>();
 
+    @OneToMany(mappedBy = "product")
+    private Set<PriceHistory> priceHistories = new LinkedHashSet<>();
 }

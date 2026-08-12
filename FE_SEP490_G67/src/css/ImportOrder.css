@@ -456,6 +456,7 @@ a.supplier-btn {
     gap: 6px;
     width: 36px;
     height: 36px;
+    padding: 0;
     border-radius: 8px;
     color: #2563eb;
     font-size: 14px;
@@ -464,6 +465,7 @@ a.supplier-btn {
     background: #eff6ff;
     border: 1px solid #dbeafe;
     flex-shrink: 0;
+    cursor: pointer;
 }
 
 .ioc-page__back:hover {
@@ -830,7 +832,26 @@ a.supplier-btn {
 }
 
 .ioc-lines-table__input--unit {
-    width: 72px;
+    width: 96px;
+}
+
+.ioc-lines-table__select {
+    cursor: pointer;
+    appearance: auto;
+}
+
+.ioc-lines-table__unit-readonly {
+    display: inline-block;
+    min-width: 48px;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.import-order-expand__unit-label {
+    color: #64748b;
+    font-weight: 500;
+    font-size: 12px;
 }
 
 .ioc-lines-table__input--qty {
@@ -841,6 +862,40 @@ a.supplier-btn {
     width: 130px;
     text-align: right;
     font-variant-numeric: tabular-nums;
+}
+
+.ioc-lines-table__price-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    min-width: 130px;
+}
+
+.ioc-lines-table__input--price-warn {
+    border-color: #f59e0b;
+    background: #fffbeb;
+}
+
+.ioc-lines-table__input--price-danger {
+    border-color: #ef4444;
+    background: #fef2f2;
+}
+
+.ioc-lines-table__price-hint {
+    margin: 0;
+    max-width: 160px;
+    font-size: 11px;
+    line-height: 1.35;
+    font-weight: 500;
+}
+
+.ioc-lines-table__price-hint--warn {
+    color: #b45309;
+}
+
+.ioc-lines-table__price-hint--danger {
+    color: #dc2626;
 }
 
 .ioc-lines-table__input--date {
@@ -1614,5 +1669,115 @@ a.supplier-btn {
 
     .io-daterange__actions {
         justify-content: flex-end;
+    }
+}
+
+/* Modal rời trang nhập hàng — 3 nút, nút "Tiếp tục nhập" nổi rõ */
+.supplier-modal--leave-guard {
+    max-width: 560px;
+}
+
+.supplier-modal__footer--leave-guard {
+    flex-wrap: wrap;
+    justify-content: stretch;
+    gap: 10px;
+}
+
+.supplier-modal__footer--leave-guard .supplier-btn {
+    flex: 1 1 auto;
+    min-width: 140px;
+    justify-content: center;
+    padding: 11px 14px;
+    font-size: 14px;
+}
+
+.supplier-btn--stay {
+    border: 2px solid #2563eb;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-weight: 700;
+}
+
+.supplier-btn--stay:hover:not(:disabled) {
+    background: #dbeafe;
+    border-color: #1d4ed8;
+    color: #1e40af;
+}
+
+/* ========== SUCCESS TOAST (góc dưới phải) ========== */
+.ioc-toast {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 1100;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: min(360px, calc(100vw - 32px));
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid #bbf7d0;
+    background: #f0fdf4;
+    color: #166534;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    animation: iocToastIn 0.3s ease forwards;
+}
+
+.ioc-toast--exit {
+    animation: iocToastOut 0.3s ease forwards;
+}
+
+.ioc-toast__icon {
+    flex-shrink: 0;
+    color: #16a34a;
+}
+
+.ioc-toast__text {
+    flex: 1;
+    line-height: 1.4;
+}
+
+.ioc-toast__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #166534;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.ioc-toast__close:hover {
+    background: rgba(22, 101, 52, 0.08);
+}
+
+@keyframes iocToastIn {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes iocToastOut {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateY(16px);
     }
 }
