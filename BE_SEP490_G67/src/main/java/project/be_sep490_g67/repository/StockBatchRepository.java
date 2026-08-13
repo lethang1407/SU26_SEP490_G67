@@ -77,10 +77,9 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
     """)
     Optional<StockBatch> findFirstAvailableBatchByProductId(Integer productId);
 
-    /**
-     * Số thứ tự lớn nhất trong ngày cho mã lô dạng LddMMyy-xx.
-     * dayPrefix ví dụ: L050826
-     */
+    /** Lô mới nhất của SP — dùng gợi ý đơn giá nhập (cost_per_unit đã là giá / ĐVT cơ bản). */
+    Optional<StockBatch> findFirstByProduct_IdAndIsRemovedFalseOrderByReceivedDateDescIdDesc(Integer productId);
+
     @Query("""
             SELECT sb FROM StockBatch sb
             JOIN FETCH sb.product p
@@ -130,4 +129,5 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
             WHERE batch_code LIKE CONCAT(:dayPrefix, '-%')
             """, nativeQuery = true)
     Integer findMaxBatchSequenceByDayPrefix(@Param("dayPrefix") String dayPrefix);
+
 }

@@ -19,6 +19,6 @@ public class SupplierListItemResponse {
     String supplierCode;
     String name;
     String phoneNumber;
-    String address;
+    String notes;
     BigDecimal currentDebt;
 }

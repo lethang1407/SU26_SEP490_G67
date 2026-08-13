@@ -26,11 +26,18 @@ public class Product extends BaseEntity {
     @JoinColumn(name = "category_id")
     private Category category;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private Product parent;
+
     @Column(name = "name", length = 200)
     private String name;
 
     @Column(name = "barcode", length = 50)
     private String barcode;
+
+    @Column(name = "sku", length = 50, unique = true)
+    private String sku;
 
     @ColumnDefault("0.00")
     @Column(name = "cost_price", precision = 15, scale = 2)

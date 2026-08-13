@@ -54,14 +54,21 @@ export default function ImportOrderDetailPage() {
         id: item.batchId ?? `item-${index}`,
         productId: item.productId,
         productCode: item.productCode,
-        productName: item.productName,
-        unit: item.unit,
+        productName: item.parentName || item.productName,
+        parentName: item.parentName || '',
+        attributes: item.attributes || [],
+        productUnitId: item.productUnitId,
+        productUnits: item.productUnits || [],
+        unitName: item.unitName || item.unit || 'Cái',
+        unit: item.unitName || item.unit || 'Cái',
         quantity: item.quantity,
         costPerUnit: item.costPerUnit,
         expiryDate: item.expiryDate,
         locationId: item.locationId,
         locationLabel: item.locationLabel,
         batchCode: item.batchCode,
+        isPromotion: Boolean(item.isPromotion),
+        note: item.note || '',
     }));
 
     if (loading) {
@@ -140,7 +147,7 @@ export default function ImportOrderDetailPage() {
 
                         <div className="import-order-create-layout">
                             <div className="import-order-create-main">
-                                <ImportOrderLineTable lines={lines} />
+                                <ImportOrderLineTable lines={lines} readOnly />
                             </div>
 
                             <aside className="import-order-detail-sidebar">

@@ -7,14 +7,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.be_sep490_g67.constants.ImportOrderConstants;
+import project.be_sep490_g67.constants.ProductConstants;
 import project.be_sep490_g67.dto.request.CreateImportOrderRequest;
 import project.be_sep490_g67.dto.response.ImportOrderDetailResponse;
 import project.be_sep490_g67.dto.response.ImportOrderItemResponse;
 import project.be_sep490_g67.dto.response.ImportOrderListItemResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
+import project.be_sep490_g67.dto.response.ProductAttributeResponse;
+import project.be_sep490_g67.mapper.ProductMapper;
 import project.be_sep490_g67.entity.ImportOrder;
 import project.be_sep490_g67.entity.ImportOrderDetail;
 import project.be_sep490_g67.entity.Product;
+import project.be_sep490_g67.entity.ProductUnit;
 import project.be_sep490_g67.entity.StockBatch;
 import project.be_sep490_g67.entity.StockMovement;
 import project.be_sep490_g67.entity.Supplier;
@@ -25,6 +29,8 @@ import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.ImportOrderDetailRepository;
 import project.be_sep490_g67.repository.ImportOrderRepository;
 import project.be_sep490_g67.repository.ProductRepository;
+import project.be_sep490_g67.repository.ProductUnitRepository;
+import project.be_sep490_g67.repository.ProductAttributeRepository;
 import project.be_sep490_g67.repository.StockBatchRepository;
 import project.be_sep490_g67.repository.StockMovementRepository;
 import project.be_sep490_g67.repository.SupplierPaymentRepository;
@@ -32,6 +38,7 @@ import project.be_sep490_g67.repository.SupplierRepository;
 import project.be_sep490_g67.repository.UserRepository;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -40,7 +47,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -54,6 +60,9 @@ public class ImportOrderService {
     ImportOrderDetailRepository importOrderDetailRepository;
     SupplierPaymentRepository supplierPaymentRepository;
     ProductRepository productRepository;
+    ProductUnitRepository productUnitRepository;
+    ProductAttributeRepository productAttributeRepository;
+    ProductMapper productMapper;
     StockBatchRepository stockBatchRepository;
     StockMovementRepository stockMovementRepository;
     UserRepository userRepository;
@@ -62,7 +71,6 @@ public class ImportOrderService {
     public ImportOrderListItemResponse createImportOrder(CreateImportOrderRequest request) {
         String orderStatus = normalizeCreateOrderStatus(request.getOrderStatus());
         boolean isImported = ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(orderStatus);
-
         Supplier supplier = supplierRepository.findByIdAndIsRemovedFalse(request.getSupplierId())
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
 
@@ -70,24 +78,9 @@ public class ImportOrderService {
         List<ImportOrderDetail> details = new ArrayList<>();
 
         for (CreateImportOrderRequest.LineItem line : request.getLines()) {
-            Product product = productRepository.findById(line.getProductId())
-                    .filter(p -> !Boolean.TRUE.equals(p.getIsRemoved()))
-                    .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
-
-            BigDecimal cost = line.getCostPerUnit() != null ? line.getCostPerUnit() : BigDecimal.ZERO;
-            BigDecimal lineTotal = cost.multiply(BigDecimal.valueOf(line.getQuantity()));
-
-            ImportOrderDetail detail = new ImportOrderDetail();
-            detail.setProduct(product);
-            detail.setQuantity(line.getQuantity());
-            detail.setCostPerUnit(cost);
-            detail.setLineTotal(lineTotal);
-            detail.setExpiryDate(line.getExpiryDate());
-            detail.setNote(blankToNull(line.getNote()));
-            detail.setIsRemoved(false);
+            ImportOrderDetail detail = buildDetailFromLine(line);
             details.add(detail);
-
-            goodsTotal = goodsTotal.add(lineTotal);
+            goodsTotal = goodsTotal.add(detail.getLineTotal() != null ? detail.getLineTotal() : BigDecimal.ZERO);
         }
 
         BigDecimal discount = request.getDiscountAmount() != null
@@ -126,9 +119,8 @@ public class ImportOrderService {
 
         BigDecimal recordedPaid = BigDecimal.ZERO;
         if (isImported) {
-            String batchCode = nextBatchCode(saved.getReceivedDate());
             for (ImportOrderDetail detail : details) {
-                createStockForDetail(saved, detail, batchCode);
+                createStockForDetail(saved, detail, buildBatchCode(saved, detail));
             }
             if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
                 createInitialPayment(saved, supplier, paidAmount, request.getPaymentMethod());
@@ -158,7 +150,6 @@ public class ImportOrderService {
 
         String orderStatus = normalizeCreateOrderStatus(request.getOrderStatus());
         boolean isImported = ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(orderStatus);
-
         Supplier supplier = supplierRepository.findByIdAndIsRemovedFalse(request.getSupplierId())
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
 
@@ -166,24 +157,9 @@ public class ImportOrderService {
         List<ImportOrderDetail> details = new ArrayList<>();
 
         for (CreateImportOrderRequest.LineItem line : request.getLines()) {
-            Product product = productRepository.findById(line.getProductId())
-                    .filter(p -> !Boolean.TRUE.equals(p.getIsRemoved()))
-                    .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
-
-            BigDecimal cost = line.getCostPerUnit() != null ? line.getCostPerUnit() : BigDecimal.ZERO;
-            BigDecimal lineTotal = cost.multiply(BigDecimal.valueOf(line.getQuantity()));
-
-            ImportOrderDetail detail = new ImportOrderDetail();
-            detail.setProduct(product);
-            detail.setQuantity(line.getQuantity());
-            detail.setCostPerUnit(cost);
-            detail.setLineTotal(lineTotal);
-            detail.setExpiryDate(line.getExpiryDate());
-            detail.setNote(blankToNull(line.getNote()));
-            detail.setIsRemoved(false);
+            ImportOrderDetail detail = buildDetailFromLine(line);
             details.add(detail);
-
-            goodsTotal = goodsTotal.add(lineTotal);
+            goodsTotal = goodsTotal.add(detail.getLineTotal() != null ? detail.getLineTotal() : BigDecimal.ZERO);
         }
 
         BigDecimal discount = request.getDiscountAmount() != null
@@ -222,9 +198,8 @@ public class ImportOrderService {
 
         BigDecimal recordedPaid = BigDecimal.ZERO;
         if (isImported) {
-            String batchCode = nextBatchCode(saved.getReceivedDate());
             for (ImportOrderDetail detail : details) {
-                createStockForDetail(saved, detail, batchCode);
+                createStockForDetail(saved, detail, buildBatchCode(saved, detail));
             }
             if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
                 createInitialPayment(saved, supplier, paidAmount, request.getPaymentMethod());
@@ -345,20 +320,58 @@ public class ImportOrderService {
                 ? resolvePaymentStatus(totalCost, safePaid)
                 : ImportOrderConstants.PAYMENT_STATUS_DONE;
 
-        List<ImportOrderItemResponse> items = order.getImportOrderDetails().stream()
+        List<ImportOrderDetail> details = order.getImportOrderDetails().stream()
                 .sorted(Comparator.comparing(ImportOrderDetail::getId, Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+        Map<Integer, List<ProductAttributeResponse>> attributesByProduct = loadAttributesByProductIds(
+                details.stream()
+                        .map(detail -> detail.getProduct() != null ? detail.getProduct().getId() : null)
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .toList());
+
+        List<ImportOrderItemResponse> items = details.stream()
                 .map(detail -> {
                     Product product = detail.getProduct();
+                    Integer productId = product != null ? product.getId() : null;
+                    List<ImportOrderItemResponse.ProductUnitOption> unitOptions =
+                            productId != null ? loadProductUnitOptions(productId) : List.of();
+                    BigDecimal costPrice = product != null && product.getCostPrice() != null
+                            ? product.getCostPrice()
+                            : BigDecimal.ZERO;
+                    BigDecimal lastCostPerBase = productId != null
+                            ? stockBatchRepository
+                                .findFirstByProduct_IdAndIsRemovedFalseOrderByReceivedDateDescIdDesc(productId)
+                                .map(StockBatch::getCostPerUnit)
+                                .filter(cost -> cost != null)
+                                .orElse(costPrice)
+                            : costPrice;
+                    Product parent = product != null ? product.getParent() : null;
                     return ImportOrderItemResponse.builder()
                             .id(detail.getId())
-                            .productId(product != null ? product.getId() : null)
+                            .productId(productId)
                             .productCode(product != null ? product.getBarcode() : null)
                             .productName(product != null ? product.getName() : null)
+                            .parentId(parent != null ? parent.getId() : null)
+                            .parentName(parent != null ? parent.getName() : null)
+                            .attributes(productId != null
+                                    ? attributesByProduct.getOrDefault(productId, List.of())
+                                    : List.of())
+                            .productUnitId(detail.getProductUnit() != null
+                                    ? detail.getProductUnit().getId()
+                                    : null)
+                            .unitName(detail.getProductUnit() != null
+                                    ? detail.getProductUnit().getName()
+                                    : null)
+                            .productUnits(unitOptions)
                             .quantity(detail.getQuantity())
                             .costPerUnit(detail.getCostPerUnit())
+                            .lastCostPerBase(lastCostPerBase)
+                            .sellingPrice(product != null ? product.getSellingPrice() : null)
                             .lineTotal(detail.getLineTotal())
                             .expiryDate(detail.getExpiryDate())
                             .note(detail.getNote())
+                            .isPromotion(Boolean.TRUE.equals(detail.getIsPromotion()))
                             .build();
                 })
                 .toList();
@@ -557,21 +570,122 @@ public class ImportOrderService {
         return normalized;
     }
 
-    private String nextBatchCode(LocalDate receivedDate) {
-        LocalDate date = receivedDate != null ? receivedDate : LocalDate.now();
-        String dayPrefix = ImportOrderConstants.batchDayPrefix(date);
-        Integer maxSeq = stockBatchRepository.findMaxBatchSequenceByDayPrefix(dayPrefix);
-        int next = (maxSeq != null ? maxSeq : 0) + 1;
-        return ImportOrderConstants.formatBatchCode(date, next);
+    /**
+     * Map dòng request → detail.
+     * Hàng KM (isPromotion): lineTotal = 0 (không tính nợ), vẫn giữ costPerUnit tham chiếu, vẫn nhập kho.
+     */
+    private ImportOrderDetail buildDetailFromLine(CreateImportOrderRequest.LineItem line) {
+        Product product = productRepository.findById(line.getProductId())
+                .filter(p -> !Boolean.TRUE.equals(p.getIsRemoved()))
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+        assertSellableProduct(product);
+
+        ProductUnit productUnit = resolveProductUnit(product, line.getProductUnitId());
+
+        boolean isPromotion = Boolean.TRUE.equals(line.getIsPromotion());
+        BigDecimal cost = line.getCostPerUnit() != null ? line.getCostPerUnit() : BigDecimal.ZERO;
+        BigDecimal lineTotal = isPromotion
+                ? BigDecimal.ZERO
+                : cost.multiply(BigDecimal.valueOf(line.getQuantity()));
+
+        ImportOrderDetail detail = new ImportOrderDetail();
+        detail.setProduct(product);
+        detail.setProductUnit(productUnit);
+        detail.setQuantity(line.getQuantity());
+        detail.setCostPerUnit(cost);
+        detail.setLineTotal(lineTotal);
+        detail.setExpiryDate(line.getExpiryDate());
+        detail.setNote(blankToNull(line.getNote()));
+        detail.setIsPromotion(isPromotion);
+        detail.setIsRemoved(false);
+        return detail;
+    }
+
+    private void assertSellableProduct(Product product) {
+        if (product.getId() != null
+                && productRepository.existsByParent_IdAndIsRemovedFalse(product.getId())) {
+            throw new AppException(ErrorCode.PARENT_PRODUCT_NOT_SELLABLE);
+        }
+    }
+
+    private Map<Integer, List<ProductAttributeResponse>> loadAttributesByProductIds(List<Integer> productIds) {
+        if (productIds == null || productIds.isEmpty()) {
+            return Map.of();
+        }
+        return productAttributeRepository.findByProduct_IdInAndIsRemovedFalse(productIds).stream()
+                .collect(Collectors.groupingBy(
+                        item -> item.getProduct().getId(),
+                        Collectors.mapping(productMapper::toAttributeResponse, Collectors.toList())));
+    }
+
+    private ProductUnit resolveProductUnit(Product product, Integer productUnitId) {
+        if (productUnitId != null) {
+            return productUnitRepository.findByIdAndProduct_IdAndIsRemovedFalse(productUnitId, product.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_UNIT_NOT_FOUND));
+        }
+        return productUnitRepository.findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(product.getId())
+                .stream()
+                .filter(unit -> unit.getUnitBase() != null
+                        && unit.getUnitBase().compareTo(BigDecimal.ONE) == 0)
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_UNIT_NOT_FOUND));
+    }
+
+    private List<ImportOrderItemResponse.ProductUnitOption> loadProductUnitOptions(Integer productId) {
+        return productUnitRepository.findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(productId)
+                .stream()
+                .map(unit -> ImportOrderItemResponse.ProductUnitOption.builder()
+                        .id(unit.getId())
+                        .name(unit.getName())
+                        .unitBase(unit.getUnitBase())
+                        .build())
+                .toList();
+    }
+
+    private BigDecimal resolveUnitBase(ProductUnit productUnit) {
+        if (productUnit == null || productUnit.getUnitBase() == null) {
+            return BigDecimal.ONE;
+        }
+        return productUnit.getUnitBase().compareTo(BigDecimal.ZERO) > 0
+                ? productUnit.getUnitBase()
+                : BigDecimal.ONE;
+    }
+
+    /** Quy số lượng + giá về đơn vị cơ bản trước khi ghi StockBatch. */
+    private int toBaseQuantity(int quantity, ProductUnit productUnit) {
+        BigDecimal baseQty = BigDecimal.valueOf(quantity).multiply(resolveUnitBase(productUnit));
+        return baseQty.setScale(0, RoundingMode.HALF_UP).intValue();
+    }
+
+    private BigDecimal toBaseCostPerUnit(BigDecimal costPerUnit, ProductUnit productUnit) {
+        BigDecimal safeCost = costPerUnit != null ? costPerUnit : BigDecimal.ZERO;
+        return safeCost.divide(resolveUnitBase(productUnit), 2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Mã lô theo dòng hàng: L + ddMMyy + 4 số cuối mã NCC + 4 số cuối mã SP.
+     * Ví dụ: L050826-0001-1244
+     */
+    private String buildBatchCode(ImportOrder order, ImportOrderDetail detail) {
+        LocalDate date = order.getReceivedDate() != null ? order.getReceivedDate() : LocalDate.now();
+        Supplier supplier = order.getSupplier();
+        Product product = detail.getProduct();
+        String supplierCode = supplier != null ? supplier.getSupplierCode() : "";
+        String productCode = ProductConstants.formatProductCode(product != null ? product.getId() : null);
+        return ImportOrderConstants.formatBatchCode(date, supplierCode, productCode);
     }
 
     private void createStockForDetail(ImportOrder order, ImportOrderDetail detail, String batchCode) {
+        ProductUnit productUnit = detail.getProductUnit();
+        int quantityIn = toBaseQuantity(detail.getQuantity(), productUnit);
+        BigDecimal costPerUnit = toBaseCostPerUnit(detail.getCostPerUnit(), productUnit);
+
         StockBatch batch = new StockBatch();
         batch.setProduct(detail.getProduct());
         batch.setImportOrder(order);
         batch.setBatchCode(batchCode);
-        batch.setCostPerUnit(detail.getCostPerUnit());
-        batch.setQuantityIn(detail.getQuantity());
+        batch.setCostPerUnit(costPerUnit);
+        batch.setQuantityIn(quantityIn);
         batch.setReceivedDate(order.getReceivedDate() != null ? order.getReceivedDate() : LocalDate.now());
         batch.setExpiryDate(detail.getExpiryDate());
         batch.setBatchNote(detail.getNote());
@@ -581,14 +695,21 @@ public class ImportOrderService {
         StockMovement movement = StockMovement.builder()
                 .stockBatch(savedBatch)
                 .batchLocation(null)
-                .quantityDelta(detail.getQuantity())
-                .stockAfter(detail.getQuantity())
+                .quantityDelta(quantityIn)
+                .stockAfter(quantityIn)
                 .movementType("IMPORT")
                 .referenceType("IMPORT_ORDER")
                 .referenceId(order.getId())
                 .build();
         movement.setIsRemoved(false);
         stockMovementRepository.save(movement);
+
+        // Cập nhật giá vốn master theo giá base vừa nhập (lần sau search gợi ý đúng hơn)
+        Product product = detail.getProduct();
+        if (product != null && costPerUnit != null) {
+            product.setCostPrice(costPerUnit);
+            productRepository.save(product);
+        }
     }
 
     private void createInitialPayment(
@@ -620,7 +741,18 @@ public class ImportOrderService {
     }
 
     private String generatePaymentCode() {
-        return "PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String prefix = ImportOrderConstants.PAYMENT_CODE_PREFIX;
+        int seqLength = ImportOrderConstants.PAYMENT_CODE_SEQ_LENGTH;
+
+        int nextSeq = supplierPaymentRepository.findLatestTtnPaymentCode()
+                .map(code -> Integer.parseInt(code.substring(prefix.length())) + 1)
+                .orElse(0);
+
+        if (nextSeq > 999_999) {
+            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+        }
+
+        return prefix + String.format("%0" + seqLength + "d", nextSeq);
     }
 
     private String blankToNull(String value) {

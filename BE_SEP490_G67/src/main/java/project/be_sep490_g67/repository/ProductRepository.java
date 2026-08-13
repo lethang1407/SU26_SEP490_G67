@@ -36,17 +36,33 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
 
     boolean existsByBarcodeAndIdNotAndIsRemovedFalse(String barcode, Integer id);
 
+    boolean existsByParent_IdAndIsRemovedFalse(Integer parentId);
+
     /**
-     * Find active products by keyword (partial name match, case-insensitive).
+     * Hàng bán được / nhập được: SP thường hoặc SP con.
+     * Loại nhóm hàng (có ít nhất một con active).
      */
+    @EntityGraph(attributePaths = {"category", "parent"})
     @Query("""
-            SELECT p
+            SELECT DISTINCT p
             FROM Product p
-            WHERE p.isRemoved = false
+            LEFT JOIN p.parent parent
+            WHERE (p.isRemoved = false OR p.isRemoved IS NULL)
+              AND NOT EXISTS (
+                    SELECT 1 FROM Product child
+                    WHERE child.parent.id = p.id
+                      AND (child.isRemoved = false OR child.isRemoved IS NULL)
+              )
               AND (
                     lower(p.name) LIKE lower(concat('%', :query, '%'))
-                    OR lower(p.barcode) LIKE lower(concat('%', :query, '%'))
+                    OR (p.barcode IS NOT NULL AND lower(p.barcode) LIKE lower(concat('%', :query, '%')))
+                    OR (p.sku IS NOT NULL AND lower(p.sku) LIKE lower(concat('%', :query, '%')))
+                    OR (parent IS NOT NULL AND lower(parent.name) LIKE lower(concat('%', :query, '%')))
+                    OR (parent IS NOT NULL AND parent.barcode IS NOT NULL
+                        AND lower(parent.barcode) LIKE lower(concat('%', :query, '%')))
+                    OR (parent IS NOT NULL AND parent.sku IS NOT NULL
+                        AND lower(parent.sku) LIKE lower(concat('%', :query, '%')))
                   )
             """)
-    List<Product> searchByNameAndBarcode(@Param("query") String query);
+    List<Product> searchSellableByNameAndBarcode(@Param("query") String query);
 }

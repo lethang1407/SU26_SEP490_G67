@@ -1,5 +1,6 @@
 -- ============================================================
--- V18: Tách draft trả NCC theo source (MANUAL | INVENTORY_CHECK)
+-- V27: Tách draft trả NCC theo source (MANUAL | INVENTORY_CHECK)
+-- Guarded: bảng inventory_checks có thể chưa tồn tại (Flyway trước Hibernate).
 -- ============================================================
 
 SET @col_exists := (
@@ -28,6 +29,11 @@ PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
+SET @ref_exists := (
+    SELECT COUNT(*) FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'inventory_checks'
+);
 SET @fk_exists := (
     SELECT COUNT(*)
     FROM information_schema.TABLE_CONSTRAINTS
@@ -36,11 +42,11 @@ SET @fk_exists := (
       AND CONSTRAINT_NAME = 'fk_import_returns_inventory_check'
       AND CONSTRAINT_TYPE = 'FOREIGN KEY'
 );
-SET @sql := IF(@fk_exists = 0,
+SET @sql := IF(@ref_exists = 0 OR @fk_exists > 0,
+    'DO 0',
     'ALTER TABLE import_returns
         ADD CONSTRAINT fk_import_returns_inventory_check
-        FOREIGN KEY (inventory_check_id) REFERENCES inventory_checks (id)',
-    'DO 0');
+        FOREIGN KEY (inventory_check_id) REFERENCES inventory_checks (id)');
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;

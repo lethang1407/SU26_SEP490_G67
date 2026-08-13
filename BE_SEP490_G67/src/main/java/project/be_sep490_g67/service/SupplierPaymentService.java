@@ -14,6 +14,7 @@ import project.be_sep490_g67.entity.Supplier;
 import project.be_sep490_g67.entity.SupplierPayment;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
+import project.be_sep490_g67.constants.ImportOrderConstants;
 import project.be_sep490_g67.repository.ImportOrderRepository;
 import project.be_sep490_g67.repository.SupplierPaymentRepository;
 import project.be_sep490_g67.repository.SupplierRepository;
@@ -25,7 +26,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -197,6 +197,17 @@ public class SupplierPaymentService {
     }
 
     private String generatePaymentCode() {
-        return "PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String prefix = ImportOrderConstants.PAYMENT_CODE_PREFIX;
+        int seqLength = ImportOrderConstants.PAYMENT_CODE_SEQ_LENGTH;
+
+        int nextSeq = supplierPaymentRepository.findLatestTtnPaymentCode()
+                .map(code -> Integer.parseInt(code.substring(prefix.length())) + 1)
+                .orElse(0);
+
+        if (nextSeq > 999_999) {
+            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+        }
+
+        return prefix + String.format("%0" + seqLength + "d", nextSeq);
     }
 }

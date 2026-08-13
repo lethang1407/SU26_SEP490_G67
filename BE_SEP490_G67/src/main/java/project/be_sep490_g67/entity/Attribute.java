@@ -19,6 +19,9 @@ public class Attribute extends BaseEntity{
     @Column(name = "name", nullable = false, length = 60)
     private String name;
 
+    @Column(name = "is_primary", columnDefinition = "boolean default false")
+    private Boolean isPrimary = false;
+
     @OneToMany(mappedBy = "attribute")
     private Set<ProductAttribute> productAttributes = new LinkedHashSet<>();
 

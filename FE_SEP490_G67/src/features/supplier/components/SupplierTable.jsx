@@ -13,10 +13,10 @@ function SupplierTableSkeleton() {
                 <table className="supplier-table">
                     <thead>
                         <tr>
-                            <th>Mã NCC</th>
+                            <th className="supplier-table__stt">STT</th>
                             <th>Tên nhà cung cấp</th>
                             <th>Số điện thoại</th>
-                            <th>Địa chỉ</th>
+                            <th>Ghi chú</th>
                             <th>Nợ cần trả hiện tại</th>
                         </tr>
                     </thead>
@@ -51,10 +51,10 @@ export default function SupplierTable({
     items,
     loading,
     expandedId,
+    startIndex = 1,
     onToggleExpand,
     onPaymentSuccess,
     onSupplierUpdated,
-    onSupplierDeleted,
 }) {
     if (loading) {
         return <SupplierTableSkeleton />;
@@ -74,16 +74,18 @@ export default function SupplierTable({
                 <table className="supplier-table">
                     <thead>
                         <tr>
-                            <th>Mã NCC</th>
+                            <th className="supplier-table__stt">STT</th>
                             <th>Tên nhà cung cấp</th>
                             <th>Số điện thoại</th>
-                            <th>Địa chỉ</th>
+                            <th>Ghi chú</th>
                             <th>Nợ cần trả hiện tại</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {items.map((supplier) => {
+                        {items.map((supplier, index) => {
                             const isExpanded = expandedId === supplier.id;
+                            const noteText = supplier.notes?.trim() || '';
+                            const stt = startIndex + index;
 
                             return (
                                 <Fragment key={supplier.id}>
@@ -94,13 +96,18 @@ export default function SupplierTable({
                                         onClick={() => onToggleExpand(supplier.id)}
                                         aria-expanded={isExpanded}
                                     >
-                                        <td className="supplier-table__code-text">{supplier.supplierCode}</td>
+                                        <td className="supplier-table__stt">{stt}</td>
                                         <td className="supplier-table__name">{supplier.name}</td>
                                         <td className="supplier-table__phone">
                                             <SupplierPhoneCell phoneNumber={supplier.phoneNumber} stopRowClick />
                                         </td>
-                                        <td className="supplier-table__address" title={supplier.address}>
-                                            {supplier.address}
+                                        <td
+                                            className={`supplier-table__notes ${
+                                                noteText ? '' : 'supplier-table__notes--empty'
+                                            }`}
+                                            title={noteText || undefined}
+                                        >
+                                            {noteText || '—'}
                                         </td>
                                         <td
                                             className={`supplier-table__debt ${
@@ -118,7 +125,6 @@ export default function SupplierTable({
                                                     listDebt={supplier.currentDebt}
                                                     onPaymentSuccess={onPaymentSuccess}
                                                     onUpdated={onSupplierUpdated}
-                                                    onDeleted={onSupplierDeleted}
                                                 />
                                             </td>
                                         </tr>

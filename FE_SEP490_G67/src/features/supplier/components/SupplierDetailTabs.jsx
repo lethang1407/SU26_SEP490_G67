@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pencil, Trash2, Wallet } from 'lucide-react';
+import { Pencil, Wallet } from 'lucide-react';
 import SupplierGeneralInfoTab from './SupplierGeneralInfoTab';
 import SupplierImportHistoryTable from './SupplierImportHistoryTable';
 import SupplierPaymentHistoryTable from './SupplierPaymentHistoryTable';
@@ -18,12 +18,10 @@ export default function SupplierDetailTabs({
     canPayDebt = false,
     onPayDebt,
     onEdit,
-    onDelete,
-    deleting = false,
 }) {
     const [activeTab, setActiveTab] = useState('general');
     const [viewingOrderId, setViewingOrderId] = useState(null);
-    const showCrudFooter = Boolean(onEdit || onDelete);
+    const showEditFooter = Boolean(onEdit) && activeTab === 'general';
 
     const handleViewReference = async (referenceCode) => {
         try {
@@ -92,33 +90,17 @@ export default function SupplierDetailTabs({
                 )}
             </div>
 
-            {showCrudFooter && (
+            {showEditFooter && (
                 <div className="supplier-detail-tabs__footer">
-                    {onDelete ? (
-                        <button
-                            type="button"
-                            className="supplier-btn supplier-btn--danger-outline supplier-detail-tabs__action-btn"
-                            onClick={onDelete}
-                            disabled={deleting}
-                            title="Xóa nhà cung cấp"
-                        >
-                            <Trash2 size={16} />
-                            {deleting ? 'Đang xóa...' : 'Xóa'}
-                        </button>
-                    ) : (
-                        <span />
-                    )}
-                    {onEdit && (
-                        <button
-                            type="button"
-                            className="supplier-btn supplier-btn--primary supplier-detail-tabs__action-btn"
-                            onClick={onEdit}
-                            title="Chỉnh sửa nhà cung cấp"
-                        >
-                            <Pencil size={16} />
-                            Chỉnh sửa
-                        </button>
-                    )}
+                    <button
+                        type="button"
+                        className="supplier-btn supplier-btn--primary supplier-detail-tabs__action-btn"
+                        onClick={onEdit}
+                        title="Chỉnh sửa nhà cung cấp"
+                    >
+                        <Pencil size={16} />
+                        Chỉnh sửa
+                    </button>
                 </div>
             )}
 

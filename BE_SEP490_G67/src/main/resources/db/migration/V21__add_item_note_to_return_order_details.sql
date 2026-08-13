@@ -13,7 +13,40 @@
 --     không có chỗ ghi. Cột này là chỗ đó.
 --
 --     Guarded bằng information_schema, cùng kiểu với V19-V20.
+--     Không dùng AFTER item_condition: một số DB có V19 recorded nhưng
+--     cột chưa tồn tại (ddl-auto / migrate lệch) → Error 1054.
 -- ============================================================
+
+-- Self-heal: đảm bảo item_condition có trước (idempotent với V19).
+SET @col_exists := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'return_order_details'
+      AND COLUMN_NAME = 'item_condition'
+);
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE return_order_details ADD COLUMN item_condition VARCHAR(20) NULL',
+    'DO 0');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+UPDATE return_order_details
+SET item_condition = 'RESELLABLE'
+WHERE item_condition IS NULL;
+
+SET @nullable := (
+    SELECT IS_NULLABLE FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'return_order_details'
+      AND COLUMN_NAME = 'item_condition'
+);
+SET @sql := IF(@nullable = 'YES',
+    'ALTER TABLE return_order_details MODIFY COLUMN item_condition VARCHAR(20) NOT NULL',
+    'DO 0');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 SET @col_exists := (
     SELECT COUNT(*) FROM information_schema.COLUMNS
@@ -22,7 +55,7 @@ SET @col_exists := (
       AND COLUMN_NAME = 'note'
 );
 SET @sql := IF(@col_exists = 0,
-    'ALTER TABLE return_order_details ADD COLUMN note VARCHAR(500) NULL AFTER item_condition',
+    'ALTER TABLE return_order_details ADD COLUMN note VARCHAR(500) NULL',
     'DO 0');
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
