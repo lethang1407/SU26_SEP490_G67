@@ -307,6 +307,7 @@ public class CustomerService {
                     .id(so.getId())
                     .customerId(customerId)
                     .customerName(so.getCustomer().getFullName())
+                    .orderId(so.getId())
                     .orderCode(so.getOrderCode())
                     .orderDate(so.getCreatedAt())
                     .dueDate(so.getDueDate())

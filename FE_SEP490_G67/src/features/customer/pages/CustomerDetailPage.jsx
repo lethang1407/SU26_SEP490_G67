@@ -399,10 +399,14 @@ export default function CustomerDetailPage() {
 
               <div className="customer-detail-tabs__panel" role="tabpanel">
                 {activeTab === 'invoice' && (
-                  <CustomerDebtInvoices customerId={customerId} refreshKey={refreshKey} />
+                  <div className="p-4">
+                    <CustomerDebtInvoices customerId={customerId} refreshKey={refreshKey} />
+                  </div>
                 )}
                 {activeTab === 'history' && (
-                  <CustomerPaymentHistory customerId={customerId} refreshKey={refreshKey} />
+                  <div className="p-4">
+                    <CustomerPaymentHistory customerId={customerId} refreshKey={refreshKey} />
+                  </div>
                 )}
               </div>
             </div>

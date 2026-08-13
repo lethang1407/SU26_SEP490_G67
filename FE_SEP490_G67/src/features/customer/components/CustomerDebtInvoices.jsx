@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Row,
   Col,
@@ -11,6 +11,7 @@ import {
 } from "react-bootstrap";
 import { FiSearch, FiClock } from "react-icons/fi";
 import { getCustomerDebtOrders } from "../api";
+import OrderDetailModal from "./OrderDetailModal";
 
 const formatCurrency = (value) => {
   if (value === null || value === undefined) return "0 đ";
@@ -74,9 +75,24 @@ export default function CustomerDebtInvoices({ customerId, refreshKey }) {
     keyword: "",
   });
 
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState(null);
+
+  const handleShowDetail = (orderId) => {
+    setSelectedOrderId(orderId);
+    setShowDetailModal(true);
+  };
+
   // Debouncing for search keyword
   const [searchTerm, setSearchTerm] = useState("");
+  const isInitialMount = useRef(true);
   useEffect(() => {
+    // Bỏ qua lần chạy đầu tiên khi component mount để tránh gọi API 2 lần
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
     const handler = setTimeout(() => {
       setFilters((prev) => ({ ...prev, keyword: searchTerm, page: 1 }));
     }, 500);
@@ -107,7 +123,7 @@ export default function CustomerDebtInvoices({ customerId, refreshKey }) {
   };
 
   return (
-    <div className="p-4">
+    <>
       {/* Search + Filter */}
       <Row className="mb-4">
         <Col md={5}>
@@ -160,16 +176,16 @@ export default function CustomerDebtInvoices({ customerId, refreshKey }) {
             </tr>
           ) : invoices.content.length === 0 ? (
             <tr>
-              <td colSpan="6" className="text-center py-5 text-muted">
+              <td colSpan="8" className="text-center py-5 text-muted">
                 Không có hóa đơn nợ nào.
               </td>
             </tr>
           ) : (
             invoices.content.map((invoice) => (
-              <tr key={invoice.id}>
+              <tr key={invoice.id} style={{ cursor: 'pointer' }} onClick={() => handleShowDetail(invoice.id)}>
                 <td>{formatDateTime(invoice.orderDate)}</td>
                 <td>
-                  <a href="#">{invoice.orderCode}</a>
+                  <span className="text-primary fw-medium">{invoice.orderCode}</span>
                 </td>
                 <td>{formatCurrency(invoice.totalAmount)}</td>
                 <td>{formatCurrency(invoice.amountPaid)}</td>
@@ -213,6 +229,12 @@ export default function CustomerDebtInvoices({ customerId, refreshKey }) {
           </Pagination>
         </div>
       )}
-    </div>
+
+      <OrderDetailModal
+        show={showDetailModal}
+        onHide={() => setShowDetailModal(false)}
+        orderId={selectedOrderId}
+      />
+    </>
   );
 }

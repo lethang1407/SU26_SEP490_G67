@@ -80,22 +80,59 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
     @Query("SELECT o FROM SalesOrder o LEFT JOIN FETCH o.customer LEFT JOIN FETCH o.salesOrderDetails WHERE o.id = :id AND o.isRemoved = false")
     Optional<SalesOrder> findByIdWithDetails(@Param("id") Integer id);
 
-    @Query(value = """
-    SELECT so FROM SalesOrder so
-    WHERE so.customer.id = :customerId
-    AND (:keyword IS NULL OR so.orderCode LIKE %:keyword%)
-    ORDER BY
-        CASE
-            WHEN so.totalAmount > COALESCE((SELECT SUM(dp.amountPaid) FROM DebtPayment dp WHERE dp.salesOrder = so AND dp.isRemoved = false), 0) AND so.dueDate < :now THEN 1
-            WHEN so.totalAmount > COALESCE((SELECT SUM(dp.amountPaid) FROM DebtPayment dp WHERE dp.salesOrder = so AND dp.isRemoved = false), 0) THEN 2
-            ELSE 3
-        END,
-        so.createdAt DESC
-    """, countQuery = """
-    SELECT count(so) FROM SalesOrder so
-    WHERE so.customer.id = :customerId
-    AND (:keyword IS NULL OR so.orderCode LIKE %:keyword%)
-    """)
+    @Query(
+            value = """
+                SELECT so
+                FROM SalesOrder so
+                WHERE so.customer.id = :customerId
+                  AND (:keyword IS NULL OR so.orderCode LIKE %:keyword%)
+                ORDER BY
+                    CASE
+                        WHEN so.totalAmount >
+                             (
+                                 COALESCE(so.paidAmount, 0)
+                                 +
+                                 COALESCE(
+                                     (
+                                         SELECT SUM(dp.amountPaid)
+                                         FROM DebtPayment dp
+                                         WHERE dp.salesOrder = so
+                                           AND dp.isRemoved = false
+                                     ),
+                                     0
+                                 )
+                             )
+                             AND so.dueDate IS NOT NULL
+                             AND so.dueDate < :now
+                        THEN 1
+
+                        WHEN so.totalAmount >
+                             (
+                                 COALESCE(so.paidAmount, 0)
+                                 +
+                                 COALESCE(
+                                     (
+                                         SELECT SUM(dp.amountPaid)
+                                         FROM DebtPayment dp
+                                         WHERE dp.salesOrder = so
+                                           AND dp.isRemoved = false
+                                     ),
+                                     0
+                                 )
+                             )
+                        THEN 2
+
+                        ELSE 3
+                    END,
+                    so.createdAt DESC
+                """,
+            countQuery = """
+                SELECT COUNT(so)
+                FROM SalesOrder so
+                WHERE so.customer.id = :customerId
+                  AND (:keyword IS NULL OR so.orderCode LIKE %:keyword%)
+                """
+    )
     Page<SalesOrder> findDebtOrdersByCustomerIdWithPriority(
             @Param("customerId") Integer customerId,
             @Param("keyword") String keyword,

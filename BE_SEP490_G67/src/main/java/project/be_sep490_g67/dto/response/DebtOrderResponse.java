@@ -17,6 +17,7 @@ public class DebtOrderResponse {
     private Integer id;
     private Integer customerId;
     private String customerName;
+    private Integer orderId;
     private String orderCode;
     private Instant orderDate;
     private Instant dueDate;

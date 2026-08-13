@@ -102,6 +102,19 @@ public class SalesOrderController {
     }
 
     /**
+     * GET /api/sales-orders/{id}/detail
+     */
+    @GetMapping("/{id}/detail")
+    @PreAuthorize("isAuthenticated()")
+    ApiResponse<SalesOrderDetailResponse> getOrderDetail(@PathVariable Integer id) {
+        SalesOrderDetailResponse result = salesOrderService.getOrderDetailWithReturns(id);
+        return ApiResponse.<SalesOrderDetailResponse>builder()
+                .result(result)
+                .message("Láº¥y chi tiáº¿t Ä‘Æ¡n hÃ ng thÃ nh cÃ´ng")
+                .build();
+    }
+
+    /**
      * GET /api/sales-orders/{id}/receipt
      */
     @GetMapping("/{id}/receipt")
