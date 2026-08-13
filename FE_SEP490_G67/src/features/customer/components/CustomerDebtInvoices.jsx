@@ -61,7 +61,7 @@ const getStatusBadge = (status) => {
   }
 };
 
-export default function CustomerDebtInvoices({ customerId, refreshKey }) {
+export default function CustomerDebtInvoices({ customerId, refreshKey, initialOrderId }) {
   const [invoices, setInvoices] = useState({
     content: [],
     totalPages: 1,
@@ -117,6 +117,13 @@ export default function CustomerDebtInvoices({ customerId, refreshKey }) {
 
     fetchInvoices();
   }, [customerId, filters, refreshKey]);
+
+  // Mở modal chi tiết nếu có initialOrderId từ URL
+  useEffect(() => {
+    if (initialOrderId) {
+      handleShowDetail(initialOrderId);
+    }
+  }, [initialOrderId]);
 
   const handlePageChange = (newPage) => {
     setFilters((prev) => ({ ...prev, page: newPage }));

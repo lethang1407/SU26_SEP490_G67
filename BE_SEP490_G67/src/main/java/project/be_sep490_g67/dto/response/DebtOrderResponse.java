@@ -25,5 +25,6 @@ public class DebtOrderResponse {
     private BigDecimal amountPaid;
     private BigDecimal amountRemaining;
     private DebtOrderStatus status;
+    private Boolean isCheckDebtUnstable;
     private String createdBy;
 }

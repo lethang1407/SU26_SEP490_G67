@@ -227,12 +227,10 @@ public class CustomerService {
     }
     
     private Comparator<CustomerResponse> getPriorityComparator() {
-        return (c1, c2) -> {
-            int score1 = calculatePriorityScore(c1);
-            int score2 = calculatePriorityScore(c2);
-            // Higher score comes first
-            return Integer.compare(score2, score1);
-        };
+        // Primary sort: by priority score (descending)
+        // Secondary sort: by total debt (descending)
+        return Comparator.comparingInt(this::calculatePriorityScore).reversed()
+                .thenComparing(CustomerResponse::getTotalDebt, Comparator.reverseOrder());
     }
 
     private int calculatePriorityScore(CustomerResponse c) {
@@ -399,6 +397,7 @@ public class CustomerService {
                     .totalAmount(totalAmount)
                     .amountPaid(totalPaid)
                     .amountRemaining(amountRemaining)
+                    .isCheckDebtUnstable(so.getIsCheckDebtUnstable())
                     .status(amountRemaining.compareTo(BigDecimal.ZERO) <= 0 ? DebtOrderStatus.PAID : DebtOrderStatus.IN_DEBT)
                     .createdBy(createdByName)
                     .build();

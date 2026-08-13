@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Container,
   Row,
@@ -73,6 +73,7 @@ const getStatusBadge = (status) => {
 export default function CustomerDetailPage() {
   const { customerId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [customer, setCustomer] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -86,6 +87,7 @@ export default function CustomerDetailPage() {
   });
   const [refreshKey, setRefreshKey] = useState(0);
   const [activeTab, setActiveTab] = useState('invoice');
+  const [initialOrderId, setInitialOrderId] = useState(null);
 
   const fetchCustomer = async () => {
     setIsLoading(true);
@@ -104,6 +106,12 @@ export default function CustomerDetailPage() {
   useEffect(() => {
     if (customerId) {
       fetchCustomer();
+    }
+
+    // Lấy orderId từ URL để mở modal chi tiết hóa đơn
+    const orderToOpen = searchParams.get('openOrder');
+    if (orderToOpen) {
+      setInitialOrderId(orderToOpen);
     }
   }, [customerId, refreshKey]);
 
@@ -400,7 +408,7 @@ export default function CustomerDetailPage() {
               <div className="customer-detail-tabs__panel" role="tabpanel">
                 {activeTab === 'invoice' && (
                   <div className="p-4">
-                    <CustomerDebtInvoices customerId={customerId} refreshKey={refreshKey} />
+                    <CustomerDebtInvoices customerId={customerId} refreshKey={refreshKey} initialOrderId={initialOrderId} />
                   </div>
                 )}
                 {activeTab === 'history' && (
