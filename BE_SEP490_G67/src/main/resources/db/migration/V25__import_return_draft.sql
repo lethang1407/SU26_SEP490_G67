@@ -1,5 +1,5 @@
 -- ============================================================
--- V17: Phiếu trả NCC nháp (đa NCC) — status, supplier, batch lines
+-- V25: Phiếu trả NCC nháp (đa NCC) — status, supplier, batch lines
 -- Guarded: Hibernate ddl-auto có thể đã thêm cột / nới NULL.
 -- ============================================================
 

@@ -1,5 +1,5 @@
 -- ============================================================
--- V19: Đổi trả NCC — IN_PROGRESS, method, line_status, exchange_batch
+-- V27: Đổi trả NCC — IN_PROGRESS, method, line_status, exchange_batch
 -- ============================================================
 
 SET @col_exists := (

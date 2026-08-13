@@ -1879,6 +1879,41 @@
 .place-batch-qty-modal-overlay {
     z-index: 2100;
 }
+.place-batch-qty-modal.supplier-modal {
+    max-width: min(520px, calc(100vw - 32px));
+    width: calc(100vw - 32px);
+}
+.place-batch-qty-modal__info {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+.place-batch-qty-modal__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.place-batch-qty-modal__field-label {
+    font-size: 14px;
+    font-weight: 400;
+    color: #64748b;
+}
+.place-batch-qty-modal__field-box {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 10px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #f8fafc;
+}
+.place-batch-qty-modal__field-value {
+    font-size: 14px;
+    font-weight: 400;
+    color: #0f172a;
+    line-height: 1.4;
+}
 .place-batch-qty-modal .inventory-check-modal-field {
     display: flex;
     flex-direction: column;
@@ -1887,15 +1922,15 @@
 }
 .place-batch-qty-modal .inventory-check-modal-field span {
     font-size: 14px;
-    font-weight: 600;
-    color: #334155;
+    font-weight: 400;
+    color: #64748b;
 }
 .place-batch-qty-modal .inventory-check-modal-field input {
     border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 10px 12px;
-    font-size: 15px;
-    min-height: 42px;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 14px;
+    min-height: 44px;
 }
 .place-batch-qty-modal .inventory-check-modal-checkbox {
     display: flex;
@@ -1903,7 +1938,8 @@
     gap: 8px;
     margin-top: 12px;
     font-size: 14px;
-    color: #334155;
+    font-weight: 400;
+    color: #64748b;
     cursor: pointer;
 }
 .place-batch-qty-modal .inventory-check-modal-checkbox input {

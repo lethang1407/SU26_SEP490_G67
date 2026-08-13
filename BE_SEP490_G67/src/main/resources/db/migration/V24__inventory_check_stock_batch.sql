@@ -1,5 +1,5 @@
 -- ============================================================
--- V16: Kiểm kho theo lô — inventory_check_details.stock_batch_id
+-- V24: Kiểm kho theo lô — inventory_check_details.stock_batch_id
 -- NULL = kiểm tất cả lô của SP; có giá trị = đúng 1 lô.
 -- Guarded: Hibernate ddl-auto có thể đã thêm cột.
 -- ============================================================

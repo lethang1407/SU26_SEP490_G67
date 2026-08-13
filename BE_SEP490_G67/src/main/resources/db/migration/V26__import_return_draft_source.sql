@@ -1,5 +1,5 @@
 -- ============================================================
--- V18: Tách draft trả NCC theo source (MANUAL | INVENTORY_CHECK)
+-- V26: Tách draft trả NCC theo source (MANUAL | INVENTORY_CHECK)
 -- ============================================================
 
 SET @col_exists := (
