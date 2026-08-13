@@ -33,8 +33,9 @@ SET @col_exists := (
       AND TABLE_NAME = 'return_order_details'
       AND COLUMN_NAME = 'item_condition'
 );
+-- Không dùng AFTER resolution_type: DB lệch có thể chưa có cột đó.
 SET @sql := IF(@col_exists = 0,
-    'ALTER TABLE return_order_details ADD COLUMN item_condition VARCHAR(20) NULL AFTER resolution_type',
+    'ALTER TABLE return_order_details ADD COLUMN item_condition VARCHAR(20) NULL',
     'DO 0');
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
@@ -44,7 +45,18 @@ UPDATE return_order_details
 SET item_condition = 'RESELLABLE'
 WHERE item_condition IS NULL;
 
-ALTER TABLE return_order_details MODIFY COLUMN item_condition VARCHAR(20) NOT NULL;
+SET @nullable := (
+    SELECT IS_NULLABLE FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'return_order_details'
+      AND COLUMN_NAME = 'item_condition'
+);
+SET @sql := IF(@nullable = 'YES',
+    'ALTER TABLE return_order_details MODIFY COLUMN item_condition VARCHAR(20) NOT NULL',
+    'DO 0');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- ------------------------------------------------------------
 -- sales_order_details.stock_batch_id

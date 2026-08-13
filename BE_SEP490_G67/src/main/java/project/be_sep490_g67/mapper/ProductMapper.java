@@ -97,7 +97,14 @@ public class ProductMapper {
                 .build();
     }
 
-    private ProductAttributeResponse toAttributeResponse(ProductAttribute productAttribute) {
+    public List<ProductAttributeResponse> toAttributeResponses(List<ProductAttribute> attributes) {
+        if (attributes == null || attributes.isEmpty()) {
+            return List.of();
+        }
+        return attributes.stream().map(this::toAttributeResponse).toList();
+    }
+
+    public ProductAttributeResponse toAttributeResponse(ProductAttribute productAttribute) {
         return ProductAttributeResponse.builder()
                 .id(productAttribute.getId())
                 .name(productAttribute.getAttribute() != null

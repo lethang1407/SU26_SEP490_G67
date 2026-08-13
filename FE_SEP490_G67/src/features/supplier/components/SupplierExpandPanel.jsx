@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import SupplierDetailTabs from './SupplierDetailTabs';
 import SupplierPaymentModal from './SupplierPaymentModal';
 import SupplierAddNewModal from './SupplierAddNewModal';
-import SupplierDeleteConfirmModal from './SupplierDeleteConfirmModal';
 import { suppliersApi } from '../api';
 
 export default function SupplierExpandPanel({
@@ -10,7 +9,6 @@ export default function SupplierExpandPanel({
     listDebt,
     onPaymentSuccess,
     onUpdated,
-    onDeleted,
 }) {
     const [supplier, setSupplier] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -21,9 +19,6 @@ export default function SupplierExpandPanel({
     const [editOpen, setEditOpen] = useState(false);
     const [submittingEdit, setSubmittingEdit] = useState(false);
     const [editError, setEditError] = useState('');
-    const [deleteOpen, setDeleteOpen] = useState(false);
-    const [deleting, setDeleting] = useState(false);
-    const [deleteError, setDeleteError] = useState('');
     const [refreshToken, setRefreshToken] = useState(0);
 
     const fetchSupplier = useCallback((options = {}) => {
@@ -95,26 +90,6 @@ export default function SupplierExpandPanel({
             .finally(() => setSubmittingEdit(false));
     };
 
-    const handleDeleteClick = () => {
-        setDeleteError('');
-        setDeleteOpen(true);
-    };
-
-    const handleDeleteConfirm = () => {
-        setDeleting(true);
-        setDeleteError('');
-        suppliersApi
-            .deleteSupplier(supplierId)
-            .then(() => {
-                setDeleteOpen(false);
-                onDeleted?.(supplierId);
-            })
-            .catch((err) => {
-                setDeleteError(err.response?.data?.message || 'Xóa thất bại. Vui lòng thử lại.');
-            })
-            .finally(() => setDeleting(false));
-    };
-
     if (loading) {
         return (
             <div
@@ -159,8 +134,6 @@ export default function SupplierExpandPanel({
                     setEditError('');
                     setEditOpen(true);
                 }}
-                onDelete={handleDeleteClick}
-                deleting={deleting}
             />
 
             <SupplierPaymentModal
@@ -180,18 +153,6 @@ export default function SupplierExpandPanel({
                 submitError={editError}
                 onClose={() => setEditOpen(false)}
                 onSubmit={handleEditSubmit}
-            />
-
-            <SupplierDeleteConfirmModal
-                open={deleteOpen}
-                supplierName={supplier.name}
-                currentDebt={currentDebt}
-                submitting={deleting}
-                error={deleteError}
-                onClose={() => {
-                    if (!deleting) setDeleteOpen(false);
-                }}
-                onConfirm={handleDeleteConfirm}
             />
         </div>
     );

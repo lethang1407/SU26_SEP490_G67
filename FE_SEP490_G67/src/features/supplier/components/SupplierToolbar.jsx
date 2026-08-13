@@ -15,7 +15,7 @@ export default function SupplierToolbar({
                 <input
                     type="text"
                     className="supplier-toolbar__search-input"
-                    placeholder="Tìm theo tên, mã hoặc số điện thoại"
+                    placeholder="Tìm theo tên hoặc số điện thoại"
                     value={keyword}
                     onChange={(event) => onKeywordChange(event.target.value)}
                     aria-label="Tìm nhà cung cấp"

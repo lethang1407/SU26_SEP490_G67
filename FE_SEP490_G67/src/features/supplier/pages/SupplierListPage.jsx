@@ -138,13 +138,6 @@ export default function SupplierListPage() {
         setTimeout(() => setToast(''), 3000);
     };
 
-    const handleSupplierDeleted = () => {
-        setExpandedId(null);
-        fetchSuppliers({ silent: true });
-        setToast('Đã xóa nhà cung cấp.');
-        setTimeout(() => setToast(''), 3000);
-    };
-
     const handleAddSupplier = (supplierData) => {
         suppliersApi
             .addSupplier(supplierData)
@@ -213,10 +206,10 @@ export default function SupplierListPage() {
                             items={data.content}
                             loading={loading}
                             expandedId={expandedId}
+                            startIndex={pagination.startIndex}
                             onToggleExpand={handleToggleExpand}
                             onPaymentSuccess={handlePaymentSuccess}
                             onSupplierUpdated={handleSupplierUpdated}
-                            onSupplierDeleted={handleSupplierDeleted}
                         />
 
                         <SupplierPagination

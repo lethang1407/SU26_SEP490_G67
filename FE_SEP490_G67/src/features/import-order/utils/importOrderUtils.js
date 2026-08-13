@@ -50,6 +50,43 @@ export function computeLineTotal(line) {
     return quantity * costPerUnit;
 }
 
+/** Đơn giá gợi ý = giá / ĐVT cơ bản × hệ số ĐVT đang chọn. */
+export function suggestCostForUnit(lastCostPerBase, unitBase) {
+    const base = Number(lastCostPerBase) || 0;
+    const factor = Number(unitBase) > 0 ? Number(unitBase) : 1;
+    return Math.round(base * factor);
+}
+
+/**
+ * Cảnh báo giá ngay trên dòng (không popup).
+ * @returns {{ level: 'danger' | 'warn', message: string } | null}
+ */
+export function getLinePriceWarning(line) {
+    if (!line || line.isPromotion) return null;
+
+    const unitBase = Number(line.unitBase) > 0 ? Number(line.unitBase) : 1;
+    const costPerUnit = Number(line.costPerUnit) || 0;
+    if (costPerUnit <= 0) return null;
+
+    const newCostBase = costPerUnit / unitBase;
+    const lastCost = Number(line.lastCostPerBase) || 0;
+    const selling = Number(line.sellingPrice) || 0;
+
+    if (selling > 0 && newCostBase >= selling) {
+        return {
+            level: 'danger',
+            message: 'Giá nhập ≥ giá bán — có thể lỗ, nên tăng giá bán.',
+        };
+    }
+    if (lastCost > 0 && newCostBase > lastCost) {
+        return {
+            level: 'warn',
+            message: 'Cao hơn giá vốn lần trước — nên xem lại giá bán.',
+        };
+    }
+    return null;
+}
+
 export function buildImportSummary(lines) {
     const totalLines = lines.length;
     const totalQuantity = lines.reduce((sum, line) => sum + (Number(line.quantity) || 0), 0);
@@ -129,6 +166,16 @@ export function searchProducts(products, keyword) {
             product.productCode.toLowerCase().includes(normalized) ||
             product.barcode?.includes(normalized),
     );
+}
+
+export function formatProductAttributes(attributes) {
+    if (!Array.isArray(attributes) || attributes.length === 0) {
+        return '';
+    }
+    return attributes
+        .filter((item) => item?.name && item?.value)
+        .map((item) => `${item.name} ${item.value}`)
+        .join(' · ');
 }
 
 /** Kệ trống hoặc đang chứa đúng loại SP (quy tắc 1 kệ = 1 SP) */
