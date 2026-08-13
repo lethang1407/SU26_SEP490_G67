@@ -36,6 +36,9 @@ public class Product extends BaseEntity {
     @Column(name = "barcode", length = 50)
     private String barcode;
 
+    @Column(name = "sku", length = 50, unique = true)
+    private String sku;
+
     @ColumnDefault("0.00")
     @Column(name = "cost_price", precision = 15, scale = 2)
     private BigDecimal costPrice;
@@ -85,6 +88,4 @@ public class Product extends BaseEntity {
     @OneToMany(mappedBy = "product")
     private Set<StockBatch> stockBatches = new LinkedHashSet<>();
 
-    @OneToMany(mappedBy = "product")
-    private Set<PriceHistory> priceHistories = new LinkedHashSet<>();
 }

@@ -206,6 +206,7 @@ export default function SupplierListPage() {
                             items={data.content}
                             loading={loading}
                             expandedId={expandedId}
+                            startIndex={pagination.startIndex}
                             onToggleExpand={handleToggleExpand}
                             onPaymentSuccess={handlePaymentSuccess}
                             onSupplierUpdated={handleSupplierUpdated}

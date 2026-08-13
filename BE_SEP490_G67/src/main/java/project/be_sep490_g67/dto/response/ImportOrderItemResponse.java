@@ -21,6 +21,9 @@ public class ImportOrderItemResponse {
     Integer productId;
     String productCode;
     String productName;
+    Integer parentId;
+    String parentName;
+    List<ProductAttributeResponse> attributes;
     Integer productUnitId;
     /** Tên ĐVT lấy từ product_units (join), không lưu snapshot trên phiếu. */
     String unitName;

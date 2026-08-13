@@ -168,6 +168,16 @@ export function searchProducts(products, keyword) {
     );
 }
 
+export function formatProductAttributes(attributes) {
+    if (!Array.isArray(attributes) || attributes.length === 0) {
+        return '';
+    }
+    return attributes
+        .filter((item) => item?.name && item?.value)
+        .map((item) => `${item.name} ${item.value}`)
+        .join(' · ');
+}
+
 /** Kệ trống hoặc đang chứa đúng loại SP (quy tắc 1 kệ = 1 SP) */
 export function getAvailableLocationsForProduct(locations, productCode) {
     return locations.filter((location) => {

@@ -1,5 +1,5 @@
 -- ============================================================
--- V16: Đánh dấu dòng hàng khuyến mại / trả thưởng
+-- V24: Đánh dấu dòng hàng khuyến mại / trả thưởng
 -- (không thu tiền, vẫn nhập kho).
 -- Guarded: Hibernate ddl-auto có thể đã thêm cột.
 -- ============================================================

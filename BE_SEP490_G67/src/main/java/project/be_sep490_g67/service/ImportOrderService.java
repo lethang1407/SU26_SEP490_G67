@@ -13,6 +13,8 @@ import project.be_sep490_g67.dto.response.ImportOrderDetailResponse;
 import project.be_sep490_g67.dto.response.ImportOrderItemResponse;
 import project.be_sep490_g67.dto.response.ImportOrderListItemResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
+import project.be_sep490_g67.dto.response.ProductAttributeResponse;
+import project.be_sep490_g67.mapper.ProductMapper;
 import project.be_sep490_g67.entity.ImportOrder;
 import project.be_sep490_g67.entity.ImportOrderDetail;
 import project.be_sep490_g67.entity.Product;
@@ -28,6 +30,7 @@ import project.be_sep490_g67.repository.ImportOrderDetailRepository;
 import project.be_sep490_g67.repository.ImportOrderRepository;
 import project.be_sep490_g67.repository.ProductRepository;
 import project.be_sep490_g67.repository.ProductUnitRepository;
+import project.be_sep490_g67.repository.ProductAttributeRepository;
 import project.be_sep490_g67.repository.StockBatchRepository;
 import project.be_sep490_g67.repository.StockMovementRepository;
 import project.be_sep490_g67.repository.SupplierPaymentRepository;
@@ -58,6 +61,8 @@ public class ImportOrderService {
     SupplierPaymentRepository supplierPaymentRepository;
     ProductRepository productRepository;
     ProductUnitRepository productUnitRepository;
+    ProductAttributeRepository productAttributeRepository;
+    ProductMapper productMapper;
     StockBatchRepository stockBatchRepository;
     StockMovementRepository stockMovementRepository;
     UserRepository userRepository;
@@ -315,8 +320,17 @@ public class ImportOrderService {
                 ? resolvePaymentStatus(totalCost, safePaid)
                 : ImportOrderConstants.PAYMENT_STATUS_DONE;
 
-        List<ImportOrderItemResponse> items = order.getImportOrderDetails().stream()
+        List<ImportOrderDetail> details = order.getImportOrderDetails().stream()
                 .sorted(Comparator.comparing(ImportOrderDetail::getId, Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+        Map<Integer, List<ProductAttributeResponse>> attributesByProduct = loadAttributesByProductIds(
+                details.stream()
+                        .map(detail -> detail.getProduct() != null ? detail.getProduct().getId() : null)
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .toList());
+
+        List<ImportOrderItemResponse> items = details.stream()
                 .map(detail -> {
                     Product product = detail.getProduct();
                     Integer productId = product != null ? product.getId() : null;
@@ -332,11 +346,17 @@ public class ImportOrderService {
                                 .filter(cost -> cost != null)
                                 .orElse(costPrice)
                             : costPrice;
+                    Product parent = product != null ? product.getParent() : null;
                     return ImportOrderItemResponse.builder()
                             .id(detail.getId())
                             .productId(productId)
                             .productCode(product != null ? product.getBarcode() : null)
                             .productName(product != null ? product.getName() : null)
+                            .parentId(parent != null ? parent.getId() : null)
+                            .parentName(parent != null ? parent.getName() : null)
+                            .attributes(productId != null
+                                    ? attributesByProduct.getOrDefault(productId, List.of())
+                                    : List.of())
                             .productUnitId(detail.getProductUnit() != null
                                     ? detail.getProductUnit().getId()
                                     : null)
@@ -558,6 +578,7 @@ public class ImportOrderService {
         Product product = productRepository.findById(line.getProductId())
                 .filter(p -> !Boolean.TRUE.equals(p.getIsRemoved()))
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+        assertSellableProduct(product);
 
         ProductUnit productUnit = resolveProductUnit(product, line.getProductUnitId());
 
@@ -578,6 +599,23 @@ public class ImportOrderService {
         detail.setIsPromotion(isPromotion);
         detail.setIsRemoved(false);
         return detail;
+    }
+
+    private void assertSellableProduct(Product product) {
+        if (product.getId() != null
+                && productRepository.existsByParent_IdAndIsRemovedFalse(product.getId())) {
+            throw new AppException(ErrorCode.PARENT_PRODUCT_NOT_SELLABLE);
+        }
+    }
+
+    private Map<Integer, List<ProductAttributeResponse>> loadAttributesByProductIds(List<Integer> productIds) {
+        if (productIds == null || productIds.isEmpty()) {
+            return Map.of();
+        }
+        return productAttributeRepository.findByProduct_IdInAndIsRemovedFalse(productIds).stream()
+                .collect(Collectors.groupingBy(
+                        item -> item.getProduct().getId(),
+                        Collectors.mapping(productMapper::toAttributeResponse, Collectors.toList())));
     }
 
     private ProductUnit resolveProductUnit(Product product, Integer productUnitId) {

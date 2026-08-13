@@ -611,55 +611,63 @@ public class ProductService {
         if (query == null || query.isBlank()) {
             return List.of();
         }
-        List<Product> productList = productRepository.searchByNameAndBarcode(query.trim());
-        List<Product> visible = productList.stream()
-                .filter(p -> Boolean.FALSE.equals(p.getIsRemoved())) // loại sp đã deactivate
+
+        List<Product> productList = productRepository.searchSellableByNameAndBarcode(query.trim())
+                .stream()
+                .filter(p -> !Boolean.TRUE.equals(p.getIsRemoved()))
                 .limit(20)
                 .toList();
 
-        // Tồn kho lấy một lần cho cả danh sách
-        Map<Integer, Integer> stockByProductId = visible.isEmpty()
-                ? Map.of()
-                : batchLocationRepository
-                        .sumQuantityByProductIds(visible.stream().map(Product::getId).toList())
-                        .stream()
-                        .collect(Collectors.toMap(
-                                row -> (Integer) row[0],
-                                row -> ((Number) row[1]).intValue()));
+        if (productList.isEmpty()) {
+            return List.of();
+        }
 
-        return visible.stream()
-                .map(product -> {
-                    ProductSearchResponse response = toSearchResponse(product);
-                    response.setStockQuantity(stockByProductId.getOrDefault(product.getId(), 0));
-                    return response;
-                })
+        List<Integer> productIds = productList.stream().map(Product::getId).toList();
+        Map<Integer, List<ProductAttribute>> attributesByProduct = productAttributeRepository
+                .findByProduct_IdInAndIsRemovedFalse(productIds)
+                .stream()
+                .collect(Collectors.groupingBy(item -> item.getProduct().getId()));
+
+        return productList.stream()
+                .map(product -> toSearchResponse(
+                        product,
+                        attributesByProduct.getOrDefault(product.getId(), List.of())))
                 .toList();
     }
 
-    private ProductSearchResponse toSearchResponse(Product product) {
+    private ProductSearchResponse toSearchResponse(Product product, List<ProductAttribute> attributes) {
         BigDecimal costPrice = product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO;
         BigDecimal lastCostPerBase = stockBatchRepository
                 .findFirstByProduct_IdAndIsRemovedFalseOrderByReceivedDateDescIdDesc(product.getId())
                 .map(StockBatch::getCostPerUnit)
                 .filter(cost -> cost != null)
                 .orElse(costPrice);
+        int stockQuantity = loadStock(product.getId());
+        Product parent = product.getParent();
+
+        List<ProductSearchResponse.ProductUnitInfo> unitInfos = productUnitRepository
+                .findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(product.getId())
+                .stream()
+                .map(u -> ProductSearchResponse.ProductUnitInfo.builder()
+                        .id(u.getId())
+                        .name(u.getName())
+                        .unitBase(u.getUnitBase())
+                        .build())
+                .toList();
 
         return ProductSearchResponse.builder()
                 .id(product.getId())
                 .name(product.getName())
+                .sku(product.getSku())
                 .barcode(product.getBarcode())
                 .sellingPrice(product.getSellingPrice())
                 .costPrice(costPrice)
                 .lastCostPerBase(lastCostPerBase)
-                .productUnits(product.getProductUnits().stream()
-                        .filter(u -> Boolean.FALSE.equals(u.getIsRemoved()))
-                        .map(u -> ProductSearchResponse.ProductUnitInfo
-                                .builder()
-                                .id(u.getId())
-                                .name(u.getName())
-                                .unitBase(u.getUnitBase())
-                                .build())
-                        .toList())
+                .stockQuantity(stockQuantity)
+                .parentId(parent != null ? parent.getId() : null)
+                .parentName(parent != null ? parent.getName() : null)
+                .attributes(productMapper.toAttributeResponses(attributes))
+                .productUnits(unitInfos)
                 .build();
     }
 }

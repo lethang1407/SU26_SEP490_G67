@@ -56,7 +56,8 @@ public interface ImportOrderRepository extends JpaRepository<ImportOrder, Intege
             SELECT DISTINCT io FROM ImportOrder io
             JOIN FETCH io.supplier s
             LEFT JOIN FETCH io.importOrderDetails iod
-            LEFT JOIN FETCH iod.product
+            LEFT JOIN FETCH iod.product p
+            LEFT JOIN FETCH p.parent
             LEFT JOIN FETCH iod.productUnit
             WHERE io.id = :id
               AND io.isRemoved = false

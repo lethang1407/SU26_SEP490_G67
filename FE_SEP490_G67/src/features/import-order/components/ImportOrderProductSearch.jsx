@@ -14,10 +14,14 @@ function mapProduct(product) {
     }));
     const baseUnit = productUnits.find((unit) => unit.unitBase === 1) || productUnits[0];
     const lastCostPerBase = Number(product.lastCostPerBase ?? product.costPrice ?? 0) || 0;
+    const attributes = product.attributes || [];
     return {
         id: product.id,
         name: product.name,
-        code: product.barcode || `SP${String(product.id).padStart(6, '0')}`,
+        parentId: product.parentId ?? null,
+        parentName: product.parentName || '',
+        attributes,
+        code: product.sku || product.barcode || `SP${String(product.id).padStart(6, '0')}`,
         barcode: product.barcode || '',
         productUnits,
         unit: baseUnit?.name || 'Cái',
@@ -126,10 +130,7 @@ export default function ImportOrderProductSearch({ onSelect }) {
                                             }}
                                         >
                                             <span className="ioc-search__item-name">{product.name}</span>
-                                            <span className="ioc-search__item-meta">
-                                                {product.code}
-                                                {product.barcode ? ` · ${product.barcode}` : ''}
-                                            </span>
+                                            <span className="ioc-search__item-meta">{product.code}</span>
                                         </button>
                                     </li>
                                 ))}

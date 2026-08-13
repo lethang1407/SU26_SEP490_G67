@@ -6,6 +6,7 @@ import {
     parseMoneyInput,
     suggestCostForUnit,
     getLinePriceWarning,
+    formatProductAttributes,
 } from '../utils/importOrderUtils';
 
 export default function ImportOrderLineTable({
@@ -74,6 +75,7 @@ export default function ImportOrderLineTable({
                             </tr>
                         )}
                         {lines.map((line, index) => {
+                            const attributeLabel = formatProductAttributes(line.attributes);
                             const isPromotion = Boolean(line.isPromotion);
                             const lineTotal = isPromotion
                                 ? 0
@@ -90,6 +92,9 @@ export default function ImportOrderLineTable({
                                     <td className="ioc-lines-table__stt">{index + 1}</td>
                                     <td>
                                         <div className="ioc-lines-table__name">{line.productName}</div>
+                                        {attributeLabel ? (
+                                            <div className="ioc-lines-table__attrs">{attributeLabel}</div>
+                                        ) : null}
                                         <div className="ioc-line-meta">
                                             {canEdit ? (
                                                 <button

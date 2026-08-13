@@ -539,9 +539,10 @@
     border-bottom: none;
 }
 
-.supplier-table__code-text {
-    font-weight: 700;
-    color: #1e293b;
+.supplier-table__stt {
+    width: 72px;
+    font-weight: 600;
+    color: #64748b;
     white-space: nowrap;
 }
 

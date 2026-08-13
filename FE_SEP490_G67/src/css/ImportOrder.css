@@ -259,6 +259,11 @@
     color: #64748b;
 }
 
+.import-order-expand__attrs {
+    font-weight: 600;
+    color: #1d4ed8;
+}
+
 .import-order-expand__line-meta--muted {
     color: #94a3b8;
 }
@@ -601,6 +606,12 @@ a.supplier-btn {
     color: #0f172a;
 }
 
+.ioc-search__item-attrs {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1d4ed8;
+}
+
 .ioc-search__item-meta,
 .ioc-search__empty {
     font-size: 12px;
@@ -750,6 +761,13 @@ a.supplier-btn {
 .ioc-lines-table__name {
     font-weight: 600;
     color: #0f172a;
+    margin-bottom: 4px;
+}
+
+.ioc-lines-table__attrs {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1d4ed8;
     margin-bottom: 4px;
 }
 

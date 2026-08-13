@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ExternalLink, ImageIcon } from 'lucide-react';
 import { ORDER_STATUS_LABEL } from '../constants';
-import { formatDate } from '../utils/importOrderUtils';
+import { formatDate, formatProductAttributes } from '../utils/importOrderUtils';
 
 function formatMoneyPlain(value) {
     const amount = Number(value) || 0;
@@ -101,12 +101,14 @@ export default function ImportOrderInfoTab({ order }) {
                                 </td>
                             </tr>
                         ) : (
-                            items.map((item, index) => (
+                            items.map((item, index) => {
+                                const attributeLabel = formatProductAttributes(item.attributes);
+                                return (
                                 <tr key={item.id || `${order.id}-${index}`}>
                                     <td>
                                         <div className="import-order-expand__product-name-row">
                                             <div className="import-order-expand__product-name">
-                                                {item.productName || '—'}
+                                                {item.parentName || item.productName || '—'}
                                             </div>
                                             {item.isPromotion ? (
                                                 <span
@@ -118,10 +120,19 @@ export default function ImportOrderInfoTab({ order }) {
                                             ) : null}
                                         </div>
                                         <div className="import-order-expand__line-meta">
+                                            {attributeLabel ? (
+                                                <span className="import-order-expand__attrs">
+                                                    {attributeLabel}
+                                                </span>
+                                            ) : null}
                                             {item.expiryDate ? (
-                                                <span>Hạn sử dụng: {formatDate(item.expiryDate)}</span>
+                                                <span>
+                                                    {attributeLabel ? ' · ' : ''}
+                                                    Hạn sử dụng: {formatDate(item.expiryDate)}
+                                                </span>
                                             ) : (
                                                 <span className="import-order-expand__line-meta--muted">
+                                                    {attributeLabel ? ' · ' : ''}
                                                     Chưa ghi hạn sử dụng
                                                 </span>
                                             )}
@@ -160,7 +171,8 @@ export default function ImportOrderInfoTab({ order }) {
                                         )}
                                     </td>
                                 </tr>
-                            ))
+                                );
+                            })
                         )}
                     </tbody>
                 </table>
