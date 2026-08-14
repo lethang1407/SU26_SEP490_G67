@@ -537,7 +537,7 @@ export default function CustomerDebtPage() {
                 <Col md={5} lg={4}>
                   <Form.Label>Tìm kiếm</Form.Label>
                   <Form.Control
-                    placeholder="Tên hoặc SĐT khách hàng..."
+                    placeholder="Tên khách hàng..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
