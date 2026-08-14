@@ -38,8 +38,7 @@ public class StoreConfig extends BaseEntity{
     @Column(name = "currency", length = 10)
     private String currency;
 
-    /** Fallback “đủ bán (ngày)” khi nhóm chưa cấu hình */
     @ColumnDefault("7")
-    @Column(name = "default_cover_days", nullable = false)
-    private Integer defaultCoverDays = 7;
+    @Column(name = "return_window_days")
+    private Integer returnWindowDays;
 }

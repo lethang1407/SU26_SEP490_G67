@@ -21,9 +21,6 @@ public interface ImportOrderRepository extends JpaRepository<ImportOrder, Intege
             """)
     List<ImportOrder> findAllActiveWithActiveSupplier();
 
-    // Lịch sử nhập hàng của 1 NCC, lọc theo mã đơn (search) — chưa phân trang ở SQL
-    // vì trạng thái Đang nợ/Hoàn thành là derive (không có cột), phải tính + lọc ở Service.
-    // Với quy mô 1 cửa hàng nhỏ (tối đa vài trăm đơn/NCC) cách này vẫn đủ nhanh.
     @Query("""
             SELECT io FROM ImportOrder io
             JOIN FETCH io.supplier
@@ -54,12 +51,14 @@ public interface ImportOrderRepository extends JpaRepository<ImportOrder, Intege
             @Param("search") String search,
             @Param("orderStatus") String orderStatus);
 
-    // Lấy 1 đơn nhập kèm NCC + chi tiết mặt hàng (JOIN FETCH), tránh N+1
+    // Lấy 1 đơn nhập kèm NCC + chi tiết mặt hàng + ĐVT (JOIN FETCH), tránh N+1
     @Query("""
             SELECT DISTINCT io FROM ImportOrder io
             JOIN FETCH io.supplier s
             LEFT JOIN FETCH io.importOrderDetails iod
-            LEFT JOIN FETCH iod.product
+            LEFT JOIN FETCH iod.product p
+            LEFT JOIN FETCH p.parent
+            LEFT JOIN FETCH iod.productUnit
             WHERE io.id = :id
               AND io.isRemoved = false
             """)

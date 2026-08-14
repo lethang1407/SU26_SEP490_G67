@@ -1,16 +1,12 @@
-import { useState } from 'react';
 import { X, Printer } from 'lucide-react';
 import useInvoiceExport from '../hooks/useInvoiceExport';
 import { printInvoice } from '../utils/printInvoice';
 
 export default function ReceiptModal({ receipt, onClose }) {
-    if (!receipt) return null;
-
-    const items = receipt.items ?? [];
-    const total = receipt.totalAmount ?? receipt.total ?? 0;
-
-    // Invoice data hook
     const { invoiceData, isLoading, error, fetchInvoice, clearInvoice } = useInvoiceExport();
+
+    const items = receipt?.items ?? [];
+    const total = receipt?.totalAmount ?? receipt?.total ?? 0;
 
     // Print button handler
     const handlePrint = async () => {
@@ -30,6 +26,8 @@ export default function ReceiptModal({ receipt, onClose }) {
         clearInvoice();
         onClose();
     };
+
+    if (!receipt) return null;
 
     return (
         <div className="receipt-modal-overlay" onClick={handleClose}>

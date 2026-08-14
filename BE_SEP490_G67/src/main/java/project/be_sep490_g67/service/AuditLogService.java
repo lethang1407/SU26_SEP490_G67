@@ -40,4 +40,25 @@ public class AuditLogService {
             log.warn("Audit log write failed for INVOICE_PRINT orderId={}: {}", orderId, ex.getMessage());
         }
     }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void logFailedReturnLookup(Integer userId, String scope) {
+        try {
+            User actor = new User();
+            actor.setId(userId);
+
+            AuditLog entry = new AuditLog();
+            entry.setUser(actor);
+            entry.setActionType("RETURN_LOOKUP_NOT_FOUND");
+            entry.setEntityName("sales_orders");
+            entry.setNewValue(scope);
+            entry.setCreatedBy(userId);
+            entry.setCreatedAt(Instant.now());
+
+            auditLogRepository.save(entry);
+        } catch (Exception ex) {
+            // Never block the cashier's answer to the customer.
+            log.warn("Audit log write failed for RETURN_LOOKUP_NOT_FOUND: {}", ex.getMessage());
+        }
+    }
 }

@@ -61,7 +61,7 @@ public class SupplierService {
                         .supplierCode(s.getSupplierCode())
                         .name(s.getName())
                         .phoneNumber(s.getPhoneNumber())
-                        .address(s.getAddress())
+                        .notes(s.getNotes())
                         .currentDebt(debtMap.getOrDefault(s.getId(), BigDecimal.ZERO))
                         .build())
                 .toList();

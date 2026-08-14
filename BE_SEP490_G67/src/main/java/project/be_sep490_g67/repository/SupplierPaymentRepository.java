@@ -8,9 +8,20 @@ import project.be_sep490_g67.entity.SupplierPayment;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface SupplierPaymentRepository extends JpaRepository<SupplierPayment, Integer> {
+
+    /** Mã dạng TTN###### — lấy mã lớn nhất để +1 (zero-pad nên sort string = sort số). */
+    @Query(value = """
+            SELECT payment_code
+            FROM supplier_payments
+            WHERE payment_code REGEXP '^TTN[0-9]{6}$'
+            ORDER BY payment_code DESC
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<String> findLatestTtnPaymentCode();
 
     // Tổng số tiền đã trả, gộp theo từng đơn nhập: mỗi phần tử là [importOrderId, totalPaid]
     // Dùng 1 query duy nhất cho tất cả đơn (tránh N+1) khi tính nợ NCC.

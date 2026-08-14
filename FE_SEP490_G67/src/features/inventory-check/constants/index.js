@@ -1,6 +1,8 @@
 export const INVENTORY_CHECK_ROUTES = {
+    create: '/admin/warehouse/check',
+    history: '/admin/warehouse/check/history',
+    /** @deprecated dùng create — giữ để tương thích link cũ */
     list: '/admin/warehouse/check',
-    create: '/admin/warehouse/check/create',
     detail: (id) => `/admin/warehouse/check/${id}`,
 };
 
@@ -28,3 +30,13 @@ export const DATE_FILTER_OPTIONS = [
     { value: 'last_month', label: 'Tháng trước' },
     { value: 'all', label: 'Tất cả' },
 ];
+
+export const ATTENTION_REASON = {
+    EXPIRED: 'EXPIRED',
+    EXPIRING_SOON: 'EXPIRING_SOON',
+};
+
+export const ATTENTION_REASON_LABEL = {
+    [ATTENTION_REASON.EXPIRED]: 'Đã hết hạn',
+    [ATTENTION_REASON.EXPIRING_SOON]: 'Sắp hết hạn',
+};

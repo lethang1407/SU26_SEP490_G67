@@ -14,9 +14,10 @@ import project.be_sep490_g67.dto.request.CreateSalesOrderRequest;
 import project.be_sep490_g67.dto.response.SalesOrderListResponse;
 import project.be_sep490_g67.dto.response.SalesOrderResponse;
 import project.be_sep490_g67.entity.*;
-import project.be_sep490_g67.exception.AppException;
-import project.be_sep490_g67.exception.ErrorCode;
+import project.be_sep490_g67.enums.DocumentType;
 import project.be_sep490_g67.repository.*;
+import project.be_sep490_g67.utils.DebtCalculator;
+import project.be_sep490_g67.utils.UnitQuantityConverter;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -24,9 +25,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -34,310 +32,294 @@ import java.util.stream.Collectors;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class SalesOrderService {
 
-    SalesOrderRepository salesOrderRepository;
-    SalesOrderDetailRepository salesOrderDetailRepository;
-    ProductRepository productRepository;
-    CustomerRepository customerRepository;
-    ProductUnitRepository productUnitRepository;
-    StockDeductionService stockDeductionService;
-    UserRepository userRepository;
+        DocumentCodeService documentCodeService;
+        StockBatchRepository stockBatchRepository;
+        SalesOrderRepository salesOrderRepository;
+        SalesOrderDetailRepository salesOrderDetailRepository;
+        ProductRepository productRepository;
+        CustomerRepository customerRepository;
+        ProductUnitRepository productUnitRepository;
+        StockDeductionService stockDeductionService;
+        DebtPaymentRepository debtPaymentRepository;
+        ReturnOrderRepository returnOrderRepository;
 
-    @Transactional
-    public SalesOrderResponse createOrder(CreateSalesOrderRequest request,
-                                          boolean isDebt,
-                                          Integer createdBy) {
-        // Resolve customer (optional)
-        Customer customer = null;
-        if (request.getCustomerId() != null) {
-            customer = customerRepository.findById(request.getCustomerId())
-                    .orElseThrow(() -> new ResponseStatusException(
-                            HttpStatus.NOT_FOUND, "Không tìm thấy khách hàng"));
+        @Transactional
+        public SalesOrderResponse createOrder(CreateSalesOrderRequest request,
+                        boolean isDebt,
+                        Integer createdBy) {
+                // Resolve customer (optional)
+                Customer customer = null;
+                if (request.getCustomerId() != null) {
+                        customer = customerRepository.findById(request.getCustomerId())
+                                        .orElseThrow(() -> new ResponseStatusException(
+                                                        HttpStatus.NOT_FOUND, "Không tìm thấy khách hàng"));
+                }
+
+                // Create sale order
+                SalesOrder order = new SalesOrder();
+                order.setCustomer(customer);
+                order.setOrderCode(documentCodeService.generate(DocumentType.SALE_INVOICE));
+                order.setPaymentMethod(request.getPaymentMethod());
+                order.setOrderStatus("COMPLETED");
+                order.setIsDebt(isDebt);
+                order.setNote(request.getNote());
+                order.setCreatedBy(createdBy);
+                order.setUpdatedBy(createdBy);
+                order.setCreatedAt(Instant.now());
+                order.setUpdatedAt(Instant.now());
+
+                BigDecimal discount = request.getDiscountAmount() != null
+                                ? request.getDiscountAmount()
+                                : BigDecimal.ZERO;
+                order.setDiscountAmount(discount);
+
+                // Save order
+                order.setSubtotal(BigDecimal.ZERO);
+                order.setTotalAmount(BigDecimal.ZERO);
+                order.setPaidAmount(BigDecimal.ZERO);
+                SalesOrder saved = salesOrderRepository.save(order);
+
+                // Build line items, using FEFO to minus products
+                List<SalesOrderDetail> details = new ArrayList<>();
+                BigDecimal subtotal = BigDecimal.ZERO;
+
+                for (CreateSalesOrderRequest.OrderItemRequest item : request.getItems()) {
+                        Product product = productRepository.findById(item.getProductId())
+                                        .orElseThrow(() -> new ResponseStatusException(
+                                                        HttpStatus.NOT_FOUND,
+                                                        "Không tìm thấy sản phẩm với mã: " + item.getProductId()));
+
+                        // Resolve unit BEFORE deducting stock: stock is tracked in base units
+                        ProductUnit resolvedUnit;
+                        String resolvedUnitName;
+
+                        if (item.getProductUnitId() != null) {
+                                resolvedUnit = productUnitRepository.findById(item.getProductUnitId())
+                                                .orElseThrow(() -> new ResponseStatusException(
+                                                                HttpStatus.NOT_FOUND,
+                                                                "Không tìm thấy đơn vị sản phẩm ID: "
+                                                                                + item.getProductUnitId()));
+                                resolvedUnitName = resolvedUnit.getName();
+                        } else {
+                                resolvedUnit = product.getProductUnits().stream()
+                                                .filter(u -> u.getUnitBase() != null
+                                                                && u.getUnitBase().compareTo(BigDecimal.ONE) == 0)
+                                                .findFirst()
+                                                .orElse(null);
+                                resolvedUnitName = resolvedUnit != null ? resolvedUnit.getName() : null;
+                        }
+
+                        Integer soldFromBatchId = stockDeductionService.deductStock(
+                                        item.getProductId(),
+                                        UnitQuantityConverter.toBaseUnits(resolvedUnit, item.getQuantity()),
+                                        saved.getId(),
+                                        createdBy,
+                                        item.getLocationId());
+
+                        // Calculate total
+                        BigDecimal lineDiscount = item.getDiscountAmount() != null
+                                        ? item.getDiscountAmount()
+                                        : BigDecimal.ZERO;
+                        BigDecimal lineTotal = item.getUnitPrice()
+                                        .multiply(BigDecimal.valueOf(item.getQuantity()))
+                                        .subtract(lineDiscount);
+
+                        SalesOrderDetail detail = new SalesOrderDetail();
+                        detail.setSalesOrder(saved);
+                        detail.setProduct(product);
+                        detail.setProductUnit(resolvedUnit);
+                        detail.setUnitName(resolvedUnitName);
+                        if (soldFromBatchId != null) {
+                                detail.setStockBatch(stockBatchRepository.getReferenceById(soldFromBatchId));
+                        }
+                        detail.setQuantity(item.getQuantity());
+                        detail.setUnitPrice(item.getUnitPrice());
+                        detail.setDiscountAmount(lineDiscount);
+                        detail.setLineTotal(lineTotal);
+                        detail.setCreatedBy(createdBy);
+                        detail.setUpdatedBy(createdBy);
+                        detail.setCreatedAt(Instant.now());
+                        detail.setUpdatedAt(Instant.now());
+
+                        details.add(detail);
+                        subtotal = subtotal.add(lineTotal);
+                }
+
+                order.setSubtotal(subtotal);
+                order.setTotalAmount(subtotal.subtract(discount));
+                order.setPaidAmount(isDebt ? BigDecimal.ZERO : subtotal.subtract(discount));
+                salesOrderRepository.save(order);
+
+                salesOrderDetailRepository.saveAll(details);
+                return toResponse(saved, details);
         }
 
-        // Create sale order
-        SalesOrder order = new SalesOrder();
-        order.setCustomer(customer);
-        order.setOrderCode("SO-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
-        order.setPaymentMethod(request.getPaymentMethod());
-        order.setOrderStatus("COMPLETED");
-        order.setIsDebt(isDebt);
-        order.setNote(request.getNote());
-        order.setCreatedBy(createdBy);
-        order.setUpdatedBy(createdBy);
-        order.setCreatedAt(Instant.now());
-        order.setUpdatedAt(Instant.now());
+        @Transactional(readOnly = true)
+        public SalesOrderResponse getReceipt(Integer orderId) {
+                SalesOrder order = salesOrderRepository.findActiveById(orderId)
+                                .orElseThrow(() -> new ResponseStatusException(
+                                                HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng"));
 
-        BigDecimal discount = request.getDiscountAmount() != null
-                ? request.getDiscountAmount() : BigDecimal.ZERO;
-        order.setDiscountAmount(discount);
+                List<SalesOrderDetail> details = new ArrayList<>(order.getSalesOrderDetails());
 
-        //Save order
-        order.setSubtotal(BigDecimal.ZERO);
-        order.setTotalAmount(BigDecimal.ZERO);
-        order.setPaidAmount(BigDecimal.ZERO);
-        SalesOrder saved = salesOrderRepository.save(order);
+                List<SalesOrderResponse.SalesOrderDetailInfo> itemInfos = details.stream()
+                                .map(d -> SalesOrderResponse.SalesOrderDetailInfo.builder()
+                                                .productId(d.getProduct().getId())
+                                                .name(d.getProduct().getName())
+                                                .unitName(d.getUnitName())
+                                                .quantity(d.getQuantity())
+                                                .unitPrice(d.getUnitPrice())
+                                                .discountAmount(d.getDiscountAmount())
+                                                .lineTotal(d.getLineTotal())
+                                                .build())
+                                .toList();
 
-        // Build line items, using FEFO to minus products
-        List<SalesOrderDetail> details = new ArrayList<>();
-        BigDecimal subtotal = BigDecimal.ZERO;
-
-        for (CreateSalesOrderRequest.OrderItemRequest item : request.getItems()) {
-            Product product = productRepository.findById(item.getProductId())
-                    .orElseThrow(() -> new ResponseStatusException(
-                            HttpStatus.NOT_FOUND,
-                            "Không tìm thấy sản phẩm với mã: " + item.getProductId()));
-
-            stockDeductionService.deductStock(
-                    item.getProductId(),
-                    item.getQuantity(),
-                    saved.getId(),
-                    createdBy
-            );
-
-            //Resolve unit
-            ProductUnit resolvedUnit = null;
-            String resolvedUnitName = null;
-
-            if (item.getProductUnitId() != null) {
-                resolvedUnit = productUnitRepository.findById(item.getProductUnitId())
-                        .orElseThrow(() -> new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "Không tìm thấy đơn vị sản phẩm ID: "
-                                        + item.getProductUnitId()));
-                resolvedUnitName = resolvedUnit.getName();
-            } else {
-                resolvedUnitName = product.getProductUnits().stream()
-                        .filter(u -> u.getUnitBase() != null
-                                && u.getUnitBase().compareTo(BigDecimal.ONE) == 0)
-                        .findFirst()
-                        .map(ProductUnit::getName)
-                        .orElse(null);
-            }
-
-            // Calculate total
-            BigDecimal lineDiscount = item.getDiscountAmount() != null
-                    ? item.getDiscountAmount() : BigDecimal.ZERO;
-            BigDecimal lineTotal = item.getUnitPrice()
-                    .multiply(BigDecimal.valueOf(item.getQuantity()))
-                    .subtract(lineDiscount);
-
-            SalesOrderDetail detail = new SalesOrderDetail();
-            detail.setSalesOrder(saved);
-            detail.setProduct(product);
-            detail.setProductUnit(resolvedUnit);
-            detail.setUnitName(resolvedUnitName);
-            detail.setQuantity(item.getQuantity());
-            detail.setUnitPrice(item.getUnitPrice());
-            detail.setDiscountAmount(lineDiscount);
-            detail.setLineTotal(lineTotal);
-            detail.setCreatedBy(createdBy);
-            detail.setUpdatedBy(createdBy);
-            detail.setCreatedAt(Instant.now());
-            detail.setUpdatedAt(Instant.now());
-
-            details.add(detail);
-            subtotal = subtotal.add(lineTotal);
+                return getSalesOrderResponse(order, itemInfos);
         }
 
-        order.setSubtotal(subtotal);
-        order.setTotalAmount(subtotal.subtract(discount));
-        order.setPaidAmount(isDebt ? BigDecimal.ZERO : subtotal.subtract(discount));
-        salesOrderRepository.save(order);
+        private SalesOrderResponse getSalesOrderResponse(SalesOrder order,
+                        List<SalesOrderResponse.SalesOrderDetailInfo> itemInfos) {
+                SalesOrderResponse.CustomerInfo customerInfo = null;
+                if (order.getCustomer() != null) {
+                        customerInfo = SalesOrderResponse.CustomerInfo.builder()
+                                        .id(order.getCustomer().getId())
+                                        .fullName(order.getCustomer().getFullName())
+                                        .phoneNumber(order.getCustomer().getPhoneNumber())
+                                        .build();
+                }
 
-        salesOrderDetailRepository.saveAll(details);
-        return toResponse(saved, details);
-    }
-
-    @Transactional(readOnly = true)
-    public SalesOrderResponse getReceipt(Integer orderId) {
-        SalesOrder order = salesOrderRepository.findActiveById(orderId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng"));
-
-        List<SalesOrderDetail> details = new ArrayList<>(order.getSalesOrderDetails());
-
-        List<SalesOrderResponse.SalesOrderDetailInfo> itemInfos = details.stream()
-                .map(d -> SalesOrderResponse.SalesOrderDetailInfo.builder()
-                        .productId(d.getProduct().getId())
-                        .name(d.getProduct().getName())
-                        .unitName(d.getUnitName())
-                        .quantity(d.getQuantity())
-                        .unitPrice(d.getUnitPrice())
-                        .discountAmount(d.getDiscountAmount())
-                        .lineTotal(d.getLineTotal())
-                        .build())
-                .toList();
-
-        return getSalesOrderResponse(order, itemInfos);
-    }
-
-    /**
-     * Admin/cashier order detail view with IDOR:
-     * ADMIN/ACCOUNTANT can access any order; cashier only own orders.
-     */
-    @Transactional(readOnly = true)
-    public SalesOrderResponse getOrderDetail(Integer orderId, Integer currentUserId, boolean isPrivileged) {
-        SalesOrder order = salesOrderRepository.findActiveById(orderId)
-                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
-
-        if (!isPrivileged && (order.getCreatedBy() == null || !order.getCreatedBy().equals(currentUserId))) {
-            throw new AppException(ErrorCode.INVOICE_ACCESS_DENIED);
+                return SalesOrderResponse.builder()
+                                .id(order.getId())
+                                .orderCode(order.getOrderCode())
+                                .paymentMethod(order.getPaymentMethod())
+                                .orderStatus(order.getOrderStatus())
+                                .isDebt(order.getIsDebt())
+                                .subtotal(order.getSubtotal())
+                                .discountAmount(order.getDiscountAmount())
+                                .totalAmount(order.getTotalAmount())
+                                .paidAmount(order.getPaidAmount())
+                                .createdAt(order.getCreatedAt())
+                                .customer(customerInfo)
+                                .items(itemInfos)
+                                .build();
         }
 
-        List<SalesOrderDetail> details = new ArrayList<>(order.getSalesOrderDetails());
-        List<SalesOrderResponse.SalesOrderDetailInfo> itemInfos = details.stream()
-                .map(d -> SalesOrderResponse.SalesOrderDetailInfo.builder()
-                        .productId(d.getProduct().getId())
-                        .name(d.getProduct().getName())
-                        .unitName(d.getUnitName())
-                        .quantity(d.getQuantity())
-                        .unitPrice(d.getUnitPrice())
-                        .discountAmount(d.getDiscountAmount())
-                        .lineTotal(d.getLineTotal())
-                        .build())
-                .toList();
+        private SalesOrderResponse toResponse(SalesOrder saved,
+                        List<SalesOrderDetail> details) {
+                List<SalesOrderResponse.SalesOrderDetailInfo> itemInfos = details.stream()
+                                .map(d -> SalesOrderResponse.SalesOrderDetailInfo.builder()
+                                                .productId(d.getProduct().getId())
+                                                .name(d.getProduct().getName())
+                                                .unitName(d.getUnitName())
+                                                .quantity(d.getQuantity())
+                                                .unitPrice(d.getUnitPrice())
+                                                .discountAmount(d.getDiscountAmount())
+                                                .lineTotal(d.getLineTotal())
+                                                .build())
+                                .toList();
 
-        return getSalesOrderResponse(order, itemInfos);
-    }
-
-    private SalesOrderResponse getSalesOrderResponse(SalesOrder order, List<SalesOrderResponse.SalesOrderDetailInfo> itemInfos) {
-        SalesOrderResponse.CustomerInfo customerInfo = null;
-        if (order.getCustomer() != null) {
-            customerInfo = SalesOrderResponse.CustomerInfo.builder()
-                    .id(order.getCustomer().getId())
-                    .fullName(order.getCustomer().getFullName())
-                    .phoneNumber(order.getCustomer().getPhoneNumber())
-                    .build();
+                return getSalesOrderResponse(saved, itemInfos);
         }
 
-        BigDecimal paid = order.getPaidAmount() != null ? order.getPaidAmount() : BigDecimal.ZERO;
-        BigDecimal total = order.getTotalAmount() != null ? order.getTotalAmount() : BigDecimal.ZERO;
-        BigDecimal remainingDebt = Boolean.TRUE.equals(order.getIsDebt())
-                ? total.subtract(paid).max(BigDecimal.ZERO)
-                : BigDecimal.ZERO;
+        @Transactional(readOnly = true)
+        public SalesOrderListResponse getOrderHistory(
+                        Integer createdByFilter,
+                        String search,
+                        String orderCode,
+                        String customer,
+                        String product,
+                        Instant dateFrom,
+                        Instant dateTo,
+                        int page,
+                        int size) {
+                int safeSize = Math.min(size, 50);
 
-        String cashierName = null;
-        if (order.getCreatedBy() != null) {
-            cashierName = userRepository.findActiveById(order.getCreatedBy())
-                    .map(u -> u.getFullName() != null ? u.getFullName() : u.getUsername())
-                    .orElse(null);
+                Page<SalesOrder> pg = salesOrderRepository.findHistory(
+                                createdByFilter,
+                                toLikePattern(search),
+                                toLikePattern(orderCode),
+                                toLikePattern(customer),
+                                toLikePattern(product),
+                                dateFrom, dateTo,
+                                PageRequest.of(page, safeSize));
+
+                List<Integer> orderIds = pg.getContent().stream()
+                                .map(SalesOrder::getId)
+                                .toList();
+
+                // Mã phiếu trả mới nhất của từng hóa đơn trong trang
+                Map<Integer, String> returnCodeByOrderId = orderIds.isEmpty()
+                                ? Map.of()
+                                : returnOrderRepository.findAllBySalesOrderIds(orderIds).stream()
+                                                .filter(r -> r.getReturnCode() != null)
+                                                .collect(Collectors.toMap(
+                                                                r -> r.getSalesOrder().getId(),
+                                                                ReturnOrder::getReturnCode,
+                                                                (first, latest) -> latest));
+
+                // Tổng đã trả nợ của cả trang trong một query — tránh lazy-load
+                // o.getDebtPayments() cho từng dòng.
+                Map<Integer, BigDecimal> debtPaidByOrderId = orderIds.isEmpty()
+                                ? Map.of()
+                                : debtPaymentRepository.sumPaidBySalesOrderIds(orderIds).stream()
+                                                .collect(Collectors.toMap(
+                                                                row -> (Integer) row[0],
+                                                                row -> (BigDecimal) row[1]));
+
+                Instant now = Instant.now();
+
+                List<SalesOrderListResponse.Item> items = pg.getContent().stream()
+                                .map(o -> toHistoryItem(
+                                                o,
+                                                returnCodeByOrderId.get(o.getId()),
+                                                debtPaidByOrderId.getOrDefault(o.getId(), BigDecimal.ZERO),
+                                                now))
+                                .toList();
+
+                return SalesOrderListResponse.builder()
+                                .content(items)
+                                .page(pg.getNumber())
+                                .size(pg.getSize())
+                                .totalElements(pg.getTotalElements())
+                                .totalPages(pg.getTotalPages())
+                                .build();
         }
 
-        return SalesOrderResponse.builder()
-                .id(order.getId())
-                .orderCode(order.getOrderCode())
-                .paymentMethod(order.getPaymentMethod())
-                .orderStatus(order.getOrderStatus())
-                .isDebt(order.getIsDebt())
-                .subtotal(order.getSubtotal())
-                .discountAmount(order.getDiscountAmount())
-                .totalAmount(order.getTotalAmount())
-                .paidAmount(order.getPaidAmount())
-                .remainingDebt(remainingDebt)
-                .createdAt(order.getCreatedAt())
-                .dueDate(order.getDueDate())
-                .note(order.getNote())
-                .createdBy(order.getCreatedBy())
-                .cashierName(cashierName)
-                .customer(customerInfo)
-                .items(itemInfos)
-                .build();
-    }
+        /**
+         * Một dòng lịch sử hóa đơn. Thông tin công nợ chỉ được tính cho hóa đơn
+         * bán nợ; đơn trả tiền ngay để null để FE không hiện badge nợ.
+         */
+        private SalesOrderListResponse.Item toHistoryItem(SalesOrder o,
+                        String returnCode,
+                        BigDecimal debtPaid,
+                        Instant now) {
+                boolean isDebt = Boolean.TRUE.equals(o.getIsDebt());
+                BigDecimal remainingDebt = isDebt
+                                ? DebtCalculator.remaining(o.getTotalAmount(), o.getPaidAmount(), debtPaid)
+                                : null;
 
-    // ---- Private helpers ----
-    // No batch info here on purpose: FEFO can split one line across several
-    // batches, so a single batch code cannot describe it. The full allocation is
-    // recorded in stock_movements (reference_type = SALES_ORDER) and belongs on
-    // the order-detail view as a list, not on the create response.
-    private SalesOrderResponse toResponse(SalesOrder saved,
-                                          List<SalesOrderDetail> details) {
-        List<SalesOrderResponse.SalesOrderDetailInfo> itemInfos = details.stream()
-                .map(d -> SalesOrderResponse.SalesOrderDetailInfo.builder()
-                        .productId(d.getProduct().getId())
-                        .name(d.getProduct().getName())
-                        .unitName(d.getUnitName())
-                        .quantity(d.getQuantity())
-                        .unitPrice(d.getUnitPrice())
-                        .discountAmount(d.getDiscountAmount())
-                        .lineTotal(d.getLineTotal())
-                        .build())
-                .toList();
-
-        return getSalesOrderResponse(saved, itemInfos);
-    }
-
-    @Transactional(readOnly = true)
-    public SalesOrderListResponse getOrderHistory(
-            Integer createdByFilter,
-            String search,
-            Instant dateFrom,
-            Instant dateTo,
-            String orderStatus,
-            String paymentMethod,
-            Boolean isDebt,
-            int page,
-            int size
-    ) {
-        int safeSize = Math.min(size, 50);
-        String likeSearch = (search == null || search.isBlank())
-                ? null
-                : "%" + search.toLowerCase() + "%";
-
-        String statusFilter = blankToNull(orderStatus);
-        String paymentFilter = blankToNull(paymentMethod);
-
-        Page<SalesOrder> pg = salesOrderRepository.findHistory(
-                createdByFilter, likeSearch, dateFrom, dateTo,
-                statusFilter, paymentFilter, isDebt,
-                PageRequest.of(page, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"))
-        );
-
-        Map<Integer, String> staffNames = loadStaffNames(pg.getContent());
-
-        List<SalesOrderListResponse.Item> items = pg.getContent().stream()
-                .map(o -> SalesOrderListResponse.Item.builder()
-                        .id(o.getId())
-                        .orderCode(o.getOrderCode())
-                        .createdAt(o.getCreatedAt())
-                        .customerName(o.getCustomer() != null ? o.getCustomer().getFullName() : null)
-                        .staffName(o.getCreatedBy() == null
-                                ? "—"
-                                : staffNames.getOrDefault(o.getCreatedBy(), "—"))
-                        .totalAmount(o.getTotalAmount())
-                        .orderStatus(o.getOrderStatus())
-                        .paymentMethod(o.getPaymentMethod())
-                        .isDebt(o.getIsDebt())
-                        .build())
-                .toList();
-
-        return SalesOrderListResponse.builder()
-                .content(items)
-                .page(pg.getNumber())
-                .size(pg.getSize())
-                .totalElements(pg.getTotalElements())
-                .totalPages(pg.getTotalPages())
-                .build();
-    }
-
-    private Map<Integer, String> loadStaffNames(List<SalesOrder> orders) {
-        Set<Integer> ids = orders.stream()
-                .map(SalesOrder::getCreatedBy)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        if (ids.isEmpty()) {
-            return Map.of();
+                return SalesOrderListResponse.Item.builder()
+                                .id(o.getId())
+                                .orderCode(o.getOrderCode())
+                                .returnCode(returnCode)
+                                .createdAt(o.getCreatedAt())
+                                .customerName(o.getCustomer() != null ? o.getCustomer().getFullName() : null)
+                                .customerPhone(o.getCustomer() != null ? o.getCustomer().getPhoneNumber() : null)
+                                .totalAmount(o.getTotalAmount())
+                                .orderStatus(o.getOrderStatus())
+                                .paymentMethod(o.getPaymentMethod())
+                                .isDebt(isDebt)
+                                .dueDate(isDebt ? o.getDueDate() : null)
+                                .remainingDebt(remainingDebt)
+                                .debtStatus(isDebt
+                                                ? DebtCalculator.deriveStatus(remainingDebt, o.getDueDate(), now).name()
+                                                : null)
+                                .build();
         }
-        Map<Integer, String> map = new HashMap<>();
-        for (User u : userRepository.findAllById(ids)) {
-            map.put(u.getId(), u.getFullName() != null ? u.getFullName() : u.getUsername());
-        }
-        return map;
-    }
 
-    private static String blankToNull(String value) {
-        if (value == null || value.isBlank() || "ALL".equalsIgnoreCase(value)) {
-            return null;
+        private String toLikePattern(String keyword) {
+                return (keyword == null || keyword.isBlank())
+                                ? null
+                                : "%" + keyword.trim().toLowerCase() + "%";
         }
-        return value.trim();
-    }
 }

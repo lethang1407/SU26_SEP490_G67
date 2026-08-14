@@ -124,3 +124,42 @@ body{
   color: #2563eb;
   font-weight: 500;
 }
+
+/* === Custom Tabs Styling === */
+.customer-detail-tabs {
+  width: 100%;
+}
+
+.customer-detail-tabs__nav {
+  display: flex;
+  border-bottom: 1px solid #e9ecef;
+  padding: 0 1.5rem;
+}
+
+.customer-detail-tabs__btn {
+  display: flex;
+  align-items: center;
+  padding: 1rem 0.5rem;
+  margin-right: 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #6c757d;
+  background-color: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.customer-detail-tabs__btn:hover {
+  color: #0d6efd;
+}
+
+.customer-detail-tabs__btn--active {
+  color: #0d6efd;
+  border-bottom-color: #0d6efd;
+}
+
+.customer-detail-tabs__panel {
+  /* No extra styling needed for the panel wrapper */
+}

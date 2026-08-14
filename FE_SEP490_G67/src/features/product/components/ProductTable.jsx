@@ -60,19 +60,17 @@ export default function ProductTable({ items }) {
                                         {formatCurrency(product.sellPrice)}
                                     </td>
                                     <td
-                                        className={`product-table__stock${
-                                            isOutOfStock ? ' product-table__stock--empty' : ''
-                                        }`}
+                                        className={`product-table__stock${isOutOfStock ? ' product-table__stock--empty' : ''
+                                            }`}
                                     >
                                         {product.stock}
                                     </td>
                                     <td>
                                         <span
-                                            className={`product-table__status${
-                                                isOutOfStock
-                                                    ? ' product-table__status--out-of-stock'
-                                                    : ' product-table__status--in-stock'
-                                            }`}
+                                            className={`product-table__status${isOutOfStock
+                                                ? ' product-table__status--out-of-stock'
+                                                : ' product-table__status--in-stock'
+                                                }`}
                                         >
                                             {getProductStatusLabel(product.stock)}
                                         </span>

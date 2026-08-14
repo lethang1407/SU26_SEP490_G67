@@ -39,13 +39,6 @@ public class Product extends BaseEntity {
     @Column(name = "sku", length = 50, unique = true)
     private String sku;
 
-    @Column(name = "brand", length = 100)
-    private String brand;
-
-    @ColumnDefault("10.00")
-    @Column(name = "vat_percent", precision = 5, scale = 2, nullable = false)
-    private BigDecimal vatPercent = new BigDecimal("10.00");
-
     @ColumnDefault("0.00")
     @Column(name = "cost_price", precision = 15, scale = 2)
     private BigDecimal costPrice;
@@ -57,6 +50,13 @@ public class Product extends BaseEntity {
     @ColumnDefault("0")
     @Column(name = "min_stock")
     private Integer minStock;
+
+    /**
+     * DAMAGED / EXPIRED goods override the flag.
+     */
+    @ColumnDefault("1")
+    @Column(name = "is_returnable", nullable = false)
+    private Boolean isReturnable = true;
 
     @Column(name = "description")
     private String description;
@@ -103,8 +103,4 @@ public class Product extends BaseEntity {
 
     @OneToMany(mappedBy = "product")
     private Set<StockBatch> stockBatches = new LinkedHashSet<>();
-
-    @OneToMany(mappedBy = "product")
-    private Set<PriceHistory> priceHistories = new LinkedHashSet<>();
-
 }

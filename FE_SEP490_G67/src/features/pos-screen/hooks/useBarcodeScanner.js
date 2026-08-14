@@ -4,7 +4,7 @@ import { getProductByBarcode } from '../api';
 
 const ERROR_CLEAR_MS = 4000;
 
-export function useBarcodeScanner({ onProductFound }) {
+export function useBarcodeScanner({ onProductFound, enabled = true }) {
     const [scanning, setScanning] = useState(false);
     const [error, setError] = useState(null);
     const errorTimerRef = useRef(null);
@@ -44,19 +44,16 @@ export function useBarcodeScanner({ onProductFound }) {
         }
     }, [onProductFound, setTimedError, clearError]);
 
-    // Global listener for physical barcode scanners
     useEffect(() => {
+        if (!enabled) return;
+
         let buffer = '';
         let lastKeyTime = Date.now();
 
         const handleGlobalKeyDown = (e) => {
-            // Ignore modifiers
             if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(e.key)) return;
 
             const currentTime = Date.now();
-            
-            // Barcode scanners type characters with very small intervals (< 30ms).
-            // If the delay is > 50ms, it's likely human typing, so clear the buffer.
             if (currentTime - lastKeyTime > 50) {
                 buffer = '';
             }
@@ -65,15 +62,12 @@ export function useBarcodeScanner({ onProductFound }) {
                 if (buffer.length >= 4) { // Valid barcode length
                     handleBarcodeSubmit(buffer);
                     buffer = '';
-                    
-                    // If focused on an input, try to prevent form submission or unwanted behavior
                     if (document.activeElement && document.activeElement.tagName === 'INPUT') {
-                        // Optionally blur to clear focus: document.activeElement.blur();
                     }
                     e.preventDefault();
                     return;
                 }
-            } else if (e.key.length === 1) { // Printable characters
+            } else if (e.key.length === 1) {
                 buffer += e.key;
             }
 
@@ -82,7 +76,7 @@ export function useBarcodeScanner({ onProductFound }) {
 
         window.addEventListener('keydown', handleGlobalKeyDown);
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-    }, [handleBarcodeSubmit]);
+    }, [handleBarcodeSubmit, enabled]);
 
     return { scanning, error, handleBarcodeSubmit, clearError };
 }

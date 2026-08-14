@@ -7,17 +7,28 @@ const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
 
 function mapProduct(product) {
-    const baseUnit = (product.productUnits || []).find(
-        (unit) => unit.unitBase != null && Number(unit.unitBase) === 1,
-    );
+    const productUnits = (product.productUnits || []).map((unit) => ({
+        id: unit.id,
+        name: unit.name,
+        unitBase: Number(unit.unitBase) || 1,
+    }));
+    const baseUnit = productUnits.find((unit) => unit.unitBase === 1) || productUnits[0];
+    const lastCostPerBase = Number(product.lastCostPerBase ?? product.costPrice ?? 0) || 0;
+    const attributes = product.attributes || [];
     return {
         id: product.id,
         name: product.name,
-        code: product.barcode || `SP${String(product.id).padStart(6, '0')}`,
+        parentId: product.parentId ?? null,
+        parentName: product.parentName || '',
+        attributes,
+        code: product.sku || product.barcode || `SP${String(product.id).padStart(6, '0')}`,
         barcode: product.barcode || '',
+        productUnits,
         unit: baseUnit?.name || 'Cái',
-        // API search chưa trả giá nhập → mặc định 0, user nhập trên bảng
-        importPrice: 0,
+        lastCostPerBase,
+        sellingPrice: Number(product.sellingPrice) || 0,
+        // Gợi ý theo ĐVT cơ bản; createLine sẽ nhân unitBase
+        importPrice: lastCostPerBase,
     };
 }
 
@@ -119,10 +130,7 @@ export default function ImportOrderProductSearch({ onSelect }) {
                                             }}
                                         >
                                             <span className="ioc-search__item-name">{product.name}</span>
-                                            <span className="ioc-search__item-meta">
-                                                {product.code}
-                                                {product.barcode ? ` · ${product.barcode}` : ''}
-                                            </span>
+                                            <span className="ioc-search__item-meta">{product.code}</span>
                                         </button>
                                     </li>
                                 ))}

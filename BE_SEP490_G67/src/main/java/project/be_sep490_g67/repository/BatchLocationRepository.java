@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import project.be_sep490_g67.entity.BatchLocation;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -49,6 +50,20 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
               AND bl.isRemoved = false
             """)
     Integer sumQuantityByBatchId(@Param("batchId") Integer batchId);
+
+    /**
+     * Tổng tồn của nhiều sản phẩm trong một lượt truy vấn — tránh N+1 khi trả về
+     * danh sách kết quả tìm kiếm. Mỗi phần tử là [productId, tổng số lượng].
+     */
+    @Query("""
+            SELECT sb.product.id, COALESCE(SUM(bl.quantity), 0)
+            FROM BatchLocation bl
+            JOIN bl.batch sb
+            WHERE sb.product.id IN :productIds
+              AND bl.isRemoved = false
+            GROUP BY sb.product.id
+            """)
+    List<Object[]> sumQuantityByProductIds(@Param("productIds") Collection<Integer> productIds);
 
     @Query("""
             SELECT bl FROM BatchLocation bl
@@ -103,4 +118,58 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
               AND sz.zoneType = 'SALES'
             """)
     List<BatchLocation> findActiveOnSalesZonesByProductId(@Param("productId") Integer productId);
+
+    @Query("""
+            SELECT bl FROM BatchLocation bl
+            WHERE bl.batch.id = :batchId
+              AND bl.isRemoved = false
+            ORDER BY bl.quantity DESC, bl.id ASC
+            LIMIT 1
+            """)
+    Optional<BatchLocation> findFirstByBatchId(@Param("batchId") Integer batchId);
+
+    /**
+     * Mọi dòng (vị trí, lô) còn hàng của một SP — dùng cho dropdown chọn vị trí ở POS.
+     * Khu bán xếp trước (dòng đầu tiên là mặc định của POS), rồi FIFO theo ngày nhập.
+     * Lô chưa có ngày nhập bị đẩy xuống cuối (NULLS LAST viết bằng CASE cho portable).
+     */
+    @Query("""
+            SELECT bl FROM BatchLocation bl
+            JOIN FETCH bl.batch sb
+            JOIN FETCH bl.location loc
+            JOIN FETCH loc.storageZone sz
+            WHERE sb.product.id = :productId
+              AND bl.quantity > 0
+              AND bl.isRemoved = false
+              AND sb.isRemoved = false
+              AND loc.isRemoved = false
+              AND (sz.isRemoved = false OR sz.isRemoved IS NULL)
+            ORDER BY CASE WHEN sz.zoneType = 'SALES' THEN 0 ELSE 1 END ASC,
+                     CASE WHEN sb.receivedDate IS NULL THEN 1 ELSE 0 END ASC,
+                     sb.receivedDate ASC,
+                     sb.id ASC
+            """)
+    List<BatchLocation> findPosLinesByProductId(@Param("productId") Integer productId);
+
+    /**
+     * Hàng còn lại của một SP tại đúng một ô, FIFO theo ngày nhập.
+     * Dùng khi thu ngân đã chốt vị trí lấy hàng trên POS.
+     */
+    @Query("""
+            SELECT bl FROM BatchLocation bl
+            JOIN FETCH bl.batch sb
+            JOIN FETCH bl.location loc
+            WHERE sb.product.id = :productId
+              AND loc.id = :locationId
+              AND bl.quantity > 0
+              AND bl.isRemoved = false
+              AND sb.isRemoved = false
+              AND loc.isRemoved = false
+            ORDER BY CASE WHEN sb.receivedDate IS NULL THEN 1 ELSE 0 END ASC,
+                     sb.receivedDate ASC,
+                     sb.id ASC
+            """)
+    List<BatchLocation> findAvailableByProductIdAndLocationId(
+            @Param("productId") Integer productId,
+            @Param("locationId") Integer locationId);
 }

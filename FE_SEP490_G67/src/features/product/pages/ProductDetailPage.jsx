@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Spinner } from 'react-bootstrap';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import ProductDetailHeader from '../components/ProductDetailHeader';
 import ProductBasicInfoCard from '../components/ProductBasicInfoCard';
@@ -67,9 +66,8 @@ export default function ProductDetailPage() {
 
     if (isLoading) {
         return (
-            <div className="admin-layout">
-                <SideBar />
-                <div className="admin-content">
+            <div className="admin-content">
+                
                     <AdminHeader />
                     <main className="admin-main">
                         <div className="dashboard-container product-page text-center p-5">
@@ -79,15 +77,13 @@ export default function ProductDetailPage() {
                         </div>
                     </main>
                 </div>
-            </div>
         );
     }
 
     if (!product) {
         return (
-            <div className="admin-layout">
-                <SideBar />
-                <div className="admin-content">
+            <div className="admin-content">
+                
                     <AdminHeader />
                     <main className="admin-main">
                         <div className="dashboard-container product-page">
@@ -100,14 +96,12 @@ export default function ProductDetailPage() {
                         </div>
                     </main>
                 </div>
-            </div>
         );
     }
 
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container product-page product-detail-page">
@@ -135,6 +129,5 @@ export default function ProductDetailPage() {
                     </div>
                 </main>
             </div>
-        </div>
     );
 }

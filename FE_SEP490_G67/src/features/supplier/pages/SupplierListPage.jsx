@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import SupplierSummaryCards from '../components/SupplierSummaryCards';
 import SupplierToolbar from '../components/SupplierToolbar';
@@ -141,13 +140,6 @@ export default function SupplierListPage() {
         setTimeout(() => setToast(''), 3000);
     };
 
-    const handleSupplierDeleted = () => {
-        setExpandedId(null);
-        fetchSuppliers({ silent: true });
-        setToast('Đã xóa nhà cung cấp.');
-        setTimeout(() => setToast(''), 3000);
-    };
-
     const handleAddSupplier = (supplierData) => {
         setAddSubmitting(true);
         setAddError('');
@@ -183,9 +175,8 @@ export default function SupplierListPage() {
     };
 
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container supplier-page">
@@ -228,10 +219,10 @@ export default function SupplierListPage() {
                             items={data.content}
                             loading={loading}
                             expandedId={expandedId}
+                            startIndex={pagination.startIndex}
                             onToggleExpand={handleToggleExpand}
                             onPaymentSuccess={handlePaymentSuccess}
                             onSupplierUpdated={handleSupplierUpdated}
-                            onSupplierDeleted={handleSupplierDeleted}
                         />
 
                         <SupplierPagination
@@ -260,6 +251,5 @@ export default function SupplierListPage() {
                     </div>
                 </main>
             </div>
-        </div>
     );
 }

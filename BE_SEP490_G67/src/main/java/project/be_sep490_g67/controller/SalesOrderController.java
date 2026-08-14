@@ -20,8 +20,10 @@ import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.UserRepository;
 import project.be_sep490_g67.service.ExchangeOrderService;
 import project.be_sep490_g67.service.InvoiceService;
+import project.be_sep490_g67.service.ReturnLookupService;
 import project.be_sep490_g67.service.SalesOrderService;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -35,11 +37,11 @@ public class SalesOrderController {
     SalesOrderService salesOrderService;
     ExchangeOrderService exchangeOrderService;
     InvoiceService invoiceService;
+    ReturnLookupService returnLookupService;
     UserRepository userRepository;
 
     /**
      * GET /api/sales-orders
-     * CASHIER sees only their own orders; ADMIN/ACCOUNTANT see all.
      */
     @GetMapping
     @PreAuthorize("isAuthenticated()")
@@ -47,6 +49,9 @@ public class SalesOrderController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) String orderCode,
+            @RequestParam(required = false) String customer,
+            @RequestParam(required = false) String product,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(required = false) String orderStatus,
@@ -62,7 +67,7 @@ public class SalesOrderController {
         Instant to = dateTo != null ? dateTo.plusDays(1).atStartOfDay(vnZone).toInstant() : null;
 
         SalesOrderListResponse result = salesOrderService.getOrderHistory(
-                createdByFilter, search, from, to, orderStatus, paymentMethod, isDebt, page, size);
+                createdByFilter, search, orderCode, customer, product, from, to, page, size);
 
         return ApiResponse.<SalesOrderListResponse>builder().result(result).build();
     }
@@ -123,9 +128,6 @@ public class SalesOrderController {
 
     /**
      * GET /api/sales-orders/{id}/invoice
-     * Authorization (IDOR):
-     * - ADMIN / ACCOUNTANT: can access any order
-     * - CASHIER: can only access orders they created
      */
     @GetMapping("/{id}/invoice")
     @PreAuthorize("isAuthenticated()")
@@ -135,6 +137,39 @@ public class SalesOrderController {
         return ApiResponse.<InvoiceResponse>builder()
                 .result(result)
                 .message("Lấy dữ liệu hóa đơn thành công")
+                .build();
+    }
+
+    /**
+     * GET /api/sales-orders/search-for-return
+     */
+    @GetMapping("/search-for-return")
+    @PreAuthorize("isAuthenticated()")
+    ApiResponse<ReturnLookupResponse> searchForReturn(
+            @RequestParam(required = false) String orderCode,
+            @RequestParam(required = false) String customerPhone,
+            @RequestParam(required = false) String customerName,
+            @RequestParam(required = false) Integer productId,
+            @RequestParam(required = false) String barcode,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) BigDecimal amount,
+            @RequestParam(required = false) BigDecimal amountTolerance,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        ZoneId vnZone = ZoneId.of("Asia/Ho_Chi_Minh");
+        Instant fromInstant = from != null ? from.atStartOfDay(vnZone).toInstant() : null;
+        Instant toInstant = to != null ? to.plusDays(1).atStartOfDay(vnZone).toInstant() : null;
+
+        ReturnLookupResponse result = returnLookupService.search(
+                orderCode, customerPhone, customerName, productId, barcode,
+                fromInstant, toInstant, amount, amountTolerance,
+                page, size, resolveStaffId());
+
+        return ApiResponse.<ReturnLookupResponse>builder()
+                .result(result)
+                .message("Tra cứu hóa đơn thành công")
                 .build();
     }
 

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Alert, Spinner } from 'react-bootstrap';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import { fetchImportOrderById } from '../api';
@@ -55,21 +54,27 @@ export default function ImportOrderDetailPage() {
         id: item.batchId ?? `item-${index}`,
         productId: item.productId,
         productCode: item.productCode,
-        productName: item.productName,
-        unit: item.unit,
+        productName: item.parentName || item.productName,
+        parentName: item.parentName || '',
+        attributes: item.attributes || [],
+        productUnitId: item.productUnitId,
+        productUnits: item.productUnits || [],
+        unitName: item.unitName || item.unit || 'Cái',
+        unit: item.unitName || item.unit || 'Cái',
         quantity: item.quantity,
         costPerUnit: item.costPerUnit,
         expiryDate: item.expiryDate,
         locationId: item.locationId,
         locationLabel: item.locationLabel,
         batchCode: item.batchCode,
+        isPromotion: Boolean(item.isPromotion),
+        note: item.note || '',
     }));
 
     if (loading) {
         return (
-            <div className="admin-layout">
-                <SideBar />
-                <div className="admin-content">
+            <div className="admin-content">
+                
                     <AdminHeader />
                     <main className="admin-main">
                         <div className="dashboard-container import-order-page">
@@ -80,15 +85,13 @@ export default function ImportOrderDetailPage() {
                         </div>
                     </main>
                 </div>
-            </div>
         );
     }
 
     if (!order) {
         return (
-            <div className="admin-layout">
-                <SideBar />
-                <div className="admin-content">
+            <div className="admin-content">
+                
                     <AdminHeader />
                     <main className="admin-main">
                         <div className="dashboard-container import-order-page">
@@ -105,14 +108,12 @@ export default function ImportOrderDetailPage() {
                         </div>
                     </main>
                 </div>
-            </div>
         );
     }
 
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container import-order-page import-order-detail-page">
@@ -146,7 +147,7 @@ export default function ImportOrderDetailPage() {
 
                         <div className="import-order-create-layout">
                             <div className="import-order-create-main">
-                                <ImportOrderLineTable lines={lines} />
+                                <ImportOrderLineTable lines={lines} readOnly />
                             </div>
 
                             <aside className="import-order-detail-sidebar">
@@ -157,6 +158,5 @@ export default function ImportOrderDetailPage() {
                     </div>
                 </main>
             </div>
-        </div>
     );
 }

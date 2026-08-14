@@ -2,15 +2,14 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Alert, Spinner } from 'react-bootstrap';
 import { Download, Printer } from 'lucide-react';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
+import AlertNoticeModal from '../../../components/ui/AlertNoticeModal';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import { fetchInventoryCheckById } from '../api';
 import InventoryCheckLineTable from '../components/InventoryCheckLineTable';
 import InventoryCheckStatusBadge from '../components/InventoryCheckStatusBadge';
 import {
     InventoryCheckInfoPanel,
-    InventoryCheckNotePanel,
     InventoryCheckSummaryPanel,
 } from '../components/InventoryCheckSidePanels';
 import { INVENTORY_CHECK_ROUTES } from '../constants';
@@ -18,6 +17,7 @@ import { isEditableStatus } from '../utils/inventoryCheckUtils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Inventory.css';
 import '../../../css/InventoryCheck.css';
+import '../../../css/Supplier.css';
 
 export default function InventoryCheckDetailPage() {
     const { checkId } = useParams();
@@ -27,6 +27,7 @@ export default function InventoryCheckDetailPage() {
     const [lines, setLines] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [warning, setWarning] = useState(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -62,9 +63,8 @@ export default function InventoryCheckDetailPage() {
 
     if (loading) {
         return (
-            <div className="admin-layout">
-                <SideBar />
-                <div className="admin-content">
+            <div className="admin-content">
+                
                     <AdminHeader />
                     <main className="admin-main">
                         <div className="dashboard-container inventory-check-page">
@@ -75,15 +75,13 @@ export default function InventoryCheckDetailPage() {
                         </div>
                     </main>
                 </div>
-            </div>
         );
     }
 
     if (!check) {
         return (
-            <div className="admin-layout">
-                <SideBar />
-                <div className="admin-content">
+            <div className="admin-content">
+                
                     <AdminHeader />
                     <main className="admin-main">
                         <div className="dashboard-container inventory-check-page">
@@ -100,14 +98,12 @@ export default function InventoryCheckDetailPage() {
                         </div>
                     </main>
                 </div>
-            </div>
         );
     }
 
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container inventory-check-page inventory-check-detail-page">
@@ -150,7 +146,7 @@ export default function InventoryCheckDetailPage() {
                                     type="button"
                                     className="inventory-btn inventory-btn--secondary"
                                     onClick={() =>
-                                        window.alert('Chức năng in phiếu đang phát triển.')
+                                        setWarning('Chức năng in phiếu đang phát triển.')
                                     }
                                 >
                                     <Printer size={18} />
@@ -160,7 +156,7 @@ export default function InventoryCheckDetailPage() {
                                     type="button"
                                     className="inventory-btn inventory-btn--secondary"
                                     onClick={() =>
-                                        window.alert('Chức năng xuất file đang phát triển.')
+                                        setWarning('Chức năng xuất file đang phát triển.')
                                     }
                                 >
                                     <Download size={18} />
@@ -181,15 +177,23 @@ export default function InventoryCheckDetailPage() {
 
                             <aside className="inventory-check-detail-sidebar">
                                 <InventoryCheckInfoPanel check={check} />
-                                <InventoryCheckSummaryPanel lines={lines} />
-                                <InventoryCheckNotePanel
+                                <InventoryCheckSummaryPanel
+                                    lines={lines}
                                     note={check.generalNote || check.note}
+                                    showNote
+                                    showMeta
+                                    checkDate={check.checkDate}
+                                    checkerName={check.checker}
                                 />
                             </aside>
                         </div>
                     </div>
                 </main>
-            </div>
+            <AlertNoticeModal
+                open={Boolean(warning)}
+                message={warning}
+                onClose={() => setWarning(null)}
+            />
         </div>
     );
 }

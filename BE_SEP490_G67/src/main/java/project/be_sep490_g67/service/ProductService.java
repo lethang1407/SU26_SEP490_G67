@@ -25,7 +25,10 @@ import project.be_sep490_g67.util.StockBatchUtils;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -40,6 +43,7 @@ public class ProductService {
     CategoryRepository categoryRepository;
     UserRepository userRepository;
     StockBatchRepository stockBatchRepository;
+    BatchLocationRepository batchLocationRepository;
     ProductMapper productMapper;
     PriceHistoryRepository priceHistoryRepository;
     ImportOrderDetailRepository importOrderDetailRepository;
@@ -70,8 +74,10 @@ public class ProductService {
     public ProductDetailResponse getProductById(Integer productId) {
         Product product = findActiveProduct(productId);
         int stock = loadStock(product.getId());
-        List<ProductUnit> units = productUnitRepository.findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(product.getId());
-        List<ProductAttribute> attributes = productAttributeRepository.findByProduct_IdAndIsRemovedFalse(product.getId());
+        List<ProductUnit> units = productUnitRepository
+                .findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(product.getId());
+        List<ProductAttribute> attributes = productAttributeRepository
+                .findByProduct_IdAndIsRemovedFalse(product.getId());
 
         return productMapper.toDetailResponse(product, stock, units, attributes);
     }
@@ -299,8 +305,8 @@ public class ProductService {
             String attributeName,
             String value,
             Integer actorId) {
-        List<ProductAttribute> existingAttributes =
-                productAttributeRepository.findByProduct_IdAndIsRemovedFalse(product.getId());
+        List<ProductAttribute> existingAttributes = productAttributeRepository
+                .findByProduct_IdAndIsRemovedFalse(product.getId());
 
         ProductAttribute existingAttribute = existingAttributes.stream()
                 .filter(item -> item.getAttribute() != null
@@ -352,8 +358,8 @@ public class ProductService {
     }
 
     private void syncUnits(Product product, UpdateProductRequest request, Integer actorId) {
-        List<ProductUnit> existingUnits =
-                productUnitRepository.findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(product.getId());
+        List<ProductUnit> existingUnits = productUnitRepository
+                .findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(product.getId());
 
         ProductUnit baseUnit = existingUnits.stream()
                 .filter(unit -> unit.getUnitBase() != null
@@ -375,8 +381,8 @@ public class ProductService {
         }
 
         Set<Integer> retainedConversionUnitIds = new HashSet<>();
-        List<ProductConversionUnitRequest> conversionUnits =
-                request.getConversionUnits() == null ? List.of() : request.getConversionUnits();
+        List<ProductConversionUnitRequest> conversionUnits = request.getConversionUnits() == null ? List.of()
+                : request.getConversionUnits();
 
         for (ProductConversionUnitRequest conversionUnitRequest : conversionUnits) {
             if (conversionUnitRequest.getName() == null || conversionUnitRequest.getName().isBlank()) {
@@ -459,7 +465,7 @@ public class ProductService {
         String productCode = ProductConstants.formatProductCode(product.getId()).toLowerCase(Locale.ROOT);
 
         return (product.getName() != null
-                        && product.getName().toLowerCase(Locale.ROOT).contains(normalizedKeyword))
+                && product.getName().toLowerCase(Locale.ROOT).contains(normalizedKeyword))
                 || (product.getBarcode() != null && product.getBarcode().contains(normalizedKeyword))
                 || productCode.contains(normalizedKeyword);
     }
@@ -513,31 +519,158 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
+    public ProductPosInfoResponse getPosInfo(Integer productId) {
+        Product product = productRepository.findById(productId)
+                .filter(p -> Boolean.FALSE.equals(p.getIsRemoved()))
+                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        List<ProductPosInfoResponse.UnitInfo> unitInfos = product.getProductUnits().stream()
+                .filter(u -> Boolean.FALSE.equals(u.getIsRemoved()))
+                .sorted(Comparator.comparing(u -> u.getUnitBase() == null
+                        ? BigDecimal.ZERO
+                        : u.getUnitBase()))
+                .map(u -> ProductPosInfoResponse.UnitInfo.builder()
+                        .id(u.getId())
+                        .name(u.getName())
+                        .unitBase(u.getUnitBase())
+                        .build())
+                .toList();
+
+        // Đã sắp xếp sẵn ở query: khu bán trước, rồi FIFO theo ngày nhập (null xuống
+        // cuối).
+        List<ProductPosInfoResponse.LocationStockInfo> locationInfos = batchLocationRepository
+                .findPosLinesByProductId(productId).stream()
+                .map(ProductService::toLocationStockInfo)
+                .toList();
+
+        int salesZoneQty = locationInfos.stream()
+                .filter(l -> SALES_ZONE_TYPE.equals(l.getZoneType()))
+                .mapToInt(ProductPosInfoResponse.LocationStockInfo::getQuantity)
+                .sum();
+        int available = locationInfos.stream()
+                .mapToInt(ProductPosInfoResponse.LocationStockInfo::getQuantity)
+                .sum();
+
+        // Dòng khu bán đầu tiên là ô POS chọn sẵn; không có nghĩa là SP chưa ra quầy.
+        ProductPosInfoResponse.LocationStockInfo defaultLine = locationInfos.stream()
+                .filter(l -> SALES_ZONE_TYPE.equals(l.getZoneType()))
+                .findFirst()
+                .orElse(null);
+
+        return ProductPosInfoResponse.builder()
+                .id(product.getId())
+                .name(product.getName())
+                .barcode(product.getBarcode())
+                .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
+                .description(product.getDescription())
+                .sellingPrice(product.getSellingPrice())
+                .availableQuantity(available)
+                .salesZoneQuantity(salesZoneQty)
+                .warehouseQuantity(available - salesZoneQty)
+                .minStock(product.getMinStock())
+                .belowMinStock(product.getMinStock() != null && available <= product.getMinStock())
+                .defaultLocationId(defaultLine != null ? defaultLine.getLocationId() : null)
+                .defaultBatchId(defaultLine != null ? defaultLine.getBatchId() : null)
+                .units(unitInfos)
+                .locations(locationInfos)
+                .build();
+    }
+
+    private static final String SALES_ZONE_TYPE = "SALES";
+
+    private static ProductPosInfoResponse.LocationStockInfo toLocationStockInfo(BatchLocation bl) {
+        StorageLocation location = bl.getLocation();
+        StockBatch batch = bl.getBatch();
+        StorageZone zone = location.getStorageZone();
+        return ProductPosInfoResponse.LocationStockInfo.builder()
+                .locationId(location.getId())
+                .label(describeLocation(location))
+                .zoneCode(location.getZoneCode())
+                .zoneType(zone != null ? zone.getZoneType() : null)
+                .locationFull(Boolean.TRUE.equals(location.getIsFull()))
+                .batchId(batch.getId())
+                .batchCode(StockBatchUtils.resolveBatchCode(batch))
+                .receivedDate(batch.getReceivedDate() != null ? batch.getReceivedDate().toString() : null)
+                .expiryDate(batch.getExpiryDate() != null ? batch.getExpiryDate().toString() : null)
+                .quantity(bl.getQuantity() != null ? bl.getQuantity() : 0)
+                .build();
+    }
+
+    private static String describeLocation(StorageLocation location) {
+        if (location.getLabel() != null && !location.getLabel().isBlank()) {
+            return location.getLabel();
+        }
+        String composed = Stream.of(location.getZoneCode(), location.getAisle(),
+                location.getShelf(), location.getBin())
+                .filter(part -> part != null && !part.isBlank())
+                .reduce((a, b) -> a + " - " + b)
+                .orElse("");
+        return composed.isBlank() ? "Chưa gán vị trí" : composed;
+    }
+
+    @Transactional(readOnly = true)
     public List<ProductSearchResponse> searchByNameAndBarcode(String query) {
         if (query == null || query.isBlank()) {
             return List.of();
         }
-        List<Product> productList = productRepository.searchByNameAndBarcode(query.trim());
-        return productList.stream()
-                .filter(p -> Boolean.FALSE.equals(p.getIsRemoved())) // loại sp đã deactivate
+
+        List<Product> productList = productRepository.searchSellableByNameAndBarcode(query.trim())
+                .stream()
+                .filter(p -> !Boolean.TRUE.equals(p.getIsRemoved()))
                 .limit(20)
-                .map(product -> ProductSearchResponse.builder()
-                        .id(product.getId())
-                        .name(product.getName())
-                        .barcode(product.getBarcode())
-                        .sellingPrice(product.getSellingPrice())
-                        .productUnits(product.getProductUnits().stream()
-                                .filter(u -> Boolean.FALSE.equals(u.getIsRemoved()))
-                                .map(u -> ProductSearchResponse.ProductUnitInfo
-                                        .builder()
-                                        .id(u.getId())
-                                        .name(u.getName())
-                                        .unitBase(u.getUnitBase())
-                                        .build())
-                                .toList())
+                .toList();
+
+        if (productList.isEmpty()) {
+            return List.of();
+        }
+
+        List<Integer> productIds = productList.stream().map(Product::getId).toList();
+        Map<Integer, List<ProductAttribute>> attributesByProduct = productAttributeRepository
+                .findByProduct_IdInAndIsRemovedFalse(productIds)
+                .stream()
+                .collect(Collectors.groupingBy(item -> item.getProduct().getId()));
+
+        return productList.stream()
+                .map(product -> toSearchResponse(
+                        product,
+                        attributesByProduct.getOrDefault(product.getId(), List.of())))
+                .toList();
+    }
+
+    private ProductSearchResponse toSearchResponse(Product product, List<ProductAttribute> attributes) {
+        BigDecimal costPrice = product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO;
+        BigDecimal lastCostPerBase = stockBatchRepository
+                .findFirstByProduct_IdAndIsRemovedFalseOrderByReceivedDateDescIdDesc(product.getId())
+                .map(StockBatch::getCostPerUnit)
+                .filter(cost -> cost != null)
+                .orElse(costPrice);
+        int stockQuantity = loadStock(product.getId());
+        Product parent = product.getParent();
+
+        List<ProductSearchResponse.ProductUnitInfo> unitInfos = productUnitRepository
+                .findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(product.getId())
+                .stream()
+                .map(u -> ProductSearchResponse.ProductUnitInfo.builder()
+                        .id(u.getId())
+                        .name(u.getName())
+                        .unitBase(u.getUnitBase())
                         .build())
                 .toList();
 
+        return ProductSearchResponse.builder()
+                .id(product.getId())
+                .name(product.getName())
+                .sku(product.getSku())
+                .barcode(product.getBarcode())
+                .sellingPrice(product.getSellingPrice())
+                .costPrice(costPrice)
+                .lastCostPerBase(lastCostPerBase)
+                .stockQuantity(stockQuantity)
+                .parentId(parent != null ? parent.getId() : null)
+                .parentName(parent != null ? parent.getName() : null)
+                .attributes(productMapper.toAttributeResponses(attributes))
+                .productUnits(unitInfos)
+                .build();
     }
 
     @Transactional(readOnly = true)

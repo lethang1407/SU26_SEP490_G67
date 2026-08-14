@@ -19,6 +19,7 @@ import project.be_sep490_g67.service.ProductListService;
 import project.be_sep490_g67.dto.response.ProductBarcodeResponse;
 import project.be_sep490_g67.dto.response.ProductDetailResponse;
 import project.be_sep490_g67.dto.response.ProductListResponse;
+import project.be_sep490_g67.dto.response.ProductPosInfoResponse;
 import project.be_sep490_g67.dto.response.ProductSearchResponse;
 import project.be_sep490_g67.service.ProductService;
 
@@ -59,6 +60,18 @@ public class ProductController {
         ProductBarcodeResponse result = productService.getProductByBarcode(barcode);
         return ApiResponse.<ProductBarcodeResponse>builder()
                 .result(result)
+                .build();
+    }
+
+    /**
+     * GET /api/products/{productId}/pos-info
+     * Thông tin sản phẩm cho nút "i" ở dòng giỏ hàng POS: giá bán, tồn kho bán
+     * được và vị trí để hàng.
+     */
+    @GetMapping("/{productId}/pos-info")
+    ApiResponse<ProductPosInfoResponse> getPosInfo(@PathVariable Integer productId) {
+        return ApiResponse.<ProductPosInfoResponse>builder()
+                .result(productService.getPosInfo(productId))
                 .build();
     }
 

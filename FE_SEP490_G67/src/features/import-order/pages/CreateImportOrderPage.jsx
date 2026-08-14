@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import SupplierAddNewModal from '../../supplier/components/SupplierAddNewModal';
 import { suppliersApi } from '../../supplier/api';
@@ -13,6 +12,7 @@ import ImportOrderAlertModal from '../components/ImportOrderAlertModal';
 import { getProfile } from '../../profile/api';
 import { ORDER_STATUS } from '../constants';
 import { uploadInvoiceImage } from '@/lib/cloudinary';
+import { suggestCostForUnit } from '../utils/importOrderUtils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Supplier.css';
 import '../../../css/ImportOrder.css';
@@ -21,37 +21,96 @@ function hasValidSupplier(supplier) {
     return supplier?.id != null && Number(supplier.id) > 0 && !Number.isNaN(Number(supplier.id));
 }
 
+function buildFormSnapshot({ supplier, lines, note, invoiceImageUrl, discountAmount }) {
+    return JSON.stringify({
+        supplierId: supplier?.id ?? null,
+        note: note?.trim() || '',
+        invoiceImageUrl: invoiceImageUrl || '',
+        discountAmount: Number(discountAmount) || 0,
+        lines: (lines || []).map((line) => ({
+            productId: line.productId,
+            productUnitId: line.productUnitId ?? null,
+            quantity: Number(line.quantity) || 0,
+            costPerUnit: Number(line.costPerUnit) || 0,
+            expiryDate: line.expiryDate || '',
+            note: line.note?.trim() || '',
+            isPromotion: Boolean(line.isPromotion),
+        })),
+    });
+}
+
+function normalizeProductUnits(productUnits) {
+    return (productUnits || []).map((unit) => ({
+        id: unit.id,
+        name: unit.name || 'Cái',
+        unitBase: Number(unit.unitBase) || 1,
+    }));
+}
+
+function pickDefaultProductUnit(productUnits) {
+    const units = normalizeProductUnits(productUnits);
+    if (units.length === 0) {
+        return { id: null, name: 'Cái', unitBase: 1 };
+    }
+    return units.find((unit) => unit.unitBase === 1) || units[0];
+}
+
 function createLineFromProduct(product) {
+    const productUnits = normalizeProductUnits(product.productUnits);
+    const selectedUnit = pickDefaultProductUnit(productUnits);
+    const lastCostPerBase = Number(product.lastCostPerBase ?? product.importPrice ?? 0) || 0;
     return {
         key: `${product.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         productId: product.id,
         productCode: product.code,
         productName: product.name,
-        unit: product.unit || 'Cái',
+        parentId: product.parentId ?? null,
+        parentName: product.parentName || '',
+        attributes: product.attributes || [],
+        productUnits,
+        productUnitId: selectedUnit.id,
+        unitName: selectedUnit.name,
+        unitBase: selectedUnit.unitBase,
+        lastCostPerBase,
+        sellingPrice: Number(product.sellingPrice) || 0,
         quantity: 1,
-        costPerUnit: Number(product.importPrice) || 0,
+        costPerUnit: suggestCostForUnit(lastCostPerBase, selectedUnit.unitBase),
         expiryDate: '',
         note: '',
+        isPromotion: false,
     };
 }
 
 function mapDetailLine(item) {
+    const productUnits = normalizeProductUnits(item.productUnits);
+    const selectedUnit =
+        productUnits.find((unit) => unit.id === item.productUnitId) ||
+        pickDefaultProductUnit(productUnits);
     return {
         key: `detail-${item.id || item.productId}-${Math.random().toString(36).slice(2, 7)}`,
         productId: item.productId,
         productCode: item.productCode || (item.productId ? `SP${String(item.productId).padStart(6, '0')}` : ''),
-        productName: item.productName || '',
-        unit: 'Cái',
+        productName: item.parentName || item.productName || '',
+        parentId: item.parentId ?? null,
+        parentName: item.parentName || '',
+        attributes: item.attributes || [],
+        productUnits,
+        productUnitId: item.productUnitId ?? selectedUnit.id,
+        unitName: item.unitName || selectedUnit.name || 'Cái',
+        unitBase: selectedUnit.unitBase ?? 1,
+        lastCostPerBase: Number(item.lastCostPerBase) || 0,
+        sellingPrice: Number(item.sellingPrice) || 0,
         quantity: Number(item.quantity) || 1,
         costPerUnit: Number(item.costPerUnit) || 0,
         expiryDate: item.expiryDate || '',
         note: item.note || '',
+        isPromotion: Boolean(item.isPromotion),
     };
 }
 
 function toApiPayload(orderStatus, { supplier, note, invoiceImage, safeDiscount, safePaidAmount, lines }) {
     return {
-        supplierId: supplier.id,
+        supplierId: Number(supplier.id),
         orderStatus,
         note: note.trim() || null,
         invoiceImage: invoiceImage || null,
@@ -60,10 +119,12 @@ function toApiPayload(orderStatus, { supplier, note, invoiceImage, safeDiscount,
         paymentMethod: 'CASH',
         lines: lines.map((line) => ({
             productId: line.productId,
+            productUnitId: line.productUnitId ?? null,
             quantity: Number(line.quantity) || 0,
             costPerUnit: Number(line.costPerUnit) || 0,
             expiryDate: line.expiryDate || null,
             note: line.note?.trim() || null,
+            isPromotion: Boolean(line.isPromotion),
         })),
     };
 }
@@ -91,6 +152,7 @@ export default function CreateImportOrderPage() {
     const [discountAmount, setDiscountAmount] = useState(0);
     const [paidAmount, setPaidAmount] = useState(0);
     const [submitting, setSubmitting] = useState(false);
+    const [leaveGuardOpen, setLeaveGuardOpen] = useState(false);
     const [alertModal, setAlertModal] = useState({
         open: false,
         title: '',
@@ -98,6 +160,11 @@ export default function CreateImportOrderPage() {
         cancelLabel: undefined,
         onConfirm: undefined,
     });
+
+    const allowNavigateRef = useRef(false);
+    const initialSnapshotRef = useRef(null);
+    /** false = tự fill tiền trả = cần trả NCC; true = chủ đã sửa tay (trả một phần / không trả) */
+    const paidAmountTouchedRef = useRef(false);
 
     const closeAlertModal = () =>
         setAlertModal({
@@ -120,10 +187,10 @@ export default function CreateImportOrderPage() {
 
     const totalAmount = useMemo(
         () =>
-            lines.reduce(
-                (sum, line) => sum + (Number(line.quantity) || 0) * (Number(line.costPerUnit) || 0),
-                0,
-            ),
+            lines.reduce((sum, line) => {
+                if (line.isPromotion) return sum;
+                return sum + (Number(line.quantity) || 0) * (Number(line.costPerUnit) || 0);
+            }, 0),
         [lines],
     );
 
@@ -131,6 +198,67 @@ export default function CreateImportOrderPage() {
     const amountDue = Math.max(totalAmount - safeDiscount, 0);
     const safePaidAmount = Math.min(Math.max(Number(paidAmount) || 0, 0), amountDue);
     const debtAmount = Math.max(amountDue - safePaidAmount, 0);
+
+    const formSnapshot = useMemo(
+        () => buildFormSnapshot({ supplier, lines, note, invoiceImageUrl, discountAmount }),
+        [supplier, lines, note, invoiceImageUrl, discountAmount],
+    );
+
+    const isDirty = useMemo(() => {
+        if (loadingDetail) return false;
+        if (isEditMode) {
+            if (!initialSnapshotRef.current) return false;
+            return formSnapshot !== initialSnapshotRef.current;
+        }
+        return (
+            hasValidSupplier(supplier) ||
+            lines.length > 0 ||
+            Boolean(note.trim()) ||
+            Boolean(invoiceImageUrl) ||
+            Number(discountAmount) > 0
+        );
+    }, [loadingDetail, isEditMode, formSnapshot, supplier, lines, note, invoiceImageUrl, discountAmount]);
+
+    const blocker = useBlocker(({ currentLocation, nextLocation }) => {
+        if (allowNavigateRef.current) return false;
+        if (!isDirty) return false;
+        return currentLocation.pathname !== nextLocation.pathname;
+    });
+
+    useEffect(() => {
+        if (blocker.state === 'blocked') {
+            setLeaveGuardOpen(true);
+        }
+    }, [blocker.state]);
+
+    useEffect(() => {
+        const onBeforeUnload = (event) => {
+            if (!isDirty || allowNavigateRef.current) return;
+            event.preventDefault();
+            event.returnValue = '';
+        };
+        window.addEventListener('beforeunload', onBeforeUnload);
+        return () => window.removeEventListener('beforeunload', onBeforeUnload);
+    }, [isDirty]);
+
+    const allowNavigate = () => {
+        allowNavigateRef.current = true;
+    };
+
+    const handleStayOnPage = () => {
+        setLeaveGuardOpen(false);
+        if (blocker.state === 'blocked') {
+            blocker.reset();
+        }
+    };
+
+    const handleLeaveWithoutSave = () => {
+        setLeaveGuardOpen(false);
+        allowNavigate();
+        if (blocker.state === 'blocked') {
+            blocker.proceed();
+        }
+    };
 
     useEffect(() => {
         let cancelled = false;
@@ -177,6 +305,7 @@ export default function CreateImportOrderPage() {
 
         let cancelled = false;
         setLoadingDetail(true);
+        initialSnapshotRef.current = null;
 
         importOrdersApi
             .getImportOrderDetail(editId)
@@ -185,31 +314,48 @@ export default function CreateImportOrderPage() {
 
                 if (detail.orderStatus !== ORDER_STATUS.DRAFT) {
                     window.alert('Chỉ được mở lại phiếu tạm. Phiếu đã nhập hàng không thể chỉnh sửa.');
+                    allowNavigate();
                     navigate('/admin/warehouse/import', { replace: true });
                     return;
                 }
 
+                const mappedLines = (detail.items || []).map(mapDetailLine);
+                const selected = detail.supplierId
+                    ? {
+                          id: detail.supplierId,
+                          supplierCode: detail.supplierCode,
+                          name: detail.supplierName,
+                      }
+                    : null;
+                const nextNote = detail.note || '';
+                const nextInvoice = detail.invoiceImage || '';
+                const nextDiscount = Number(detail.discountAmount) || 0;
+
                 setOrderCode(detail.orderCode || '');
                 if (detail.createdByName) setCreatorName(detail.createdByName);
-                setNote(detail.note || '');
-                setInvoiceImageUrl(detail.invoiceImage || '');
-                setInvoiceImageName(detail.invoiceImage ? 'Ảnh hóa đơn đã lưu' : '');
-                setDiscountAmount(Number(detail.discountAmount) || 0);
+                setNote(nextNote);
+                setInvoiceImageUrl(nextInvoice);
+                setInvoiceImageName(nextInvoice ? 'Ảnh hóa đơn đã lưu' : '');
+                setDiscountAmount(nextDiscount);
+                paidAmountTouchedRef.current = false;
                 setPaidAmount(0);
-                setLines((detail.items || []).map(mapDetailLine));
+                setLines(mappedLines);
 
-                if (detail.supplierId) {
-                    const selected = {
-                        id: detail.supplierId,
-                        supplierCode: detail.supplierCode,
-                        name: detail.supplierName,
-                    };
+                if (selected) {
                     setSupplier(selected);
                     setSuppliers((prev) => {
                         const exists = prev.some((item) => item.id === selected.id);
                         return exists ? prev : [selected, ...prev];
                     });
                 }
+
+                initialSnapshotRef.current = buildFormSnapshot({
+                    supplier: selected,
+                    lines: mappedLines,
+                    note: nextNote,
+                    invoiceImageUrl: nextInvoice,
+                    discountAmount: nextDiscount,
+                });
             })
             .catch((error) => {
                 if (cancelled) return;
@@ -218,6 +364,7 @@ export default function CreateImportOrderPage() {
                     error?.message ||
                     'Không tải được phiếu tạm. Vui lòng thử lại.';
                 window.alert(message);
+                allowNavigate();
                 navigate('/admin/warehouse/import', { replace: true });
             })
             .finally(() => {
@@ -230,6 +377,12 @@ export default function CreateImportOrderPage() {
     }, [editId, isEditMode, navigate]);
 
     useEffect(() => {
+        if (!paidAmountTouchedRef.current) {
+            // Mặc định: trả đủ theo tổng cần trả NCC (tổng tiền − giảm giá)
+            setPaidAmount(amountDue);
+            return;
+        }
+        // Đã sửa tay: chỉ kẹp trong khoảng hợp lệ khi tổng thay đổi
         setPaidAmount((prev) => Math.min(Math.max(Number(prev) || 0, 0), amountDue));
     }, [amountDue]);
 
@@ -239,13 +392,19 @@ export default function CreateImportOrderPage() {
     };
 
     const handlePaidAmountChange = (value) => {
+        paidAmountTouchedRef.current = true;
         const parsed = Math.max(0, Number(value) || 0);
         setPaidAmount(Math.min(parsed, amountDue));
     };
 
     const handleSelectProduct = (product) => {
         setLines((prev) => {
-            const existing = prev.find((line) => line.productId === product.id);
+            const newLine = createLineFromProduct(product);
+            const existing = prev.find(
+                (line) =>
+                    line.productId === product.id &&
+                    line.productUnitId === newLine.productUnitId,
+            );
             if (existing) {
                 return prev.map((line) =>
                     line.key === existing.key
@@ -253,7 +412,7 @@ export default function CreateImportOrderPage() {
                         : line,
                 );
             }
-            return [...prev, createLineFromProduct(product)];
+            return [...prev, newLine];
         });
     };
 
@@ -353,7 +512,10 @@ export default function CreateImportOrderPage() {
                     'Bạn chưa chọn nhà cung cấp. Vui lòng chọn nhà cung cấp trước khi hoàn thành phiếu nhập hàng.',
                 );
             } else {
-                window.alert('Vui lòng chọn nhà cung cấp.');
+                showAlertModal(
+                    'Lưu phiếu tạm',
+                    'Vui lòng chọn nhà cung cấp trước khi lưu tạm.',
+                );
             }
             return false;
         }
@@ -364,15 +526,24 @@ export default function CreateImportOrderPage() {
                     'Bạn chưa thêm sản phẩm nào. Vui lòng thêm ít nhất một sản phẩm trước khi hoàn thành.',
                 );
             } else {
-                window.alert('Vui lòng thêm ít nhất một sản phẩm.');
+                showAlertModal(
+                    'Lưu phiếu tạm',
+                    'Vui lòng thêm ít nhất một sản phẩm trước khi lưu tạm.',
+                );
             }
             return false;
         }
         const invalidLine = lines.find(
-            (line) => !line.productId || (Number(line.quantity) || 0) < 1,
+            (line) =>
+                !line.productId ||
+                !line.productUnitId ||
+                (Number(line.quantity) || 0) < 1,
         );
         if (invalidLine) {
-            window.alert('Có dòng hàng chưa hợp lệ. Kiểm tra lại số lượng.');
+            showAlertModal(
+                'Dòng hàng chưa hợp lệ',
+                'Có dòng hàng chưa hợp lệ. Kiểm tra đơn vị tính và số lượng.',
+            );
             return false;
         }
         return true;
@@ -380,6 +551,128 @@ export default function CreateImportOrderPage() {
 
     const countMissingExpiry = () =>
         lines.filter((line) => !String(line.expiryDate || '').trim()).length;
+
+    const navigateAfterSuccess = (message) => {
+        allowNavigate();
+        navigate('/admin/warehouse/import', {
+            state: message ? { successMessage: message } : undefined,
+        });
+    };
+
+    const submitOrder = async (orderStatus, options = {}) => {
+        const { skipSuccessModal = false, proceedBlockedNavigation = false } = options;
+
+        // Complete đã validate riêng; draft vẫn validate bằng modal
+        if (orderStatus === ORDER_STATUS.DRAFT) {
+            if (!validate({ useModal: false }) || submitting || loadingDetail) return false;
+        } else if (submitting || loadingDetail) {
+            return false;
+        }
+
+        if (uploadingInvoiceImage) {
+            showAlertModal(
+                'Đang upload ảnh',
+                'Đang upload ảnh hóa đơn. Vui lòng đợi xong rồi lưu lại.',
+            );
+            return false;
+        }
+
+        const payload = toApiPayload(orderStatus, {
+            supplier,
+            note,
+            invoiceImage: invoiceImageUrl,
+            safeDiscount,
+            safePaidAmount,
+            lines,
+        });
+
+        setSubmitting(true);
+        try {
+            if (isEditMode) {
+                await importOrdersApi.updateImportOrder(editId, payload);
+            } else {
+                await importOrdersApi.createImportOrder(payload);
+            }
+
+            // Đã lưu thành công → coi form sạch để không chặn lần nữa
+            initialSnapshotRef.current = buildFormSnapshot({
+                supplier,
+                lines,
+                note,
+                invoiceImageUrl,
+                discountAmount,
+            });
+
+            const successMessage =
+                orderStatus === ORDER_STATUS.DRAFT
+                    ? isEditMode
+                        ? 'Đã cập nhật phiếu tạm.'
+                        : 'Đã lưu phiếu tạm thành công.'
+                    : 'Đã hoàn thành phiếu nhập hàng.';
+
+            if (skipSuccessModal) {
+                allowNavigate();
+                setLeaveGuardOpen(false);
+                if (proceedBlockedNavigation && blocker.state === 'blocked') {
+                    blocker.proceed();
+                } else {
+                    navigate('/admin/warehouse/import', {
+                        state: { successMessage },
+                    });
+                }
+                return true;
+            }
+
+            // Nhập hàng thành công: về danh sách + toast góc màn hình
+            if (orderStatus === ORDER_STATUS.IMPORTED) {
+                navigateAfterSuccess(successMessage);
+                return true;
+            }
+
+            showAlertModal('Lưu phiếu tạm', successMessage, {
+                onConfirm: () => {
+                    closeAlertModal();
+                    navigateAfterSuccess();
+                },
+            });
+            return true;
+        } catch (error) {
+            const message =
+                error?.response?.data?.message ||
+                error?.message ||
+                'Không thể lưu phiếu nhập. Vui lòng thử lại.';
+            showAlertModal(
+                orderStatus === ORDER_STATUS.DRAFT ? 'Lưu phiếu tạm' : 'Hoàn thành phiếu nhập',
+                message,
+            );
+            return false;
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleSaveDraftAndLeave = async () => {
+        if (submitting || loadingDetail || uploadingInvoiceImage) return;
+
+        if (!validate({ useModal: false })) {
+            // Thiếu NCC/SP: đóng guard, ở lại trang để sửa
+            setLeaveGuardOpen(false);
+            if (blocker.state === 'blocked') {
+                blocker.reset();
+            }
+            return;
+        }
+
+        const ok = await submitOrder(ORDER_STATUS.DRAFT, {
+            skipSuccessModal: true,
+            proceedBlockedNavigation: true,
+        });
+
+        if (!ok && blocker.state === 'blocked') {
+            setLeaveGuardOpen(false);
+            blocker.reset();
+        }
+    };
 
     const handleComplete = () => {
         if (!validate({ useModal: true }) || submitting || loadingDetail) return;
@@ -416,7 +709,7 @@ export default function CreateImportOrderPage() {
                     try {
                         await importOrdersApi.cancelDraftImportOrder(editId);
                         window.alert('Đã hủy phiếu tạm.');
-                        navigate('/admin/warehouse/import');
+                        navigateAfterSuccess();
                     } catch (error) {
                         const message =
                             error?.response?.data?.message ||
@@ -431,66 +724,21 @@ export default function CreateImportOrderPage() {
         );
     };
 
-    const submitOrder = async (orderStatus) => {
-        // Complete đã validate riêng; draft vẫn validate bằng alert
-        if (orderStatus === ORDER_STATUS.DRAFT) {
-            if (!validate({ useModal: false }) || submitting || loadingDetail) return;
-        } else if (submitting || loadingDetail) {
-            return;
-        }
-
-        if (uploadingInvoiceImage) {
-            window.alert('Đang upload ảnh hóa đơn. Vui lòng đợi xong rồi lưu lại.');
-            return;
-        }
-
-        const payload = toApiPayload(orderStatus, {
-            supplier: { ...supplier, id: Number(supplier.id) },
-            note,
-            invoiceImage: invoiceImageUrl,
-            safeDiscount,
-            safePaidAmount,
-            lines,
-        });
-
-        setSubmitting(true);
-        try {
-            if (isEditMode) {
-                await importOrdersApi.updateImportOrder(editId, payload);
-            } else {
-                await importOrdersApi.createImportOrder(payload);
-            }
-
-            window.alert(
-                orderStatus === ORDER_STATUS.DRAFT
-                    ? isEditMode
-                        ? 'Đã cập nhật phiếu tạm.'
-                        : 'Đã lưu phiếu tạm thành công.'
-                    : 'Đã hoàn thành phiếu nhập hàng.',
-            );
-            navigate('/admin/warehouse/import');
-        } catch (error) {
-            const message =
-                error?.response?.data?.message ||
-                error?.message ||
-                'Không thể lưu phiếu nhập. Vui lòng thử lại.';
-            window.alert(message);
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <AdminHeader />
                 <main className="admin-main admin-main--ioc-create">
                     <div className="dashboard-container ioc-page ioc-page--create">
                         <header className="ioc-page__header ioc-page__header--compact">
-                            <Link to="/admin/warehouse/import" className="ioc-page__back" title="Quay lại danh sách">
+                            <button
+                                type="button"
+                                className="ioc-page__back"
+                                title="Quay lại danh sách"
+                                onClick={() => navigate('/admin/warehouse/import')}
+                            >
                                 <ArrowLeft size={18} />
-                            </Link>
+                            </button>
                             <h1 className="ioc-page__title">
                                 {isEditMode ? 'Mở lại phiếu tạm' : 'Nhập hàng'}
                             </h1>
@@ -555,6 +803,20 @@ export default function CreateImportOrderPage() {
                             onConfirm={alertModal.onConfirm}
                         />
 
+                        <ImportOrderAlertModal
+                            open={leaveGuardOpen}
+                            title="Phiếu nhập chưa được lưu"
+                            message="Bạn đang nhập hàng dở. Nếu thoát bây giờ, những gì vừa chọn (nhà cung cấp, mặt hàng, số lượng, giá…) sẽ mất và phải nhập lại từ đầu."
+                            cancelLabel="Tiếp tục nhập"
+                            dangerLabel="Thoát, không cần giữ"
+                            confirmLabel={submitting ? 'Đang lưu...' : 'Lưu tạm rồi thoát'}
+                            confirmDisabled={submitting || uploadingInvoiceImage}
+                            dangerDisabled={submitting}
+                            onClose={handleStayOnPage}
+                            onDanger={handleLeaveWithoutSave}
+                            onConfirm={handleSaveDraftAndLeave}
+                        />
+
                         <SupplierAddNewModal
                             open={isAddSupplierOpen}
                             onClose={() => {
@@ -570,6 +832,5 @@ export default function CreateImportOrderPage() {
                     </div>
                 </main>
             </div>
-        </div>
     );
 }

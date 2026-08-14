@@ -7,20 +7,13 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
-import project.be_sep490_g67.dto.request.CreateCustomerRequest;
-import project.be_sep490_g67.dto.request.UpdateCustomerRequest;
-import project.be_sep490_g67.dto.response.ApiResponse;
-import project.be_sep490_g67.dto.response.CustomerDebtOverviewResponse;
-import project.be_sep490_g67.dto.response.CustomerResponse;
-import project.be_sep490_g67.dto.response.DebtOrderResponse;
-import project.be_sep490_g67.dto.response.PageResponse;
+import project.be_sep490_g67.dto.request.CustomerRequest;
 import project.be_sep490_g67.dto.response.*;
 import project.be_sep490_g67.enums.DebtStatus;
-import project.be_sep490_g67.service.CustomerDebtPaymentService;
 import project.be_sep490_g67.service.CustomerService;
+import project.be_sep490_g67.service.DebtPaymentService;
 
 import java.time.LocalDate;
-import java.util.List;
 
 import org.springframework.security.access.prepost.PreAuthorize;
 
@@ -30,7 +23,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class CustomerController {
     CustomerService customerService;
-    CustomerDebtPaymentService debtService;
+    DebtPaymentService debtPaymentService;
 
     /**
      * GET /api/customers/phone-lookup?phone=...
@@ -49,15 +42,14 @@ public class CustomerController {
     @GetMapping("/overview")
     public ApiResponse<CustomerDebtOverviewResponse> getDebtOverview() {
         return ApiResponse.<CustomerDebtOverviewResponse>builder()
-                .result(debtService.getDebtOverview())
+                .result(debtPaymentService.getDebtOverview())
                 .message("Lấy tổng quan công nợ khách hàng thành công")
                 .build();
     }
 
     @PreAuthorize("hasAuthority('CUSTOMER:DEBT_MANAGE')")
     @PostMapping
-    public ApiResponse<CustomerResponse> createCustomer(@Valid @RequestBody CreateCustomerRequest request) {
-
+    public ApiResponse<CustomerResponse> createCustomer(@Valid @RequestBody CustomerRequest request) {
         return ApiResponse.<CustomerResponse>builder()
                 .result(customerService.createCustomer(request))
                 .message("Thêm mới khách nợ thành công")
@@ -68,25 +60,16 @@ public class CustomerController {
     @GetMapping("/debts")
     public ApiResponse<PageResponse<CustomerResponse>> getCustomerDebts(
             @RequestParam(required = false) String keyword,
-
             @RequestParam(required = false) DebtStatus status,
-
             @RequestParam(required = false) Boolean allowDebt,
-
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
-
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
-
             @RequestParam(defaultValue = "1") Integer page,
-
             @RequestParam(defaultValue = "10") Integer size,
-
             @RequestParam(required = false) Boolean isOverdue,
-
             @RequestParam(required = false) String sortBy) {
         PageResponse<CustomerResponse> result = customerService.getCustomerDebts(keyword, status, allowDebt,
                 fromDate, toDate, page, size, isOverdue, sortBy);
-
         return ApiResponse.<PageResponse<CustomerResponse>>builder()
                 .result(result)
                 .message("Lấy danh sách khách hàng thành công")
@@ -117,10 +100,19 @@ public class CustomerController {
 
     @PreAuthorize("hasAuthority('CUSTOMER:DEBT_MANAGE')")
     @PutMapping("/{id}")
-    public ApiResponse<CustomerResponse> updateCustomer(@PathVariable Integer id, @Valid @RequestBody UpdateCustomerRequest request) {
+    public ApiResponse<CustomerResponse> updateCustomer(@PathVariable Integer id, @Valid @RequestBody CustomerRequest request) {
         return ApiResponse.<CustomerResponse>builder()
                 .result(customerService.updateCustomer(id, request))
                 .message("Cập nhật thông tin khách hàng thành công")
+                .build();
+    }
+
+    @GetMapping("/today-debt-summary")
+    public ApiResponse<TodaysDebtSalesSummaryResponse> getTodaysDebtSalesSummary() {
+        TodaysDebtSalesSummaryResponse result = customerService.getTodaysDebtSalesSummary();
+        return ApiResponse.<TodaysDebtSalesSummaryResponse>builder()
+                .result(result)
+                .message("Lấy tổng hợp bán nợ trong ngày thành công")
                 .build();
     }
 }

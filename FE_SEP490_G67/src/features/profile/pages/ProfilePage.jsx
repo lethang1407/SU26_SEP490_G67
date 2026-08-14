@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { KeyRound, Pencil } from 'lucide-react';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import ProfileViewCard from '../components/ProfileViewCard';
 import ProfileSuccessToast from '../components/ProfileSuccessToast';
@@ -36,15 +35,14 @@ export default function ProfilePage() {
 	}, []);
 
 	return (
-		<div className="admin-layout">
+		<div className="admin-content">
 			{successMessage && (
 				<ProfileSuccessToast
 					message={successMessage}
 					onDismiss={() => setSuccessMessage(null)}
 				/>
 			)}
-			<SideBar />
-			<div className="admin-content">
+			
 				<AdminHeader user={profile} activePage="profile" />
 				<main className="admin-main">
 					<div className="dashboard-container">
@@ -91,6 +89,5 @@ export default function ProfilePage() {
 					</div>
 				</main>
 			</div>
-		</div>
 	);
 }

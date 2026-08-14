@@ -21,6 +21,7 @@ import ImportReturnPage from '../../features/import-return/pages/ImportReturnPag
 import ImportOrderListPage from '../../features/import-order/pages/ImportOrderListPage';
 import POSScreen from '../../features/pos-screen/pages/POS';
 import ExchangeOrder from '../../features/pos-screen/components/ExchangeOrder';
+import ExchangeOrderRedirect from '../../features/pos-screen/components/ExchangeOrderRedirect';
 import CustomerDebtPage from '../../features/customer/pages/CustomerDebtPage';
 import CustomerDetailPage from '../../features/customer/pages/CustomerDetailPage';
 import SalesOrderListPage from '../../features/sales-order/pages/SalesOrderListPage';
@@ -80,6 +81,11 @@ const adminRoutes = [
     {
         path: '/admin/warehouse/check',
         element: <ProtectedRoute requiredPermission="WAREHOUSE:CHECK_VIEW"><InventoryCheckListPage /></ProtectedRoute>,
+        element: <CreateInventoryCheckPage />,
+    },
+    {
+        path: '/admin/warehouse/check/history',
+        element: <InventoryCheckListPage />,
     },
     {
         path: '/admin/warehouse/check/create',
@@ -144,6 +150,14 @@ const adminRoutes = [
     {
         path: '/admin/exchange-order/:orderId',
         element: <ProtectedRoute requiredPermission="POS:EXCHANGE"><ExchangeOrder /></ProtectedRoute>,
+    },
+    {
+        path: '/admin/exchange-order',
+        element: <ExchangeOrder />,
+    },
+    {
+        path: '/admin/exchange-order/:orderId',
+        element: <ExchangeOrderRedirect />,
     },
     {
         path: '/admin/customer/:customerId',

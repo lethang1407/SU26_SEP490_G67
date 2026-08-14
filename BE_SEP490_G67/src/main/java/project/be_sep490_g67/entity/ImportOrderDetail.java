@@ -3,6 +3,7 @@ package project.be_sep490_g67.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
@@ -28,6 +29,10 @@ public class ImportOrderDetail extends BaseEntity {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_unit_id")
+    private ProductUnit productUnit;
+
     @Column(name = "quantity", nullable = false)
     private Integer quantity;
 
@@ -40,8 +45,11 @@ public class ImportOrderDetail extends BaseEntity {
     @Column(name = "expiry_date")
     private LocalDate expiryDate;
 
-    /** Ghi chú từng dòng hàng trên phiếu nhập. */
     @Column(name = "note", length = 500)
     private String note;
+
+    @ColumnDefault("0")
+    @Column(name = "is_promotion", nullable = false)
+    private Boolean isPromotion = false;
 
 }

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import SupplierDetailHeader from '../components/SupplierDetailHeader';
 import SupplierDetailStats from '../components/SupplierDetailStats';
@@ -89,9 +88,8 @@ export default function SupplierDetailPage() {
 
     if (loading) {
         return (
-            <div className="admin-layout">
-                <SideBar />
-                <div className="admin-content">
+            <div className="admin-content">
+                
                     <AdminHeader />
                     <main className="admin-main">
                         <div className="dashboard-container supplier-page">
@@ -101,15 +99,13 @@ export default function SupplierDetailPage() {
                         </div>
                     </main>
                 </div>
-            </div>
         );
     }
 
     if (notFound || !supplier) {
         return (
-            <div className="admin-layout">
-                <SideBar />
-                <div className="admin-content">
+            <div className="admin-content">
+                
                     <AdminHeader />
                     <main className="admin-main">
                         <div className="dashboard-container supplier-page">
@@ -122,14 +118,12 @@ export default function SupplierDetailPage() {
                         </div>
                     </main>
                 </div>
-            </div>
         );
     }
 
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container supplier-page supplier-detail-page">
@@ -156,6 +150,5 @@ export default function SupplierDetailPage() {
                     </div>
                 </main>
             </div>
-        </div>
     );
 }
