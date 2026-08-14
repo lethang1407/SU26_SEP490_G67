@@ -227,12 +227,10 @@ public class CustomerService {
     }
     
     private Comparator<CustomerResponse> getPriorityComparator() {
-        return (c1, c2) -> {
-            int score1 = calculatePriorityScore(c1);
-            int score2 = calculatePriorityScore(c2);
-            // Higher score comes first
-            return Integer.compare(score2, score1);
-        };
+        // Primary sort: by priority score (descending)
+        // Secondary sort: by total debt (descending)
+        return Comparator.comparingInt(this::calculatePriorityScore).reversed()
+                .thenComparing(CustomerResponse::getTotalDebt, Comparator.reverseOrder());
     }
 
     private int calculatePriorityScore(CustomerResponse c) {
@@ -306,6 +304,7 @@ public class CustomerService {
                     .id(so.getId())
                     .customerId(customerId)
                     .customerName(so.getCustomer().getFullName())
+                    .orderId(so.getId())
                     .orderCode(so.getOrderCode())
                     .orderDate(so.getCreatedAt())
                     .dueDate(so.getDueDate())
@@ -369,7 +368,7 @@ public class CustomerService {
         Instant startOfDay = today.atStartOfDay(zoneId).toInstant();
         Instant endOfDay = today.plusDays(1).atStartOfDay(zoneId).toInstant();
 
-        List<SalesOrder> todaysDebtSales = salesOrderRepository.findAllByIsDebtTrueAndCreatedAtBetween(startOfDay, endOfDay);
+        List<SalesOrder> todaysDebtSales = salesOrderRepository.findActiveDebtSalesCreatedBetween(startOfDay, endOfDay);
 
         List<DebtOrderResponse> debtOrderDetails = todaysDebtSales.stream().map(so -> {
             BigDecimal initialPaidAmount = so.getPaidAmount() != null ? so.getPaidAmount() : BigDecimal.ZERO;
@@ -377,8 +376,8 @@ public class CustomerService {
                     .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal totalPaid = initialPaidAmount.add(subsequentPayments);
-            BigDecimal amountRemaining = DebtCalculator.remaining(
-                    so.getTotalAmount(), initialPaidAmount, subsequentPayments);
+            BigDecimal totalAmount = so.getTotalAmount() != null ? so.getTotalAmount() : BigDecimal.ZERO;
+            BigDecimal amountRemaining = totalAmount.subtract(totalPaid);
 
             String createdByName = "N/A";
             if (so.getCreatedBy() != null) {
@@ -387,42 +386,25 @@ public class CustomerService {
                         .orElse("Không rõ");
             }
 
-            // customer có thể null (đơn nợ dữ liệu cũ, hoặc customer bị xóa với
-            // OnDelete SET_NULL) — không guard thì cả thẻ tổng hợp 500.
             Customer orderCustomer = so.getCustomer();
 
             return DebtOrderResponse.builder()
                     .id(so.getId())
-                    .customerId(orderCustomer != null ? orderCustomer.getId() : null)
-                    .customerName(orderCustomer != null ? orderCustomer.getFullName() : "Khách lẻ")
+                    .customerId(so.getCustomer().getId())
+                    .customerName(so.getCustomer().getFullName())
                     .orderCode(so.getOrderCode())
                     .orderDate(so.getCreatedAt())
                     .dueDate(so.getDueDate())
-                    .totalAmount(so.getTotalAmount())
+                    .totalAmount(totalAmount)
                     .amountPaid(totalPaid)
                     .amountRemaining(amountRemaining)
-                    .status(DebtCalculator.deriveStatus(amountRemaining, so.getDueDate(), Instant.now()))
-                    .isCheckDebtUnstable(orderCustomer != null
-                            && Boolean.TRUE.equals(orderCustomer.getIsCheckUnstableDebt()))
+                    .isCheckDebtUnstable(orderCustomer.getIsCheckUnstableDebt())
+                    .status(amountRemaining.compareTo(BigDecimal.ZERO) <= 0 ? DebtOrderStatus.PAID : DebtOrderStatus.IN_DEBT)
                     .createdBy(createdByName)
                     .build();
         }).collect(Collectors.toList());
 
-        BigDecimal totalDebtAmountIncurred = debtOrderDetails.stream()
-                .map(DebtOrderResponse::getAmountRemaining)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        long uniqueCustomersCount = todaysDebtSales.stream()
-                .map(SalesOrder::getCustomer)
-                .filter(Objects::nonNull)
-                .map(Customer::getId)
-                .distinct()
-                .count();
-
         return TodaysDebtSalesSummaryResponse.builder()
-                .totalDebtSalesCount(todaysDebtSales.size())
-                .uniqueCustomersInDebtCount(uniqueCustomersCount)
-                .totalDebtAmountIncurredToday(totalDebtAmountIncurred)
                 .debtSalesDetails(debtOrderDetails)
                 .build();
     }

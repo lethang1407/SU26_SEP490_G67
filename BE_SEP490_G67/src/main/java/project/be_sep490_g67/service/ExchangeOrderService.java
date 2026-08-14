@@ -476,7 +476,6 @@ public class ExchangeOrderService {
         payment.setAmountPaid(amount);
         payment.setPaymentMethod(method);
         payment.setNotes(note);
-        payment.setProcessedBy(staffId);
         payment.setCreatedBy(staffId);
         payment.setUpdatedBy(staffId);
         payment.setCreatedAt(Instant.now());

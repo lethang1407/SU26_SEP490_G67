@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import project.be_sep490_g67.dto.request.CreateSalesOrderRequest;
+import project.be_sep490_g67.dto.response.SalesOrderDetailResponse;
 import project.be_sep490_g67.dto.response.SalesOrderListResponse;
 import project.be_sep490_g67.dto.response.SalesOrderResponse;
 import project.be_sep490_g67.entity.*;
@@ -45,6 +46,7 @@ public class SalesOrderService {
         StockDeductionService stockDeductionService;
         DebtPaymentRepository debtPaymentRepository;
         ReturnOrderRepository returnOrderRepository;
+        ReturnOrderDetailRepository returnOrderDetailRepository;
         UserRepository userRepository;
         DebtPolicy debtPolicy;
 
@@ -259,6 +261,69 @@ public class SalesOrderService {
                 return getSalesOrderResponse(order, itemInfos);
         }
 
+        @Transactional(readOnly = true)
+        public SalesOrderDetailResponse getOrderDetailWithReturns(Integer orderId) {
+                SalesOrder order = salesOrderRepository.findByIdWithDetails(orderId)
+                                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+                Map<Integer, Integer> returnedByLine = returnedQuantityByLine(orderId);
+                List<ReturnOrder> returnOrders = returnOrderRepository.findAllBySalesOrderIdWithDetails(orderId);
+
+                SalesOrderDetailResponse.CustomerInfo customerInfo = null;
+                if (order.getCustomer() != null) {
+                        customerInfo = SalesOrderDetailResponse.CustomerInfo.builder()
+                                        .id(order.getCustomer().getId())
+                                        .fullName(order.getCustomer().getFullName())
+                                        .phoneNumber(order.getCustomer().getPhoneNumber())
+                                        .build();
+                }
+
+                List<SalesOrderDetailResponse.OrderItemInfo> items = order.getSalesOrderDetails().stream()
+                                .filter(detail -> !Boolean.TRUE.equals(detail.getIsRemoved()))
+                                .map(detail -> {
+                                        Product product = detail.getProduct();
+                                        int returnedQuantity = returnedByLine.getOrDefault(detail.getId(), 0);
+                                        return SalesOrderDetailResponse.OrderItemInfo.builder()
+                                                        .salesOrderDetailId(detail.getId())
+                                                        .productId(product.getId())
+                                                        .productCode(productCode(product))
+                                                        .productName(product.getName())
+                                                        .unitName(detail.getUnitName())
+                                                        .quantityPurchased(detail.getQuantity())
+                                                        .quantityReturned(returnedQuantity)
+                                                        .quantityReturnable(detail.getQuantity() - returnedQuantity)
+                                                        .productReturnable(product.getIsReturnable() == null
+                                                                        || product.getIsReturnable())
+                                                        .unitPrice(detail.getUnitPrice())
+                                                        .discountAmount(detail.getDiscountAmount())
+                                                        .lineTotal(detail.getLineTotal())
+                                                        .build();
+                                })
+                                .toList();
+
+                List<SalesOrderDetailResponse.ReturnOrderInfo> returnInfos = returnOrders.stream()
+                                .map(this::toReturnOrderInfo)
+                                .toList();
+
+                return SalesOrderDetailResponse.builder()
+                                .id(order.getId())
+                                .orderCode(order.getOrderCode())
+                                .paymentMethod(order.getPaymentMethod())
+                                .orderStatus(order.getOrderStatus())
+                                .isDebt(order.getIsDebt())
+                                .subtotal(order.getSubtotal())
+                                .discountAmount(order.getDiscountAmount())
+                                .totalAmount(order.getTotalAmount())
+                                .paidAmount(order.getPaidAmount())
+                                .dueDate(order.getDueDate())
+                                .note(order.getNote())
+                                .createdAt(order.getCreatedAt())
+                                .customer(customerInfo)
+                                .items(items)
+                                .returnOrders(returnInfos)
+                                .build();
+        }
+
         private SalesOrderResponse getSalesOrderResponse(SalesOrder order,
                         List<SalesOrderResponse.SalesOrderDetailInfo> itemInfos) {
                 SalesOrderResponse.CustomerInfo customerInfo = null;
@@ -301,6 +366,55 @@ public class SalesOrderService {
                                 .toList();
 
                 return getSalesOrderResponse(saved, itemInfos);
+        }
+
+        private SalesOrderDetailResponse.ReturnOrderInfo toReturnOrderInfo(ReturnOrder returnOrder) {
+                List<SalesOrderDetailResponse.ReturnItemInfo> items = returnOrder.getReturnOrderDetails().stream()
+                                .filter(detail -> !Boolean.TRUE.equals(detail.getIsRemoved()))
+                                .map(detail -> {
+                                        Product product = detail.getProduct();
+                                        return SalesOrderDetailResponse.ReturnItemInfo.builder()
+                                                        .returnOrderDetailId(detail.getId())
+                                                        .salesOrderDetailId(detail.getSalesOrderDetail() != null
+                                                                        ? detail.getSalesOrderDetail().getId()
+                                                                        : null)
+                                                        .productId(product.getId())
+                                                        .productCode(productCode(product))
+                                                        .productName(product.getName())
+                                                        .unitName(detail.getUnitName())
+                                                        .quantity(detail.getQuantity())
+                                                        .unitPrice(detail.getUnitPrice())
+                                                        .lineRefund(detail.getLineRefund())
+                                                        .resolutionType(detail.getResolutionType())
+                                                        .itemCondition(detail.getItemCondition())
+                                                        .note(detail.getNote())
+                                                        .build();
+                                })
+                                .toList();
+
+                return SalesOrderDetailResponse.ReturnOrderInfo.builder()
+                                .returnOrderId(returnOrder.getId())
+                                .returnCode(returnOrder.getReturnCode())
+                                .returnReason(returnOrder.getReturnReason())
+                                .resolutionType(returnOrder.getResolutionType())
+                                .refundAmount(returnOrder.getRefundAmount())
+                                .note(returnOrder.getNote())
+                                .createdAt(returnOrder.getCreatedAt())
+                                .items(items)
+                                .build();
+        }
+
+        private Map<Integer, Integer> returnedQuantityByLine(Integer salesOrderId) {
+                return returnOrderDetailRepository.sumReturnedQuantityByOrder(salesOrderId).stream()
+                                .collect(Collectors.toMap(
+                                                row -> (Integer) row[0],
+                                                row -> ((Number) row[1]).intValue()));
+        }
+
+        private String productCode(Product product) {
+                return product.getBarcode() != null
+                                ? product.getBarcode()
+                                : "SP" + String.format("%06d", product.getId());
         }
 
         @Transactional(readOnly = true)
