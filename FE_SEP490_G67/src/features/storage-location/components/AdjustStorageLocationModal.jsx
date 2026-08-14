@@ -21,6 +21,7 @@ import {
 import { LOCATION_STATUS, ZONE_TYPE } from '../constants';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import PlaceBatchQuantityModal from './PlaceBatchQuantityModal';
+import AlertNoticeModal from '../../../components/ui/AlertNoticeModal';
 
 const DRAG_TYPE = {
     unplaced: 'unplaced',
@@ -32,6 +33,20 @@ const PICK_MODE = {
     moveOne: 'moveOne',
     moveAll: 'moveAll',
 };
+
+const SALES_ZONE_ALERT_CODES = new Set([1057, 1058]);
+
+function isSalesZoneAlertError(error) {
+    const code = error?.response?.data?.code;
+    if (SALES_ZONE_ALERT_CODES.has(Number(code))) {
+        return true;
+    }
+    const message = String(error?.response?.data?.message ?? '');
+    return (
+        message.includes('khu bán') &&
+        (message.includes('1 lô') || message.includes('tách cùng một lô'))
+    );
+}
 
 function cloneLocations(locations) {
     return (locations ?? []).map((location) => ({
@@ -292,6 +307,16 @@ export default function AdjustStorageLocationModal({
     const [focusBatch, setFocusBatch] = useState(null);
     const [pickMode, setPickMode] = useState(PICK_MODE.none);
     const [pendingMoveItem, setPendingMoveItem] = useState(null);
+    const [alertMessage, setAlertMessage] = useState(null);
+
+    const reportApiError = (error, fallback) => {
+        const text = getApiErrorMessage(error, fallback);
+        if (isSalesZoneAlertError(error)) {
+            setAlertMessage(text);
+            return;
+        }
+        setMessage({ type: 'error', text });
+    };
 
     const reloadData = async (preferLocations, preferredId) => {
         const [nextLocations, nextUnplaced] = await Promise.all([
@@ -329,6 +354,7 @@ export default function AdjustStorageLocationModal({
             setFocusBatch(null);
             setPickMode(PICK_MODE.none);
             setPendingMoveItem(null);
+            setAlertMessage(null);
 
             try {
                 await reloadData(locations, initialLocationId);
@@ -545,10 +571,7 @@ export default function AdjustStorageLocationModal({
             }
             setPlaceQtyRequest(null);
         } catch (error) {
-            setMessage({
-                type: 'error',
-                text: getApiErrorMessage(error, 'Không thể cập nhật vị trí lô. Vui lòng thử lại.'),
-            });
+            reportApiError(error, 'Không thể cập nhật vị trí lô. Vui lòng thử lại.');
             setPlaceQtyRequest(null);
         } finally {
             setIsSaving(false);
@@ -614,13 +637,10 @@ export default function AdjustStorageLocationModal({
                     text: `Đã chuyển toàn bộ hàng sang kệ ${destination?.label || ''}.`,
                 });
             } catch (error) {
-                setMessage({
-                    type: 'error',
-                    text: getApiErrorMessage(
-                        error,
-                        'Không thể chuyển toàn bộ hàng. Kiểm tra rule khu kho / ô đầy.',
-                    ),
-                });
+                reportApiError(
+                    error,
+                    'Không thể chuyển toàn bộ hàng. Kiểm tra rule khu kho / ô đầy.',
+                );
             } finally {
                 setIsSaving(false);
             }
@@ -801,9 +821,22 @@ export default function AdjustStorageLocationModal({
                                 }
                             }}
                         >
-                            <h3 className="storage-adjust-modal__section-title">
-                                {selectedLocation?.label || 'Chọn vị trí'}
-                            </h3>
+                            <div className="storage-adjust-modal__content-header">
+                                <h3 className="storage-adjust-modal__section-title">
+                                    {selectedLocation?.label || 'Chọn vị trí'}
+                                </h3>
+                                {selectedLocation &&
+                                (selectedLocation.contents ?? []).length > 0 ? (
+                                    <button
+                                        type="button"
+                                        className="inventory-btn inventory-btn--secondary storage-adjust-modal__move-all-btn"
+                                        disabled={isSaving || Boolean(pickMode)}
+                                        onClick={startMoveAll}
+                                    >
+                                        Chuyển tất cả
+                                    </button>
+                                ) : null}
+                            </div>
                             {pickMode ? (
                                 <div className="storage-adjust-modal__pick-banner">
                                     {pickMode === PICK_MODE.moveAll
@@ -857,19 +890,6 @@ export default function AdjustStorageLocationModal({
                                     {selectedLocation.zoneType !== ZONE_TYPE.SALES ? (
                                         <div className="storage-adjust-modal__rule-box">
                                             Khu kho: lưu trữ các sản phẩm được nhập về trong cửa hàng
-                                        </div>
-                                    ) : null}
-
-                                    {(selectedLocation.contents ?? []).length > 0 ? (
-                                        <div className="storage-adjust-modal__content-toolbar">
-                                            <button
-                                                type="button"
-                                                className="inventory-btn inventory-btn--secondary"
-                                                disabled={isSaving || Boolean(pickMode)}
-                                                onClick={startMoveAll}
-                                            >
-                                                Chuyển tất cả
-                                            </button>
                                         </div>
                                     ) : null}
 
@@ -1094,6 +1114,13 @@ export default function AdjustStorageLocationModal({
                     if (!isSaving) setPlaceQtyRequest(null);
                 }}
                 onConfirm={handleConfirmPlaceQuantity}
+            />
+            <AlertNoticeModal
+                open={Boolean(alertMessage)}
+                title="Không thể xếp vào khu bán"
+                message={alertMessage}
+                overlayClassName="storage-adjust-alert-overlay"
+                onClose={() => setAlertMessage(null)}
             />
         </>
     );

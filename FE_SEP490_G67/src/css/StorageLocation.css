@@ -1613,6 +1613,25 @@
     color: #0f172a;
 }
 
+.storage-adjust-modal__content-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.storage-adjust-modal__content-header .storage-adjust-modal__section-title {
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+}
+
+.storage-adjust-modal__move-all-btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
 .storage-adjust-modal__helper {
     display: block;
     margin-top: 4px;
@@ -1860,6 +1879,12 @@
     font-weight: 600;
 }
 
+.storage-adjust-modal__rule-box--danger {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
 .storage-adjust-modal__batch-item {
     display: flex;
     align-items: center;
@@ -1916,6 +1941,12 @@
 .storage-adjust-modal__message--info {
     background: #e0f2fe;
     color: #0369a1;
+}
+
+.storage-adjust-modal__message--error {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
 }
 
 .storage-adjust-modal__loading {
@@ -2087,6 +2118,19 @@
 
 .place-batch-qty-modal-overlay {
     z-index: 2100;
+}
+
+.storage-adjust-alert-overlay {
+    z-index: 2200;
+}
+
+.storage-adjust-alert-overlay .alert-notice-modal__icon {
+    color: #dc2626;
+}
+
+.storage-adjust-alert-overlay .supplier-modal__confirm-text {
+    color: #dc2626;
+    font-weight: 600;
 }
 .place-batch-qty-modal.supplier-modal {
     max-width: min(520px, calc(100vw - 32px));
