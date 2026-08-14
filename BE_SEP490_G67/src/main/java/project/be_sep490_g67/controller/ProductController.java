@@ -21,6 +21,7 @@ import project.be_sep490_g67.dto.response.ProductDetailResponse;
 import project.be_sep490_g67.dto.response.ProductListResponse;
 import project.be_sep490_g67.dto.response.ProductPosInfoResponse;
 import project.be_sep490_g67.dto.response.ProductSearchResponse;
+import project.be_sep490_g67.dto.response.PriceHistoryResponse;
 import project.be_sep490_g67.service.ProductService;
 
 import org.springframework.security.access.prepost.PreAuthorize;

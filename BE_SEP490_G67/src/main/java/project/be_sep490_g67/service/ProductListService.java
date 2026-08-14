@@ -176,6 +176,9 @@ public class ProductListService {
         String facetStatus = resolveFacet(p, onHand, avgDaily.doubleValue(), coverDaysLeft);
         Category category = p.getCategory();
         String supplierName = resolveSupplierName(category, fallbackSupplierByCategory);
+        String mainImg = p.getProductImages() != null && !p.getProductImages().isEmpty()
+                ? p.getProductImages().iterator().next().getUrl()
+                : null;
 
         Product parent = p.getParent();
         return ProductListItemDTO.builder()
@@ -185,14 +188,13 @@ public class ProductListService {
                 .name(p.getName())
                 .sku(p.getSku())
                 .barcode(p.getBarcode())
-                .productImg(p.getProductImg())
+                .productImg(mainImg)
                 .categoryName(category != null ? category.getName() : null)
                 .unitName(unit)
                 .supplierName(supplierName)
                 .description(p.getDescription())
                 .sellingPrice(p.getSellingPrice())
                 .costPrice(p.getCostPrice())
-                .coverDaysOverride(p.getCoverDaysOverride())
                 .categoryCoverDays(category != null && category.getCoverDays() != null
                         ? category.getCoverDays()
                         : STORE_COVER_DEFAULT)
@@ -208,14 +210,10 @@ public class ProductListService {
         if (category == null) {
             return null;
         }
-        Supplier defaultSupplier = category.getDefaultSupplier();
-        if (defaultSupplier != null && !Boolean.TRUE.equals(defaultSupplier.getIsRemoved())) {
-            return defaultSupplier.getName();
+        if (category.getDefaultSupplier() != null && category.getDefaultSupplier().getName() != null) {
+            return category.getDefaultSupplier().getName();
         }
-        if (fallbackSupplierByCategory != null) {
-            return fallbackSupplierByCategory.get(category.getId());
-        }
-        return null;
+        return fallbackSupplierByCategory.get(category.getId());
     }
 
     String resolveUnit(Product p) {

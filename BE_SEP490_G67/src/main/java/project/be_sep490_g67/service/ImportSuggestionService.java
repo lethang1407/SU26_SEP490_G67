@@ -198,7 +198,7 @@ public class ImportSuggestionService {
                 .parentName(p.getParent() != null ? p.getParent().getName() : null)
                 .sku(p.getSku())
                 .barcode(p.getBarcode())
-                .productImg(p.getProductImg())
+                .productImg(resolveImg(p))
                 .primaryAttrVal(resolvePrimaryAttrVal(p))
                 .secondaryAttrVal(resolveSecondaryAttrVal(p))
                 .whyFacts(whyFacts)
@@ -334,17 +334,11 @@ public class ImportSuggestionService {
         if (panelOverride != null && panelOverride > 0) {
             return new CoverResolved(panelOverride, "PANEL", "Lần nhập này");
         }
-        if (p.getCoverDaysOverride() != null && p.getCoverDaysOverride() > 0) {
-            return new CoverResolved(p.getCoverDaysOverride(), "PRODUCT", "Cài riêng SP");
-        }
         Category c = p.getCategory();
         if (c != null && c.getCoverDays() != null && c.getCoverDays() > 0) {
             return new CoverResolved(c.getCoverDays(), "CATEGORY", "Nhóm " + c.getName());
         }
-        int store = storeConfigRepository.findById(1)
-                .map(sc -> sc.getDefaultCoverDays() != null ? sc.getDefaultCoverDays() : STORE_COVER_DEFAULT)
-                .orElse(STORE_COVER_DEFAULT);
-        return new CoverResolved(store, "STORE", "Mặc định cửa hàng");
+        return new CoverResolved(STORE_COVER_DEFAULT, "STORE", "Mặc định cửa hàng");
     }
 
     int resolveUsableSellDays(Integer productId, int leadDays) {
@@ -439,7 +433,7 @@ public class ImportSuggestionService {
                         .name(r.getName())
                         .sku(r.getSku())
                         .barcode(r.getBarcode())
-                        .productImg(r.getProductImg())
+                        .productImg(resolveImg(r))
                         .categoryName(r.getCategory() != null ? r.getCategory().getName() : "")
                         .unitName(r.getProductUnits() != null && !r.getProductUnits().isEmpty() ? r.getProductUnits().iterator().next().getName() : "sp")
                         .supplierName(sug.getSupplierName())
@@ -489,7 +483,7 @@ public class ImportSuggestionService {
                                 .sizeValue(resolveSecondaryAttrVal(c))
                                 .sku(c.getSku())
                                 .barcode(c.getBarcode())
-                                .productImg(c.getProductImg() != null ? c.getProductImg() : r.getProductImg())
+                                .productImg(resolveImg(c) != null ? resolveImg(c) : resolveImg(r))
                                 .onHand(sug.getOnHand())
                                 .sellingPrice(c.getSellingPrice())
                                 .costPrice(c.getCostPrice())
@@ -518,7 +512,7 @@ public class ImportSuggestionService {
                             .primaryAttrValue(primaryVal)
                             .name(r.getName() + " - " + primaryVal)
                             .sku(sizes.size() == 1 ? sizes.get(0).getSku() : "(" + sizes.size() + " mã)")
-                            .productImg(representative.getProductImg() != null ? representative.getProductImg() : r.getProductImg())
+                            .productImg(resolveImg(representative) != null ? resolveImg(representative) : resolveImg(r))
                             .sellingPrice(representative.getSellingPrice())
                             .costPrice(representative.getCostPrice())
                             .onHand(groupOnHand)
@@ -564,7 +558,7 @@ public class ImportSuggestionService {
                         .name(r.getName())
                         .sku(r.getSku() != null ? r.getSku() : "(" + children.size() + " phân loại)")
                         .barcode(r.getBarcode())
-                        .productImg(r.getProductImg() != null ? r.getProductImg() : children.get(0).getProductImg())
+                        .productImg(resolveImg(r) != null ? resolveImg(r) : resolveImg(children.get(0)))
                         .categoryName(r.getCategory() != null ? r.getCategory().getName() : "")
                         .unitName(children.get(0).getProductUnits() != null && !children.get(0).getProductUnits().isEmpty() ? children.get(0).getProductUnits().iterator().next().getName() : "sp")
                         .supplierName(variantGroups.isEmpty() ? null : variantGroups.get(0).getSizes().get(0).getCostPerUnit() != null ? children.get(0).getCategory() != null && children.get(0).getCategory().getDefaultSupplier() != null ? children.get(0).getCategory().getDefaultSupplier().getName() : null : null)
@@ -770,5 +764,12 @@ public class ImportSuggestionService {
             return p.getProductUnits().iterator().next().getName();
         }
         return "";
+    }
+
+    String resolveImg(Product p) {
+        if (p != null && p.getProductImages() != null && !p.getProductImages().isEmpty()) {
+            return p.getProductImages().iterator().next().getUrl();
+        }
+        return null;
     }
 }

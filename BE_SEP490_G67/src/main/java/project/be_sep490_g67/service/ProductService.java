@@ -45,7 +45,6 @@ public class ProductService {
     StockBatchRepository stockBatchRepository;
     BatchLocationRepository batchLocationRepository;
     ProductMapper productMapper;
-    PriceHistoryRepository priceHistoryRepository;
     ImportOrderDetailRepository importOrderDetailRepository;
 
     @Transactional(readOnly = true)

@@ -126,7 +126,7 @@ public class SalesHistoryService {
                     .shortName(product.getName())
                     .sku(product.getSku())
                     .unitName(unit)
-                    .image(product.getProductImg())
+                    .image(product.getProductImages() != null && !product.getProductImages().isEmpty() ? product.getProductImages().iterator().next().getUrl() : null)
                     .onHand(onHand == null ? 0 : onHand)
                     .sold30d(sold30)
                     .revenue30d(rev30)

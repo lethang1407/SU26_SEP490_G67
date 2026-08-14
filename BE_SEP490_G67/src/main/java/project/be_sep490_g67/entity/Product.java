@@ -61,9 +61,6 @@ public class Product extends BaseEntity {
     @Column(name = "description")
     private String description;
 
-    @Column(name = "product_img", length = 500)
-    private String productImg;
-
     /** active | inactive (ngừng bán) */
     @ColumnDefault("'active'")
     @Column(name = "status", length = 20, nullable = false)
@@ -72,10 +69,6 @@ public class Product extends BaseEntity {
     /** Tag mùa lễ: Tết, Trung thu… — null = không phải hàng mùa */
     @Column(name = "season_tag", length = 50)
     private String seasonTag;
-
-    /** Cài riêng “đủ bán (ngày)” — null = theo nhóm */
-    @Column(name = "cover_days_override")
-    private Integer coverDaysOverride;
 
     @OneToMany(mappedBy = "product")
     private Set<ImportOrderDetail> importOrderDetails = new LinkedHashSet<>();

@@ -96,7 +96,6 @@ public class ProductCommandService {
         image = productImageRepository.save(image);
 
         if (isMain) {
-            product.setProductImg(uploaded.url());
             productRepository.save(product);
         }
 
@@ -124,13 +123,10 @@ public class ProductCommandService {
         if (Boolean.TRUE.equals(image.getIsMain())) {
             List<ProductImage> remain =
                     productImageRepository.findByProductIdAndIsRemovedFalseOrderBySortOrderAscIdAsc(productId);
-            if (remain.isEmpty()) {
-                product.setProductImg(null);
-            } else {
+            if (!remain.isEmpty()) {
                 ProductImage next = remain.get(0);
                 next.setIsMain(true);
                 productImageRepository.save(next);
-                product.setProductImg(next.getUrl());
             }
             productRepository.save(product);
         }
@@ -174,14 +170,11 @@ public class ProductCommandService {
         product.setSku(blankToNull(request.getSku()));
         product.setBarcode(blankToNull(request.getBarcode()));
         product.setCategory(category);
-        product.setBrand(blankToNull(request.getBrand()));
         product.setDescription(request.getDescription());
         product.setStatus(normalizeStatus(request.getStatus()));
         product.setCostPrice(nullToZero(request.getCostPrice()));
         product.setSellingPrice(nullToZero(request.getSellingPrice()));
-        product.setVatPercent(request.getVatPercent() == null ? new BigDecimal("10") : request.getVatPercent());
         product.setSeasonTag(blankToNull(request.getSeasonTag()));
-        product.setCoverDaysOverride(request.getCoverDaysOverride());
         product.setIsRemoved(false);
     }
 
@@ -255,6 +248,12 @@ public class ProductCommandService {
             }
         }
 
+        String mainImgUrl = images.stream()
+                .filter(i -> Boolean.TRUE.equals(i.getIsMain()))
+                .map(ProductImage::getUrl)
+                .findFirst()
+                .orElse(images.isEmpty() ? null : images.get(0).getUrl());
+
         Product parent = product.getParent();
         return ProductDetailDTO.builder()
                 .id(product.getId())
@@ -265,19 +264,16 @@ public class ProductCommandService {
                 .barcode(product.getBarcode())
                 .categoryId(category != null ? category.getId() : null)
                 .categoryName(category != null ? category.getName() : null)
-                .brand(product.getBrand())
                 .description(product.getDescription())
                 .status(product.getStatus())
                 .costPrice(product.getCostPrice())
                 .sellingPrice(product.getSellingPrice())
-                .vatPercent(product.getVatPercent())
                 .seasonTag(product.getSeasonTag())
-                .coverDaysOverride(product.getCoverDaysOverride())
                 .categoryCoverDays(category != null && category.getCoverDays() != null
                         ? category.getCoverDays()
                         : 7)
                 .supplierName(supplierName)
-                .productImg(product.getProductImg())
+                .productImg(mainImgUrl)
                 .baseUnitName(baseUnitName)
                 .units(units.stream().map(u -> ProductDetailDTO.UnitDTO.builder()
                         .id(u.getId())

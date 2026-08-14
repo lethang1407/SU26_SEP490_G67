@@ -67,6 +67,30 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
                   )
             """)
     List<Product> searchByNameAndBarcode(@Param("query") String query);
+
+    @EntityGraph(attributePaths = {"category", "parent"})
+    @Query("""
+            SELECT DISTINCT p
+            FROM Product p
+            LEFT JOIN p.parent parent
+            WHERE (p.isRemoved = false OR p.isRemoved IS NULL)
+              AND NOT EXISTS (
+                    SELECT 1 FROM Product child
+                    WHERE child.parent.id = p.id
+                      AND (child.isRemoved = false OR child.isRemoved IS NULL)
+              )
+              AND (
+                    lower(p.name) LIKE lower(concat('%', :query, '%'))
+                    OR (p.barcode IS NOT NULL AND lower(p.barcode) LIKE lower(concat('%', :query, '%')))
+                    OR (p.sku IS NOT NULL AND lower(p.sku) LIKE lower(concat('%', :query, '%')))
+                    OR (parent IS NOT NULL AND lower(parent.name) LIKE lower(concat('%', :query, '%')))
+                    OR (parent IS NOT NULL AND parent.barcode IS NOT NULL
+                        AND lower(parent.barcode) LIKE lower(concat('%', :query, '%')))
+                    OR (parent IS NOT NULL AND parent.sku IS NOT NULL
+                        AND lower(parent.sku) LIKE lower(concat('%', :query, '%')))
+                  )
+            """)
+    List<Product> searchSellableByNameAndBarcode(@Param("query") String query);
     @Query("""
         SELECT p FROM Product p
         LEFT JOIN FETCH p.category c
