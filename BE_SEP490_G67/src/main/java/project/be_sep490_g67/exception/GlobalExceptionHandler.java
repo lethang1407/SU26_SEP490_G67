@@ -65,9 +65,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleUnhandledException(Exception exception) {
         log.error("Unhandled exception", exception);
 
+        Throwable root = exception;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
+        String detail = root.getMessage();
+        String message = (detail != null && !detail.isBlank())
+                ? ErrorCode.UNCATEGORIZED_EXCEPTION.getMessage() + ": " + detail
+                : ErrorCode.UNCATEGORIZED_EXCEPTION.getMessage();
+
         ApiResponse<Void> response = ApiResponse.<Void>builder()
                 .code(ErrorCode.UNCATEGORIZED_EXCEPTION.getCode())
-                .message(ErrorCode.UNCATEGORIZED_EXCEPTION.getMessage())
+                .message(message)
                 .build();
 
         return ResponseEntity.status(ErrorCode.UNCATEGORIZED_EXCEPTION.getStatusCode()).body(response);

@@ -26,6 +26,7 @@ CREATE TABLE `attributes` (
   `created_by` int DEFAULT NULL,
   `id` int NOT NULL AUTO_INCREMENT,
   `is_removed` bit(1) DEFAULT b'0',
+  `is_primary` bit(1) NOT NULL DEFAULT b'0',
   `updated_by` int DEFAULT NULL,
   `created_at` datetime(6) DEFAULT NULL,
   `updated_at` datetime(6) DEFAULT NULL,
@@ -522,21 +523,30 @@ DROP TABLE IF EXISTS `products`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `products` (
   `category_id` int DEFAULT NULL,
+  `parent_id` int DEFAULT NULL,
   `cost_price` decimal(15,2) DEFAULT '0.00',
   `created_by` int DEFAULT NULL,
   `id` int NOT NULL AUTO_INCREMENT,
   `is_removed` bit(1) DEFAULT b'0',
   `min_stock` int DEFAULT '0',
   `selling_price` decimal(15,2) DEFAULT '0.00',
+  `vat_percent` decimal(5,2) NOT NULL DEFAULT '10.00',
   `updated_by` int DEFAULT NULL,
   `created_at` datetime(6) DEFAULT NULL,
   `updated_at` datetime(6) DEFAULT NULL,
   `barcode` varchar(50) DEFAULT NULL,
+  `sku` varchar(50) DEFAULT NULL,
   `name` varchar(200) DEFAULT NULL,
+  `brand` varchar(100) DEFAULT NULL,
   `product_img` varchar(500) DEFAULT NULL,
   `description` varchar(255) DEFAULT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'active',
+  `season_tag` varchar(50) DEFAULT NULL,
+  `cover_days_override` int DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `FKog2rp4qthbtt2lfyhfo32lsw9` (`category_id`),
+  KEY `FK_products_parent` (`parent_id`),
+  CONSTRAINT `FK_products_parent` FOREIGN KEY (`parent_id`) REFERENCES `products` (`id`) ON DELETE SET NULL,
   CONSTRAINT `FKog2rp4qthbtt2lfyhfo32lsw9` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -645,10 +655,17 @@ CREATE TABLE `role_permissions` (
 LOCK TABLES `role_permissions` WRITE;
 /*!40000 ALTER TABLE `role_permissions` DISABLE KEYS */;
 INSERT INTO `role_permissions` VALUES
-(1,1),(2,1),
-(1,2),(2,2),
-(1,3),(2,3),
-(1,4),(2,4);
+-- ADMIN (1)
+(1,1),(2,1),(3,1),(4,1),(5,1),(6,1),(7,1),(8,1),(9,1),(10,1),
+(11,1),(12,1),(13,1),(14,1),(15,1),(16,1),(17,1),(18,1),(19,1),(20,1),
+(21,1),(22,1),(23,1),(24,1),(25,1),(26,1),(27,1),(28,1),(29,1),(30,1),
+(31,1),(32,1),
+-- CASHIER (2)
+(6,2),(23,2),(24,2),(26,2),(27,2),(28,2),
+-- ACCOUNTANT (3)
+(6,3),(14,3),(18,3),(22,3),(25,3),(26,3),(27,3),(28,3),(29,3),(30,3),(31,3),(32,3),
+-- WAREHOUSE (4)
+(6,4),(7,4),(8,4),(9,4),(10,4),(11,4),(12,4),(13,4),(14,4),(15,4),(16,4),(17,4),(18,4),(19,4),(20,4),(21,4);
 /*!40000 ALTER TABLE `role_permissions` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1119,3 +1136,71 @@ UNLOCK TABLES;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 -- Dump completed on 2026-06-23 21:19:47
+
+-- 
+-- NEW TABLES FOR ORDER RECONCILIATION & AUDIT
+-- 
+
+CREATE TABLE `daily_reconciliations` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `reconciliation_date` date NOT NULL,
+  `opening_cash` decimal(15,2) DEFAULT '0.00',
+  `cash_sales` decimal(15,2) DEFAULT '0.00',
+  `cash_debt_collected` decimal(15,2) DEFAULT '0.00',
+  `cash_refunded` decimal(15,2) DEFAULT '0.00',
+  `theoretical_cash` decimal(15,2) DEFAULT '0.00',
+  `actual_cash` decimal(15,2) DEFAULT '0.00',
+  `cash_discrepancy` decimal(15,2) DEFAULT '0.00',
+  `bank_transfer_confirmed` decimal(15,2) DEFAULT '0.00',
+  `bank_transfer_pending` decimal(15,2) DEFAULT '0.00',
+  `bank_actual` decimal(15,2) DEFAULT '0.00',
+  `bank_discrepancy` decimal(15,2) DEFAULT '0.00',
+  `status` varchar(20) DEFAULT 'COMPLETED',
+  `note` text,
+  `created_by` int DEFAULT NULL,
+  `created_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_reconciliation_date` (`reconciliation_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `sales_order_adjustments` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `sales_order_id` int NOT NULL,
+  `adjustment_code` varchar(30) NOT NULL,
+  `adjustment_type` varchar(50) NOT NULL,
+  `original_amount` decimal(15,2) NOT NULL,
+  `adjusted_amount` decimal(15,2) NOT NULL,
+  `difference_amount` decimal(15,2) NOT NULL,
+  `refund_method` varchar(50) DEFAULT 'CASH',
+  `reason` varchar(255) NOT NULL,
+  `created_by` int DEFAULT NULL,
+  `created_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_order_adj` (`sales_order_id`),
+  CONSTRAINT `FK_order_adj` FOREIGN KEY (`sales_order_id`) REFERENCES `sales_orders` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `sales_order_adjustment_details` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `adjustment_id` int NOT NULL,
+  `product_id` int NOT NULL,
+  `original_quantity` int NOT NULL,
+  `adjusted_quantity` int NOT NULL,
+  `original_price` decimal(15,2) NOT NULL,
+  `adjusted_price` decimal(15,2) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_adj_details_main` (`adjustment_id`),
+  CONSTRAINT `FK_adj_details_main` FOREIGN KEY (`adjustment_id`) REFERENCES `sales_order_adjustments` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `audit_resolutions` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `anomaly_type` varchar(50) NOT NULL,
+  `target_id` varchar(50) NOT NULL,
+  `resolution_status` varchar(20) DEFAULT 'RESOLVED',
+  `note` text,
+  `resolved_by` int DEFAULT NULL,
+  `created_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_anomaly_target` (`anomaly_type`, `target_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

@@ -15,6 +15,8 @@ import project.be_sep490_g67.service.DebtPaymentService;
 
 import java.time.LocalDate;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
 @RequestMapping(ApiPath.CUSTOMERS)
 @RequiredArgsConstructor
@@ -23,6 +25,11 @@ public class CustomerController {
     CustomerService customerService;
     DebtPaymentService debtPaymentService;
 
+    /**
+     * GET /api/customers/phone-lookup?phone=...
+     * POS phone search: returns customer if found, null result if not.
+     */
+    @PreAuthorize("hasAuthority('CUSTOMER:VIEW')")
     @GetMapping("/phone-lookup")
     public ApiResponse<CustomerResponse> lookupByPhone(@RequestParam String phone) {
         return ApiResponse.<CustomerResponse>builder()
@@ -31,6 +38,7 @@ public class CustomerController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('CUSTOMER:DEBT_VIEW')")
     @GetMapping("/overview")
     public ApiResponse<CustomerDebtOverviewResponse> getDebtOverview() {
         return ApiResponse.<CustomerDebtOverviewResponse>builder()
@@ -39,6 +47,7 @@ public class CustomerController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('CUSTOMER:DEBT_MANAGE')")
     @PostMapping
     public ApiResponse<CustomerResponse> createCustomer(@Valid @RequestBody CustomerRequest request) {
         return ApiResponse.<CustomerResponse>builder()
@@ -47,6 +56,7 @@ public class CustomerController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('CUSTOMER:DEBT_VIEW')")
     @GetMapping("/debts")
     public ApiResponse<PageResponse<CustomerResponse>> getCustomerDebts(
             @RequestParam(required = false) String keyword,
@@ -66,6 +76,7 @@ public class CustomerController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('CUSTOMER:VIEW')")
     @GetMapping("/{id}")
     public ApiResponse<CustomerResponse> getCustomerDetails(@PathVariable Integer id) {
         return ApiResponse.<CustomerResponse>builder()
@@ -74,6 +85,7 @@ public class CustomerController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('CUSTOMER:DEBT_VIEW')")
     @GetMapping("/{customerId}/debt-orders")
     public ApiResponse<PageResponse<DebtOrderResponse>> getDebtOrdersForCustomer(
             @PathVariable Integer customerId,
@@ -86,6 +98,7 @@ public class CustomerController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('CUSTOMER:DEBT_MANAGE')")
     @PutMapping("/{id}")
     public ApiResponse<CustomerResponse> updateCustomer(@PathVariable Integer id, @Valid @RequestBody CustomerRequest request) {
         return ApiResponse.<CustomerResponse>builder()

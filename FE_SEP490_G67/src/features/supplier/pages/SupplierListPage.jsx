@@ -40,6 +40,8 @@ export default function SupplierListPage() {
     const [data, setData] = useState(EMPTY_PAGE);
     const [loading, setLoading] = useState(false);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [addSubmitting, setAddSubmitting] = useState(false);
+    const [addError, setAddError] = useState('');
     const [expandedId, setExpandedId] = useState(null);
     const [toast, setToast] = useState('');
 
@@ -139,16 +141,24 @@ export default function SupplierListPage() {
     };
 
     const handleAddSupplier = (supplierData) => {
+        setAddSubmitting(true);
+        setAddError('');
         suppliersApi
             .addSupplier(supplierData)
             .then(() => {
                 setIsAddModalOpen(false);
                 setPage(1);
                 fetchSuppliers();
+                setToast('Đã thêm nhà cung cấp mới.');
+                setTimeout(() => setToast(''), 3000);
             })
             .catch((error) => {
                 console.error('Error adding supplier:', error);
-            });
+                setAddError(
+                    error?.response?.data?.message || 'Thêm nhà cung cấp thất bại. Vui lòng thử lại.',
+                );
+            })
+            .finally(() => setAddSubmitting(false));
     };
 
     const summary = {
@@ -183,7 +193,10 @@ export default function SupplierListPage() {
                                 <button
                                     type="button"
                                     className="supplier-btn supplier-btn--primary"
-                                    onClick={() => setIsAddModalOpen(true)}
+                                    onClick={() => {
+                                        setAddError('');
+                                        setIsAddModalOpen(true);
+                                    }}
                                 >
                                     <Plus size={20} />
                                     Thêm nhà cung cấp
@@ -226,8 +239,14 @@ export default function SupplierListPage() {
 
                         <SupplierAddNewModal
                             open={isAddModalOpen}
-                            onClose={() => setIsAddModalOpen(false)}
+                            onClose={() => {
+                                if (addSubmitting) return;
+                                setIsAddModalOpen(false);
+                                setAddError('');
+                            }}
                             onSubmit={handleAddSupplier}
+                            submitting={addSubmitting}
+                            submitError={addError}
                         />
                     </div>
                 </main>

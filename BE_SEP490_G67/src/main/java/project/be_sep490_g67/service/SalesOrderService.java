@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +22,7 @@ import project.be_sep490_g67.utils.UnitQuantityConverter;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -217,6 +219,55 @@ public class SalesOrderService {
                                 .toList();
 
                 return getSalesOrderResponse(saved, itemInfos);
+        }
+
+        @Transactional(readOnly = true)
+        public SalesOrderResponse getReceipt(Integer orderId) {
+                SalesOrder order = salesOrderRepository.findActiveById(orderId)
+                                .orElseThrow(() -> new ResponseStatusException(
+                                                HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng"));
+
+                List<SalesOrderDetail> details = new ArrayList<>(order.getSalesOrderDetails());
+
+                List<SalesOrderResponse.SalesOrderDetailInfo> itemInfos = details.stream()
+                                .map(d -> SalesOrderResponse.SalesOrderDetailInfo.builder()
+                                                .productId(d.getProduct().getId())
+                                                .name(d.getProduct().getName())
+                                                .unitName(d.getUnitName())
+                                                .quantity(d.getQuantity())
+                                                .unitPrice(d.getUnitPrice())
+                                                .discountAmount(d.getDiscountAmount())
+                                                .lineTotal(d.getLineTotal())
+                                                .build())
+                                .toList();
+
+                return getSalesOrderResponse(order, itemInfos);
+        }
+
+        @Transactional(readOnly = true)
+        public SalesOrderResponse getOrderDetail(Integer orderId, Integer currentUserId, boolean isPrivileged) {
+                SalesOrder order = salesOrderRepository.findActiveById(orderId)
+                                .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
+
+                if (!isPrivileged && (order.getCreatedBy() == null || !order.getCreatedBy().equals(currentUserId))) {
+                        throw new AppException(ErrorCode.INVOICE_ACCESS_DENIED);
+                }
+
+                List<SalesOrderDetail> details = new ArrayList<>(order.getSalesOrderDetails());
+
+                List<SalesOrderResponse.SalesOrderDetailInfo> itemInfos = details.stream()
+                                .map(d -> SalesOrderResponse.SalesOrderDetailInfo.builder()
+                                                .productId(d.getProduct().getId())
+                                                .name(d.getProduct().getName())
+                                                .unitName(d.getUnitName())
+                                                .quantity(d.getQuantity())
+                                                .unitPrice(d.getUnitPrice())
+                                                .discountAmount(d.getDiscountAmount())
+                                                .lineTotal(d.getLineTotal())
+                                                .build())
+                                .toList();
+
+                return getSalesOrderResponse(order, itemInfos);
         }
 
         @Transactional(readOnly = true)

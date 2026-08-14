@@ -15,6 +15,8 @@ import project.be_sep490_g67.service.DebtPaymentService;
 
 import java.time.LocalDate;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
 @RequestMapping(ApiPath.DEBT_PAYMENTS_CUSTOMER)
 @RequiredArgsConstructor
@@ -23,6 +25,7 @@ public class DebtPaymentController {
 
     private final DebtPaymentService debtPaymentService;
 
+    
     @PostMapping
     public ApiResponse<DebtPaymentHistoryResponse> createDebtPayment(@Valid @RequestBody DebtPaymentRequest request) {
         DebtPaymentHistoryResponse result = debtPaymentService.createDebtPayment(request);
@@ -31,7 +34,7 @@ public class DebtPaymentController {
                 .message("Tạo thanh toán công nợ thành công")
                 .build();
     }
-
+    @PreAuthorize("hasAuthority('CUSTOMER:DEBT_VIEW')")
     @GetMapping
     public ApiResponse<PageResponse<DebtPaymentHistoryResponse>> getDebtPaymentHistory(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,

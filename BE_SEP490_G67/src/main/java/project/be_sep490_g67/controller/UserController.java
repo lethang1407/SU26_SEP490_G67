@@ -21,6 +21,8 @@ import project.be_sep490_g67.service.UserService;
 
 import java.util.List;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
 @RequestMapping(ApiPath.USER)
 @RequiredArgsConstructor
@@ -28,6 +30,7 @@ import java.util.List;
 public class UserController {
     UserService userService;
 
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('STAFF:VIEW')")
     @GetMapping
     ApiResponse<List<User>> getUsers() {
         return ApiResponse.<List<User>>builder()
@@ -35,6 +38,7 @@ public class UserController {
                 .build();
     }
 
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/me")
     ApiResponse<UserProfileResponse> getMyProfile() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -43,6 +47,7 @@ public class UserController {
                 .build();
     }
 
+    @PreAuthorize("isAuthenticated()")
     @PutMapping("/me")
     ApiResponse<UserProfileResponse> updateMyProfile(@Valid @RequestBody UpdateProfileRequest request) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -51,6 +56,7 @@ public class UserController {
                 .build();
     }
 
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/me/change-password")
     ApiResponse<Void> changeMyPassword(@Valid @RequestBody ChangePasswordRequest request) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();

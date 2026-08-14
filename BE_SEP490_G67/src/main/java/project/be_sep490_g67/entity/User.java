@@ -18,6 +18,11 @@ public class User extends BaseEntity {
     private Integer id;
 
     @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "users_roles",
+            joinColumns = @JoinColumn(name = "users_id"),
+            inverseJoinColumns = @JoinColumn(name = "roles_id")
+    )
     private Set<Role> roles;
 
     @Column(name = "full_name", length = 100)

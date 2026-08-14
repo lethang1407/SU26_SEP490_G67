@@ -4,8 +4,6 @@ import lombok.Getter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 
-import java.nio.charset.StandardCharsets;
-
 @Getter
 public enum ErrorCode {
     UNCATEGORIZED_EXCEPTION(9999, "Uncategorized error", HttpStatus.INTERNAL_SERVER_ERROR),
@@ -31,7 +29,7 @@ public enum ErrorCode {
     PASSWORD_CONFIRM_MISMATCH(1013, "Mật khẩu xác nhận không khớp", HttpStatus.BAD_REQUEST),
     PASSWORD_CONTAINS_USERNAME(1014, "Mật khẩu không được trùng với tên đăng nhập", HttpStatus.BAD_REQUEST),
     WEAK_PASSWORD(1015, "Mật khẩu quá phổ biến, vui lòng chọn mật khẩu khác", HttpStatus.BAD_REQUEST),
-    NOT_FOUND_STORE(1016, "Không tìm thấy thông tin cửa hàng",  HttpStatus.NOT_FOUND),
+    NOT_FOUND_STORE(1016, "Không tìm thấy thông tin cửa hàng", HttpStatus.NOT_FOUND),
     EXISTED_SUPPLIER(1017, "Nhà cung cấp đã tồn tại", HttpStatus.CONFLICT),
     NOT_FOUND_CATEGORY(1018, "Không tìm thấy danh mục", HttpStatus.NOT_FOUND),
     CATEGORY_ALREADY_EXISTS(1019, "Danh mục đã tồn tại", HttpStatus.CONFLICT),
@@ -92,6 +90,29 @@ public enum ErrorCode {
     INVALID_IMPORT_PAID_AMOUNT(1034, "Số tiền trả NCC không hợp lệ", HttpStatus.BAD_REQUEST),
     IMPORT_ORDER_NOT_EDITABLE(1035, "Chỉ được sửa phiếu tạm. Phiếu đã nhập hàng không thể chỉnh sửa.", HttpStatus.BAD_REQUEST),
     IMPORT_ORDER_NOT_DELETABLE(1036, "Chỉ được hủy phiếu tạm. Phiếu đã nhập hàng không thể xóa.", HttpStatus.BAD_REQUEST),
+
+    // Product / category errors (11xx)
+    PRODUCT_NAME_REQUIRED(1101, "Vui lòng nhập tên sản phẩm", HttpStatus.BAD_REQUEST),
+    CATEGORY_NOT_FOUND(1102, "Không tìm thấy danh mục", HttpStatus.NOT_FOUND),
+    PRODUCT_SKU_EXISTED(1103, "Mã SKU đã tồn tại", HttpStatus.CONFLICT),
+    PRODUCT_BARCODE_EXISTED(1104, "Mã vạch đã tồn tại", HttpStatus.CONFLICT),
+    PRODUCT_PRICE_INVALID(1105, "Giá không hợp lệ", HttpStatus.BAD_REQUEST),
+    PRODUCT_SELL_BELOW_COST(1106, "Giá bán phải lớn hơn hoặc bằng giá nhập", HttpStatus.BAD_REQUEST),
+    PRODUCT_VAT_INVALID(1107, "VAT phải từ 0 đến 100", HttpStatus.BAD_REQUEST),
+    PRODUCT_STATUS_INVALID(1108, "Trạng thái sản phẩm không hợp lệ", HttpStatus.BAD_REQUEST),
+    PRODUCT_UNIT_BASE_INVALID(1109, "Phải có đúng một đơn vị cơ bản với hệ số 1", HttpStatus.BAD_REQUEST),
+    PRODUCT_UNIT_INVALID(1110, "Đơn vị tính không hợp lệ", HttpStatus.BAD_REQUEST),
+    PRODUCT_ATTRIBUTE_INVALID(1111, "Thuộc tính sản phẩm không hợp lệ", HttpStatus.BAD_REQUEST),
+    PRODUCT_IMAGE_INVALID(1112, "Ảnh phải là JPG/PNG và tối đa 5MB", HttpStatus.BAD_REQUEST),
+    PRODUCT_IMAGE_UPLOAD_FAILED(1113, "Tải ảnh lên Cloudinary thất bại", HttpStatus.BAD_GATEWAY),
+    PRODUCT_IMAGE_NOT_FOUND(1114, "Không tìm thấy ảnh sản phẩm", HttpStatus.NOT_FOUND),
+    INVALID_DATE_RANGE(1115, "Khoảng thời gian không hợp lệ", HttpStatus.BAD_REQUEST),
+    CATEGORY_NAME_REQUIRED(1116, "Vui lòng nhập tên danh mục", HttpStatus.BAD_REQUEST),
+    CATEGORY_NAME_EXISTED(1117, "Tên danh mục đã tồn tại", HttpStatus.CONFLICT),
+    IMPORT_ORDER_LINES_REQUIRED(1118, "Đơn nhập phải có ít nhất một dòng sản phẩm", HttpStatus.BAD_REQUEST),
+    IMPORT_ORDER_LINE_INVALID(1119, "Dòng nhập thiếu sản phẩm, nhà cung cấp hoặc số lượng không hợp lệ", HttpStatus.BAD_REQUEST),
+    PRODUCT_EXCEL_INVALID(1120, "File Excel không hợp lệ. Chỉ nhận .xlsx và đúng mẫu (SKU/Barcode, Số lượng).", HttpStatus.BAD_REQUEST),
+    PRODUCT_EXCEL_FAILED(1121, "Không xử lý được file Excel", HttpStatus.INTERNAL_SERVER_ERROR),
 
     // Invoice errors (3xxx)
     ORDER_NOT_FOUND(3001, "Không tìm thấy đơn hàng", HttpStatus.NOT_FOUND),

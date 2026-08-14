@@ -91,6 +91,15 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
                     """
     )
     List<BatchLocation> findAvailableByProductId(@Param("productId") Integer productId);
+    @Query("""
+        SELECT COALESCE(SUM(bl.quantity), 0)
+        FROM BatchLocation bl
+        JOIN bl.batch b
+        WHERE b.product.id = :productId
+          AND (bl.isRemoved = false OR bl.isRemoved IS NULL)
+          AND (b.isRemoved = false OR b.isRemoved IS NULL)
+        """)
+    Long sumOnHandByProductId(@Param("productId") Integer productId);
 
     /**
      * Các dòng batch_location active của SP trên các khu có zone_type = SALES.
