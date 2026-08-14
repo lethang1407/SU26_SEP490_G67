@@ -1,9 +1,5 @@
 -- ============================================================
-<<<<<<<< HEAD:BE_SEP490_G67/src/main/resources/db/migration/V27__import_return_exchange_flow.sql
--- V27: Đổi trả NCC — IN_PROGRESS, method, line_status, exchange_batch
-========
 -- V28: Đổi trả NCC — IN_PROGRESS, method, line_status, exchange_batch
->>>>>>>> f2bf1069beefccb6527b52f572c15f766f388576:BE_SEP490_G67/src/main/resources/db/migration/V28__import_return_exchange_flow.sql
 -- ============================================================
 
 SET @col_exists := (

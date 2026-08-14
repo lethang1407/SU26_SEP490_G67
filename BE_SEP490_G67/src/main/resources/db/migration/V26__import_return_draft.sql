@@ -1,9 +1,5 @@
 -- ============================================================
-<<<<<<<< HEAD:BE_SEP490_G67/src/main/resources/db/migration/V25__import_return_draft.sql
--- V25: Phiếu trả NCC nháp (đa NCC) — status, supplier, batch lines
-========
 -- V26: Phiếu trả NCC nháp (đa NCC) — status, supplier, batch lines
->>>>>>>> f2bf1069beefccb6527b52f572c15f766f388576:BE_SEP490_G67/src/main/resources/db/migration/V26__import_return_draft.sql
 -- Guarded: Hibernate ddl-auto có thể đã thêm cột / nới NULL.
 -- ============================================================
 

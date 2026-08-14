@@ -48,6 +48,9 @@ public class FlywayConfig {
                 .dataSource(dataSource)
                 .locations("classpath:db/migration")
                 .baselineOnMigrate(true)
+                // Cho phép chạy các version còn thiếu khi history đã có version cao hơn
+                // (thường gặp khi baseline/merge nhánh hoặc rename migration).
+                .outOfOrder(true)
                 .load();
         flyway.repair();
         return flyway;

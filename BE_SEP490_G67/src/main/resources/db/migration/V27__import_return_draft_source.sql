@@ -1,10 +1,6 @@
 -- ============================================================
-<<<<<<<< HEAD:BE_SEP490_G67/src/main/resources/db/migration/V26__import_return_draft_source.sql
--- V26: Tách draft trả NCC theo source (MANUAL | INVENTORY_CHECK)
-========
 -- V27: Tách draft trả NCC theo source (MANUAL | INVENTORY_CHECK)
 -- Guarded: bảng inventory_checks có thể chưa tồn tại (Flyway trước Hibernate).
->>>>>>>> f2bf1069beefccb6527b52f572c15f766f388576:BE_SEP490_G67/src/main/resources/db/migration/V27__import_return_draft_source.sql
 -- ============================================================
 
 SET @col_exists := (

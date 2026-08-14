@@ -83,7 +83,7 @@ export default function ZoneDetailModal({
         >
             <Modal.Header className="storage-adjust-modal__header" closeButton>
                 <div className="storage-adjust-modal__header-main">
-                    <Modal.Title>Khu {zoneGroup.zone}</Modal.Title>
+                    <Modal.Title>Kệ {zoneGroup.zone}</Modal.Title>
                     <div className="storage-zone-detail-modal__toolbar">
                         <div
                             className={[

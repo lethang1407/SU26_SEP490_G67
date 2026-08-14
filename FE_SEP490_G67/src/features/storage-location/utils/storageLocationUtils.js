@@ -4,6 +4,7 @@ import {
     SHELF_CAPACITY,
     SHELF_SIZE,
     SHELF_SIZE_LABEL,
+    ZONE_TYPE,
     normalizeShelfSize,
 } from '../constants';
 
@@ -130,7 +131,7 @@ export function getLocationStatus(location) {
 }
 
 export function formatLocationAddress(location) {
-    const parts = [`Khu ${location.zone}`];
+    const parts = [`Kệ ${location.zone}`];
     if (location.shelf) {
         parts.push(`Tầng ${location.shelf}`);
     }
@@ -171,7 +172,7 @@ export function getZoneOptions(locations) {
         { value: 'all', label: 'Tất cả khu' },
         ...zones.map((zone) => ({
             value: zone,
-            label: `Khu ${zone}`,
+            label: `Kệ ${zone}`,
         })),
     ];
 }
@@ -480,3 +481,124 @@ export function groupZoneGroupsByType(zoneGroups) {
     });
     return { sales, warehouse };
 }
+
+/**
+ * Gợi ý ô xếp cho 1 lô (unplaced hoặc dòng trên kệ).
+ * Ưu tiên: cùng lô > cùng SP > cùng danh mục > ô trống.
+ * Nếu SP đã có mã lô khác trên khu bán → không gợi ý khu bán (chỉ khu kho).
+ * Cùng mã lô đã xếp một phần trên khu bán → vẫn gợi ý các ô đó để xếp tiếp.
+ */
+export function suggestLocationsForBatch(batch, locations, options = {}) {
+    if (!batch) {
+        return [];
+    }
+    const excludeLocationId = options.excludeLocationId ?? null;
+    const productId = batch.productId ?? null;
+    const categoryId = batch.categoryId ?? null;
+    const preferredZone = options.preferredZone ?? null;
+    const batchId = batch.batchId ?? batch.id ?? null;
+    const batchCode = batch.batchCode ?? null;
+
+    const isSameBatch = (item) => {
+        if (!item) {
+            return false;
+        }
+        if (batchId != null && item.batchId != null) {
+            return item.batchId === batchId;
+        }
+        if (batchCode && item.batchCode) {
+            return String(item.batchCode) === String(batchCode);
+        }
+        return false;
+    };
+
+    // SP đã có mã lô khác trên khu bán → chặn gợi ý khu bán
+    const salesHasOtherBatchOfProduct =
+        productId != null &&
+        (locations ?? []).some(
+            (location) =>
+                location &&
+                location.id !== excludeLocationId &&
+                location.zoneType === ZONE_TYPE.SALES &&
+                (location.contents ?? []).some(
+                    (item) => item.productId === productId && !isSameBatch(item),
+                ),
+        );
+
+    const scored = [];
+    for (const location of locations ?? []) {
+        if (!location || location.id === excludeLocationId) {
+            continue;
+        }
+        if (location.isFull) {
+            continue;
+        }
+
+        const isWarehouse = location.zoneType !== ZONE_TYPE.SALES;
+        if (!isWarehouse && salesHasOtherBatchOfProduct) {
+            continue;
+        }
+
+        const contents = location.contents ?? [];
+        const occupiedProductIds = [
+            ...new Set(contents.map((item) => item.productId).filter((id) => id != null)),
+        ];
+        const occupiedCategoryIds = [
+            ...new Set(contents.map((item) => item.categoryId).filter((id) => id != null)),
+        ];
+        const isEmpty = contents.length === 0;
+        const hasSameBatch = contents.some(isSameBatch);
+
+        if (
+            isWarehouse &&
+            occupiedProductIds.length > 0 &&
+            productId != null &&
+            !occupiedProductIds.includes(productId)
+        ) {
+            continue;
+        }
+
+        let score = 0;
+        let reason = '';
+
+        if (hasSameBatch) {
+            score = 120;
+            reason = 'cùng lô';
+        } else if (productId != null && occupiedProductIds.includes(productId)) {
+            score = 100;
+            reason = 'cùng SP';
+        } else if (
+            categoryId != null &&
+            occupiedCategoryIds.includes(categoryId) &&
+            (!isWarehouse || isEmpty)
+        ) {
+            score = 70;
+            reason = 'cùng danh mục';
+        } else if (isEmpty) {
+            score = 50;
+            reason = 'ô trống';
+        } else if (!isWarehouse) {
+            score = 20;
+            reason = 'khu bán';
+        } else {
+            continue;
+        }
+
+        if (preferredZone && location.zone === preferredZone) {
+            score += 5;
+        }
+
+        scored.push({
+            locationId: location.id,
+            label: location.label,
+            zone: location.zone,
+            score,
+            reason,
+        });
+    }
+
+    return scored
+        .sort((a, b) => b.score - a.score || String(a.label).localeCompare(String(b.label)))
+        .slice(0, 6);
+}
+

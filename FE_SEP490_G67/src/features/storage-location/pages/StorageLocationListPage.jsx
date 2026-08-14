@@ -4,12 +4,13 @@ import { Plus, Settings2 } from 'lucide-react';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import AdjustStorageLocationModal from '../components/AdjustStorageLocationModal';
-import { fetchStorageLocations, setStorageLocationFull } from '../api';
+import { fetchStorageLocations, fetchUnplacedBatches, setStorageLocationFull } from '../api';
 import CreateStorageLocationModal from '../components/CreateStorageLocationModal';
 import StorageLocationDetailModal from '../components/StorageLocationDetailModal';
 import StorageLocationGrid from '../components/StorageLocationGrid';
 import StorageLocationTable from '../components/StorageLocationTable';
 import StorageLocationToolbar from '../components/StorageLocationToolbar';
+import UnplacedBatchesPanel from '../components/UnplacedBatchesPanel';
 import ZoneDetailModal from '../components/ZoneDetailModal';
 import { LOCATION_STATUS, VIEW_MODE } from '../constants';
 import {
@@ -32,7 +33,9 @@ const DEFAULT_FILTERS = {
 
 export default function StorageLocationListPage() {
     const [allLocations, setAllLocations] = useState([]);
+    const [unplacedBatches, setUnplacedBatches] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [unplacedLoading, setUnplacedLoading] = useState(true);
     const [error, setError] = useState(null);
     const [togglingFull, setTogglingFull] = useState(false);
 
@@ -55,17 +58,23 @@ export default function StorageLocationListPage() {
 
         const loadLocations = async () => {
             setIsLoading(true);
+            setUnplacedLoading(true);
             setError(null);
 
             try {
-                const locations = await fetchStorageLocations();
+                const [locations, unplaced] = await Promise.all([
+                    fetchStorageLocations(),
+                    fetchUnplacedBatches().catch(() => []),
+                ]);
                 if (!isCancelled) {
                     setAllLocations(locations);
+                    setUnplacedBatches(unplaced);
                     setDraftLocations(null);
                 }
             } catch (fetchError) {
                 if (!isCancelled) {
                     setAllLocations([]);
+                    setUnplacedBatches([]);
                     setError(
                         getApiErrorMessage(
                             fetchError,
@@ -76,6 +85,7 @@ export default function StorageLocationListPage() {
             } finally {
                 if (!isCancelled) {
                     setIsLoading(false);
+                    setUnplacedLoading(false);
                 }
             }
         };
@@ -216,6 +226,9 @@ export default function StorageLocationListPage() {
                         <header className="inventory-page__header">
                             <div>
                                 <h1 className="inventory-page__title">Vị trí hàng hóa</h1>
+                                <p className="inventory-page__subtitle">
+                                    Vị trí hàng hóa đang lưu trữ trong cửa hàng
+                                </p>
                             </div>
                             <div className="inventory-page__actions">
                                 <button
@@ -276,6 +289,12 @@ export default function StorageLocationListPage() {
                                         onSelectLocation={setSelectedLocation}
                                     />
                                 )}
+
+                                <UnplacedBatchesPanel
+                                    batches={unplacedBatches}
+                                    loading={unplacedLoading}
+                                    onPlaceBatch={() => openAdjustModal()}
+                                />
                             </>
                         )}
                     </div>

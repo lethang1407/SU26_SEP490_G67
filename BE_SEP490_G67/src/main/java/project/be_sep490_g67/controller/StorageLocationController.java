@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.request.AssignBatchRequest;
 import project.be_sep490_g67.dto.request.CreateStorageLocationRequest;
+import project.be_sep490_g67.dto.request.MoveAllBatchesRequest;
 import project.be_sep490_g67.dto.request.MoveBatchRequest;
 import project.be_sep490_g67.dto.request.SetLocationFullRequest;
 import project.be_sep490_g67.dto.request.UnassignBatchRequest;
@@ -79,6 +80,15 @@ public class StorageLocationController {
         return ApiResponse.<StorageLocationResponse>builder()
                 .result(storageLocationService.moveBatch(request))
                 .message("Chuyển lô sang kệ khác thành công")
+                .build();
+    }
+
+    @PostMapping("/move-all")
+    public ApiResponse<StorageLocationResponse> moveAllBatches(
+            @Valid @RequestBody MoveAllBatchesRequest request) {
+        return ApiResponse.<StorageLocationResponse>builder()
+                .result(storageLocationService.moveAllBatches(request))
+                .message("Đã chuyển toàn bộ hàng sang kệ đích")
                 .build();
     }
 

@@ -1,9 +1,5 @@
 -- ============================================================
-<<<<<<<< HEAD:BE_SEP490_G67/src/main/resources/db/migration/V24__inventory_check_stock_batch.sql
--- V24: Kiểm kho theo lô — inventory_check_details.stock_batch_id
-========
 -- V25: Kiểm kho theo lô — inventory_check_details.stock_batch_id
->>>>>>>> f2bf1069beefccb6527b52f572c15f766f388576:BE_SEP490_G67/src/main/resources/db/migration/V25__inventory_check_stock_batch.sql
 -- NULL = kiểm tất cả lô của SP; có giá trị = đúng 1 lô.
 -- Guarded: Hibernate ddl-auto có thể đã thêm cột / bảng chưa tạo.
 -- ============================================================
