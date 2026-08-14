@@ -3,11 +3,14 @@ package project.be_sep490_g67.repository;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 import project.be_sep490_g67.entity.StockBatch;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+@Repository
 public interface StockBatchRepository extends JpaRepository<StockBatch, Integer> {
 
     @Query("""
@@ -51,6 +54,16 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
     Optional<StockBatch> findActiveWithProductById(@Param("id") Integer id);
 
     @Query("""
+            SELECT sb FROM StockBatch sb
+            JOIN FETCH sb.product p
+            LEFT JOIN FETCH sb.importOrder io
+            LEFT JOIN FETCH io.supplier
+            WHERE sb.id = :id
+              AND sb.isRemoved = false
+            """)
+    Optional<StockBatch> findActiveWithProductAndImportById(@Param("id") Integer id);
+
+    @Query("""
     SELECT sb
     FROM StockBatch sb
     JOIN sb.stockMovements sm
@@ -66,6 +79,60 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
     LIMIT 1
     """)
     Optional<StockBatch> findFirstAvailableBatchByProductId(Integer productId);
+    @Query("""
+        SELECT MIN(b.expiryDate)
+        FROM StockBatch b
+        WHERE b.product.id = :productId
+          AND b.expiryDate IS NOT NULL
+          AND b.expiryDate >= :today
+          AND (b.isRemoved = false OR b.isRemoved IS NULL)
+        """)
+    Optional<LocalDate> findNearestExpiry(
+            @Param("productId") Integer productId,
+            @Param("today") LocalDate today);
+
+
+    /** Lô mới nhất của SP — dùng gợi ý đơn giá nhập (cost_per_unit đã là giá / ĐVT cơ bản). */
+    Optional<StockBatch> findFirstByProduct_IdAndIsRemovedFalseOrderByReceivedDateDescIdDesc(Integer productId);
+
+    @Query("""
+            SELECT sb FROM StockBatch sb
+            JOIN FETCH sb.product p
+            LEFT JOIN FETCH sb.importOrder io
+            LEFT JOIN FETCH io.supplier
+            WHERE sb.isRemoved = false
+              AND COALESCE(sb.quantityIn, 0) > 0
+              AND sb.expiryDate IS NOT NULL
+              AND sb.expiryDate < CURRENT_DATE
+            ORDER BY sb.expiryDate ASC, sb.id ASC
+            """)
+    List<StockBatch> findExpiredWithStock();
+
+    @Query("""
+            SELECT sb FROM StockBatch sb
+            JOIN FETCH sb.product p
+            LEFT JOIN FETCH sb.importOrder io
+            LEFT JOIN FETCH io.supplier
+            WHERE sb.isRemoved = false
+              AND COALESCE(sb.quantityIn, 0) > 0
+              AND sb.expiryDate IS NOT NULL
+              AND sb.expiryDate >= CURRENT_DATE
+              AND sb.expiryDate <= :untilDate
+            ORDER BY sb.expiryDate ASC, sb.id ASC
+            """)
+    List<StockBatch> findExpiringSoonWithStock(@Param("untilDate") java.time.LocalDate untilDate);
+
+    @Query("""
+            SELECT sb FROM StockBatch sb
+            JOIN FETCH sb.product p
+            LEFT JOIN FETCH sb.importOrder io
+            LEFT JOIN FETCH io.supplier
+            WHERE sb.product.id = :productId
+              AND sb.isRemoved = false
+              AND COALESCE(sb.quantityIn, 0) > 0
+            ORDER BY sb.receivedDate ASC, sb.id ASC
+            """)
+    List<StockBatch> findAvailableWithImportByProductId(@Param("productId") Integer productId);
 
     /**
      * Số thứ tự lớn nhất trong ngày cho mã lô dạng LddMMyy-xx.
@@ -77,4 +144,5 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
             WHERE batch_code LIKE CONCAT(:dayPrefix, '-%')
             """, nativeQuery = true)
     Integer findMaxBatchSequenceByDayPrefix(@Param("dayPrefix") String dayPrefix);
+
 }

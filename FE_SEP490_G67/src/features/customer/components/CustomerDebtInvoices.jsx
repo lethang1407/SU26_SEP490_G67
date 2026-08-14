@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 import { useState, useEffect, useRef } from "react";
+=======
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+>>>>>>> dev
 import {
   Row,
   Col,
@@ -192,7 +197,7 @@ export default function CustomerDebtInvoices({ customerId, refreshKey, initialOr
               <tr key={invoice.id} style={{ cursor: 'pointer' }} onClick={() => handleShowDetail(invoice.id)}>
                 <td>{formatDateTime(invoice.orderDate)}</td>
                 <td>
-                  <span className="text-primary fw-medium">{invoice.orderCode}</span>
+                  <Link to={`/admin/orders/${invoice.id}`}>{invoice.orderCode}</Link>
                 </td>
                 <td>{formatCurrency(invoice.totalAmount)}</td>
                 <td>{formatCurrency(invoice.amountPaid)}</td>

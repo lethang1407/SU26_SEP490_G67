@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ExternalLink, ImageIcon } from 'lucide-react';
 import { ORDER_STATUS_LABEL } from '../constants';
-import { formatDate } from '../utils/importOrderUtils';
+import { formatDate, formatProductAttributes } from '../utils/importOrderUtils';
 
 function formatMoneyPlain(value) {
     const amount = Number(value) || 0;
@@ -87,7 +87,6 @@ export default function ImportOrderInfoTab({ order }) {
                 <table className="import-order-expand__table">
                     <thead>
                         <tr>
-                            <th>Mã hàng</th>
                             <th>Tên hàng</th>
                             <th className="import-order-expand__col-num">Số lượng</th>
                             <th className="import-order-expand__col-num">Đơn giá</th>
@@ -97,30 +96,43 @@ export default function ImportOrderInfoTab({ order }) {
                     <tbody>
                         {items.length === 0 ? (
                             <tr>
-                                <td colSpan={5} className="import-order-expand__empty-cell">
+                                <td colSpan={4} className="import-order-expand__empty-cell">
                                     Phiếu chưa có dòng hàng.
                                 </td>
                             </tr>
                         ) : (
-                            items.map((item, index) => (
+                            items.map((item, index) => {
+                                const attributeLabel = formatProductAttributes(item.attributes);
+                                return (
                                 <tr key={item.id || `${order.id}-${index}`}>
                                     <td>
-                                        <span className="import-order-expand__sku">
-                                            {item.productCode ||
-                                                (item.productId
-                                                    ? `SP${String(item.productId).padStart(6, '0')}`
-                                                    : '—')}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <div className="import-order-expand__product-name">
-                                            {item.productName || '—'}
+                                        <div className="import-order-expand__product-name-row">
+                                            <div className="import-order-expand__product-name">
+                                                {item.parentName || item.productName || '—'}
+                                            </div>
+                                            {item.isPromotion ? (
+                                                <span
+                                                    className="ioc-promo-badge"
+                                                    title="Hàng khuyến mãi / trả thưởng — không thu tiền"
+                                                >
+                                                    KM
+                                                </span>
+                                            ) : null}
                                         </div>
                                         <div className="import-order-expand__line-meta">
+                                            {attributeLabel ? (
+                                                <span className="import-order-expand__attrs">
+                                                    {attributeLabel}
+                                                </span>
+                                            ) : null}
                                             {item.expiryDate ? (
-                                                <span>Hạn sử dụng: {formatDate(item.expiryDate)}</span>
+                                                <span>
+                                                    {attributeLabel ? ' · ' : ''}
+                                                    Hạn sử dụng: {formatDate(item.expiryDate)}
+                                                </span>
                                             ) : (
                                                 <span className="import-order-expand__line-meta--muted">
+                                                    {attributeLabel ? ' · ' : ''}
                                                     Chưa ghi hạn sử dụng
                                                 </span>
                                             )}
@@ -130,16 +142,37 @@ export default function ImportOrderInfoTab({ order }) {
                                         </div>
                                     </td>
                                     <td className="import-order-expand__col-num">
-                                        {item.quantity ?? '—'}
+                                        {item.quantity != null ? (
+                                            <>
+                                                {item.quantity}
+                                                {item.unitName ? (
+                                                    <span className="import-order-expand__unit-label">
+                                                        {' '}
+                                                        {item.unitName}
+                                                    </span>
+                                                ) : null}
+                                            </>
+                                        ) : (
+                                            '—'
+                                        )}
                                     </td>
                                     <td className="import-order-expand__col-num">
                                         {formatMoneyPlain(item.costPerUnit)}
                                     </td>
-                                    <td className="import-order-expand__col-num import-order-expand__col-total">
-                                        {formatMoneyPlain(item.lineTotal)}
+                                    <td
+                                        className={`import-order-expand__col-num import-order-expand__col-total ${
+                                            item.isPromotion ? 'import-order-expand__col-total--promo' : ''
+                                        }`}
+                                    >
+                                        {item.isPromotion ? (
+                                            <span title="Không thu tiền">0</span>
+                                        ) : (
+                                            formatMoneyPlain(item.lineTotal)
+                                        )}
                                     </td>
                                 </tr>
-                            ))
+                                );
+                            })
                         )}
                     </tbody>
                 </table>

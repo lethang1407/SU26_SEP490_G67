@@ -1,6 +1,7 @@
 /**
  * Mock vị trí kho.
- * Quy tắc: mỗi kệ chỉ chứa 1 loại sản phẩm; có thể có nhiều lô cùng SP.
+ * Khu kho: mỗi ô 1 loại SP (có thể nhiều lô).
+ * Khu bán: 1 ô nhiều SP; cùng 1 lô được tách nhiều ô; mỗi SP chỉ 1 mã lô trên khu bán.
  */
 export const MOCK_STORAGE_LOCATIONS = [
     {

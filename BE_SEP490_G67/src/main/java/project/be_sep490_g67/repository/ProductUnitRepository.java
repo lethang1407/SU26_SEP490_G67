@@ -5,9 +5,15 @@ import org.springframework.stereotype.Repository;
 import project.be_sep490_g67.entity.ProductUnit;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ProductUnitRepository extends JpaRepository<ProductUnit, Integer> {
+    List<ProductUnit> findByProductIdAndIsRemovedFalse(Integer productId);
+
+    void deleteByProductId(Integer productId);
 
     List<ProductUnit> findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(Integer productId);
+
+    Optional<ProductUnit> findByIdAndProduct_IdAndIsRemovedFalse(Integer id, Integer productId);
 }

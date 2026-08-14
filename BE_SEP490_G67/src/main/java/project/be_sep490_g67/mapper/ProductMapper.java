@@ -17,8 +17,11 @@ import java.util.Map;
 public class ProductMapper {
 
     public ProductListResponse toListResponse(Product product, int stock) {
+        Product parent = product.getParent();
         return ProductListResponse.builder()
                 .id(product.getId())
+                .parentId(parent != null ? parent.getId() : null)
+                .parentName(parent != null ? parent.getName() : null)
                 .code(ProductConstants.formatProductCode(product.getId()))
                 .name(product.getName())
                 .barcode(product.getBarcode())
@@ -41,8 +44,11 @@ public class ProductMapper {
                         && unit.getUnitBase().compareTo(BigDecimal.ONE) != 0)
                 .toList();
 
+        Product parent = product.getParent();
         return ProductDetailResponse.builder()
                 .id(product.getId())
+                .parentId(parent != null ? parent.getId() : null)
+                .parentName(parent != null ? parent.getName() : null)
                 .code(ProductConstants.formatProductCode(product.getId()))
                 .name(product.getName())
                 .barcode(product.getBarcode())
@@ -97,7 +103,14 @@ public class ProductMapper {
                 .build();
     }
 
-    private ProductAttributeResponse toAttributeResponse(ProductAttribute productAttribute) {
+    public List<ProductAttributeResponse> toAttributeResponses(List<ProductAttribute> attributes) {
+        if (attributes == null || attributes.isEmpty()) {
+            return List.of();
+        }
+        return attributes.stream().map(this::toAttributeResponse).toList();
+    }
+
+    public ProductAttributeResponse toAttributeResponse(ProductAttribute productAttribute) {
         return ProductAttributeResponse.builder()
                 .id(productAttribute.getId())
                 .name(productAttribute.getAttribute() != null
@@ -112,7 +125,7 @@ public class ProductMapper {
                 .filter(unit -> unit.getUnitBase() != null
                         && unit.getUnitBase().compareTo(BigDecimal.ONE) == 0)
                 .findFirst()
-                .orElse(units.isEmpty() ? null : units.getFirst());
+                .orElse(units.isEmpty() ? null : units.get(0));
     }
 
     private String resolveCategoryName(Product product) {

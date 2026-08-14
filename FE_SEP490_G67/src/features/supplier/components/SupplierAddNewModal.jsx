@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, ChevronDown, Search } from 'lucide-react';
-import { removeVietnameseTones } from '../utils/supplierUtils';
+import { removeVietnameseTones, validateSupplierForm } from '../utils/supplierUtils';
 import { categoriesApi } from '../../category/api';
 
 const EMPTY_FORM = {
@@ -24,6 +24,7 @@ export default function SupplierAddNewModal({
 }) {
     const isEdit = mode === 'edit';
     const [formData, setFormData] = useState(EMPTY_FORM);
+    const [fieldErrors, setFieldErrors] = useState({});
 
     const [categoryDropdown, setCategoryDropdown] = useState({
         isOpen: false,
@@ -72,6 +73,7 @@ export default function SupplierAddNewModal({
                 selectedCategories: [],
             });
         }
+        setFieldErrors({});
     }, [open, isEdit, initialSupplier]);
 
     useEffect(() => {
@@ -114,20 +116,33 @@ export default function SupplierAddNewModal({
     const handleInputChange = (event) => {
         const { name, value } = event.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
+        if (fieldErrors[name]) {
+            setFieldErrors((prev) => {
+                const next = { ...prev };
+                delete next[name];
+                return next;
+            });
+        }
     };
 
     const handleSubmit = (event) => {
         event.preventDefault();
+        const errors = validateSupplierForm(formData);
+        setFieldErrors(errors);
+        if (Object.keys(errors).length > 0) {
+            return;
+        }
+
         onSubmit({
-            name: formData.name,
-            supplierCode: formData.supplierCode,
+            name: formData.name.trim(),
+            ...(isEdit ? { supplierCode: formData.supplierCode } : {}),
             categories: categoryDropdown.selectedCategories
                 .filter((cat) => typeof cat.id === 'number')
                 .map((cat) => ({ id: cat.id })),
-            contactPerson: formData.contactPerson,
-            phoneNumber: formData.phoneNumber,
-            address: formData.address,
-            notes: formData.notes,
+            contactPerson: formData.contactPerson.trim(),
+            phoneNumber: formData.phoneNumber.trim(),
+            address: formData.address.trim(),
+            notes: formData.notes.trim(),
         });
     };
 
@@ -177,6 +192,9 @@ export default function SupplierAddNewModal({
         return removeVietnameseTones(category.name.toLowerCase()).includes(searchLower);
     });
 
+    const fieldClass = (name) =>
+        `supplier-modal__field${fieldErrors[name] ? ' supplier-modal__field--error' : ''}`;
+
     return (
         <div className="supplier-modal-overlay" onClick={onClose} role="presentation">
             <div
@@ -195,40 +213,27 @@ export default function SupplierAddNewModal({
                     </button>
                 </div>
 
-                <form className="supplier-modal__body" onSubmit={handleSubmit}>
+                <form className="supplier-modal__body" onSubmit={handleSubmit} noValidate>
                     {submitError && <p className="supplier-modal__error">{submitError}</p>}
 
-                    <div className="supplier-modal__form-row">
-                        <label className="supplier-modal__field supplier-modal__field--half">
-                            <span>
-                                Tên nhà cung cấp <span style={{ color: 'red' }}>*</span>
-                            </span>
-                            <input
-                                type="text"
-                                name="name"
-                                placeholder="Nhập tên nhà cung cấp"
-                                value={formData.name}
-                                onChange={handleInputChange}
-                                required
-                                disabled={submitting}
-                            />
-                        </label>
-
-                        <label className="supplier-modal__field supplier-modal__field--half">
-                            <span>
-                                Mã nhà cung cấp <span style={{ color: 'red' }}>*</span>
-                            </span>
-                            <input
-                                type="text"
-                                name="supplierCode"
-                                placeholder="NCC00042"
-                                value={formData.supplierCode}
-                                onChange={handleInputChange}
-                                required
-                                disabled={submitting}
-                            />
-                        </label>
-                    </div>
+                    <label className={fieldClass('name')}>
+                        <span>
+                            Tên nhà cung cấp <span style={{ color: 'red' }}>*</span>
+                        </span>
+                        <input
+                            type="text"
+                            name="name"
+                            placeholder="Nhập tên nhà cung cấp"
+                            value={formData.name}
+                            onChange={handleInputChange}
+                            maxLength={150}
+                            disabled={submitting}
+                            aria-invalid={!!fieldErrors.name}
+                        />
+                        {fieldErrors.name && (
+                            <span className="supplier-modal__field-error">{fieldErrors.name}</span>
+                        )}
+                    </label>
 
                     <div className="supplier-modal__form-row">
                         <label className="supplier-modal__field supplier-modal__field--half">
@@ -361,7 +366,7 @@ export default function SupplierAddNewModal({
                             </div>
                         </label>
 
-                        <label className="supplier-modal__field supplier-modal__field--half">
+                        <label className={`${fieldClass('contactPerson')} supplier-modal__field--half`}>
                             <span>Người liên hệ</span>
                             <input
                                 type="text"
@@ -369,12 +374,17 @@ export default function SupplierAddNewModal({
                                 placeholder="Nguyễn Trần Minh Anh"
                                 value={formData.contactPerson}
                                 onChange={handleInputChange}
+                                maxLength={100}
                                 disabled={submitting}
+                                aria-invalid={!!fieldErrors.contactPerson}
                             />
+                            {fieldErrors.contactPerson && (
+                                <span className="supplier-modal__field-error">{fieldErrors.contactPerson}</span>
+                            )}
                         </label>
                     </div>
 
-                    <label className="supplier-modal__field">
+                    <label className={fieldClass('phoneNumber')}>
                         <span>Số điện thoại</span>
                         <input
                             type="tel"
@@ -382,11 +392,16 @@ export default function SupplierAddNewModal({
                             placeholder="09xx xxx xxx"
                             value={formData.phoneNumber}
                             onChange={handleInputChange}
+                            maxLength={15}
                             disabled={submitting}
+                            aria-invalid={!!fieldErrors.phoneNumber}
                         />
+                        {fieldErrors.phoneNumber && (
+                            <span className="supplier-modal__field-error">{fieldErrors.phoneNumber}</span>
+                        )}
                     </label>
 
-                    <label className="supplier-modal__field">
+                    <label className={fieldClass('address')}>
                         <span>Địa chỉ</span>
                         <textarea
                             name="address"
@@ -394,10 +409,15 @@ export default function SupplierAddNewModal({
                             placeholder="Số nhà, tên đường, phường/xã..."
                             value={formData.address}
                             onChange={handleInputChange}
+                            maxLength={255}
                             disabled={submitting}
+                            aria-invalid={!!fieldErrors.address}
                         />
+                        {fieldErrors.address && (
+                            <span className="supplier-modal__field-error">{fieldErrors.address}</span>
+                        )}
                     </label>
-                    <label className="supplier-modal__field">
+                    <label className={fieldClass('notes')}>
                         <span>Ghi chú</span>
                         <textarea
                             name="notes"
@@ -405,8 +425,13 @@ export default function SupplierAddNewModal({
                             placeholder="Ghi chú..."
                             value={formData.notes}
                             onChange={handleInputChange}
+                            maxLength={255}
                             disabled={submitting}
+                            aria-invalid={!!fieldErrors.notes}
                         />
+                        {fieldErrors.notes && (
+                            <span className="supplier-modal__field-error">{fieldErrors.notes}</span>
+                        )}
                     </label>
                     <div className="supplier-modal__footer">
                         <button

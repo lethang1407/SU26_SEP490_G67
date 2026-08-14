@@ -38,48 +38,126 @@ export function InventoryCheckInfoPanel({ check }) {
     );
 }
 
-export function InventoryCheckSummaryPanel({ lines }) {
+function SummaryField({ label, children, className = '', required = false }) {
+    return (
+        <div className={`inventory-check-summary-field ${className}`.trim()}>
+            <span className="inventory-check-summary-field__label">
+                {label}
+                {required ? <span className="inventory-check-summary-field__required"> *</span> : null}
+            </span>
+            <div className="inventory-check-summary-field__box">{children}</div>
+        </div>
+    );
+}
+
+function toDateInputValue(value) {
+    if (!value) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
+function formatDateOnly(value) {
+    const input = toDateInputValue(value);
+    if (!input) return '—';
+    const [y, m, d] = input.split('-');
+    return `${d}/${m}/${y}`;
+}
+
+export function InventoryCheckSummaryPanel({
+    lines,
+    note,
+    noteEditable = false,
+    onNoteChange,
+    showNote = false,
+    checkDate,
+    checkerName,
+    showMeta = false,
+}) {
     const summary = buildCheckSummary(lines);
+    const includeNote = showNote || noteEditable || note !== undefined;
+    const includeMeta =
+        showMeta ||
+        checkDate !== undefined ||
+        checkerName !== undefined;
+
+    const diffQtyClass =
+        summary.totalDiffQty < 0
+            ? 'inventory-check-diff--negative'
+            : summary.totalDiffQty > 0
+              ? 'inventory-check-diff--positive'
+              : '';
+    const diffValueClass =
+        summary.totalDiffValue < 0
+            ? 'inventory-check-diff--negative'
+            : summary.totalDiffValue > 0
+              ? 'inventory-check-diff--positive'
+              : '';
 
     return (
-        <section className="inventory-check-side-card">
+        <section className="inventory-check-side-card inventory-check-summary-card">
             <h3 className="inventory-check-side-card__title">Tóm tắt kiểm kho</h3>
-            <dl className="inventory-check-summary-list">
-                <div className="inventory-check-summary-list__item">
-                    <dt>Số sản phẩm kiểm</dt>
-                    <dd>{summary.totalLines}</dd>
-                </div>
-                <div className="inventory-check-summary-list__item inventory-check-summary-list__item--highlight">
-                    <dt>Chênh lệch số lượng</dt>
-                    <dd
-                        className={
-                            summary.totalDiffQty < 0
-                                ? 'inventory-check-diff--negative'
-                                : summary.totalDiffQty > 0
-                                  ? 'inventory-check-diff--positive'
-                                  : ''
-                        }
-                    >
+            <div className="inventory-check-summary-fields">
+                {includeMeta ? (
+                    <>
+                        <SummaryField label="Ngày kiểm kê" required>
+                            <span className="inventory-check-summary-field__value">
+                                {formatDateOnly(checkDate)}
+                            </span>
+                        </SummaryField>
+                        <SummaryField label="Người kiểm kê">
+                            <span className="inventory-check-summary-field__value">
+                                {checkerName || '—'}
+                            </span>
+                        </SummaryField>
+                    </>
+                ) : null}
+                <SummaryField label="Số sản phẩm chênh lệch">
+                    <span className="inventory-check-summary-field__value">
+                        {summary.countedLines === summary.totalLines
+                            ? summary.mismatchLineCount
+                            : '—'}
+                    </span>
+                </SummaryField>
+                <SummaryField label="Chênh lệch số lượng">
+                    <span className={`inventory-check-summary-field__value ${diffQtyClass}`.trim()}>
                         {summary.totalDiffQty ?? '—'}
-                    </dd>
-                </div>
-                <div className="inventory-check-summary-list__item inventory-check-summary-list__item--highlight">
-                    <dt>Giá trị chênh lệch</dt>
-                    <dd
-                        className={
-                            summary.totalDiffValue < 0
-                                ? 'inventory-check-diff--negative'
-                                : summary.totalDiffValue > 0
-                                  ? 'inventory-check-diff--positive'
-                                  : ''
-                        }
+                    </span>
+                </SummaryField>
+                <SummaryField label="Giá trị chênh lệch">
+                    <span
+                        className={`inventory-check-summary-field__value ${diffValueClass}`.trim()}
                     >
                         {summary.totalDiffValue !== null
                             ? formatCurrency(summary.totalDiffValue)
                             : '—'}
-                    </dd>
-                </div>
-            </dl>
+                    </span>
+                </SummaryField>
+                {includeNote ? (
+                    <SummaryField
+                        label="Ghi chú"
+                        className="inventory-check-summary-field--note"
+                    >
+                        {noteEditable ? (
+                            <textarea
+                                className="inventory-check-summary-field__textarea"
+                                rows={3}
+                                value={note ?? ''}
+                                placeholder="Ghi chú phiếu kiểm kê..."
+                                onChange={(event) => onNoteChange?.(event.target.value)}
+                            />
+                        ) : (
+                            <span className="inventory-check-summary-field__value inventory-check-summary-field__value--note">
+                                {note || 'Không có ghi chú.'}
+                            </span>
+                        )}
+                    </SummaryField>
+                ) : null}
+            </div>
         </section>
     );
 }

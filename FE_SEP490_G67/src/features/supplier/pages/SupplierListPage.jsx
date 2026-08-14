@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import SupplierSummaryCards from '../components/SupplierSummaryCards';
 import SupplierToolbar from '../components/SupplierToolbar';
@@ -41,6 +40,8 @@ export default function SupplierListPage() {
     const [data, setData] = useState(EMPTY_PAGE);
     const [loading, setLoading] = useState(false);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [addSubmitting, setAddSubmitting] = useState(false);
+    const [addError, setAddError] = useState('');
     const [expandedId, setExpandedId] = useState(null);
     const [toast, setToast] = useState('');
 
@@ -139,24 +140,25 @@ export default function SupplierListPage() {
         setTimeout(() => setToast(''), 3000);
     };
 
-    const handleSupplierDeleted = () => {
-        setExpandedId(null);
-        fetchSuppliers({ silent: true });
-        setToast('Đã xóa nhà cung cấp.');
-        setTimeout(() => setToast(''), 3000);
-    };
-
     const handleAddSupplier = (supplierData) => {
+        setAddSubmitting(true);
+        setAddError('');
         suppliersApi
             .addSupplier(supplierData)
             .then(() => {
                 setIsAddModalOpen(false);
                 setPage(1);
                 fetchSuppliers();
+                setToast('Đã thêm nhà cung cấp mới.');
+                setTimeout(() => setToast(''), 3000);
             })
             .catch((error) => {
                 console.error('Error adding supplier:', error);
-            });
+                setAddError(
+                    error?.response?.data?.message || 'Thêm nhà cung cấp thất bại. Vui lòng thử lại.',
+                );
+            })
+            .finally(() => setAddSubmitting(false));
     };
 
     const summary = {
@@ -173,9 +175,8 @@ export default function SupplierListPage() {
     };
 
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container supplier-page">
@@ -192,7 +193,10 @@ export default function SupplierListPage() {
                                 <button
                                     type="button"
                                     className="supplier-btn supplier-btn--primary"
-                                    onClick={() => setIsAddModalOpen(true)}
+                                    onClick={() => {
+                                        setAddError('');
+                                        setIsAddModalOpen(true);
+                                    }}
                                 >
                                     <Plus size={20} />
                                     Thêm nhà cung cấp
@@ -215,10 +219,10 @@ export default function SupplierListPage() {
                             items={data.content}
                             loading={loading}
                             expandedId={expandedId}
+                            startIndex={pagination.startIndex}
                             onToggleExpand={handleToggleExpand}
                             onPaymentSuccess={handlePaymentSuccess}
                             onSupplierUpdated={handleSupplierUpdated}
-                            onSupplierDeleted={handleSupplierDeleted}
                         />
 
                         <SupplierPagination
@@ -235,12 +239,17 @@ export default function SupplierListPage() {
 
                         <SupplierAddNewModal
                             open={isAddModalOpen}
-                            onClose={() => setIsAddModalOpen(false)}
+                            onClose={() => {
+                                if (addSubmitting) return;
+                                setIsAddModalOpen(false);
+                                setAddError('');
+                            }}
                             onSubmit={handleAddSupplier}
+                            submitting={addSubmitting}
+                            submitError={addError}
                         />
                     </div>
                 </main>
             </div>
-        </div>
     );
 }

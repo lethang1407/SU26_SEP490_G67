@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, Spinner } from 'react-bootstrap';
 import { ClipboardCheck, Download } from 'lucide-react';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import { getProductList } from '../../product/api';
 import { paginateItems } from '../../product/utils/productUtils';
@@ -123,9 +122,8 @@ export default function InventoryListPage() {
     };
 
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container inventory-page">
@@ -193,6 +191,5 @@ export default function InventoryListPage() {
                     </div>
                 </main>
             </div>
-        </div>
     );
 }

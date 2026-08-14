@@ -71,12 +71,15 @@ public class AuthenticationService {
 
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
+        // Dùng findActiveByUsernameWithRole để: load roles (tránh LazyInit khi buildScope)
+        // và chỉ lấy user chưa bị xóa (isRemoved = false)
         var user = userRepository
-                .findByUsername(request.getUsername())
+                .findActiveByUsernameWithRole(request.getUsername())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
         boolean authenticated = passwordEncoder.matches(request.getPassword(), user.getPasswordHash());
-        if (!user.getStatus().equals("ACTIVE")) throw new AppException(ErrorCode.USER_DEACTIVATED);
+        // Check password trước, sau đó mới check status
         if (!authenticated) throw new AppException(ErrorCode.UNAUTHENTICATED);
+        if (!user.getStatus().equals("ACTIVE")) throw new AppException(ErrorCode.USER_DEACTIVATED);
 
         var token = generateToken(user);
 
@@ -109,7 +112,7 @@ public class AuthenticationService {
                 .issuer("Dev.com")
                 .issueTime(new Date())
                 .expirationTime(new Date(
-                        Instant.now().plus(VALID_DURATION, ChronoUnit.SECONDS).toEpochMilli()))
+                        Instant.now().plus(VALID_DURATION, ChronoUnit.MILLIS).toEpochMilli()))
                 .jwtID(UUID.randomUUID().toString())
                 .claim("scope", buildScope(user))
                 .claim("userId", user.getId())
@@ -160,8 +163,18 @@ public class AuthenticationService {
             return new String[0];
         }
 
-        return user.getRoles().stream()
-                .map(role -> "ROLE_" + role.getName())
-                .toArray(String[]::new);
+        java.util.Set<String> scopes = new java.util.HashSet<>();
+        user.getRoles().forEach(role -> {
+            scopes.add("ROLE_" + role.getName());
+            if (!CollectionUtils.isEmpty(role.getPermissions())) {
+                role.getPermissions().forEach(permission -> {
+                    if (permission.getCode() != null) {
+                        scopes.add(permission.getCode());
+                    }
+                });
+            }
+        });
+
+        return scopes.toArray(new String[0]);
     }
 }

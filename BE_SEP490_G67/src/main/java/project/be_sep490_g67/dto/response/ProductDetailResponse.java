@@ -15,6 +15,10 @@ public class ProductDetailResponse {
 
     Integer id;
 
+    Integer parentId;
+
+    String parentName;
+
     String code;
 
     String name;

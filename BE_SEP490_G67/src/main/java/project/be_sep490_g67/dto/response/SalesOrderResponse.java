@@ -22,7 +22,12 @@ public class SalesOrderResponse {
     BigDecimal discountAmount;
     BigDecimal totalAmount;
     BigDecimal paidAmount;
+    BigDecimal remainingDebt;
     Instant createdAt;
+    Instant dueDate;
+    String note;
+    Integer createdBy;
+    String cashierName;
     CustomerInfo customer;
     List<SalesOrderDetailInfo> items;
 

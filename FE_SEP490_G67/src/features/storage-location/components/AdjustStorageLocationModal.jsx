@@ -12,10 +12,12 @@ import { ZONE_TYPE } from '../constants';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import {
     formatDate,
-    getLocationProduct,
+    getLocationMetrics,
+    getLocationProductPreview,
     groupLocationsByZone,
     groupZoneGroupsByType,
 } from '../utils/storageLocationUtils';
+import PlaceBatchQuantityModal from './PlaceBatchQuantityModal';
 
 const DRAG_TYPE = {
     unplaced: 'unplaced',
@@ -117,7 +119,8 @@ function LocationTree({
                     {zoneOpen && (
                         <div className="storage-adjust-modal__zone-locations">
                             {group.locations.map((location) => {
-                                const product = getLocationProduct(location);
+                                const { batchCount, productCount } = getLocationMetrics(location);
+                                const preview = getLocationProductPreview(location, 1);
                                 const isDropTarget = dragOverTarget === `loc-${location.id}`;
                                 return (
                                     <button
@@ -152,8 +155,10 @@ function LocationTree({
                                             {location.label}
                                         </span>
                                         <span className="storage-adjust-modal__location-meta">
-                                            {(location.contents ?? []).length > 0
-                                                ? `${location.contents.length} lô · ${product?.productName ?? ''}`
+                                            {batchCount > 0
+                                                ? productCount > 1
+                                                    ? `${productCount} SP · ${batchCount} lô`
+                                                    : `${batchCount} lô · ${preview}`
                                                 : 'Kệ trống'}
                                         </span>
                                     </button>
@@ -227,6 +232,7 @@ export default function AdjustStorageLocationModal({
     const [isSaving, setIsSaving] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
     const [sessionInitialLocationId, setSessionInitialLocationId] = useState(null);
+    const [placeQtyRequest, setPlaceQtyRequest] = useState(null);
 
     const reloadData = async (preferLocations, preferredId) => {
         const [nextLocations, nextUnplaced] = await Promise.all([
@@ -260,6 +266,7 @@ export default function AdjustStorageLocationModal({
             setDragOverTarget(null);
             setUnplacedKeyword('');
             setHasChanges(false);
+            setPlaceQtyRequest(null);
 
             try {
                 await reloadData(locations, initialLocationId);
@@ -346,10 +353,10 @@ export default function AdjustStorageLocationModal({
         setDragOverTarget(null);
     };
 
-    const handleDropOnLocation = async (event, locationId) => {
+    const handleDropOnLocation = (event, locationId) => {
         event.preventDefault();
         setDragOverTarget(null);
-        if (isSaving) {
+        if (isSaving || placeQtyRequest) {
             return;
         }
 
@@ -363,52 +370,98 @@ export default function AdjustStorageLocationModal({
             return;
         }
 
-        setIsSaving(true);
-        try {
-            if (payload.type === DRAG_TYPE.unplaced) {
-                const batch = unplacedBatches.find((item) => item.id === payload.batchId);
-                if (!batch) {
-                    return;
-                }
-
-                await assignBatchToLocation({
-                    batchId: batch.batchId ?? batch.id,
-                    locationId,
-                    quantity: batch.quantity,
-                });
-
-                await reloadData(null, locationId);
-                setHasChanges(true);
+        if (payload.type === DRAG_TYPE.unplaced) {
+            const batch = unplacedBatches.find((item) => item.id === payload.batchId);
+            if (!batch) {
+                return;
+            }
+            const maxQty = Number(batch.quantity) || 0;
+            if (maxQty < 1) {
                 setMessage({
-                    type: 'success',
-                    text: `Đã xếp lô ${batch.batchCode} vào kệ ${destination.label}.`,
+                    type: 'error',
+                    text: 'Lô không còn số lượng chưa xếp.',
                 });
                 return;
             }
+            setMessage(null);
+            setPlaceQtyRequest({
+                mode: 'assign',
+                batchId: batch.batchId ?? batch.id,
+                batchCode: batch.batchCode,
+                productName: batch.productName,
+                unit: batch.unit,
+                locationId,
+                locationLabel: destination.label,
+                maxQty,
+            });
+            return;
+        }
 
-            if (payload.type === DRAG_TYPE.shelf) {
-                if (payload.locationId === locationId) {
-                    return;
-                }
+        if (payload.type === DRAG_TYPE.shelf) {
+            if (payload.locationId === locationId) {
+                return;
+            }
+            const sourceLocation = draftLocations.find((item) => item.id === payload.locationId);
+            const shelfItem = (sourceLocation?.contents ?? []).find(
+                (item) => item.id === payload.batchId,
+            );
+            const maxQty = Number(shelfItem?.quantity ?? payload.quantity) || 0;
+            if (maxQty < 1) {
+                return;
+            }
+            setMessage(null);
+            setPlaceQtyRequest({
+                mode: 'move',
+                batchLocationId: payload.batchId,
+                batchCode: shelfItem?.batchCode || payload.batchCode,
+                productName: shelfItem?.productName || '',
+                unit: shelfItem?.unit,
+                locationId,
+                locationLabel: destination.label,
+                maxQty,
+            });
+        }
+    };
 
-                await moveBatchLocation({
-                    batchLocationId: payload.batchId,
-                    toLocationId: locationId,
-                    quantity: payload.quantity,
+    const handleConfirmPlaceQuantity = async (quantity) => {
+        if (!placeQtyRequest || isSaving) {
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            if (placeQtyRequest.mode === 'assign') {
+                await assignBatchToLocation({
+                    batchId: placeQtyRequest.batchId,
+                    locationId: placeQtyRequest.locationId,
+                    quantity,
                 });
-
-                await reloadData(null, locationId);
+                await reloadData(null, placeQtyRequest.locationId);
                 setHasChanges(true);
                 setMessage({
                     type: 'success',
-                    text: `Đã chuyển lô sang kệ ${destination.label}.`,
+                    text: `Đã xếp ${quantity} ${placeQtyRequest.unit || 'đv'} lô ${placeQtyRequest.batchCode} vào kệ ${placeQtyRequest.locationLabel}.`,
+                });
+            } else if (placeQtyRequest.mode === 'move') {
+                await moveBatchLocation({
+                    batchLocationId: placeQtyRequest.batchLocationId,
+                    toLocationId: placeQtyRequest.locationId,
+                    quantity,
+                });
+                await reloadData(null, placeQtyRequest.locationId);
+                setHasChanges(true);
+                setMessage({
+                    type: 'success',
+                    text: `Đã chuyển ${quantity} ${placeQtyRequest.unit || 'đv'} sang kệ ${placeQtyRequest.locationLabel}.`,
                 });
             }
+            setPlaceQtyRequest(null);
         } catch (error) {
             setMessage({
                 type: 'error',
                 text: getApiErrorMessage(error, 'Không thể cập nhật vị trí lô. Vui lòng thử lại.'),
             });
+            setPlaceQtyRequest(null);
         } finally {
             setIsSaving(false);
         }
@@ -453,11 +506,14 @@ export default function AdjustStorageLocationModal({
     }
 
     return (
+        <>
         <Modal
             show={show}
             onHide={handleClose}
             dialogClassName="storage-adjust-modal"
             centered
+            enforceFocus={!placeQtyRequest}
+            restoreFocus={!placeQtyRequest}
         >
             <Modal.Header className="storage-adjust-modal__header" closeButton>
                 <div className="storage-adjust-modal__header-main">
@@ -531,9 +587,12 @@ export default function AdjustStorageLocationModal({
                                         · Tầng {selectedLocation.shelf || '—'} · Ô{' '}
                                         {selectedLocation.bin || '—'}
                                     </p>
-                                    <div className="storage-adjust-modal__rule-box">
-                                        Mỗi kệ chỉ chứa 1 loại sản phẩm. Khu bán: mỗi SP chỉ 1 lô.
-                                    </div>
+                                    {selectedLocation.zoneType !== ZONE_TYPE.SALES ? (
+                                        <div className="storage-adjust-modal__rule-box">
+                                            Khu kho: mỗi ô chỉ chứa 1 loại sản phẩm (có thể nhiều lô
+                                            cùng SP).
+                                        </div>
+                                    ) : null}
 
                                     {message && (
                                         <div
@@ -690,5 +749,20 @@ export default function AdjustStorageLocationModal({
                 )}
             </Modal.Body>
         </Modal>
+            <PlaceBatchQuantityModal
+                open={Boolean(placeQtyRequest)}
+                mode={placeQtyRequest?.mode}
+                batchCode={placeQtyRequest?.batchCode}
+                productName={placeQtyRequest?.productName}
+                unit={placeQtyRequest?.unit}
+                locationLabel={placeQtyRequest?.locationLabel}
+                maxQty={placeQtyRequest?.maxQty}
+                confirming={isSaving}
+                onClose={() => {
+                    if (!isSaving) setPlaceQtyRequest(null);
+                }}
+                onConfirm={handleConfirmPlaceQuantity}
+            />
+        </>
     );
 }

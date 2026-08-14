@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Row,
   Col,
@@ -21,9 +21,12 @@ import {
   FiChevronDown,
   FiTrendingUp,
 } from "react-icons/fi";
-import SideBar from "../../../components/ui/sidebar/SideBar";
 import Header from "../../../components/ui/header-footer/Header";
+<<<<<<< HEAD
 import { getOverviewCustomer, getCustomerDebts } from "../api";
+=======
+import { getOverviewCustomer, getCustomerDebts, getTodayDebtSummary, getCustomerDetail } from "../api";
+>>>>>>> dev
 import CreateCustomerDebtModal from "../components/CreateCustomerDebtModal";
 import TodayPaymentsModal from "../components/TodayPaymentsModal";
 import TodayDebtSalesModal from "../components/TodayDebtSalesModal";
@@ -105,6 +108,9 @@ export default function CustomerDebtPage() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  // Khách vừa được thêm nhanh trên POS khi bán nợ, cần bổ sung hồ sơ.
+  const [profileToComplete, setProfileToComplete] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showTodayPaymentsModal, setShowTodayPaymentsModal] = useState(false);
   const [showTodayDebtSalesModal, setShowTodayDebtSalesModal] = useState(false);
   const [activeAccordionKey, setActiveAccordionKey] = useState(["debt"]); // 'debt' or 'no-debt'
@@ -232,15 +238,52 @@ export default function CustomerDebtPage() {
     fetchNoDebtData(1);
   }, [noDebtFilters]);
 
+  /**
+   * POS điều hướng sang đây kèm ?completeProfile=<id> sau khi ghi nợ cho một
+   * khách vừa thêm nhanh. Nạp hồ sơ hiện có rồi mở modal ở chế độ bổ sung.
+   */
+  useEffect(() => {
+    const customerId = searchParams.get('completeProfile');
+    if (!customerId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const customer = await getCustomerDetail(customerId);
+        if (cancelled) return;
+        setProfileToComplete(customer);
+        setShowCreateModal(true);
+      } catch (error) {
+        console.error("Failed to load customer for profile completion:", error);
+      } finally {
+        // Bỏ query param đi để F5 không mở lại modal.
+        if (!cancelled) {
+          searchParams.delete('completeProfile');
+          setSearchParams(searchParams, { replace: true });
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleCloseCreateModal = () => {
+    setShowCreateModal(false);
+    setProfileToComplete(null);
+  };
+
   const handleCreationSuccess = (newCustomer) => {
+    const wasCompleting = !!profileToComplete;
+    setProfileToComplete(null);
     setShowCreateModal(false);
     fetchDebtData(1); // Refetch debt customers
     fetchNoDebtData(1); // Also refetch no-debt customers in case the new customer has no debt
     // Ensure the debt accordion is open to see the new customer if they have debt
     setActiveAccordionKey(["debt"]);
 
-    setToastMessage(`Đã tạo thành công khách hàng: ${newCustomer.fullName}`);
-    setTimeout(() => setToastMessage(""), 4000);
+    setToastMessage(wasCompleting
+      ? `Đã cập nhật thông tin khách hàng: ${newCustomer.fullName}`
+      : `Đã tạo thành công khách hàng: ${newCustomer.fullName}`);
+    setTimeout(() => setToastMessage(''), 4000);
   };
 
   const handleDateFilterChange = (value) => {
@@ -432,9 +475,7 @@ export default function CustomerDebtPage() {
   );
 
   return (
-    <div className="d-flex vh-100">
-      <SideBar />
-      <div className="flex-grow-1 d-flex flex-column">
+    <div className="admin-content">
         <Header />
         <main className="p-4 flex-grow-1" style={{ overflowY: "auto" }}>
           {toastMessage && (
@@ -676,9 +717,11 @@ export default function CustomerDebtPage() {
         </main>
 
         <CreateCustomerDebtModal
+          key={profileToComplete?.id ?? 'new'}
           show={showCreateModal}
-          onHide={() => setShowCreateModal(false)}
+          onHide={handleCloseCreateModal}
           onSuccess={handleCreationSuccess}
+          completeProfile={profileToComplete}
         />
 
         <TodayPaymentsModal
@@ -691,6 +734,5 @@ export default function CustomerDebtPage() {
           onHide={() => setShowTodayDebtSalesModal(false)}
         />
       </div>
-    </div>
   );
 }

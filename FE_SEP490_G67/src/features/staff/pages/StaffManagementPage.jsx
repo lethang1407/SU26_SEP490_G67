@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Spinner } from 'react-bootstrap';
 import { Plus } from 'lucide-react';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import StaffFilters from '../components/StaffFilters';
 import StaffTable from '../components/StaffTable';
@@ -60,9 +59,8 @@ export default function StaffManagementPage() {
     };
 
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container">
@@ -98,6 +96,5 @@ export default function StaffManagementPage() {
                     </div>
                 </main>
             </div>
-        </div>
     );
 }

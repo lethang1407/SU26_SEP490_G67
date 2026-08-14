@@ -8,6 +8,5 @@ import java.util.Optional;
 
 @Repository
 public interface AttributeRepository extends JpaRepository<Attribute, Integer> {
-
     Optional<Attribute> findByNameIgnoreCaseAndIsRemovedFalse(String name);
 }

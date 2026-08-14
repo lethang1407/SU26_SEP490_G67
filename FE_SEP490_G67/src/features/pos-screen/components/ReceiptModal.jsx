@@ -1,6 +1,7 @@
 import { X, Printer } from 'lucide-react';
 import useInvoiceExport from '../hooks/useInvoiceExport';
 import { printInvoice } from '../utils/printInvoice';
+import { formatVnd } from '../utils/money';
 
 export default function ReceiptModal({ receipt, onClose }) {
     const { invoiceData, isLoading, error, fetchInvoice, clearInvoice } = useInvoiceExport();
@@ -80,10 +81,10 @@ export default function ReceiptModal({ receipt, onClose }) {
                                 <td>{item.unitName ?? '—'}</td>
                                 <td className="text-right">{item.quantity}</td>
                                 <td className="text-right">
-                                    {Number(item.unitPrice ?? 0).toLocaleString('vi-VN')}
+                                    {formatVnd(item.unitPrice)}
                                 </td>
                                 <td className="text-right font-bold">
-                                    {Number(item.lineTotal ?? item.unitPrice * item.quantity).toLocaleString('vi-VN')}
+                                    {formatVnd(item.lineTotal ?? item.unitPrice * item.quantity)}
                                 </td>
                             </tr>
                         ))}
@@ -92,7 +93,7 @@ export default function ReceiptModal({ receipt, onClose }) {
                         <tr>
                             <td colSpan={4} className="receipt-total-label">TỔNG CỘNG</td>
                             <td className="text-right receipt-total-value">
-                                {Number(total).toLocaleString('vi-VN')}
+                                {formatVnd(total)}
                             </td>
                         </tr>
                     </tfoot>

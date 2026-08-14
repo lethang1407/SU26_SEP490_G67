@@ -33,7 +33,9 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
                       AND (LOWER(d.product.name) LIKE :product OR LOWER(d.product.barcode) LIKE :product)))
               AND (:dateFrom IS NULL OR o.createdAt >= :dateFrom)
               AND (:dateTo   IS NULL OR o.createdAt <= :dateTo)
-            ORDER BY o.createdAt DESC
+              AND (:orderStatus IS NULL OR o.orderStatus = :orderStatus)
+              AND (:paymentMethod IS NULL OR o.paymentMethod = :paymentMethod)
+              AND (:isDebt IS NULL OR o.isDebt = :isDebt)
             """)
     Page<SalesOrder> findHistory(@Param("createdBy") Integer createdBy,
                                  @Param("search") String search,

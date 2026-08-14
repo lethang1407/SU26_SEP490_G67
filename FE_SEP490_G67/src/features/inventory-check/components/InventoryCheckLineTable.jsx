@@ -1,10 +1,15 @@
 import { Search, Trash2 } from 'lucide-react';
+import StyledSelect from '../../../components/ui/StyledSelect';
 import {
     enrichCheckLine,
     formatDiffQty,
     formatDiffValue,
     getDiffClassName,
 } from '../utils/inventoryCheckUtils';
+
+function rowKeyOf(line) {
+    return line.id ?? `${line.productId}-${line.stockBatchId ?? 'ALL'}`;
+}
 
 export default function InventoryCheckLineTable({
     lines,
@@ -14,6 +19,9 @@ export default function InventoryCheckLineTable({
     onActualQtyChange,
     onNoteChange,
     onRemoveLine,
+    onBatchChange,
+    onExchangeBatch,
+    onReturnBatch,
 }) {
     const normalizedKeyword = keyword.trim().toLowerCase();
     const filteredLines = lines.filter((line) => {
@@ -23,7 +31,8 @@ export default function InventoryCheckLineTable({
 
         return (
             line.productCode?.toLowerCase().includes(normalizedKeyword) ||
-            line.productName?.toLowerCase().includes(normalizedKeyword)
+            line.productName?.toLowerCase().includes(normalizedKeyword) ||
+            line.batchCode?.toLowerCase().includes(normalizedKeyword)
         );
     });
 
@@ -60,19 +69,21 @@ export default function InventoryCheckLineTable({
                         <tr>
                             <th>Mã SP</th>
                             <th>Tên sản phẩm</th>
+                            <th>Lô</th>
                             <th>ĐVT</th>
                             <th>Tồn HT</th>
                             <th>Thực tế</th>
                             <th>Chênh lệch</th>
                             <th>Giá trị lệch</th>
                             <th>Ghi chú</th>
-                            {editable ? <th /> : null}
+                            {editable ? <th aria-label="Hành động" /> : null}
                         </tr>
                     </thead>
                     <tbody>
                         {filteredLines.map((line) => {
                             const enriched = enrichCheckLine(line);
-                            const rowKey = line.id ?? line.productId;
+                            const rowKey = rowKeyOf(line);
+                            const hasSpecificBatch = line.stockBatchId != null;
 
                             return (
                                 <tr key={rowKey}>
@@ -81,6 +92,27 @@ export default function InventoryCheckLineTable({
                                     </td>
                                     <td className="inventory-check-line-table__name">
                                         {line.productName}
+                                    </td>
+                                    <td>
+                                        {editable && onBatchChange ? (
+                                            <StyledSelect
+                                                value={line.stockBatchId ?? 'ALL'}
+                                                options={[
+                                                    { value: 'ALL', label: 'Tất cả lô' },
+                                                    ...(line.batches ?? []).map((batch) => ({
+                                                        value: batch.id,
+                                                        label: `${batch.batchCode} (${batch.quantity}${
+                                                            batch.expiryDate
+                                                                ? ` · HSD ${batch.expiryDate}`
+                                                                : ''
+                                                        })`,
+                                                    })),
+                                                ]}
+                                                onChange={(next) => onBatchChange(rowKey, next)}
+                                            />
+                                        ) : (
+                                            line.batchCode || 'Tất cả lô'
+                                        )}
                                     </td>
                                     <td>{line.unit}</td>
                                     <td className="inventory-check-line-table__qty">
@@ -133,14 +165,56 @@ export default function InventoryCheckLineTable({
                                     </td>
                                     {editable ? (
                                         <td>
-                                            <button
-                                                type="button"
-                                                className="inventory-check-line-table__remove"
-                                                title="Xóa dòng"
-                                                onClick={() => onRemoveLine?.(rowKey)}
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
+                                            <div className="inventory-check-line-table__actions">
+                                                {hasSpecificBatch ? (
+                                                    <div className="inventory-check-line-table__batch-actions">
+                                                        <button
+                                                            type="button"
+                                                            className="inventory-check-line-table__action inventory-check-line-table__action--success"
+                                                            onClick={() => onExchangeBatch?.(line)}
+                                                            disabled={
+                                                                !line.importOrderId ||
+                                                                Number(line.actualQty) < 1
+                                                            }
+                                                            title={
+                                                                !line.importOrderId
+                                                                    ? 'Lô không gắn phiếu nhập'
+                                                                    : Number(line.actualQty) < 1
+                                                                      ? 'Đã trả/đổi hết số lượng còn lại'
+                                                                      : 'Thêm vào phiếu đổi cho NCC'
+                                                            }
+                                                        >
+                                                            Đổi cho NCC
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="inventory-check-line-table__action inventory-check-line-table__action--danger"
+                                                            onClick={() => onReturnBatch?.(line)}
+                                                            disabled={
+                                                                !line.importOrderId ||
+                                                                Number(line.actualQty) < 1
+                                                            }
+                                                            title={
+                                                                !line.importOrderId
+                                                                    ? 'Lô không gắn phiếu nhập'
+                                                                    : Number(line.actualQty) < 1
+                                                                      ? 'Đã trả/đổi hết số lượng còn lại'
+                                                                      : 'Thêm vào phiếu trả NCC'
+                                                            }
+                                                        >
+                                                            Trả NCC
+                                                        </button>
+                                                    </div>
+                                                ) : null}
+                                                <button
+                                                    type="button"
+                                                    className="inventory-check-line-table__remove"
+                                                    title="Xóa dòng"
+                                                    onClick={() => onRemoveLine?.(rowKey)}
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
                                         </td>
                                     ) : null}
                                 </tr>
@@ -149,11 +223,6 @@ export default function InventoryCheckLineTable({
                     </tbody>
                 </table>
             </div>
-
-            <p className="inventory-check-line-table__hint">
-                Mỗi dòng = một sản phẩm. Tồn hệ thống là tổng số lượng của sản phẩm trong kho
-                (đã xếp kệ và chưa xếp kệ). Lưu phiếu sẽ cập nhật tồn theo số lượng thực tế.
-            </p>
         </div>
     );
 }

@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Spinner } from 'react-bootstrap';
 import { Download, Plus } from 'lucide-react';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
+import AlertNoticeModal from '../../../components/ui/AlertNoticeModal';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import { fetchInventoryChecks } from '../api';
 import InventoryCheckToolbar from '../components/InventoryCheckToolbar';
@@ -14,6 +14,7 @@ import { filterInventoryChecks } from '../utils/inventoryCheckUtils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Inventory.css';
 import '../../../css/InventoryCheck.css';
+import '../../../css/Supplier.css';
 
 const PAGE_SIZE = 5;
 const EMPTY_PAGE = {
@@ -38,6 +39,7 @@ export default function InventoryCheckListPage() {
     const [data, setData] = useState(EMPTY_PAGE);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [warning, setWarning] = useState(null);
 
     const loadChecks = useCallback(async () => {
         setLoading(true);
@@ -94,16 +96,16 @@ export default function InventoryCheckListPage() {
     const endIndex = Math.min(page * PAGE_SIZE, totalItems);
 
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container inventory-check-page">
                         <header className="inventory-page__header">
                             <div>
-                                <h1 className="inventory-page__title">Phiếu kiểm kho</h1>
+                                <h1 className="inventory-page__title">Lịch sử kiểm kho</h1>
                                 <p className="inventory-page__subtitle">
+                                    Các phiếu kiểm đã lưu.
                                 </p>
                             </div>
                             <div className="inventory-page__actions">
@@ -111,7 +113,7 @@ export default function InventoryCheckListPage() {
                                     type="button"
                                     className="inventory-btn inventory-btn--secondary"
                                     onClick={() =>
-                                        window.alert('Chức năng xuất file đang phát triển.')
+                                        setWarning('Chức năng xuất file đang phát triển.')
                                     }
                                 >
                                     <Download size={18} />
@@ -163,7 +165,11 @@ export default function InventoryCheckListPage() {
                         />
                     </div>
                 </main>
-            </div>
+            <AlertNoticeModal
+                open={Boolean(warning)}
+                message={warning}
+                onClose={() => setWarning(null)}
+            />
         </div>
     );
 }

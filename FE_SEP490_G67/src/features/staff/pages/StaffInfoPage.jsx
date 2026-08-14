@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Alert, Spinner } from 'react-bootstrap';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import StaffInfoForm from '../components/StaffInfoForm';
 import { getStaffById, updateStaff } from '../api';
@@ -77,9 +76,8 @@ export default function StaffInfoPage() {
 
     if (isLoading) {
         return (
-            <div className="admin-layout">
-                <SideBar />
-                <div className="admin-content">
+            <div className="admin-content">
+                
                     <AdminHeader />
                     <main className="admin-main">
                         <div className="dashboard-container text-center p-5">
@@ -89,15 +87,13 @@ export default function StaffInfoPage() {
                         </div>
                     </main>
                 </div>
-            </div>
         );
     }
 
     if (!staff) {
         return (
-            <div className="admin-layout">
-                <SideBar />
-                <div className="admin-content">
+            <div className="admin-content">
+                
                     <AdminHeader />
                     <main className="admin-main">
                         <div className="dashboard-container">
@@ -110,14 +106,12 @@ export default function StaffInfoPage() {
                         </div>
                     </main>
                 </div>
-            </div>
         );
     }
 
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
+        <div className="admin-content">
+            
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container">
@@ -156,6 +150,5 @@ export default function StaffInfoPage() {
                     </div>
                 </main>
             </div>
-        </div>
     );
 }

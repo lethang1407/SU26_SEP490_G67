@@ -15,12 +15,16 @@ import org.springframework.web.bind.annotation.RestController;
 import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.request.CreateInventoryCheckRequest;
 import project.be_sep490_g67.dto.response.ApiResponse;
+import project.be_sep490_g67.dto.response.InventoryCheckAttentionItemResponse;
 import project.be_sep490_g67.dto.response.InventoryCheckDetailResponse;
 import project.be_sep490_g67.dto.response.InventoryCheckListItemResponse;
 import project.be_sep490_g67.dto.response.InventoryCheckProductPreviewResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.repository.UserRepository;
 import project.be_sep490_g67.service.InventoryCheckService;
+
+import org.springframework.security.access.prepost.PreAuthorize;
+import java.util.List;
 
 @RestController
 @RequestMapping(ApiPath.INVENTORY_CHECKS)
@@ -31,6 +35,7 @@ public class InventoryCheckController {
     InventoryCheckService inventoryCheckService;
     UserRepository userRepository;
 
+    @PreAuthorize("hasAuthority('WAREHOUSE:CHECK_VIEW')")
     @GetMapping
     public ApiResponse<PageResponse<InventoryCheckListItemResponse>> getChecks(
             @RequestParam(required = false) String search,
@@ -43,6 +48,15 @@ public class InventoryCheckController {
                 .build();
     }
 
+    @GetMapping("/attention")
+    public ApiResponse<List<InventoryCheckAttentionItemResponse>> getAttentionItems() {
+        return ApiResponse.<List<InventoryCheckAttentionItemResponse>>builder()
+                .result(inventoryCheckService.getAttentionItems())
+                .message("Lấy danh sách cần kiểm ngay thành công")
+                .build();
+    }
+   
+    @PreAuthorize("hasAuthority('WAREHOUSE:CHECK_VIEW')")
     @GetMapping("/product-preview/{productId}")
     public ApiResponse<InventoryCheckProductPreviewResponse> getProductPreview(
             @PathVariable Integer productId) {
@@ -52,6 +66,7 @@ public class InventoryCheckController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('WAREHOUSE:CHECK_VIEW')")
     @GetMapping("/{id}")
     public ApiResponse<InventoryCheckDetailResponse> getCheckDetail(@PathVariable Integer id) {
         return ApiResponse.<InventoryCheckDetailResponse>builder()
@@ -60,6 +75,7 @@ public class InventoryCheckController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('WAREHOUSE:CHECK_CREATE')")
     @PostMapping
     public ApiResponse<InventoryCheckDetailResponse> createCheck(
             @Valid @RequestBody CreateInventoryCheckRequest request) {

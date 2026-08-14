@@ -1,18 +1,24 @@
 import { AlertTriangle } from 'lucide-react';
-import { LOCATION_STATUS, LOCATION_STATUS_LABEL } from '../constants';
+import { LOCATION_STATUS, LOCATION_STATUS_LABEL, ZONE_TYPE } from '../constants';
 import {
     getLocationMetrics,
+    getLocationProductPreview,
     getLocationStatus,
     getShelfProfile,
-    shortenProductName,
 } from '../utils/storageLocationUtils';
 
 export default function StorageLocationCell({ location, isSelected, onSelect }) {
     const status = getLocationStatus(location);
-    const { batchCount, totalQty, product } = getLocationMetrics(location);
+    const { batchCount, totalQty, productCount, product } = getLocationMetrics(location);
     const profile = getShelfProfile(location);
     const isEmpty = status === LOCATION_STATUS.EMPTY;
-    const shortProductName = shortenProductName(product?.productName);
+    const isSales = location.zoneType === ZONE_TYPE.SALES;
+    const productPreview = getLocationProductPreview(location, isSales ? 2 : 1);
+    const fullProductTitle = (location.contents ?? [])
+        .map((item) => item.productName)
+        .filter(Boolean)
+        .filter((name, index, arr) => arr.indexOf(name) === index)
+        .join(', ');
 
     return (
         <button
@@ -54,11 +60,13 @@ export default function StorageLocationCell({ location, isSelected, onSelect }) 
                     <span className="storage-location-cell__empty"></span>
                 ) : (
                     <>
-                        <span className="storage-location-cell__product" title={product?.productName}>
-                            {shortProductName}
+                        <span className="storage-location-cell__product" title={fullProductTitle}>
+                            {productPreview}
                         </span>
                         <span className="storage-location-cell__qty">
-                            {batchCount} lô · {totalQty} {product?.unit ?? 'đv'}
+                            {isSales && productCount > 1
+                                ? `${productCount} SP · ${batchCount} lô · ${totalQty} đv`
+                                : `${batchCount} lô · ${totalQty} ${product?.unit ?? 'đv'}`}
                         </span>
                     </>
                 )}
