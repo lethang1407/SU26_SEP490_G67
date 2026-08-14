@@ -283,7 +283,6 @@ public class CustomerService {
         List<DebtOrderResponse> responses = salesOrderPage.getContent().stream().map(so -> {
             BigDecimal initialPaidAmount = so.getPaidAmount() != null ? so.getPaidAmount() : BigDecimal.ZERO;
             BigDecimal subsequentPayments = so.getDebtPayments().stream()
-                    .filter(dp -> !Boolean.TRUE.equals(dp.getIsRemoved()))
                     .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal totalPaid = initialPaidAmount.add(subsequentPayments);
@@ -387,6 +386,8 @@ public class CustomerService {
                         .orElse("Không rõ");
             }
 
+            Customer orderCustomer = so.getCustomer();
+
             return DebtOrderResponse.builder()
                     .id(so.getId())
                     .customerId(so.getCustomer().getId())
@@ -397,7 +398,7 @@ public class CustomerService {
                     .totalAmount(totalAmount)
                     .amountPaid(totalPaid)
                     .amountRemaining(amountRemaining)
-                    .isCheckDebtUnstable(so.getIsCheckDebtUnstable())
+                    .isCheckDebtUnstable(orderCustomer.getIsCheckUnstableDebt())
                     .status(amountRemaining.compareTo(BigDecimal.ZERO) <= 0 ? DebtOrderStatus.PAID : DebtOrderStatus.IN_DEBT)
                     .createdBy(createdByName)
                     .build();

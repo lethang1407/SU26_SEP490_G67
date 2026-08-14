@@ -119,7 +119,7 @@ public class SalesOrderController {
      */
     @GetMapping("/{id}/detail")
     @PreAuthorize("isAuthenticated()")
-    ApiResponse<SalesOrderDetailResponse> getOrderDetail(@PathVariable Integer id) {
+    ApiResponse<SalesOrderDetailResponse> getOrderDetailWithReturns(@PathVariable Integer id) {
         SalesOrderDetailResponse result = salesOrderService.getOrderDetailWithReturns(id);
         return ApiResponse.<SalesOrderDetailResponse>builder()
                 .result(result)

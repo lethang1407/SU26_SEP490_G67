@@ -23,7 +23,6 @@ public interface ReturnOrderRepository extends JpaRepository<ReturnOrder, Intege
             LEFT JOIN FETCH r.returnOrderDetails rd
             LEFT JOIN FETCH rd.product
             LEFT JOIN FETCH rd.salesOrderDetail
-            LEFT JOIN FETCH rd.pairedOutDetail
             WHERE r.salesOrder.id = :salesOrderId
               AND r.isRemoved = false
             ORDER BY r.createdAt ASC, r.id ASC
