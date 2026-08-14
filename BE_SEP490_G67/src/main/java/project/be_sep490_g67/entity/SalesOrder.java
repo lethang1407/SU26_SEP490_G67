@@ -30,9 +30,14 @@ public class SalesOrder extends BaseEntity {
     @Column(name = "order_code", length = 30)
     private String orderCode;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "exchange_sales_order_id")
-    private SalesOrder exchangeSalesOrder;
+    /**
+     * Đơn bán gốc mà đơn đổi này sinh ra từ đó; NULL với đơn bán thường.
+     *
+     * <p>Là id thuần chứ không phải quan hệ: con trỏ chỉ dùng để tra ngược nguồn
+     * gốc, không có thao tác nào đi qua nó để nạp cả đơn gốc.
+     */
+    @Column(name = "original_sales_order_id")
+    private Integer originalSalesOrderId;
 
     @ColumnDefault("'CASH'")
     @Column(name = "payment_method", length = 50)
@@ -61,10 +66,6 @@ public class SalesOrder extends BaseEntity {
     @ColumnDefault("0")
     @Column(name = "is_debt")
     private Boolean isDebt;
-
-    @ColumnDefault("0")
-    @Column(name = "is_check_unstable_debt")
-    private Boolean isCheckDebtUnstable;
 
     @Lob
     @Column(name = "note")

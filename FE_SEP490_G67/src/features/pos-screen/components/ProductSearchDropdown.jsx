@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Loader2, PackageSearch } from 'lucide-react';
+import { formatVnd } from '../utils/money';
 
 export default function ProductSearchDropdown({ results, loading, error, onSelect, onClose }) {
     const ref = useRef(null);
@@ -66,7 +67,7 @@ export default function ProductSearchDropdown({ results, loading, error, onSelec
                                 </span>
                                 <span className="psd-price">
                                     {product.sellingPrice != null
-                                        ? Number(product.sellingPrice).toLocaleString() + ' ₫'
+                                        ? formatVnd(product.sellingPrice)
                                         : '—'}
                                 </span>
                             </div>

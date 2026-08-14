@@ -1,0 +1,276 @@
+/* Modal xem nhanh hóa đơn — mở chồng lên modal lịch sử nên z-index phải cao hơn .hist-overlay */
+.sod-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+    animation: sod-fade-in 0.15s ease;
+}
+
+@keyframes sod-fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.sod-modal {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    width: 780px;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 64px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* ── Header ── */
+.sod-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.sod-header-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.sod-header-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: #eff6ff;
+    border-radius: 9px;
+    color: #2563eb;
+    flex-shrink: 0;
+}
+
+.sod-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.sod-code {
+    color: #2563eb;
+}
+
+.sod-subtitle {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 2px;
+}
+
+.sod-close-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6b7280;
+    padding: 4px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    transition: background 0.15s, color 0.15s;
+}
+
+.sod-close-btn:hover {
+    background: #f3f4f6;
+    color: #111;
+}
+
+/* ── Body ── */
+.sod-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 22px;
+}
+
+.sod-state {
+    padding: 40px 0;
+    text-align: center;
+    color: #9ca3af;
+    font-size: 14px;
+}
+
+.sod-state--error {
+    color: #dc2626;
+}
+
+.sod-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px 18px;
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    background: #f9fafb;
+    border: 1px solid #f3f4f6;
+    border-radius: 8px;
+}
+
+.sod-meta dt {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.sod-meta dd {
+    margin: 2px 0 0;
+    font-size: 13.5px;
+    color: #111827;
+    font-weight: 600;
+}
+
+.sod-group-title {
+    margin: 14px 0 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #374151;
+}
+
+/* ── Bảng dòng hàng ── */
+.sod-items {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.sod-items th {
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 12.5px;
+    color: #374151;
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+    white-space: nowrap;
+}
+
+.sod-items td {
+    padding: 9px 10px;
+    border-bottom: 1px solid #f3f4f6;
+    color: #1f2937;
+    vertical-align: middle;
+}
+
+/* Số liệu canh phải ở cả header lẫn ô dữ liệu để hai bên thẳng cột */
+.sod-items th.sod-num,
+.sod-items td.sod-num {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.sod-items th.sod-col-idx,
+.sod-items td.sod-col-idx {
+    width: 1%;
+    color: #9ca3af;
+}
+
+.sod-strong {
+    font-weight: 600;
+    color: #111827;
+}
+
+.sod-empty {
+    text-align: center;
+    color: #9ca3af;
+    padding: 20px 0;
+}
+
+/* ── Tổng tiền ── */
+.sod-totals {
+    margin-top: 14px;
+    margin-left: auto;
+    width: 320px;
+    max-width: 100%;
+}
+
+.sod-total-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 6px 0;
+    font-size: 13.5px;
+    color: #374151;
+}
+
+.sod-total-row--grand {
+    border-top: 1px solid #e5e7eb;
+    margin-top: 4px;
+    padding-top: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #111827;
+}
+
+/* ── Footer ── */
+.sod-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 14px 22px;
+    border-top: 1px solid #e5e7eb;
+    background: #fafafa;
+}
+
+.sod-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+
+.sod-btn:hover {
+    background: #f3f4f6;
+}
+
+.sod-btn--primary {
+    border-color: #2563eb;
+    background: #2563eb;
+    color: #fff;
+}
+
+.sod-btn--primary:hover {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+}
+
+.sod-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+    .sod-modal {
+        width: 100vw;
+        height: 100vh;
+        border-radius: 0;
+    }
+
+    .sod-totals {
+        width: 100%;
+    }
+}
