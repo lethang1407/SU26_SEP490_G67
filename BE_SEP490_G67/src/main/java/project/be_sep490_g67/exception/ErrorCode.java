@@ -139,6 +139,7 @@ public enum ErrorCode {
     RETURN_QUANTITY_EXCEEDS_PURCHASED(3105, "Số lượng trả vượt quá số lượng đã mua", HttpStatus.BAD_REQUEST),
     RETURN_QUANTITY_EXCEEDS_REMAINING(3110, "Số lượng trả vượt quá số lượng còn có thể trả của dòng hàng này", HttpStatus.BAD_REQUEST),
     RETURN_WINDOW_EXPIRED(3111, "Đơn hàng đã quá thời hạn đổi trả", HttpStatus.BAD_REQUEST),
+    RETURN_ORDER_HAS_OVERDUE_DEBT(3112, "Hóa đơn nợ đã quá hạn trả nợ, không thể đổi trả", HttpStatus.BAD_REQUEST),
     RETURN_PRODUCT_NOT_FOUND(3106, "Không tìm thấy sản phẩm cần trả", HttpStatus.NOT_FOUND),
     // STOCK_BATCH_NOT_FOUND đã có ở nhóm 1xxx (1033) từ nhánh dev — dùng lại,
     // không định nghĩa bản 3107 song song.
@@ -155,12 +156,21 @@ public enum ErrorCode {
     PAIRED_ITEM_NOT_FOUND(3304, "Không tìm thấy sản phẩm thay thế được ghép cặp", HttpStatus.BAD_REQUEST),
     PAIRED_ITEM_ALREADY_USED(3305, "Một sản phẩm thay thế chỉ được ghép với một dòng hàng trả", HttpStatus.BAD_REQUEST),
     EXCHANGE_EVEN_AMOUNT_MISMATCH(3306, "Đổi ngang giá yêu cầu hai bên bằng giá, vui lòng chọn đổi có chênh lệch", HttpStatus.BAD_REQUEST),
-    MANAGER_APPROVAL_REQUIRED(3307, "Hoàn tiền mặt cho người không đứng tên hóa đơn cần quản lý phê duyệt", HttpStatus.FORBIDDEN),
+    // 3307 (MANAGER_APPROVAL_REQUIRED) đã bỏ cùng lối phê duyệt người mang hàng — không cấp lại số này.
 
     // Item condition errors (34xx)
     ITEM_CONDITION_REQUIRED(3401, "Vui lòng chọn tình trạng hàng hóa cho từng dòng trả", HttpStatus.BAD_REQUEST),
     INVALID_ITEM_CONDITION(3402, "Tình trạng hàng hóa không hợp lệ", HttpStatus.BAD_REQUEST),
     PRODUCT_NOT_RETURNABLE(3403, "Sản phẩm này không được phép trả lại", HttpStatus.BAD_REQUEST),
+
+    // Debt sale errors (41xx)
+    DEBT_REQUIRES_CUSTOMER(4101, "Đơn bán nợ phải có thông tin khách hàng", HttpStatus.BAD_REQUEST),
+    CUSTOMER_NOT_ALLOWED_DEBT(4102, "Khách hàng này không được phép mua nợ", HttpStatus.BAD_REQUEST),
+    CUSTOMER_HAS_OVERDUE_DEBT(4103, "Khách hàng đang có đơn nợ quá hạn, không thể bán nợ thêm", HttpStatus.BAD_REQUEST),
+    DEBT_PREPAID_EXCEEDS_TOTAL(4104, "Số tiền trả trước phải nhỏ hơn tổng tiền đơn hàng", HttpStatus.BAD_REQUEST),
+    DEBT_DUE_DATE_REQUIRED(4105, "Đơn bán nợ phải có hạn trả nợ", HttpStatus.BAD_REQUEST),
+    DEBT_DUE_DATE_IN_PAST(4106, "Hạn trả nợ phải sau thời điểm tạo đơn", HttpStatus.BAD_REQUEST),
+    DEBT_PAYMENT_EXCEEDS_REMAINING(4107, "Số tiền khách trả thêm vượt quá số nợ còn lại sau khi đã cấn trừ hàng trả", HttpStatus.BAD_REQUEST),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

@@ -1,7 +1,3 @@
-// Helper hiển thị dùng chung cho danh sách hóa đơn
-// (modal Lịch sử bán hàng + màn chọn hóa đơn Đổi/Trả)
-
-/** Tên + SĐT khách; không có cả hai => "Khách lẻ" */
 export function formatCustomerLabel(order) {
     const name = order?.customerName?.trim();
     const phone = order?.customerPhone?.trim();
@@ -9,6 +5,10 @@ export function formatCustomerLabel(order) {
     if (!phone) return name;
     if (!name) return phone;
     return `${name} - ${phone}`;
+}
+
+export function formatCustomerName(order) {
+    return order?.customerName?.trim() || 'Khách lẻ';
 }
 
 export function formatVnDateTime(isoString) {

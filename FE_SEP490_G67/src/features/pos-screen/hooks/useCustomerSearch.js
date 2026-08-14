@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { searchCustomersByPhone } from '../api';
+import { searchCustomers } from '../api';
 
 const DEBOUNCE_MS = 200;
 const MIN_QUERY_LENGTH = 1;
@@ -31,8 +31,8 @@ export function useCustomerSearch(query) {
 
         debounceRef.current = setTimeout(async () => {
             try {
-                const data = await searchCustomersByPhone(trimmed);
-                setResults(data);
+                const data = await searchCustomers(trimmed);
+                setResults(data ?? []);
                 setError(null);
             } catch (err) {
                 setError('Không thể tải danh sách khách hàng. Vui lòng thử lại.');

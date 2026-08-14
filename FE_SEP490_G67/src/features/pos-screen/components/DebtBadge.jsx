@@ -1,3 +1,5 @@
+import { formatVnd as formatMoney } from '../utils/money';
+
 /**
  * Trạng thái công nợ nằm trên một trục khác với trạng thái hóa đơn: một hóa đơn
  * có thể vừa "Trả một phần" vừa đang còn nợ, nên đây là badge riêng chứ không
@@ -11,8 +13,6 @@ const DEBT_CONFIG = {
     PAID: { label: 'Đã trả nợ', cls: 'badge-paid' },
 };
 
-const formatMoney = (amount) => `${Number(amount ?? 0).toLocaleString('vi-VN')}đ`;
-
 const formatVnDate = (iso) => (iso ? new Date(iso).toLocaleDateString('vi-VN') : null);
 
 /** Tooltip: còn nợ bao nhiêu, hạn ngày nào. */
@@ -25,17 +25,28 @@ function buildTitle(debtStatus, remainingDebt, dueDate) {
     return parts.join(' · ');
 }
 
-export default function DebtBadge({ debtStatus, remainingDebt, dueDate }) {
+export default function DebtBadge({ debtStatus, remainingDebt, dueDate, isCheckDebtUnstable }) {
     const cfg = DEBT_CONFIG[debtStatus];
     if (!cfg) return null;
 
     return (
-        <span
-            className={`hist-badge ${cfg.cls}`}
-            title={buildTitle(debtStatus, remainingDebt, dueDate)}
-        >
-            {cfg.label}
-            {debtStatus !== 'PAID' && ` ${formatMoney(remainingDebt)}`}
-        </span>
+        <>
+            <span
+                className={`hist-badge ${cfg.cls}`}
+                title={buildTitle(debtStatus, remainingDebt, dueDate)}
+            >
+                {cfg.label}
+                {debtStatus !== 'PAID' && ` ${formatMoney(remainingDebt)}`}
+            </span>
+            {/* Đơn nợ đã lưu nhưng quản lý chưa duyệt nên chưa vào công nợ khách */}
+            {isCheckDebtUnstable === false && (
+                <span
+                    className="hist-badge badge-pending-approval"
+                    title="Đơn nợ chờ quản lý duyệt, chưa cộng vào công nợ khách hàng"
+                >
+                    Chờ duyệt
+                </span>
+            )}
+        </>
     );
 }

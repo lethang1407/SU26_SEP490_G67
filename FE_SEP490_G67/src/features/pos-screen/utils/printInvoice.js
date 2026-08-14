@@ -38,8 +38,10 @@ class InvoiceDocument {
     }
 
     debtBadge() {
+        // Cờ isCheckDebtUnstable là việc nội bộ giữa nhân viên và quản lý,
+        // không in lên hóa đơn của khách.
         return this.data.isDebt && !this.isCancelled
-            ? this.t.badge('BÁN NỢ', '#dc2626')
+            ? this.t.badge('BÁN NỢ', '#6b7280')
             : '';
     }
 
@@ -112,7 +114,9 @@ class InvoiceDocument {
     }
 
     salesTotals() {
-        const { subtotal, discountAmount, totalAmount, isDebt, paidAmount, remainingDebt } = this.data;
+        const {
+            subtotal, discountAmount, totalAmount, isDebt, paidAmount, remainingDebt, dueDate,
+        } = this.data;
 
         const rows = [
             this.t.totalRow({ label: 'Tổng tiền hàng:', value: this.money(subtotal) }),
@@ -125,10 +129,16 @@ class InvoiceDocument {
         rows.push(this.t.totalRow({ label: 'TỔNG CỘNG:', value: this.money(totalAmount), grand: true }));
 
         if (isDebt) {
+            // Trả trước một phần: paidAmount > 0. Nợ toàn bộ: paidAmount = 0.
             rows.push(this.t.totalRow({ label: 'Đã thanh toán:', value: this.money(paidAmount) }));
             rows.push(this.t.totalRow({
                 label: 'Còn nợ:', value: this.money(remainingDebt), tone: 'out', rowTone: 'out',
             }));
+            if (dueDate) {
+                rows.push(this.t.totalRow({
+                    label: 'Hạn trả nợ:', value: new Date(dueDate).toLocaleDateString('vi-VN'),
+                }));
+            }
         }
 
         return rows;

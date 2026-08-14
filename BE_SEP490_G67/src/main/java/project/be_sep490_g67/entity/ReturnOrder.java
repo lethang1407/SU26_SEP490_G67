@@ -23,18 +23,6 @@ public class ReturnOrder extends BaseEntity {
     @JoinColumn(name = "sales_order_id")
     private SalesOrder salesOrder;
 
-    @Column(name = "bearer_name", length = 100)
-    private String bearerName;
-
-    @Column(name = "bearer_phone", length = 15)
-    private String bearerPhone;
-
-    @Column(name = "bearer_is_owner")
-    private Boolean bearerIsOwner;
-
-    @Column(name = "approved_by")
-    private Integer approvedBy;
-
     @Column(name = "return_code", length = 30)
     private String returnCode;
 
@@ -46,9 +34,26 @@ public class ReturnOrder extends BaseEntity {
     @Column(name = "resolution_type")
     private String resolutionType;
 
+    /** Tổng giá trị hàng khách trả về, trước khi chia thành cấn trừ nợ và tiền mặt. */
     @ColumnDefault("0.00")
     @Column(name = "refund_amount", precision = 15, scale = 2)
     private BigDecimal refundAmount;
+
+    /**
+     * Phần {@link #refundAmount} được trừ thẳng vào công nợ của hoá đơn gốc thay vì
+     * trả bằng tiền. Chỉ khác 0 khi đơn gốc là đơn nợ và còn dư nợ.
+     * NULL với phiếu lập
+     */
+    @Column(name = "debt_offset_amount", precision = 15, scale = 2)
+    private BigDecimal debtOffsetAmount;
+
+    /**
+     * Phần {@link #refundAmount} thực sự ra khỏi két. Với đơn nợ, đây là phần còn lại
+     * sau khi đã cấn trừ hết công nợ — nên nó không bao giờ vượt quá số tiền khách đã
+     * thực trả cho hoá đơn gốc. NULL với phiếu lập trước V25.
+     */
+    @Column(name = "cash_refund_amount", precision = 15, scale = 2)
+    private BigDecimal cashRefundAmount;
 
     @Lob
     @Column(name = "note")
