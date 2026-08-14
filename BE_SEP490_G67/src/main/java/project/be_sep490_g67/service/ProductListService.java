@@ -264,9 +264,4 @@ public class ProductListService {
         return facet.equals(dto.getFacetStatus());
     }
 
-    int storeCoverDefault() {
-        return storeConfigRepository.findById(1)
-                .map(sc -> sc.getDefaultCoverDays() != null ? sc.getDefaultCoverDays() : STORE_COVER_DEFAULT)
-                .orElse(STORE_COVER_DEFAULT);
-    }
 }

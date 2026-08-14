@@ -4,6 +4,7 @@ import { Search, ChevronLeft, ChevronRight, Home, ClipboardList } from 'lucide-r
 import { useSalesOrderHistory } from '../hooks/useSalesOrderHistory';
 import OrderStatusBadge from './OrderStatusBadge';
 import { formatVnDateTime, formatCustomerLabel } from '../utils/orderDisplay';
+import { formatVnd } from '../utils/money';
 import '../../../css/POS.css';
 import '../../../css/SalesOrderHistoryModal.css';
 import '../../../css/ExchangeOrder.css';
@@ -148,7 +149,7 @@ export default function ExchangeOrderPicker() {
                                         <td className="hist-time">{formatVnDateTime(order.createdAt)}</td>
                                         <td>{formatCustomerLabel(order)}</td>
                                         <td className="text-right hist-amount">
-                                            {Number(order.totalAmount ?? 0).toLocaleString('vi-VN')}đ
+                                            {formatVnd(order.totalAmount)}
                                         </td>
                                         <td>
                                             <OrderStatusBadge status={order.orderStatus} />
