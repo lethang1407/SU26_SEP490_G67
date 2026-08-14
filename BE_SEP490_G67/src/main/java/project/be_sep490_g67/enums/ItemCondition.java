@@ -16,8 +16,4 @@ public enum ItemCondition {
     public boolean isSellable() {
         return sellable;
     }
-
-    public boolean overridesNonReturnablePolicy() {
-        return this == DAMAGED || this == EXPIRED;
-    }
 }

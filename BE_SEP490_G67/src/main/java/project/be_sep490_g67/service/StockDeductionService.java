@@ -11,7 +11,11 @@ import project.be_sep490_g67.repository.BatchLocationRepository;
 import project.be_sep490_g67.repository.StockMovementRepository;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,16 +36,41 @@ public class StockDeductionService {
     @Transactional
     public Integer deductStock(Integer productId, Integer quantityNeed, Integer orderId,
                                Integer userId, Integer locationId) {
-        List<BatchLocation> availableList = locationId == null
-                ? batchLocationRepository.findAvailableByProductId(productId)
-                : batchLocationRepository.findAvailableByProductIdAndLocationId(productId, locationId);
+        return deductStockFromLocations(productId, quantityNeed, orderId, userId,
+                locationId == null ? null : List.of(locationId));
+    }
+
+    /**
+     * @param locationIds các ô thu ngân đã tick, mỗi ô lấy FIFO mọi lô trong đó.
+     */
+    @Transactional
+    public Integer deductStockFromLocations(Integer productId, Integer quantityNeed, Integer orderId,
+                                            Integer userId, List<Integer> locationIds) {
+        return deductStockFromPicks(productId, quantityNeed, orderId, userId,
+                locationIds == null ? null : locationIds.stream()
+                        .map(locationId -> new StockPick(locationId, null))
+                        .toList());
+    }
+
+    /**
+     * Trừ kho cho một dòng bán được lấy từ nhiều lô.
+     *
+     * @param picks các lô-tại-ô thu ngân đã tick, theo đúng thứ tự muốn lấy.
+     *              Trừ hết cái trước rồi mới sang cái sau. Lô null thì lấy FIFO
+     *              trong ô đó. Null/rỗng thì trừ FEFO toàn kho như cũ.
+     * @return lô đầu tiên bị trừ, dùng để gắn vào chi tiết đơn hàng.
+     */
+    @Transactional
+    public Integer deductStockFromPicks(Integer productId, Integer quantityNeed, Integer orderId,
+                                        Integer userId, List<StockPick> picks) {
+        List<BatchLocation> availableList = resolveAvailable(productId, picks);
 
         //Check stock
         int totalAvailable = availableList.stream().mapToInt(BatchLocation::getQuantity).sum();
 
         if (totalAvailable < quantityNeed) {
             throw new InsufficientStockException(buildShortageMessage(
-                    productId, quantityNeed, totalAvailable, locationId, availableList));
+                    productId, quantityNeed, totalAvailable, picks, availableList));
         }
         int remaining = quantityNeed;
         Integer firstBatchId = null;
@@ -79,28 +108,67 @@ public class StockDeductionService {
     }
 
     /**
-     * Khi thu ngân đã chốt vị trí, báo rõ ô đó còn bao nhiêu và còn bao nhiêu ở
-     * chỗ khác — để họ biết cần chọn lại vị trí chứ không phải hết hàng.
+     * Gom tồn của các lô đã tick theo đúng thứ tự thu ngân chọn: hết cái đầu
+     * mới sang cái kế. Một dòng kho chỉ được tính một lần dù bị tick trùng —
+     * nếu không, tồn bị đếm đôi và đơn lọt qua kiểm tra rồi hụt hàng lúc trừ.
+     */
+    private List<BatchLocation> resolveAvailable(Integer productId, List<StockPick> picks) {
+        if (picks == null || picks.isEmpty()) {
+            return batchLocationRepository.findAvailableByProductId(productId);
+        }
+        List<BatchLocation> merged = new ArrayList<>();
+        Set<Integer> seen = new LinkedHashSet<>();
+        for (StockPick pick : picks) {
+            if (pick == null || pick.locationId() == null) {
+                continue;
+            }
+            batchLocationRepository
+                    .findAvailableByProductIdAndLocationId(productId, pick.locationId())
+                    .stream()
+                    .filter(bl -> pick.batchId() == null
+                            || pick.batchId().equals(bl.getBatch().getId()))
+                    .filter(bl -> seen.add(bl.getId()))
+                    .forEach(merged::add);
+        }
+        return merged;
+    }
+
+    /**
+     * Khi thu ngân đã chốt lô, báo rõ những lô đó còn bao nhiêu và còn bao
+     * nhiêu ở chỗ khác — để họ biết cần tick thêm lô chứ không phải hết hàng.
      */
     private String buildShortageMessage(Integer productId, int quantityNeed, int totalAvailable,
-                                        Integer locationId, List<BatchLocation> availableList) {
-        if (locationId == null) {
+                                        List<StockPick> picks, List<BatchLocation> availableList) {
+        if (picks == null || picks.isEmpty()) {
             return "Sản phẩm với ID: " + productId
                     + " Không đủ tồn kho. Cần " + quantityNeed + ", nhưng chỉ còn " + totalAvailable;
         }
 
-        String locationLabel = availableList.stream()
+        String locationLabels = availableList.stream()
                 .map(bl -> bl.getLocation().getLabel())
                 .filter(label -> label != null && !label.isBlank())
-                .findFirst()
-                .orElse("ID " + locationId);
+                .distinct()
+                .collect(Collectors.joining(", "));
+        if (locationLabels.isBlank()) {
+            locationLabels = picks.stream()
+                    .map(pick -> String.valueOf(pick.locationId()))
+                    .distinct()
+                    .collect(Collectors.joining(", "));
+        }
+        Set<Integer> pickedBatchLocationIds = availableList.stream()
+                .map(BatchLocation::getId)
+                .collect(Collectors.toSet());
         int elsewhere = batchLocationRepository.findAvailableByProductId(productId).stream()
-                .filter(bl -> !locationId.equals(bl.getLocation().getId()))
+                .filter(bl -> !pickedBatchLocationIds.contains(bl.getId()))
                 .mapToInt(BatchLocation::getQuantity)
                 .sum();
 
-        return "Vị trí " + locationLabel + " chỉ còn " + totalAvailable
+        return "Vị trí " + locationLabels + " chỉ còn " + totalAvailable
                 + ", cần " + quantityNeed + ". Còn " + elsewhere
-                + " ở vị trí khác — chọn lại vị trí lấy hàng.";
+                + " ở lô khác — tick thêm lô để lấy đủ hàng.";
+    }
+
+    /** Một lô đang nằm ở một ô. batchId null = FIFO mọi lô trong ô đó. */
+    public record StockPick(Integer locationId, Integer batchId) {
     }
 }

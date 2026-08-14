@@ -377,7 +377,8 @@ public class CustomerService {
                     .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal totalPaid = initialPaidAmount.add(subsequentPayments);
-            BigDecimal amountRemaining = so.getTotalAmount().subtract(totalPaid);
+            BigDecimal amountRemaining = DebtCalculator.remaining(
+                    so.getTotalAmount(), initialPaidAmount, subsequentPayments);
 
             String createdByName = "N/A";
             if (so.getCreatedBy() != null) {
@@ -386,17 +387,23 @@ public class CustomerService {
                         .orElse("Không rõ");
             }
 
+            // customer có thể null (đơn nợ dữ liệu cũ, hoặc customer bị xóa với
+            // OnDelete SET_NULL) — không guard thì cả thẻ tổng hợp 500.
+            Customer orderCustomer = so.getCustomer();
+
             return DebtOrderResponse.builder()
                     .id(so.getId())
-                    .customerId(so.getCustomer().getId())
-                    .customerName(so.getCustomer().getFullName())
+                    .customerId(orderCustomer != null ? orderCustomer.getId() : null)
+                    .customerName(orderCustomer != null ? orderCustomer.getFullName() : "Khách lẻ")
                     .orderCode(so.getOrderCode())
                     .orderDate(so.getCreatedAt())
                     .dueDate(so.getDueDate())
                     .totalAmount(so.getTotalAmount())
                     .amountPaid(totalPaid)
                     .amountRemaining(amountRemaining)
-                    .status(amountRemaining.compareTo(BigDecimal.ZERO) <= 0 ? DebtOrderStatus.PAID : DebtOrderStatus.IN_DEBT)
+                    .status(DebtCalculator.deriveStatus(amountRemaining, so.getDueDate(), Instant.now()))
+                    .isCheckDebtUnstable(orderCustomer != null
+                            && Boolean.TRUE.equals(orderCustomer.getIsCheckUnstableDebt()))
                     .createdBy(createdByName)
                     .build();
         }).collect(Collectors.toList());

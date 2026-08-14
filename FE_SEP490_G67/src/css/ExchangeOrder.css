@@ -95,25 +95,44 @@
     cursor: pointer;
 }
 
-/*  Bảng đổi trả  */
-
-.exch-table-scroll {
+.exch-table-split {
+    display: flex;
+    flex-direction: column;
     flex: 1;
-    overflow: auto;
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
-/*
- * Bảng 11 cột phải lọt được màn 1366px (laptop thu ngân) sau khi trừ cột thanh
- * toán: 1366 − 355 − 5 ≈ 1006px. Ô của bảng đổi trả nén lại so với bảng giỏ
- * hàng 8 cột để không sinh thanh cuộn ngang.
- */
+.exch-table-scroll {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-width: 940px;
+    scrollbar-gutter: stable;
+}
+
+.exch-table-split>.exch-table-scroll+.exch-table-scroll {
+    border-top: 2px solid var(--pos-line);
+}
+
 .exch-table {
     min-width: 940px;
+    table-layout: fixed;
 }
 
 .exch-table th,
 .exch-table td {
-    padding: 8px 10px;
+    padding: 8px 8px;
+}
+
+.exch-table th {
+    white-space: nowrap;
+}
+
+.exch-table td {
+    overflow-wrap: anywhere;
 }
 
 .exch-table .unit-select {
@@ -317,7 +336,7 @@
 }
 
 .exch-net-label {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
     letter-spacing: 0.02em;
 }
@@ -346,7 +365,6 @@
     color: #4b5563;
 }
 
-/* Hộp kết quả sau khi lưu phiếu đổi trả */
 .exch-result-modal {
     width: 460px;
 }

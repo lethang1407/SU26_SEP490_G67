@@ -42,6 +42,15 @@ public interface DebtPaymentRepository extends JpaRepository<DebtPayment, Intege
             """)
     List<Object[]> sumPaidBySalesOrderIds(@Param("salesOrderIds") Collection<Integer> salesOrderIds);
 
+    /** Tổng tiền đã trả nợ của một hóa đơn. Chưa trả lần nào thì trả về 0. */
+    @Query("""
+            SELECT COALESCE(SUM(dp.amountPaid), 0)
+            FROM DebtPayment dp
+            WHERE dp.salesOrder.id = :salesOrderId
+              AND dp.isRemoved = false
+            """)
+    BigDecimal sumPaidBySalesOrderId(@Param("salesOrderId") Integer salesOrderId);
+
     @Query(value = """
             SELECT dp FROM DebtPayment dp
             JOIN dp.salesOrder so

@@ -24,7 +24,15 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
             LEFT JOIN o.customer c
             WHERE o.isRemoved = false
               AND (:createdBy IS NULL OR o.createdBy = :createdBy)
-              AND (:search IS NULL OR o.orderCode LIKE :search OR LOWER(c.fullName) LIKE :search)
+              AND (:search IS NULL
+                    OR LOWER(o.orderCode) LIKE :search
+                    OR LOWER(c.fullName) LIKE :search
+                    OR c.phoneNumber LIKE :search
+                    OR EXISTS (
+                        SELECT 1 FROM SalesOrderDetail ds
+                        WHERE ds.salesOrder = o
+                          AND (LOWER(ds.product.name) LIKE :search
+                               OR LOWER(ds.product.barcode) LIKE :search)))
               AND (:orderCode IS NULL OR LOWER(o.orderCode) LIKE :orderCode)
               AND (:customer IS NULL OR LOWER(c.fullName) LIKE :customer OR c.phoneNumber LIKE :customer)
               AND (:product IS NULL OR EXISTS (
@@ -106,4 +114,32 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
     );
 
     List<SalesOrder> findAllByIsDebtTrueAndCreatedAtBetween(Instant start, Instant end);
+
+    /**
+     * Kiểm tra khách này đã từng có đơn bán nợ nào chưa. Dùng để nhận biết đơn nợ đầu
+     * tiên của một khách — đơn đó cần quản lý rà soát lại.
+     */
+    @Query("""
+            SELECT COUNT(so) > 0 FROM SalesOrder so
+            WHERE so.customer.id = :customerId
+              AND so.isDebt = true
+              AND so.isRemoved = false
+            """)
+    boolean existsDebtOrderByCustomerId(@Param("customerId") Integer customerId);
+
+    /**
+     * Đơn nợ đã quá hạn của một khách. Chỉ lọc theo dueDate — phần "còn nợ bao
+     * nhiêu" để service tính bằng DebtCalculator.
+     */
+    @Query("""
+            SELECT so FROM SalesOrder so
+            WHERE so.customer.id = :customerId
+              AND so.isDebt = true
+              AND so.isRemoved = false
+              AND so.dueDate IS NOT NULL
+              AND so.dueDate < :now
+            """)
+    List<SalesOrder> findOverdueDebtOrdersByCustomerId(
+            @Param("customerId") Integer customerId,
+            @Param("now") Instant now);
 }

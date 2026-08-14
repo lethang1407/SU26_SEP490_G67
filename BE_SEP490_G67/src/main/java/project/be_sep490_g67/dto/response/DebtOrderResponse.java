@@ -17,6 +17,8 @@ public class DebtOrderResponse {
     private Integer id;
     private Integer customerId;
     private String customerName;
+    /** false = đơn nợ chưa được admin duyệt, chưa cộng vào công nợ của khách */
+    private Boolean isCheckDebtUnstable;
     private String orderCode;
     private Instant orderDate;
     private Instant dueDate;

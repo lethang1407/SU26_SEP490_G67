@@ -18,21 +18,18 @@ public interface DocumentSequenceRepository extends JpaRepository<DocumentSequen
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT ds FROM DocumentSequence ds
-            WHERE ds.storeId = :storeId
-              AND ds.docType = :docType
+            WHERE ds.docType = :docType
               AND ds.seqDate = :seqDate
             """)
-    Optional<DocumentSequence> lockSlot(@Param("storeId") Integer storeId,
-                                        @Param("docType") String docType,
+    Optional<DocumentSequence> lockSlot(@Param("docType") String docType,
                                         @Param("seqDate") LocalDate seqDate);
 
     @Modifying
     @Query(value = """
             INSERT IGNORE INTO document_sequences
-                (store_id, doc_type, seq_date, counter, is_removed, created_at, updated_at)
-            VALUES (:storeId, :docType, :seqDate, 0, b'0', NOW(6), NOW(6))
+                (doc_type, seq_date, counter, is_removed, created_at, updated_at)
+            VALUES (:docType, :seqDate, 0, b'0', NOW(6), NOW(6))
             """, nativeQuery = true)
-    void insertSlotIfAbsent(@Param("storeId") Integer storeId,
-                            @Param("docType") String docType,
+    void insertSlotIfAbsent(@Param("docType") String docType,
                             @Param("seqDate") LocalDate seqDate);
 }
