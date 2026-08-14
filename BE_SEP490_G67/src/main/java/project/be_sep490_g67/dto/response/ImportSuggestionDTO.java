@@ -15,6 +15,13 @@ import java.util.List;
 public class ImportSuggestionDTO {
     Integer productId;
     String productName;
+    Integer parentId;
+    String parentName;
+    String sku;
+    String barcode;
+    String productImg;
+    String primaryAttrVal;
+    String secondaryAttrVal;
     String whyFacts;
     String whyResult;
     Integer suggestedQty;

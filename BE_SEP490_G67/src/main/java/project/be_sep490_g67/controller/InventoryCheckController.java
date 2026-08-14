@@ -22,6 +22,8 @@ import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.repository.UserRepository;
 import project.be_sep490_g67.service.InventoryCheckService;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
 @RequestMapping(ApiPath.INVENTORY_CHECKS)
 @RequiredArgsConstructor
@@ -31,6 +33,7 @@ public class InventoryCheckController {
     InventoryCheckService inventoryCheckService;
     UserRepository userRepository;
 
+    @PreAuthorize("hasAuthority('WAREHOUSE:CHECK_VIEW')")
     @GetMapping
     public ApiResponse<PageResponse<InventoryCheckListItemResponse>> getChecks(
             @RequestParam(required = false) String search,
@@ -43,6 +46,7 @@ public class InventoryCheckController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('WAREHOUSE:CHECK_VIEW')")
     @GetMapping("/product-preview/{productId}")
     public ApiResponse<InventoryCheckProductPreviewResponse> getProductPreview(
             @PathVariable Integer productId) {
@@ -52,6 +56,7 @@ public class InventoryCheckController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('WAREHOUSE:CHECK_VIEW')")
     @GetMapping("/{id}")
     public ApiResponse<InventoryCheckDetailResponse> getCheckDetail(@PathVariable Integer id) {
         return ApiResponse.<InventoryCheckDetailResponse>builder()
@@ -60,6 +65,7 @@ public class InventoryCheckController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('WAREHOUSE:CHECK_CREATE')")
     @PostMapping
     public ApiResponse<InventoryCheckDetailResponse> createCheck(
             @Valid @RequestBody CreateInventoryCheckRequest request) {

@@ -7,6 +7,7 @@ import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
+import org.springframework.security.oauth2.jwt.BadJwtException;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.stereotype.Component;
 import project.be_sep490_g67.dto.request.IntrospectRequest;
@@ -33,9 +34,9 @@ public class CustomJwtDecoder implements JwtDecoder {
             var response = authenticationService.introspect(
                     IntrospectRequest.builder().token(token).build());
 
-            if (!response.isValid()) throw new JwtException("Token invalid");
+            if (!response.isValid()) throw new BadJwtException("Token invalid");
         } catch (JOSEException | ParseException e) {
-            throw new JwtException(e.getMessage());
+            throw new BadJwtException(e.getMessage());
         }
 
         if (Objects.isNull(nimbusJwtDecoder)) {

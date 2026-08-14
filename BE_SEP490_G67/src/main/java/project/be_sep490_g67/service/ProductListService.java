@@ -177,8 +177,11 @@ public class ProductListService {
         Category category = p.getCategory();
         String supplierName = resolveSupplierName(category, fallbackSupplierByCategory);
 
+        Product parent = p.getParent();
         return ProductListItemDTO.builder()
                 .id(p.getId())
+                .parentId(parent != null ? parent.getId() : null)
+                .parentName(parent != null ? parent.getName() : null)
                 .name(p.getName())
                 .sku(p.getSku())
                 .barcode(p.getBarcode())

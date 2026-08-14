@@ -137,7 +137,40 @@ public class ProductCommandService {
     }
 
     private void applyScalarFields(Product product, UpsertProductRequest request, Category category) {
-        product.setName(request.getName().trim());
+        String name = request.getName().trim();
+
+        if (request.getParentId() != null) {
+            Product parent = productRepository.findById(request.getParentId()).orElse(null);
+            if (parent != null) {
+                product.setParent(parent);
+                // Format child name as ParentName-Attr1-Attr2(Unit) if not already formatted with parentheses
+                if (name.isBlank() || !name.contains("(") || !name.contains("-")) {
+                    String cleanParent = parent.getName().replaceAll("(?i)\\s*\\([^)]*\\)", "").trim();
+                    StringBuilder sb = new StringBuilder(cleanParent);
+
+                    if (request.getAttributes() != null && !request.getAttributes().isEmpty()) {
+                        for (UpsertProductRequest.AttributeRequest a : request.getAttributes()) {
+                            if (a.getValue() != null && !a.getValue().isBlank()) {
+                                sb.append("-").append(a.getValue().trim());
+                            }
+                        }
+                    }
+
+                    String baseUnit = "đôi";
+                    if (request.getUnits() != null && !request.getUnits().isEmpty()) {
+                        baseUnit = request.getUnits().stream()
+                                .filter(u -> Boolean.TRUE.equals(u.getIsBase()) || (u.getUnitBase() != null && BigDecimal.ONE.compareTo(u.getUnitBase()) == 0))
+                                .map(UpsertProductRequest.UnitRequest::getName)
+                                .findFirst()
+                                .orElse(request.getUnits().get(0).getName());
+                    }
+                    sb.append("(").append(baseUnit).append(")");
+                    name = sb.toString();
+                }
+            }
+        }
+
+        product.setName(name);
         product.setSku(blankToNull(request.getSku()));
         product.setBarcode(blankToNull(request.getBarcode()));
         product.setCategory(category);
@@ -222,8 +255,11 @@ public class ProductCommandService {
             }
         }
 
+        Product parent = product.getParent();
         return ProductDetailDTO.builder()
                 .id(product.getId())
+                .parentId(parent != null ? parent.getId() : null)
+                .parentName(parent != null ? parent.getName() : null)
                 .name(product.getName())
                 .sku(product.getSku())
                 .barcode(product.getBarcode())

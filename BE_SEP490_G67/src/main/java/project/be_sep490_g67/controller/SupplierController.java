@@ -23,6 +23,8 @@ import project.be_sep490_g67.service.SupplierService;
 
 import java.time.LocalDate;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @Slf4j
 @RestController
 @RequestMapping(ApiPath.SUPPLIER)
@@ -34,6 +36,7 @@ public class SupplierController {
     ImportOrderService importOrderService;
     SupplierPaymentService supplierPaymentService;
 
+    @PreAuthorize("hasAuthority('SUPPLIER:VIEW')")
     @GetMapping
     public ApiResponse<SupplierListPageResponse> getSuppliers(
             @RequestParam(defaultValue = "0") int page,
@@ -48,6 +51,7 @@ public class SupplierController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('SUPPLIER:VIEW')")
     @GetMapping("/{id}")
     public ApiResponse<SupplierDetailResponse> getSupplierDetail(@PathVariable Integer id) {
         return ApiResponse.<SupplierDetailResponse>builder()
@@ -56,6 +60,7 @@ public class SupplierController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('SUPPLIER:UPDATE')")
     @PutMapping("/{id}")
     public ApiResponse<SupplierDetailResponse> updateSupplier(
             @PathVariable Integer id,
@@ -67,6 +72,7 @@ public class SupplierController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('SUPPLIER:DELETE')")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteSupplier(@PathVariable Integer id) {
         supplierService.deleteSupplier(id);
@@ -75,6 +81,7 @@ public class SupplierController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('SUPPLIER:VIEW')")
     @GetMapping("/{id}/import-orders")
     public ApiResponse<PageResponse<ImportOrderListItemResponse>> getImportHistory(
             @PathVariable Integer id,
@@ -89,6 +96,7 @@ public class SupplierController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('SUPPLIER:PAYMENT')")
     @PostMapping("/{id}/payments")
     public ApiResponse<SupplierPaymentResponse> createPayment(
             @PathVariable Integer id,
@@ -100,6 +108,7 @@ public class SupplierController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('SUPPLIER:VIEW')")
     @GetMapping("/{id}/payments")
     public ApiResponse<PageResponse<SupplierPaymentResponse>> getPaymentHistory(
             @PathVariable Integer id,
@@ -115,6 +124,7 @@ public class SupplierController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('SUPPLIER:CREATE')")
     @PostMapping
     public ApiResponse<AddNewSupplierResponse> addNewSupplier(@Valid @RequestBody AddNewSupplierRequest request) {
         log.info("Api in controller was called with request: {}", request);

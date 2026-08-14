@@ -86,6 +86,7 @@ public class SalesOrderController {
     /**
      * POST /api/sales-orders
      */
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('POS:SALE')")
     @PostMapping
     public ResponseEntity<ApiResponse<SalesOrderResponse>> createOrder(@Valid @RequestBody CreateSalesOrderRequest request) {
         Integer staffId = resolveStaffId();
@@ -97,6 +98,7 @@ public class SalesOrderController {
     /**
      * POST /api/sales-orders/debt
      */
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('POS:SALE')")
     @PostMapping("/debt")
     ApiResponse<SalesOrderResponse> createDebtOrder(@Valid @RequestBody CreateSalesOrderRequest request) {
         Integer staffId = resolveStaffId();
@@ -110,6 +112,7 @@ public class SalesOrderController {
     /**
      * GET /api/sales-orders/{id}/receipt
      */
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('SALES_ORDER:INVOICE')")
     @GetMapping("/{id}/receipt")
     ApiResponse<SalesOrderResponse> getReceipt(@PathVariable Integer id) {
         SalesOrderResponse result = salesOrderService.getReceipt(id);
@@ -140,7 +143,7 @@ public class SalesOrderController {
      * Get order details for exchange order page
      */
     @GetMapping("/{id}/exchange")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('POS:EXCHANGE')")
     ApiResponse<ExchangeOrderDetailResponse> getOrderForExchange(@PathVariable Integer id) {
         ExchangeOrderDetailResponse result = exchangeOrderService.getOrderForExchange(id);
         return ApiResponse.<ExchangeOrderDetailResponse>builder()
@@ -154,7 +157,7 @@ public class SalesOrderController {
      * Process exchange order
      */
     @PostMapping("/exchange")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('POS:EXCHANGE')")
     ApiResponse<ExchangeOrderResponse> processExchangeOrder(@Valid @RequestBody CreateExchangeOrderRequest request) {
         Integer staffId = resolveStaffId();
         ExchangeOrderResponse result = exchangeOrderService.processExchangeOrder(request, staffId);

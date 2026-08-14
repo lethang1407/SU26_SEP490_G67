@@ -6,11 +6,11 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import project.be_sep490_g67.dto.request.CreateImportOrderRequest;
-import project.be_sep490_g67.dto.response.ImportOrderResponseDTO;
 import project.be_sep490_g67.constants.ImportOrderConstants;
+import project.be_sep490_g67.dto.request.CreateDraftFromSuggestRequest;
 import project.be_sep490_g67.dto.request.CreateImportOrderRequest;
 import project.be_sep490_g67.dto.response.ImportOrderDetailResponse;
+import project.be_sep490_g67.dto.response.ImportOrderResponseDTO;
 import project.be_sep490_g67.dto.response.ImportOrderItemResponse;
 import project.be_sep490_g67.dto.response.ImportOrderListItemResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
@@ -35,16 +35,14 @@ import project.be_sep490_g67.repository.UserRepository;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.format.DateTimeFormatter;
-import java.util.LinkedHashMap;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -63,7 +61,6 @@ public class ImportOrderService {
     StockBatchRepository stockBatchRepository;
     StockMovementRepository stockMovementRepository;
     UserRepository userRepository;
-    static final AtomicInteger SEQ = new AtomicInteger(1);
 
     @Transactional
     public ImportOrderListItemResponse createImportOrder(CreateImportOrderRequest request) {
@@ -397,14 +394,18 @@ public class ImportOrderService {
                 .items(items)
                 .build();
     }
+    /**
+     * Tạo nhiều phiếu DRAFT từ màn Gợi ý nhập hàng. Gom theo supplierId trên từng dòng.
+     * Không tạo StockBatch / không tăng tồn.
+     */
     @Transactional
-    public List<ImportOrderResponseDTO> createOrders(CreateImportOrderRequest request) {
+    public List<ImportOrderResponseDTO> createOrdersFromSuggest(CreateDraftFromSuggestRequest request) {
         if (request == null || request.getLines() == null || request.getLines().isEmpty()) {
             throw new AppException(ErrorCode.IMPORT_ORDER_LINES_REQUIRED);
         }
 
-        Map<Integer, List<CreateImportOrderRequest.OrderLine>> bySupplier = new LinkedHashMap<>();
-        for (CreateImportOrderRequest.OrderLine line : request.getLines()) {
+        Map<Integer, List<CreateDraftFromSuggestRequest.OrderLine>> bySupplier = new LinkedHashMap<>();
+        for (CreateDraftFromSuggestRequest.OrderLine line : request.getLines()) {
             if (line.getSupplierId() == null || line.getProductId() == null || line.getQuantity() == null
                     || line.getQuantity() <= 0) {
                 throw new AppException(ErrorCode.IMPORT_ORDER_LINE_INVALID);
@@ -417,18 +418,18 @@ public class ImportOrderService {
         }
 
         List<ImportOrderResponseDTO> created = new ArrayList<>();
-        String datePart = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
 
-        for (Map.Entry<Integer, List<CreateImportOrderRequest.OrderLine>> entry : bySupplier.entrySet()) {
-            Supplier supplier = supplierRepository.findById(entry.getKey())
+        for (Map.Entry<Integer, List<CreateDraftFromSuggestRequest.OrderLine>> entry : bySupplier.entrySet()) {
+            Supplier supplier = supplierRepository.findByIdAndIsRemovedFalse(entry.getKey())
                     .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
 
             ImportOrder order = new ImportOrder();
             order.setSupplier(supplier);
-            order.setOrderCode("PO-" + datePart + "-" + String.format("%03d", SEQ.getAndIncrement()));
+            order.setOrderCode(generateOrderCode());
             order.setReceivedDate(null);
             order.setOrderStatus(ImportOrderConstants.ORDER_STATUS_DRAFT);
-            order.setNote("Tạo từ màn nhập sản phẩm");
+            order.setNote("Tạo từ màn gợi ý nhập hàng");
+            order.setDiscountAmount(BigDecimal.ZERO);
             order.setTotalCost(BigDecimal.ZERO);
             order.setIsRemoved(false);
             order = importOrderRepository.save(order);
@@ -437,7 +438,7 @@ public class ImportOrderService {
             List<ImportOrderResponseDTO.Line> responseLines = new ArrayList<>();
             boolean urgent = false;
 
-            for (CreateImportOrderRequest.OrderLine lineReq : entry.getValue()) {
+            for (CreateDraftFromSuggestRequest.OrderLine lineReq : entry.getValue()) {
                 Product product = productRepository.findByIdAndIsRemovedFalse(lineReq.getProductId())
                         .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
@@ -485,8 +486,10 @@ public class ImportOrderService {
                     .build());
         }
 
+        log.info("Created {} DRAFT import order(s) from suggest", created.size());
         return created;
     }
+
     private PageResponse<ImportOrderListItemResponse> toPagedResponse(
             List<ImportOrder> orders, int page, int size, String paymentStatusFilter) {
 

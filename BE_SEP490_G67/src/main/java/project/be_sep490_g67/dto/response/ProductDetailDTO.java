@@ -12,6 +12,8 @@ import java.util.List;
 @Builder
 public class ProductDetailDTO {
     private Integer id;
+    private Integer parentId;
+    private String parentName;
     private String name;
     private String sku;
     private String barcode;

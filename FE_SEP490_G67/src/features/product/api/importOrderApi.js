@@ -10,7 +10,7 @@ export const importOrderApi = {
   },
 
   createOrders: async (lines) => {
-    const response = await api.post('/import-orders', { lines });
+    const response = await api.post('/import-orders/from-suggest', { lines });
     return response.result || [];
   },
 };

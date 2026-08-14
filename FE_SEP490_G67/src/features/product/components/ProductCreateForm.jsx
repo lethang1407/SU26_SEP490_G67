@@ -17,7 +17,8 @@ const EMPTY_FORM = {
 const createAttribute = () => ({
   id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
   name: '',
-  value: '',
+  values: [],
+  inputValue: '',
 });
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -53,6 +54,41 @@ export default function ProductCreateForm({
     setAttributes((prev) =>
       prev.map((attr) => (attr.id === id ? { ...attr, [field]: value } : attr)),
     );
+  };
+
+  const handleAddAttributeValue = (id, event) => {
+    if (event) event.preventDefault();
+    setAttributes((prev) =>
+      prev.map((attr) => {
+        if (attr.id === id && attr.inputValue.trim()) {
+          const newValues = [...attr.values];
+          const val = attr.inputValue.trim();
+          if (!newValues.includes(val)) {
+            newValues.push(val);
+          }
+          return { ...attr, values: newValues, inputValue: '' };
+        }
+        return attr;
+      })
+    );
+  };
+
+  const handleRemoveAttributeValue = (id, valueToRemove) => {
+    setAttributes((prev) =>
+      prev.map((attr) => {
+        if (attr.id === id) {
+          return { ...attr, values: attr.values.filter(v => v !== valueToRemove) };
+        }
+        return attr;
+      })
+    );
+  };
+
+  const handleAttributeKeyDown = (id, event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      handleAddAttributeValue(id);
+    }
   };
 
   const handleAddAttribute = () => {
@@ -127,18 +163,6 @@ export default function ProductCreateForm({
       nextErrors.categoryId = 'Vui lòng chọn danh mục.';
     }
 
-    const cost = Number(form.costPrice);
-    const sell = Number(form.sellingPrice);
-    if (Number.isNaN(cost) || cost < 0) {
-      nextErrors.costPrice = 'Giá nhập không hợp lệ.';
-    }
-    if (Number.isNaN(sell) || sell < 0) {
-      nextErrors.sellingPrice = 'Giá bán không hợp lệ.';
-    }
-    if (!Number.isNaN(cost) && !Number.isNaN(sell) && sell > 0 && sell < cost) {
-      nextErrors.sellingPrice = 'Giá bán nên lớn hơn hoặc bằng giá nhập.';
-    }
-
     const vat = Number(form.vatPercent);
     if (Number.isNaN(vat) || vat < 0 || vat > 100) {
       nextErrors.vatPercent = 'VAT phải từ 0 đến 100.';
@@ -154,12 +178,21 @@ export default function ProductCreateForm({
 
     setSaving(true);
     try {
+      const flatAttributes = [];
+      attributes.forEach((attr) => {
+        if (attr.name.trim()) {
+          attr.values.forEach((val) => {
+            flatAttributes.push({ name: attr.name.trim(), value: val.trim() });
+          });
+        }
+      });
+
       await onSubmit?.({
         ...form,
-        costPrice: Number(form.costPrice) || 0,
-        sellingPrice: Number(form.sellingPrice) || 0,
+        costPrice: 0,
+        sellingPrice: 0,
         vatPercent: Number(form.vatPercent) || 0,
-        attributes: attributes.filter((a) => a.name.trim() || a.value.trim()),
+        attributes: flatAttributes,
         imageFile,
         imageName: imageName || null,
         imagePreview: imagePreview || null,
@@ -373,13 +406,40 @@ export default function ProductCreateForm({
                   </div>
                   <div className="add-product-field">
                     <label className="add-product-field__label">Giá trị thuộc tính</label>
-                    <input
-                      type="text"
-                      className="add-product-field__input"
-                      placeholder="Nhập các giá trị,"
-                      value={attr.value}
-                      onChange={(e) => handleAttributeChange(attr.id, 'value', e.target.value)}
-                    />
+                    <div className="add-product-attr-values">
+                      <div className="add-product-attr-values__list" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: attr.values.length > 0 ? '8px' : '0' }}>
+                        {attr.values.map((val) => (
+                          <span key={val} className="add-product-attr-tag" style={{ display: 'inline-flex', alignItems: 'center', background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px', fontSize: '13px' }}>
+                            {val}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveAttributeValue(attr.id, val)}
+                              style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: '4px', color: '#64748b' }}
+                            >
+                              &times;
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <input
+                          type="text"
+                          className="add-product-field__input"
+                          placeholder="Nhập giá trị và nhấn Enter hoặc Thêm"
+                          value={attr.inputValue}
+                          onChange={(e) => handleAttributeChange(attr.id, 'inputValue', e.target.value)}
+                          onKeyDown={(e) => handleAttributeKeyDown(attr.id, e)}
+                        />
+                        <button
+                          type="button"
+                          className="add-product-btn add-product-btn--outline"
+                          onClick={() => handleAddAttributeValue(attr.id)}
+                          style={{ padding: '0 12px', whiteSpace: 'nowrap' }}
+                        >
+                          Thêm
+                        </button>
+                      </div>
+                    </div>
                   </div>
                   <button
                     type="button"
@@ -466,44 +526,6 @@ export default function ProductCreateForm({
             </header>
 
             <div className="add-product-fields">
-              <div className="add-product-field">
-                <label className="add-product-field__label" htmlFor="product-cost">
-                  Giá nhập (VNĐ) <span className="add-product-field__required">*</span>
-                </label>
-                <input
-                  id="product-cost"
-                  name="costPrice"
-                  type="number"
-                  min="0"
-                  step="1000"
-                  className={`add-product-field__input${errors.costPrice ? ' add-product-field__input--error' : ''}`}
-                  value={form.costPrice}
-                  onChange={handleChange}
-                />
-                {errors.costPrice ? (
-                  <p className="add-product-field__error">{errors.costPrice}</p>
-                ) : null}
-              </div>
-
-              <div className="add-product-field">
-                <label className="add-product-field__label" htmlFor="product-sell">
-                  Giá bán lẻ (VNĐ) <span className="add-product-field__required">*</span>
-                </label>
-                <input
-                  id="product-sell"
-                  name="sellingPrice"
-                  type="number"
-                  min="0"
-                  step="1000"
-                  className={`add-product-field__input${errors.sellingPrice ? ' add-product-field__input--error' : ''}`}
-                  value={form.sellingPrice}
-                  onChange={handleChange}
-                />
-                {errors.sellingPrice ? (
-                  <p className="add-product-field__error">{errors.sellingPrice}</p>
-                ) : null}
-              </div>
-
               <div className="add-product-field">
                 <label className="add-product-field__label" htmlFor="product-vat">
                   Thuế VAT (%)

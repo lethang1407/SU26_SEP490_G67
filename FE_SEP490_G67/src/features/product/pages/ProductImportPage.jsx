@@ -98,6 +98,7 @@ export default function ProductImportPage() {
   const [successMsg, setSuccessMsg] = useState('');
   const [openPoById, setOpenPoById] = useState(() => ({}));
   const [supplierFallback, setSupplierFallback] = useState([]);
+  const [isOrderPanelOpen, setIsOrderPanelOpen] = useState(false);
 
   const selectedIdsRef = useRef(selectedIds);
   selectedIdsRef.current = selectedIds;
@@ -108,7 +109,6 @@ export default function ProductImportPage() {
   const openDetail = useCallback(async (listItem) => {
     if (!listItem?.id) return;
     const requestId = ++detailRequestRef.current;
-    // Hiện ngay từ list (đã có giá/NCC sau khi BE trả đủ field)
     setDetailProduct(listItem);
     try {
       const detail = await productsApi.getById(listItem.id);
@@ -116,7 +116,6 @@ export default function ProductImportPage() {
       setDetailProduct({
         ...listItem,
         ...detail,
-        // Giữ metric list (tồn / tốc độ / facet) — detail CRUD không có
         avgDailyRate: listItem.avgDailyRate,
         avgWeeklyRate: listItem.avgWeeklyRate,
         onHand: listItem.onHand,
@@ -128,7 +127,6 @@ export default function ProductImportPage() {
       });
     } catch (err) {
       console.error(err);
-      // Giữ list item — đủ để hiện nếu BE list đã enrich
     }
   }, []);
 
@@ -244,7 +242,13 @@ export default function ProductImportPage() {
 
   const removeFromPanel = useCallback((ids) => {
     const removeSet = new Set(ids);
-    setPanelItems((prev) => prev.filter((p) => !removeSet.has(p.productId)));
+    setPanelItems((prev) => {
+      const remaining = prev.filter((p) => !removeSet.has(p.productId));
+      if (remaining.length === 0) {
+        setIsOrderPanelOpen(false);
+      }
+      return remaining;
+    });
     setOverrides((prev) => {
       const next = { ...prev };
       removeSet.forEach((id) => {
@@ -256,6 +260,9 @@ export default function ProductImportPage() {
       const next = new Set(prev);
       removeSet.forEach((id) => next.delete(id));
       selectedIdsRef.current = next;
+      if (next.size === 0) {
+        setIsOrderPanelOpen(false);
+      }
       return next;
     });
   }, []);
@@ -341,7 +348,6 @@ export default function ProductImportPage() {
         setStep('setup');
       } catch (err) {
         console.error(err);
-        // Rollback selection cho SP chưa vào được panel
         setSelectedIds((prev) => {
           const next = new Set(prev);
           missing.forEach((id) => {
@@ -363,21 +369,33 @@ export default function ProductImportPage() {
   const handleFacetChange = (key) => {
     setFacet(key);
     setPage(0);
-    // Giữ selectedIds + panelItems khi đổi trạng thái / danh mục
     setDetailProduct(null);
     setSuccessMsg('');
   };
 
-  const handleToggle = (id) => {
-    if (selectedIds.has(id)) {
-      removeFromPanel([id]);
+  const handleToggle = (ids) => {
+    const idArr = Array.isArray(ids) ? ids : [ids];
+    const allSelected = idArr.every(id => selectedIdsRef.current.has(id));
+    if (allSelected) {
+      removeFromPanel(idArr);
     } else {
-      addToPanel([id]);
+      addToPanel(idArr);
     }
   };
 
   const handleToggleAll = (checked) => {
-    const pageIds = products.map((p) => p.id).filter(Boolean);
+    const pageIds = [];
+    products.forEach((p) => {
+      if (p.isGroup) {
+        (p.variantGroups || []).forEach((vg) => {
+          (vg.sizes || []).forEach((sz) => {
+            if (sz.id) pageIds.push(sz.id);
+          });
+        });
+      } else {
+        if (p.id) pageIds.push(p.id);
+      }
+    });
     if (!pageIds.length) return;
     if (checked) {
       addToPanel(pageIds);
@@ -393,6 +411,7 @@ export default function ProductImportPage() {
     setOverrides({});
     setStep('setup');
     setErrorMsg('');
+    setIsOrderPanelOpen(false);
   };
 
   const handleCreate = async () => {
@@ -494,7 +513,7 @@ export default function ProductImportPage() {
               </div>
             </div>
 
-            <div className="content">
+            <div className="pi-content">
               <ProductFacet
                 facet={facet}
                 onFacetChange={handleFacetChange}
@@ -506,11 +525,11 @@ export default function ProductImportPage() {
                 }}
               />
 
-              <section className="results pi-zone">
-                <div className="pi-zone__head">Danh sách sản phẩm</div>
-                <div className="search-row">
-                  <div className="search">
-                    <Search size={18} />
+              <section className={`pi-results ${isOrderPanelOpen ? 'compact' : ''}`} id="piResults">
+                <div className="pi-zone-head">Danh sách sản phẩm</div>
+                <div className="pi-search">
+                  <div className="pi-search-inner">
+                    <Search size={16} />
                     <input
                       placeholder="Tìm tên, SKU, mã vạch…"
                       value={keyword}
@@ -528,6 +547,7 @@ export default function ProductImportPage() {
                   facet={facet}
                   selectedIds={selectedIds}
                   detailProductId={detailProduct?.id ?? null}
+                  isOrderPanelOpen={isOrderPanelOpen}
                   onToggle={handleToggle}
                   onToggleAll={handleToggleAll}
                   onOpenDetail={openDetail}
@@ -539,6 +559,7 @@ export default function ProductImportPage() {
               </section>
 
               <ImportPanel
+                isOpen={isOrderPanelOpen}
                 panelItems={panelItems}
                 overrides={overrides}
                 step={step}
@@ -571,20 +592,27 @@ export default function ProductImportPage() {
                 }}
                 onBackSetup={() => setStep('setup')}
                 onCreate={handleCreate}
-                onClose={clearAllSelection}
+                onClose={() => setIsOrderPanelOpen(false)}
                 creating={creating}
               />
             </div>
 
-            {detailProduct && (
-              <ProductDetailDrawer
-                product={detailProduct}
-                onClose={closeDetail}
-                onPrepareImport={(p) => {
-                  addToPanel([p.id]);
+            {selectedIds.size > 0 && !isOrderPanelOpen && (
+              <button
+                type="button"
+                className="floating-btn show"
+                onClick={() => {
+                  setIsOrderPanelOpen(true);
                   setDetailProduct(null);
                 }}
-              />
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 11l3 3L22 4" />
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                </svg>
+                Xem đơn chuẩn bị
+                <span className="floating-badge">{selectedIds.size}</span>
+              </button>
             )}
           </div>
         </main>

@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.be_sep490_g67.dto.request.ImportSuggestRequest;
 import project.be_sep490_g67.dto.response.ImportSuggestionDTO;
+import project.be_sep490_g67.dto.response.GroupedSuggestionDTO;
+import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.entity.Category;
 import project.be_sep490_g67.entity.Product;
 import project.be_sep490_g67.entity.ProductUnit;
@@ -31,6 +33,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -191,6 +194,13 @@ public class ImportSuggestionService {
         return ImportSuggestionDTO.builder()
                 .productId(p.getId())
                 .productName(p.getName())
+                .parentId(p.getParent() != null ? p.getParent().getId() : null)
+                .parentName(p.getParent() != null ? p.getParent().getName() : null)
+                .sku(p.getSku())
+                .barcode(p.getBarcode())
+                .productImg(p.getProductImg())
+                .primaryAttrVal(resolvePrimaryAttrVal(p))
+                .secondaryAttrVal(resolveSecondaryAttrVal(p))
                 .whyFacts(whyFacts)
                 .whyResult(whyResult)
                 .suggestedQty(suggestedQty)
@@ -317,7 +327,8 @@ public class ImportSuggestionService {
                 .orElse(options.get(0));
     }
 
-    record CoverResolved(int days, String source, String label) {}
+    record CoverResolved(int days, String source, String label) {
+    }
 
     CoverResolved resolveCover(Product p, Integer panelOverride) {
         if (panelOverride != null && panelOverride > 0) {
@@ -344,5 +355,420 @@ public class ImportSuggestionService {
                     return Math.max(usable, 1);
                 })
                 .orElse(Integer.MAX_VALUE / 4);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<GroupedSuggestionDTO> getGroupedSuggestions(
+            String facet, Integer categoryId, String keyword, int page, int size
+    ) {
+        List<Product> allActive = productRepository.findAllActive();
+
+        Map<Integer, List<Product>> childrenMap = new HashMap<>();
+        List<Product> rootProducts = new ArrayList<>();
+
+        for (Product p : allActive) {
+            if (p.getParent() != null) {
+                childrenMap.computeIfAbsent(p.getParent().getId(), k -> new ArrayList<>()).add(p);
+            } else {
+                rootProducts.add(p);
+            }
+        }
+
+        Instant to = Instant.now();
+        Instant from = to.minus(SALES_WINDOW_DAYS, ChronoUnit.DAYS);
+
+        List<Integer> allProductIds = allActive.stream().map(Product::getId).toList();
+        Map<Integer, Map<Integer, BigDecimal>> lastCosts = loadLastCosts(allProductIds);
+
+        List<Integer> categoryIds = allActive.stream()
+                .map(Product::getCategory)
+                .filter(Objects::nonNull)
+                .map(Category::getId)
+                .distinct()
+                .toList();
+        Map<Integer, List<Supplier>> suppliersByCategory = new HashMap<>();
+        if (!categoryIds.isEmpty()) {
+            for (Supplier s : supplierRepository.findActiveByCategoryIds(categoryIds)) {
+                if (s.getCategories() == null) continue;
+                for (Category c : s.getCategories()) {
+                    if (c != null && categoryIds.contains(c.getId())) {
+                        suppliersByCategory.computeIfAbsent(c.getId(), k -> new ArrayList<>()).add(s);
+                    }
+                }
+            }
+        }
+
+        Map<Integer, ImportSuggestionDTO> suggestionMap = new HashMap<>();
+        Map<Integer, Double> coverDaysLeftMap = new HashMap<>();
+        Map<Integer, String> facetStatusMap = new HashMap<>();
+
+        for (Product p : allActive) {
+            if (p.getParent() != null || !childrenMap.containsKey(p.getId())) {
+                ImportSuggestionDTO sug = buildSuggestion(p, from, to, null, suppliersByCategory, lastCosts);
+                suggestionMap.put(p.getId(), sug);
+
+                int onHand = sug.getOnHand() != null ? sug.getOnHand() : 0;
+                BigDecimal avgDaily = sug.getAvgDailyRate() != null ? sug.getAvgDailyRate() : BigDecimal.ZERO;
+                Double coverDaysLeft = null;
+                if (avgDaily.compareTo(BigDecimal.ZERO) > 0) {
+                    coverDaysLeft = BigDecimal.valueOf(onHand)
+                            .divide(avgDaily, 1, RoundingMode.HALF_UP)
+                            .doubleValue();
+                } else if (onHand > 0) {
+                    coverDaysLeft = 999.0;
+                } else {
+                    coverDaysLeft = 0.0;
+                }
+                coverDaysLeftMap.put(p.getId(), coverDaysLeft);
+
+                String facetStatus = resolveFacet(p, onHand, avgDaily.doubleValue(), coverDaysLeft);
+                facetStatusMap.put(p.getId(), facetStatus);
+            }
+        }
+
+        List<GroupedSuggestionDTO> resultList = new ArrayList<>();
+
+        for (Product r : rootProducts) {
+            List<Product> children = childrenMap.get(r.getId());
+            if (children == null || children.isEmpty()) {
+                ImportSuggestionDTO sug = suggestionMap.get(r.getId());
+                if (sug == null) continue;
+
+                GroupedSuggestionDTO dto = GroupedSuggestionDTO.builder()
+                        .id(r.getId())
+                        .name(r.getName())
+                        .sku(r.getSku())
+                        .barcode(r.getBarcode())
+                        .productImg(r.getProductImg())
+                        .categoryName(r.getCategory() != null ? r.getCategory().getName() : "")
+                        .unitName(r.getProductUnits() != null && !r.getProductUnits().isEmpty() ? r.getProductUnits().iterator().next().getName() : "sp")
+                        .supplierName(sug.getSupplierName())
+                        .sellingPrice(r.getSellingPrice())
+                        .costPrice(r.getCostPrice())
+                        .onHand(sug.getOnHand())
+                        .avgDailyRate(sug.getAvgDailyRate())
+                        .avgWeeklyRate(sug.getAvgDailyRate().multiply(BigDecimal.valueOf(7)).setScale(1, RoundingMode.HALF_UP))
+                        .coverDaysLeft(coverDaysLeftMap.get(r.getId()))
+                        .facetStatus(facetStatusMap.get(r.getId()))
+                        .isGroup(false)
+                        .variantGroups(null)
+                        .build();
+                resultList.add(dto);
+            } else {
+                Map<String, List<Product>> groupedByPrimary = new LinkedHashMap<>();
+                for (Product child : children) {
+                    String primaryVal = resolvePrimaryAttrVal(child);
+                    groupedByPrimary.computeIfAbsent(primaryVal, k -> new ArrayList<>()).add(child);
+                }
+
+                List<GroupedSuggestionDTO.VariantGroupDTO> variantGroups = new ArrayList<>();
+                int totalOnHand = 0;
+                BigDecimal totalAvgDaily = BigDecimal.ZERO;
+
+                for (Map.Entry<String, List<Product>> entry : groupedByPrimary.entrySet()) {
+                    String primaryVal = entry.getKey();
+                    List<Product> colorGroup = entry.getValue();
+
+                    List<GroupedSuggestionDTO.VariantItemDTO> sizes = new ArrayList<>();
+                    int groupOnHand = 0;
+                    BigDecimal groupAvgDaily = BigDecimal.ZERO;
+
+                    for (Product c : colorGroup) {
+                        ImportSuggestionDTO sug = suggestionMap.get(c.getId());
+                        if (sug == null) continue;
+
+                        groupOnHand += sug.getOnHand() != null ? sug.getOnHand() : 0;
+                        groupAvgDaily = groupAvgDaily.add(sug.getAvgDailyRate() != null ? sug.getAvgDailyRate() : BigDecimal.ZERO);
+
+                        BigDecimal childAvgDaily = sug.getAvgDailyRate() != null ? sug.getAvgDailyRate() : BigDecimal.ZERO;
+                        String formattedChildName = formatChildName(r, c, primaryVal);
+                        GroupedSuggestionDTO.VariantItemDTO sizeDto = GroupedSuggestionDTO.VariantItemDTO.builder()
+                                .id(c.getId())
+                                .name(formattedChildName)
+                                .primaryAttrValue(primaryVal)
+                                .sizeValue(resolveSecondaryAttrVal(c))
+                                .sku(c.getSku())
+                                .barcode(c.getBarcode())
+                                .productImg(c.getProductImg() != null ? c.getProductImg() : r.getProductImg())
+                                .onHand(sug.getOnHand())
+                                .sellingPrice(c.getSellingPrice())
+                                .costPrice(c.getCostPrice())
+                                .avgDailyRate(childAvgDaily)
+                                .avgWeeklyRate(childAvgDaily.multiply(BigDecimal.valueOf(7)).setScale(1, RoundingMode.HALF_UP))
+                                .suggestedQty(sug.getSuggestedQty())
+                                .orderToday(sug.getOrderToday())
+                                .whyFacts(sug.getWhyFacts())
+                                .whyResult(sug.getWhyResult())
+                                .leadTimeDays(sug.getLeadTimeDays())
+                                .coverDays(sug.getCoverDays())
+                                .coverSource(sug.getCoverSource())
+                                .coverSourceLabel(sug.getCoverSourceLabel())
+                                .costPerUnit(sug.getCostPerUnit())
+                                .supplierOptions(sug.getSupplierOptions())
+                                .units(sug.getUnits())
+                                .build();
+                        sizes.add(sizeDto);
+                    }
+
+                    totalOnHand += groupOnHand;
+                    totalAvgDaily = totalAvgDaily.add(groupAvgDaily);
+
+                    Product representative = colorGroup.get(0);
+                    GroupedSuggestionDTO.VariantGroupDTO varGroup = GroupedSuggestionDTO.VariantGroupDTO.builder()
+                            .primaryAttrValue(primaryVal)
+                            .name(r.getName() + " - " + primaryVal)
+                            .sku(sizes.size() == 1 ? sizes.get(0).getSku() : "(" + sizes.size() + " mã)")
+                            .productImg(representative.getProductImg() != null ? representative.getProductImg() : r.getProductImg())
+                            .sellingPrice(representative.getSellingPrice())
+                            .costPrice(representative.getCostPrice())
+                            .onHand(groupOnHand)
+                            .avgDailyRate(groupAvgDaily)
+                            .sizes(sizes)
+                            .build();
+                    variantGroups.add(varGroup);
+                }
+
+                Double groupCoverDaysLeft = null;
+                if (totalAvgDaily.compareTo(BigDecimal.ZERO) > 0) {
+                    groupCoverDaysLeft = BigDecimal.valueOf(totalOnHand)
+                            .divide(totalAvgDaily, 1, RoundingMode.HALF_UP)
+                            .doubleValue();
+                } else if (totalOnHand > 0) {
+                    groupCoverDaysLeft = 999.0;
+                } else {
+                    groupCoverDaysLeft = 0.0;
+                }
+
+                String groupFacet = "ok";
+                boolean hasHot = false;
+                boolean hasSlow = false;
+                boolean hasWarn = false;
+                boolean hasSeason = false;
+                boolean hasStop = false;
+                for (Product c : children) {
+                    String childFacet = facetStatusMap.get(c.getId());
+                    if ("hot".equals(childFacet)) hasHot = true;
+                    else if ("slow".equals(childFacet)) hasSlow = true;
+                    else if ("warn".equals(childFacet)) hasWarn = true;
+                    else if ("season".equals(childFacet)) hasSeason = true;
+                    else if ("stop".equals(childFacet)) hasStop = true;
+                }
+                if (hasHot) groupFacet = "hot";
+                else if (hasSlow) groupFacet = "slow";
+                else if (hasWarn) groupFacet = "warn";
+                else if (hasSeason) groupFacet = "season";
+                else if (hasStop) groupFacet = "stop";
+
+                GroupedSuggestionDTO dto = GroupedSuggestionDTO.builder()
+                        .id(r.getId())
+                        .name(r.getName())
+                        .sku(r.getSku() != null ? r.getSku() : "(" + children.size() + " phân loại)")
+                        .barcode(r.getBarcode())
+                        .productImg(r.getProductImg() != null ? r.getProductImg() : children.get(0).getProductImg())
+                        .categoryName(r.getCategory() != null ? r.getCategory().getName() : "")
+                        .unitName(children.get(0).getProductUnits() != null && !children.get(0).getProductUnits().isEmpty() ? children.get(0).getProductUnits().iterator().next().getName() : "sp")
+                        .supplierName(variantGroups.isEmpty() ? null : variantGroups.get(0).getSizes().get(0).getCostPerUnit() != null ? children.get(0).getCategory() != null && children.get(0).getCategory().getDefaultSupplier() != null ? children.get(0).getCategory().getDefaultSupplier().getName() : null : null)
+                        .sellingPrice(children.get(0).getSellingPrice())
+                        .costPrice(children.get(0).getCostPrice())
+                        .onHand(totalOnHand)
+                        .avgDailyRate(totalAvgDaily)
+                        .avgWeeklyRate(totalAvgDaily.multiply(BigDecimal.valueOf(7)).setScale(1, RoundingMode.HALF_UP))
+                        .coverDaysLeft(groupCoverDaysLeft)
+                        .facetStatus(groupFacet)
+                        .isGroup(true)
+                        .variantGroups(variantGroups)
+                        .build();
+                resultList.add(dto);
+            }
+        }
+
+        List<GroupedSuggestionDTO> filteredList = resultList.stream()
+                .filter(g -> {
+                    if (categoryId == null) return true;
+                    if (g.getIsGroup()) {
+                        List<Product> children = childrenMap.get(g.getId());
+                        return children.stream().anyMatch(c -> c.getCategory() != null && Objects.equals(c.getCategory().getId(), categoryId));
+                    } else {
+                        Product r = allActive.stream().filter(p -> p.getId().equals(g.getId())).findFirst().orElse(null);
+                        return r != null && r.getCategory() != null && Objects.equals(r.getCategory().getId(), categoryId);
+                    }
+                })
+                .filter(g -> {
+                    if (keyword == null || keyword.isBlank()) return true;
+                    String[] words = keyword.trim().toLowerCase(Locale.ROOT).split("\\s+");
+                    for (String word : words) {
+                        boolean wordMatched = false;
+                        if (g.getName().toLowerCase(Locale.ROOT).contains(word)
+                                || (g.getSku() != null && g.getSku().toLowerCase(Locale.ROOT).contains(word))
+                                || (g.getBarcode() != null && g.getBarcode().toLowerCase(Locale.ROOT).contains(word))) {
+                            wordMatched = true;
+                        }
+                        if (!wordMatched && g.getIsGroup()) {
+                            List<Product> children = childrenMap.get(g.getId());
+                            if (children != null) {
+                                for (Product c : children) {
+                                    if (c.getName().toLowerCase(Locale.ROOT).contains(word)
+                                            || (c.getSku() != null && c.getSku().toLowerCase(Locale.ROOT).contains(word))
+                                            || (c.getBarcode() != null && c.getBarcode().toLowerCase(Locale.ROOT).contains(word))) {
+                                        wordMatched = true;
+                                        break;
+                                    }
+                                    for (var attr : c.getProductAttributes()) {
+                                        if (attr.getValue() != null && attr.getValue().toLowerCase(Locale.ROOT).contains(word)) {
+                                            wordMatched = true;
+                                            break;
+                                        }
+                                    }
+                                    if (wordMatched) break;
+                                }
+                            }
+                        }
+                        if (!wordMatched) {
+                            return false;
+                        }
+                    }
+                    return true;
+                })
+                .filter(g -> {
+                    if (facet == null || facet.isBlank() || "all".equalsIgnoreCase(facet)) return true;
+                    if (g.getIsGroup()) {
+                        List<Product> children = childrenMap.get(g.getId());
+                        return children.stream().anyMatch(c -> facet.equalsIgnoreCase(facetStatusMap.get(c.getId())));
+                    } else {
+                        return facet.equalsIgnoreCase(g.getFacetStatus());
+                    }
+                })
+                .toList();
+
+        int total = filteredList.size();
+        int fromIdx = Math.min(page * size, total);
+        int toIdx = Math.min(fromIdx + size, total);
+        List<GroupedSuggestionDTO> content = filteredList.subList(fromIdx, toIdx);
+
+        return PageResponse.<GroupedSuggestionDTO>builder()
+                .content(content)
+                .page(page)
+                .size(safeSize(size))
+                .totalElements(total)
+                .totalPages(size == 0 ? 0 : (int) Math.ceil((double) total / size))
+                .build();
+    }
+
+    private int safeSize(int size) {
+        return size <= 0 ? 10 : size;
+    }
+
+    List<String> resolveAllAttrVals(Product p) {
+        List<String> result = new ArrayList<>();
+        if (p != null && p.getProductAttributes() != null && !p.getProductAttributes().isEmpty()) {
+            for (var pa : p.getProductAttributes()) {
+                if (pa.getAttribute() != null && Boolean.TRUE.equals(pa.getAttribute().getIsPrimary())) {
+                    if (pa.getValue() != null && !pa.getValue().isBlank()) {
+                        result.add(pa.getValue().trim());
+                    }
+                }
+            }
+            for (var pa : p.getProductAttributes()) {
+                if (pa.getAttribute() == null || !Boolean.TRUE.equals(pa.getAttribute().getIsPrimary())) {
+                    if (pa.getValue() != null && !pa.getValue().isBlank()) {
+                        String val = pa.getValue().trim();
+                        if (!result.contains(val)) {
+                            result.add(val);
+                        }
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    String resolvePrimaryAttrVal(Product p) {
+        List<String> vals = resolveAllAttrVals(p);
+        return !vals.isEmpty() ? vals.get(0) : "";
+    }
+
+    String resolveSecondaryAttrVal(Product p) {
+        List<String> vals = resolveAllAttrVals(p);
+        return vals.size() > 1 ? vals.get(1) : "";
+    }
+
+    String resolveFacet(Product p, int onHand, double avgDaily, Double coverDaysLeft) {
+        String status = p.getStatus() == null ? "active" : p.getStatus();
+        if ("inactive".equalsIgnoreCase(status)) {
+            return "stop";
+        }
+        if (onHand <= 0) {
+            return avgDaily > slowThreshold() ? "hot" : "slow";
+        }
+        if (p.getSeasonTag() != null && !p.getSeasonTag().isBlank()) {
+            return "season";
+        }
+        int lead = resolveLeadDays(p);
+        int warnHorizon = lead + SAFETY_DAYS;
+        if (coverDaysLeft != null && coverDaysLeft > 0 && coverDaysLeft <= warnHorizon) {
+            return "warn";
+        }
+        return "ok";
+    }
+
+    double slowThreshold() {
+        return slowThresholdValue();
+    }
+
+    private double slowThresholdValue() {
+        return 0.1;
+    }
+
+    int resolveLeadDays(Product p) {
+        Category c = p.getCategory();
+        if (c != null && c.getDefaultSupplier() != null
+                && c.getDefaultSupplier().getLeadTimeDays() != null) {
+            return c.getDefaultSupplier().getLeadTimeDays();
+        }
+        if (c != null && c.getSuppliers() != null && !c.getSuppliers().isEmpty()) {
+            Supplier s = c.getSuppliers().iterator().next();
+            if (s.getLeadTimeDays() != null) {
+                return s.getLeadTimeDays();
+            }
+        }
+        return DEFAULT_LEAD_DAYS;
+    }
+
+    String formatChildName(Product parent, Product child, String primaryVal) {
+        String existingName = child.getName();
+        if (existingName != null && !existingName.isBlank()
+                && !existingName.contains("Nhom San Pham") && !existingName.contains("Sản Phẩm Cha")
+                && (existingName.contains("-") || existingName.contains("("))) {
+            return existingName;
+        }
+
+        String rawParent = parent != null && parent.getName() != null ? parent.getName() : "";
+        String cleanParent = rawParent.replaceAll("(?i)\\s*\\([^)]*\\)", "").trim();
+
+        List<String> attrVals = resolveAllAttrVals(child);
+        String unitStr = resolveUnit(child);
+
+        StringBuilder sb = new StringBuilder(cleanParent);
+        for (String val : attrVals) {
+            if (val != null && !val.isBlank() && !"—".equals(val)) {
+                sb.append("-").append(val.trim());
+            }
+        }
+        if (unitStr != null && !unitStr.isBlank()) {
+            sb.append("(").append(unitStr.trim()).append(")");
+        }
+        return sb.toString();
+    }
+
+    String resolveUnit(Product p) {
+        if (p != null && p.getProductUnits() != null && !p.getProductUnits().isEmpty()) {
+            for (var u : p.getProductUnits()) {
+                if (u.getUnitBase() != null && u.getUnitBase().compareTo(BigDecimal.ONE) == 0) {
+                    return u.getName();
+                }
+            }
+            return p.getProductUnits().iterator().next().getName();
+        }
+        return "";
     }
 }

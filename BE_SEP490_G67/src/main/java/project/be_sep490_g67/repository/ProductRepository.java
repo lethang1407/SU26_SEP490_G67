@@ -99,8 +99,5 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
 
     boolean existsBySkuIgnoreCaseAndIdNotAndIsRemovedFalse(String sku, Integer id);
 
-    boolean existsByBarcodeAndIsRemovedFalse(String barcode);
-
-    boolean existsByBarcodeAndIdNotAndIsRemovedFalse(String barcode, Integer id);
 
 }

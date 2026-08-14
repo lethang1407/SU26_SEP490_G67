@@ -12,6 +12,8 @@ import java.math.BigDecimal;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class ProductListItemDTO {
     Integer id;
+    Integer parentId;
+    String parentName;
     String name;
     String sku;
     String barcode;

@@ -81,16 +81,28 @@ export default function ProductDetailDrawer({
           </div>
 
           <div className="d-section">
-            <div className="d-sec-title">THÔNG TIN CƠ BẢN</div>
+            <div className="d-sec-title">THÔNG TIN CƠ BẢN & THUỘC TÍNH</div>
             <div className="field-grid">
+              {product.parentName && (
+                <div className="field">
+                  <div className="field-label">Sản phẩm cha (Nhóm)</div>
+                  <div className="field-value" style={{ color: '#2563eb', fontWeight: 600 }}>{product.parentName}</div>
+                </div>
+              )}
               <div className="field">
-                <div className="field-label">Đơn vị tính</div>
+                <div className="field-label">Đơn vị cơ bản</div>
                 <div className="field-value">{unit}</div>
               </div>
               <div className="field">
                 <div className="field-label">Nhà cung cấp</div>
                 <div className="field-value">{product.supplierName || '—'}</div>
               </div>
+              {Array.isArray(product.attributes) && product.attributes.map((attr, idx) => (
+                <div key={attr.id || idx} className="field">
+                  <div className="field-label">{attr.name}</div>
+                  <div className="field-value">{attr.value || '—'}</div>
+                </div>
+              ))}
               <div className="field full">
                 <div className="field-label">Mô tả</div>
                 <div className="field-value muted">
@@ -99,6 +111,28 @@ export default function ProductDetailDrawer({
               </div>
             </div>
           </div>
+
+          {((Array.isArray(product.conversionUnits) && product.conversionUnits.length > 0) ||
+            (Array.isArray(product.units) && product.units.length > 1)) && (
+            <div className="d-section">
+              <div className="d-sec-title">ĐƠN VỊ TÍNH QUY ĐỔI</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {(product.conversionUnits || product.units || []).map((u, i) => {
+                  if (u.isBase || u.unitBase === 1) return null;
+                  const uName = u.unitName || u.name;
+                  const qty = u.qty || u.unitBase || u.ratio;
+                  const refUnit = u.ofUnit || unit;
+                  const price = u.sellPrice || u.sellingPrice;
+                  return (
+                    <div key={u.id || i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: '#f8fafc', borderRadius: 6, fontSize: 13 }}>
+                      <span>1 <b>{uName}</b> = {qty} {refUnit}</span>
+                      <span style={{ color: '#2563eb', fontWeight: 600 }}>{price ? formatMoney(price) : '—'}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="d-section">
             <div className="d-sec-title">GIÁ CẢ</div>
@@ -169,38 +203,7 @@ export default function ProductDetailDrawer({
             </div>
           </div>
 
-          <div className="d-section">
-            <div className="d-sec-title">KHI NHẬP HÀNG</div>
-            <div className="field-grid">
-              <div className="field full">
-                <div className="field-label">Đủ bán trong bao lâu?</div>
-                <div className="field-value">
-                  {coverOverride != null ? (
-                    <>
-                      Cài riêng <b>{coverOverride} ngày</b>
-                    </>
-                  ) : (
-                    <>
-                      Theo nhóm <b>{categoryName} · {categoryCover} ngày</b>
-                    </>
-                  )}
-                </div>
-              </div>
-              <div className="field">
-                <div className="field-label">Cài riêng cho sản phẩm này?</div>
-                <div className="field-value muted">
-                  {coverOverride != null ? `Có — ${coverOverride} ngày` : 'Không — đang dùng theo nhóm'}
-                </div>
-              </div>
-              <div className="field">
-                <div className="field-label">Nếu bật cài riêng</div>
-                <div className="field-value muted">Nhập số ngày (vd. 7)</div>
-              </div>
-            </div>
-            <div className="field-value muted" style={{ marginTop: 8, fontSize: 12, lineHeight: 1.45 }}>
-              Chỉ bật khi sản phẩm này nhập khác với cả nhóm. Lúc tạo đơn vẫn có thể đổi tạm cho lần đó.
-            </div>
-          </div>
+
         </div>
 
         <div className="d-foot">

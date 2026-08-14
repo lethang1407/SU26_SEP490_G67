@@ -18,6 +18,8 @@ public class UpsertProductRequest {
     @Size(max = 200)
     private String name;
 
+    private Integer parentId;
+
     @Size(max = 50)
     private String sku;
 

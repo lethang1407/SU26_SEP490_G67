@@ -78,4 +78,19 @@ public interface ImportOrderDetailRepository extends JpaRepository<ImportOrderDe
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM ImportOrderDetail d WHERE d.importOrder.id = :orderId")
     void deleteByImportOrderId(@Param("orderId") Integer orderId);
+
+    @Query("""
+        SELECT d FROM ImportOrderDetail d
+        JOIN FETCH d.importOrder o
+        JOIN FETCH o.supplier s
+        JOIN FETCH d.product p
+        WHERE (p.id = :productId OR p.parent.id = :productId)
+          AND (d.isRemoved = false OR d.isRemoved IS NULL)
+          AND (o.isRemoved = false OR o.isRemoved IS NULL)
+          AND (s.isRemoved = false OR s.isRemoved IS NULL)
+          AND (o.orderStatus IS NULL OR UPPER(o.orderStatus) = 'IMPORTED' OR UPPER(o.orderStatus) = 'COMPLETED')
+          AND d.costPerUnit IS NOT NULL
+        ORDER BY o.createdAt ASC, d.id ASC
+        """)
+    List<ImportOrderDetail> findPriceHistoryFromImportOrders(@Param("productId") Integer productId);
 }

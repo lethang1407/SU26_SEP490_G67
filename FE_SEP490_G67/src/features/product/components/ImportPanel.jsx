@@ -3,6 +3,7 @@ import ImportPanelPreview from './ImportPanelPreview';
 import { formatMoney, groupSuggestionsBySupplier } from '../utils/productUtils';
 
 export default function ImportPanel({
+  isOpen = false,
   panelItems,
   overrides,
   step,
@@ -54,12 +55,10 @@ export default function ImportPanel({
   const previewTotal = previewGroups.reduce((s, g) => s + g.total, 0);
 
   return (
-    <aside className="setting-panel">
+    <aside className={`pi-order-panel ${isOpen ? 'open' : ''}`} id="orderPanel">
       <div className="sp-head">
         <div className="sp-head-top">
-          <div>
-            <div className="sp-title">{title}</div>
-          </div>
+          <div className="sp-title">{title}</div>
           <button type="button" className="sp-close" onClick={onClose} aria-label="Đóng">
             ×
           </button>
@@ -108,7 +107,7 @@ export default function ImportPanel({
           <div className="sp-foot-row">
             <button
               type="button"
-              className="btn primary"
+              className="btn-primary"
               onClick={onPreview}
               disabled={!panelItems.length || suggesting}
             >
@@ -117,12 +116,12 @@ export default function ImportPanel({
           </div>
         ) : (
           <div className="sp-foot-row">
-            <button type="button" className="btn ghost" onClick={onBackSetup}>
+            <button type="button" className="btn-ghost" onClick={onBackSetup}>
               Quay lại
             </button>
             <button
               type="button"
-              className="btn primary"
+              className="btn-primary"
               onClick={onCreate}
               disabled={creating || !panelItems.length}
             >

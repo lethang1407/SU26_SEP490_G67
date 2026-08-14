@@ -78,7 +78,6 @@ public enum ErrorCode {
     IMPORT_ORDER_NOT_DELETABLE(1036, "Chỉ được hủy phiếu tạm. Phiếu đã nhập hàng không thể xóa.", HttpStatus.BAD_REQUEST),
 
     // Product / category errors (11xx)
-    PRODUCT_NOT_FOUND(1100, "Không tìm thấy sản phẩm", HttpStatus.NOT_FOUND),
     PRODUCT_NAME_REQUIRED(1101, "Vui lòng nhập tên sản phẩm", HttpStatus.BAD_REQUEST),
     CATEGORY_NOT_FOUND(1102, "Không tìm thấy danh mục", HttpStatus.NOT_FOUND),
     PRODUCT_SKU_EXISTED(1103, "Mã SKU đã tồn tại", HttpStatus.CONFLICT),

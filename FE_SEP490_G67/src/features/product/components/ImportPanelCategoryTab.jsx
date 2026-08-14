@@ -12,7 +12,6 @@ export default function ImportPanelCategoryTab({ categories = MOCK_CATEGORIES })
           <thead>
             <tr>
               <th>Nhóm hàng</th>
-              <th>Đủ bán (ngày)</th>
               <th>NCC mặc định</th>
               <th />
             </tr>
@@ -24,9 +23,6 @@ export default function ImportPanelCategoryTab({ categories = MOCK_CATEGORIES })
                   <div className="field-box">
                     {c.name} <span className="caret">▾</span>
                   </div>
-                </td>
-                <td>
-                  <div className="field-box">{c.coverDays} ngày</div>
                 </td>
                 <td>
                   <div className="field-box">

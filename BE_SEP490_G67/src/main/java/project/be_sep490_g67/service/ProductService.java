@@ -41,6 +41,8 @@ public class ProductService {
     UserRepository userRepository;
     StockBatchRepository stockBatchRepository;
     ProductMapper productMapper;
+    PriceHistoryRepository priceHistoryRepository;
+    ImportOrderDetailRepository importOrderDetailRepository;
 
     @Transactional(readOnly = true)
     public PageResponse<ProductListResponse> getProductList(
@@ -536,5 +538,22 @@ public class ProductService {
                         .build())
                 .toList();
 
+    }
+
+    @Transactional(readOnly = true)
+    public List<PriceHistoryResponse> getPriceHistory(Integer productId) {
+        if (!productRepository.existsById(productId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sản phẩm");
+        }
+        List<ImportOrderDetail> details = importOrderDetailRepository.findPriceHistoryFromImportOrders(productId);
+        return details.stream()
+                .map(d -> PriceHistoryResponse.builder()
+                        .id(d.getId())
+                        .price(d.getCostPerUnit())
+                        .supplierId(d.getImportOrder() != null && d.getImportOrder().getSupplier() != null ? d.getImportOrder().getSupplier().getId() : null)
+                        .supplierName(d.getImportOrder() != null && d.getImportOrder().getSupplier() != null ? d.getImportOrder().getSupplier().getName() : null)
+                        .createdAt(d.getImportOrder() != null && d.getImportOrder().getCreatedAt() != null ? d.getImportOrder().getCreatedAt() : d.getCreatedAt())
+                        .build())
+                .toList();
     }
 }
