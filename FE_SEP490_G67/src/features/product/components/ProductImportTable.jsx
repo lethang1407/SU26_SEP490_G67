@@ -558,11 +558,11 @@ export default function ProductImportTable({
                     const unitStr = sz.unitName || p.unitName || 'đôi';
                     
                     let formattedName = sz.name;
-                    if (!formattedName || !formattedName.includes('(')) {
+                    if (!formattedName) {
                       let parts = [p.name];
                       if (sizeVal) parts.push(sizeVal);
                       if (primaryVal && primaryVal !== sizeVal) parts.push(primaryVal);
-                      formattedName = parts.join('-') + `(${unitStr})`;
+                      formattedName = parts.join('-');
                     }
 
                     allChildren.push({
@@ -692,7 +692,7 @@ export default function ProductImportTable({
                         const isDetailOpen = openDetailId === childKey;
                         const currentTab = getActiveTab(childKey, false);
 
-                        const childNameFormatted = child.name || `${p.name}-${child.primaryAttrValue || ''}-${child.sizeValue || ''}(${child.unitName || p.unitName || 'đôi'})`;
+                        const childNameFormatted = child.name || [p.name, child.sizeValue, child.primaryAttrValue !== child.sizeValue ? child.primaryAttrValue : null].filter(Boolean).join('-');
 
                         const childItem = {
                           ...child,

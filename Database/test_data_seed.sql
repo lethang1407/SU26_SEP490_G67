@@ -188,8 +188,8 @@ VALUES
 (1, 'Nuoc suoi Lavie 500ml',      '8934563118015',1,  3500.00,  5000.00,10,'Nuoc suoi tinh khiet Lavie chai 500ml',b'0',NOW(),NOW(),1,NULL),
 -- Nhom Pepsi (Parent ID: 21) & Cac San pham Con (Child Variants parent_id: 21)
 (21,'Nuoc ngot Pepsi','PEPSI_GRP_01',1, 0.00,   0.00,   0, 'Nhom nuoc ngot Pepsi lon & chai',b'0',NOW(),NOW(),1,NULL),
-(2, 'Nuoc ngot Pepsi-Vi Chanh Muoi-330ml(Lon)','8936082960024',1, 8000.00, 12000.00,10,'Nuoc ngot Pepsi lon 330ml vi chanh muoi',b'0',NOW(),NOW(),1,21),
-(22,'Nuoc ngot Pepsi-Khong Calo-330ml(Lon)',  '8936082960025',1, 8000.00, 12000.00,10,'Nuoc ngot Pepsi lon 330ml khong calo',b'0',NOW(),NOW(),1,21),
+(2, 'Nuoc ngot Pepsi-Vi Chanh Muoi-330ml','8936082960024',1, 8000.00, 12000.00,10,'Nuoc ngot Pepsi lon 330ml vi chanh muoi',b'0',NOW(),NOW(),1,21),
+(22,'Nuoc ngot Pepsi-Khong Calo-330ml',  '8936082960025',1, 8000.00, 12000.00,10,'Nuoc ngot Pepsi lon 330ml khong calo',b'0',NOW(),NOW(),1,21),
 (3, 'Bia Tiger 330ml',            '8934673600032',1, 15000.00, 20000.00,12,'Bia Tiger lon 330ml',b'0',NOW(),NOW(),1,NULL),
 (4, 'Nuoc cam ep Tropicana 1L',   '8936001310047',1, 30000.00, 42000.00, 6,'Nuoc cam ep nguyen chat Tropicana 1 lit',b'0',NOW(),NOW(),1,NULL),
 
@@ -216,10 +216,10 @@ VALUES
 
 -- SP Nhóm Dép Tổ Ong (Parent ID: 16) & Các Sản phẩm Con (Child Variants parent_id: 16)
 (16,'Dep to ong sieu nhe dai cua thanh','DEP_GRP_001',6,0.00,0.00,0,'Nhom dep to ong sieu nhe dai cao cap',b'0',NOW(),NOW(),1,NULL),
-(17,'Dep to ong sieu nhe dai cua thanh-Size 36-Mau Vang(Doi)','8935001100171',6,37000.00,40000.00,5,'Dep to ong Mau Vang Size 36',b'0',NOW(),NOW(),1,16),
-(18,'Dep to ong sieu nhe dai cua thanh-Size 37-Mau Vang(Doi)','8935001100188',6,37000.00,40000.00,5,'Dep to ong Mau Vang Size 37',b'0',NOW(),NOW(),1,16),
-(19,'Dep to ong sieu nhe dai cua thanh-Size 36-Mau Do(Doi)',  '8935001100195',6,37000.00,40000.00,5,'Dep to ong Mau Do Size 36',b'0',NOW(),NOW(),1,16),
-(20,'Dep to ong sieu nhe dai cua thanh-Size 37-Mau Do(Doi)',  '8935001100201',6,37000.00,40000.00,5,'Dep to ong Mau Do Size 37',b'0',NOW(),NOW(),1,16)
+(17,'Dep to ong sieu nhe dai cua thanh-Size 36-Mau Vang','8935001100171',6,37000.00,40000.00,5,'Dep to ong Mau Vang Size 36',b'0',NOW(),NOW(),1,16),
+(18,'Dep to ong sieu nhe dai cua thanh-Size 37-Mau Vang','8935001100188',6,37000.00,40000.00,5,'Dep to ong Mau Vang Size 37',b'0',NOW(),NOW(),1,16),
+(19,'Dep to ong sieu nhe dai cua thanh-Size 36-Mau Do',  '8935001100195',6,37000.00,40000.00,5,'Dep to ong Mau Do Size 36',b'0',NOW(),NOW(),1,16),
+(20,'Dep to ong sieu nhe dai cua thanh-Size 37-Mau Do',  '8935001100201',6,37000.00,40000.00,5,'Dep to ong Mau Do Size 37',b'0',NOW(),NOW(),1,16)
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`), `selling_price`=VALUES(`selling_price`), `parent_id`=VALUES(`parent_id`);
 
 -- ============================================================
