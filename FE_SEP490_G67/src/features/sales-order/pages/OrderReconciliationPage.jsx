@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import '../../../css/AdminDashboard.css';
 import '../../../css/OrderReconciliation.css';
@@ -250,11 +249,9 @@ export default function OrderReconciliationPage() {
   };
 
   return (
-    <div className="admin-layout">
-      <SideBar />
-      <div className="admin-content">
-        <AdminHeader />
-        <main className="admin-main order-reconciliation-page">
+    <div className="admin-content">
+      <AdminHeader />
+      <main className="admin-main order-reconciliation-page">
           <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h1>Quản lý Đơn hàng &amp; Đối soát Két</h1>
@@ -1212,6 +1209,5 @@ export default function OrderReconciliationPage() {
           )}
         </main>
       </div>
-    </div>
   );
 }

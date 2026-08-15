@@ -4,7 +4,6 @@ import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.request.UpsertCategoryRequest;
@@ -33,7 +32,7 @@ public class CategoryController {
                 .message("Lấy danh sách danh mục hàng hóa thành công")
                 .build();
     }
-   // @PreAuthorize("hasAuthority('PRODUCT:CREATE')")
+    @PreAuthorize("hasAuthority('PRODUCT:CREATE')")
     @PostMapping
     public ApiResponse<CategoryResponse> addCategory(@Valid @RequestBody UpsertCategoryRequest request){
         CategoryResponse newCategory = categoryService.createCategory(request);
@@ -43,7 +42,6 @@ public class CategoryController {
                 .build();
     }
 
-   // @PreAuthorize("hasAuthority('PRODUCT:UPDATE')")
     @PutMapping("/{categoryId}")
     public ApiResponse<CategoryResponse> updateCategory(@Valid @RequestBody UpsertCategoryRequest request, @PathVariable Integer categoryId){
         CategoryResponse updateCategory = categoryService.updateCategory(categoryId,request);

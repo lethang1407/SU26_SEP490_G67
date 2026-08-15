@@ -7,7 +7,6 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
@@ -44,7 +43,6 @@ public class SalesOrderController {
      * GET /api/sales-orders
      */
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
     ApiResponse<SalesOrderListResponse> getOrderHistory(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -78,7 +76,6 @@ public class SalesOrderController {
      * Admin order detail. IDOR: ADMIN/ACCOUNTANT any order; CASHIER only own.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
     ApiResponse<SalesOrderResponse> getOrderDetail(@PathVariable Integer id) {
         User currentUser = resolveCurrentUser();
         SalesOrderResponse result = salesOrderService.getOrderDetail(
@@ -92,7 +89,6 @@ public class SalesOrderController {
     /**
      * POST /api/sales-orders
      */
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('POS:SALE')")
     @PostMapping
     public ResponseEntity<ApiResponse<SalesOrderResponse>> createOrder(@Valid @RequestBody CreateSalesOrderRequest request) {
         Integer staffId = resolveStaffId();
@@ -104,7 +100,6 @@ public class SalesOrderController {
     /**
      * POST /api/sales-orders/debt
      */
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('POS:SALE')")
     @PostMapping("/debt")
     ApiResponse<SalesOrderResponse> createDebtOrder(@Valid @RequestBody CreateSalesOrderRequest request) {
         Integer staffId = resolveStaffId();
@@ -119,7 +114,6 @@ public class SalesOrderController {
      * GET /api/sales-orders/{id}/detail
      */
     @GetMapping("/{id}/detail")
-    @PreAuthorize("isAuthenticated()")
     ApiResponse<SalesOrderDetailResponse> getOrderDetailWithReturns(@PathVariable Integer id) {
         SalesOrderDetailResponse result = salesOrderService.getOrderDetailWithReturns(id);
         return ApiResponse.<SalesOrderDetailResponse>builder()
@@ -131,7 +125,6 @@ public class SalesOrderController {
     /**
      * GET /api/sales-orders/{id}/receipt
      */
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('SALES_ORDER:INVOICE')")
     @GetMapping("/{id}/receipt")
     ApiResponse<SalesOrderResponse> getReceipt(@PathVariable Integer id) {
         SalesOrderResponse result = salesOrderService.getReceipt(id);
@@ -144,7 +137,6 @@ public class SalesOrderController {
      * GET /api/sales-orders/{id}/invoice
      */
     @GetMapping("/{id}/invoice")
-    @PreAuthorize("isAuthenticated()")
     ApiResponse<InvoiceResponse> getInvoice(@PathVariable Integer id) {
         User currentUser = resolveCurrentUser();
         InvoiceResponse result = invoiceService.getInvoice(id, currentUser.getId(), isPrivileged(currentUser));
@@ -158,7 +150,6 @@ public class SalesOrderController {
      * GET /api/sales-orders/search-for-return
      */
     @GetMapping("/search-for-return")
-    @PreAuthorize("isAuthenticated()")
     ApiResponse<ReturnLookupResponse> searchForReturn(
             @RequestParam(required = false) String orderCode,
             @RequestParam(required = false) String customerPhone,
@@ -192,7 +183,6 @@ public class SalesOrderController {
      * Get order details for exchange order page
      */
     @GetMapping("/{id}/exchange")
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('POS:EXCHANGE')")
     ApiResponse<ExchangeOrderDetailResponse> getOrderForExchange(@PathVariable Integer id) {
         ExchangeOrderDetailResponse result = exchangeOrderService.getOrderForExchange(id);
         return ApiResponse.<ExchangeOrderDetailResponse>builder()
@@ -206,7 +196,6 @@ public class SalesOrderController {
      * Process exchange order
      */
     @PostMapping("/exchange")
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('POS:EXCHANGE')")
     ApiResponse<ExchangeOrderResponse> processExchangeOrder(@Valid @RequestBody CreateExchangeOrderRequest request) {
         Integer staffId = resolveStaffId();
         ExchangeOrderResponse result = exchangeOrderService.processExchangeOrder(request, staffId);

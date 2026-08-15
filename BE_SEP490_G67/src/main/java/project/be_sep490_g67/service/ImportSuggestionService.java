@@ -732,7 +732,7 @@ public class ImportSuggestionService {
         String existingName = child.getName();
         if (existingName != null && !existingName.isBlank()
                 && !existingName.contains("Nhom San Pham") && !existingName.contains("Sản Phẩm Cha")
-                && (existingName.contains("-") || existingName.contains("("))) {
+                && existingName.contains("-")) {
             return existingName;
         }
 
@@ -740,16 +740,12 @@ public class ImportSuggestionService {
         String cleanParent = rawParent.replaceAll("(?i)\\s*\\([^)]*\\)", "").trim();
 
         List<String> attrVals = resolveAllAttrVals(child);
-        String unitStr = resolveUnit(child);
 
         StringBuilder sb = new StringBuilder(cleanParent);
         for (String val : attrVals) {
             if (val != null && !val.isBlank() && !"—".equals(val)) {
                 sb.append("-").append(val.trim());
             }
-        }
-        if (unitStr != null && !unitStr.isBlank()) {
-            sb.append("(").append(unitStr.trim()).append(")");
         }
         return sb.toString();
     }

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Search } from 'lucide-react';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import ProductFacet from '../components/ProductFacet';
 import ProductImportTable from '../components/ProductImportTable';
@@ -492,8 +491,6 @@ export default function ProductImportPage() {
   );
 
   return (
-    <div className="admin-layout">
-      <SideBar />
       <div className="admin-content">
         <AdminHeader />
         <main
@@ -617,6 +614,5 @@ export default function ProductImportPage() {
           </div>
         </main>
       </div>
-    </div>
   );
 }

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Search } from 'lucide-react';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import CategoryTable from '../components/CategoryTable';
 import CategoryPagination from '../components/CategoryPagination';
@@ -141,11 +140,9 @@ export default function CategoryListPage() {
   };
 
   return (
-    <div className="admin-layout">
-      <SideBar />
-      <div className="admin-content">
-        <AdminHeader />
-        <main className="admin-main">
+    <div className="admin-content">
+      <AdminHeader />
+      <main className="admin-main">
           <div className="dashboard-container cat-page">
             <header className="cat-page__header">
               <div>
@@ -208,6 +205,5 @@ export default function CategoryListPage() {
           </div>
         </main>
       </div>
-    </div>
   );
 }

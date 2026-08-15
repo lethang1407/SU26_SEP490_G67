@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 public interface UserMapper {
 
     @Mapping(source = "roles", target = "roles", qualifiedByName = "rolesToRoleNames")
-    @Mapping(source = "roles", target = "permissions", qualifiedByName = "rolesToPermissionCodes")
+    @Mapping(source = "user", target = "permissions", qualifiedByName = "userToPermissionCodes")
     UserProfileResponse toProfileResponse(User user);
 
     @Named("rolesToRoleNames")
@@ -29,16 +29,26 @@ public interface UserMapper {
                 .collect(Collectors.toSet());
     }
 
-    @Named("rolesToPermissionCodes")
-    default Set<String> rolesToPermissionCodes(Set<Role> roles) {
-        if (roles == null) {
-            return null;
+    @Named("userToPermissionCodes")
+    default Set<String> userToPermissionCodes(User user) {
+        if (user == null) {
+            return java.util.Collections.emptySet();
         }
-        return roles.stream()
-                .filter(r -> r.getPermissions() != null)
-                .flatMap(r -> r.getPermissions().stream())
-                .map(Permission::getCode)
-                .filter(code -> code != null)
-                .collect(Collectors.toSet());
+        Set<String> permissions = new java.util.HashSet<>();
+        if (user.getRoles() != null) {
+            user.getRoles().stream()
+                    .filter(r -> r.getPermissions() != null)
+                    .flatMap(r -> r.getPermissions().stream())
+                    .map(Permission::getCode)
+                    .filter(code -> code != null)
+                    .forEach(permissions::add);
+        }
+        if (user.getCustomPermissions() != null) {
+            user.getCustomPermissions().stream()
+                    .map(Permission::getCode)
+                    .filter(code -> code != null)
+                    .forEach(permissions::add);
+        }
+        return permissions;
     }
 }

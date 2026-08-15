@@ -1,6 +1,5 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import ProductEditForm from '../components/ProductEditForm';
 import { productsApi } from '../api';
@@ -212,68 +211,59 @@ export default function ProductEditPage() {
 
   if (loading) {
     return (
-      <div className="admin-layout">
-        <SideBar />
-        <div className="admin-content">
-          <AdminHeader />
-          <main className="admin-main">
-            <div className="dashboard-container add-product-page">
-              <p className="edit-product-not-found">Đang tải sản phẩm…</p>
-            </div>
-          </main>
-        </div>
+      <div className="admin-content">
+        <AdminHeader />
+        <main className="admin-main">
+          <div className="dashboard-container add-product-page">
+            <p className="edit-product-not-found">Đang tải sản phẩm…</p>
+          </div>
+        </main>
       </div>
     );
   }
 
   if (notFound || !product) {
     return (
-      <div className="admin-layout">
-        <SideBar />
-        <div className="admin-content">
-          <AdminHeader />
-          <main className="admin-main">
-            <div className="dashboard-container add-product-page">
-              <p className="edit-product-not-found">Không tìm thấy sản phẩm.</p>
-              <Link to={PRODUCT_ROUTES.list} className="add-product-link-btn">
-                Quay lại danh sách sản phẩm
-              </Link>
-            </div>
-          </main>
-        </div>
+      <div className="admin-content">
+        <AdminHeader />
+        <main className="admin-main">
+          <div className="dashboard-container add-product-page">
+            <p className="edit-product-not-found">Không tìm thấy sản phẩm.</p>
+            <Link to={PRODUCT_ROUTES.list} className="add-product-link-btn">
+              Quay lại danh sách sản phẩm
+            </Link>
+          </div>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="admin-layout">
-      <SideBar />
-      <div className="admin-content">
-        <AdminHeader />
-        <main className="admin-main">
-          <div className="dashboard-container add-product-page edit-product-page">
-            <nav className="add-product-breadcrumb" aria-label="Breadcrumb">
-              <span className="add-product-breadcrumb__muted">Sản phẩm</span>
-              <span className="add-product-breadcrumb__sep">&gt;</span>
-              <Link to={PRODUCT_ROUTES.list} className="add-product-breadcrumb__link">
-                Danh sách sản phẩm
-              </Link>
-              <span className="add-product-breadcrumb__sep">&gt;</span>
-              <span className="add-product-breadcrumb__current">Chỉnh sửa sản phẩm</span>
-            </nav>
+    <div className="admin-content">
+      <AdminHeader />
+      <main className="admin-main">
+        <div className="dashboard-container add-product-page edit-product-page">
+          <nav className="add-product-breadcrumb" aria-label="Breadcrumb">
+            <span className="add-product-breadcrumb__muted">Sản phẩm</span>
+            <span className="add-product-breadcrumb__sep">&gt;</span>
+            <Link to={PRODUCT_ROUTES.list} className="add-product-breadcrumb__link">
+              Danh sách sản phẩm
+            </Link>
+            <span className="add-product-breadcrumb__sep">&gt;</span>
+            <span className="add-product-breadcrumb__current">Chỉnh sửa sản phẩm</span>
+          </nav>
 
-            <ProductEditForm
-              formId={EDIT_PRODUCT_FORM_ID}
-              initialData={product}
-              categories={categories}
-              onSubmit={handleSubmit}
-              onCancel={handleCancel}
-              onUploadImage={handleUploadImage}
-              onRemoveImage={handleRemoveImage}
-            />
-          </div>
-        </main>
-      </div>
+          <ProductEditForm
+            formId={EDIT_PRODUCT_FORM_ID}
+            initialData={product}
+            categories={categories}
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
+            onUploadImage={handleUploadImage}
+            onRemoveImage={handleRemoveImage}
+          />
+        </div>
+      </main>
     </div>
   );
 }
