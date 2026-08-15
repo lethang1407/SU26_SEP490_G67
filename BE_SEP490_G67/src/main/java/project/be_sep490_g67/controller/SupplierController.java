@@ -42,9 +42,11 @@ public class SupplierController {
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "10") int size,
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) Integer categoryId
+            @RequestParam(required = false) Integer categoryId,
+            @RequestParam(required = false) Integer productId
     ) {
-        SupplierListPageResponse result = supplierService.findAllSuppliers(search, categoryId, page, size);
+        SupplierListPageResponse result = supplierService.findAllSuppliers(
+                search, categoryId, productId, page, size);
         return ApiResponse.<SupplierListPageResponse>builder()
                 .result(result)
                 .message("Lấy danh sách nhà cung cấp thành công")

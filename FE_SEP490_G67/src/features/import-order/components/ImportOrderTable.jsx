@@ -4,7 +4,7 @@ import ImportOrderExpandPanel from './ImportOrderExpandPanel';
 import { ORDER_STATUS, ORDER_STATUS_LABEL } from '../constants';
 import { formatCurrency, formatDate, formatDateTime } from '../utils/importOrderUtils';
 
-const COLUMN_COUNT = 6;
+const COLUMN_COUNT = 5;
 
 export default function ImportOrderTable({
     items,
@@ -39,7 +39,6 @@ export default function ImportOrderTable({
                             <th title="Phiếu đã nhập: ngày nhập kho. Phiếu tạm: ngày lập phiếu.">
                                 Ngày
                             </th>
-                            <th>Mã NCC</th>
                             <th>Nhà cung cấp</th>
                             <th>Tổng tiền</th>
                             <th>Trạng thái</th>
@@ -90,16 +89,11 @@ export default function ImportOrderTable({
                                         >
                                             {dateLabel}
                                         </td>
-                                        <td>
-                                            <span className="import-order-table__supplier-code">
-                                                {order.supplierCode}
-                                            </span>
-                                        </td>
-                                        <td className="supplier-table__name" title={order.supplierName}>
-                                            {order.supplierName}
+                                        <td className="supplier-table__name" title={order.supplierName || undefined}>
+                                            {order.supplierName || '—'}
                                         </td>
                                         <td className="supplier-table__nowrap">
-                                            {formatCurrency(totalCost)}
+                                            <div>{formatCurrency(isDraft ? 0 : totalCost)}</div>
                                         </td>
                                         <td>
                                             <span

@@ -1,24 +1,47 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ImagePlus, Plus, Search, X } from 'lucide-react';
-import { ORDER_STATUS_LABEL } from '../constants';
+import { suppliersApi } from '../../supplier/api';
 import { formatCurrency, formatMoneyInput, parseMoneyInput } from '../utils/importOrderUtils';
+
+const SEARCH_DEBOUNCE_MS = 300;
+const MIN_QUERY_LENGTH = 2;
+
+function productDisplayName(product) {
+    return product.parentName || product.name || '';
+}
+
+function productAttributeLabel(product) {
+    return (product.attributes || [])
+        .filter((item) => item?.name && item?.value)
+        .map((item) => `${item.name} ${item.value}`)
+        .join(' · ');
+}
+
+function mapSupplierOption(item) {
+    return {
+        id: item.id,
+        supplierCode: item.supplierCode,
+        name: item.name,
+        phoneNumber: item.phoneNumber || '',
+        notes: item.notes || '',
+    };
+}
 
 export default function ImportOrderCreateSidebar({
     supplier,
     suppliers = [],
     suppliersLoading = false,
-    orderCode = '',
-    creatorName = '',
     note,
     invoiceImageUrl = '',
     invoiceImageName = '',
     uploadingInvoiceImage = false,
     totalAmount,
     discountAmount,
+    returnDeductionAmount = 0,
     amountDue,
+    supplierRefundAmount = 0,
     paidAmount,
     debtAmount,
-    orderStatus,
     submitting,
     onSelectSupplier,
     onClearSupplier,
@@ -35,7 +58,14 @@ export default function ImportOrderCreateSidebar({
 }) {
     const [supplierKeyword, setSupplierKeyword] = useState('');
     const [supplierOpen, setSupplierOpen] = useState(false);
+    const [nameMatches, setNameMatches] = useState([]);
+    const [products, setProducts] = useState([]);
+    const [searchLoading, setSearchLoading] = useState(false);
+    const [selectedSearchProduct, setSelectedSearchProduct] = useState(null);
+    const [productSuppliers, setProductSuppliers] = useState([]);
+    const [productSuppliersLoading, setProductSuppliersLoading] = useState(false);
     const supplierRef = useRef(null);
+    const requestIdRef = useRef(0);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -47,25 +77,81 @@ export default function ImportOrderCreateSidebar({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const supplierResults = useMemo(() => {
-        const q = supplierKeyword.trim().toLowerCase();
-        if (!q) return suppliers.slice(0, 5);
-        return suppliers
-            .filter(
-                (item) =>
-                    item.name.toLowerCase().includes(q) || item.supplierCode.toLowerCase().includes(q),
-            )
-            .slice(0, 5);
-    }, [supplierKeyword, suppliers]);
+    useEffect(() => {
+        const trimmed = supplierKeyword.trim();
+        if (trimmed.length < MIN_QUERY_LENGTH) {
+            setNameMatches([]);
+            setProducts([]);
+            setSelectedSearchProduct(null);
+            setProductSuppliers([]);
+            setSearchLoading(false);
+            return undefined;
+        }
+
+        const currentRequestId = ++requestIdRef.current;
+        setSearchLoading(true);
+        setSelectedSearchProduct(null);
+        setProductSuppliers([]);
+
+        const timer = setTimeout(async () => {
+            try {
+                const [supplierPage, productResults] = await Promise.all([
+                    suppliersApi.getSuppliers({ search: trimmed, page: 0, size: 5 }),
+                    suppliersApi.searchProducts(trimmed),
+                ]);
+                if (currentRequestId !== requestIdRef.current) return;
+                setNameMatches((supplierPage?.content || []).map(mapSupplierOption));
+                setProducts(Array.isArray(productResults) ? productResults.slice(0, 5) : []);
+            } catch {
+                if (currentRequestId !== requestIdRef.current) return;
+                setNameMatches([]);
+                setProducts([]);
+            } finally {
+                if (currentRequestId === requestIdRef.current) {
+                    setSearchLoading(false);
+                }
+            }
+        }, SEARCH_DEBOUNCE_MS);
+
+        return () => clearTimeout(timer);
+    }, [supplierKeyword]);
+
+    const handleSelectSupplier = (item) => {
+        onSelectSupplier(item);
+        setSupplierKeyword('');
+        setSelectedSearchProduct(null);
+        setProductSuppliers([]);
+        setSupplierOpen(false);
+    };
+
+    const handleSelectProduct = async (product) => {
+        const name = productDisplayName(product);
+        const attrs = productAttributeLabel(product);
+        setSelectedSearchProduct({
+            id: product.id,
+            name: attrs ? `${name} (${attrs})` : name,
+        });
+        setProductSuppliersLoading(true);
+        try {
+            const page = await suppliersApi.getSuppliers({
+                productId: product.id,
+                page: 0,
+                size: 20,
+            });
+            setProductSuppliers((page?.content || []).map(mapSupplierOption));
+        } catch {
+            setProductSuppliers([]);
+        } finally {
+            setProductSuppliersLoading(false);
+        }
+    };
+
+    const idleResults = useMemo(() => suppliers.slice(0, 5), [suppliers]);
+    const isQuerying = supplierKeyword.trim().length >= MIN_QUERY_LENGTH;
+    const showDropdown = supplierOpen && !supplier;
 
     return (
         <aside className="ioc-sidebar">
-            <div className="ioc-sidebar__meta">
-                <span>
-                    Người lập: <strong>{creatorName || '—'}</strong>
-                </span>
-            </div>
-
             <div className="ioc-sidebar__field" ref={supplierRef}>
                 <label className="ioc-sidebar__label">Nhà cung cấp</label>
                 {supplier ? (
@@ -89,7 +175,7 @@ export default function ImportOrderCreateSidebar({
                             <Search size={16} className="ioc-sidebar__search-icon" />
                             <input
                                 type="text"
-                                placeholder="Tìm nhà cung cấp..."
+                                placeholder="Tìm NCC hoặc sản phẩm..."
                                 value={supplierKeyword}
                                 onChange={(event) => {
                                     setSupplierKeyword(event.target.value);
@@ -97,23 +183,116 @@ export default function ImportOrderCreateSidebar({
                                 }}
                                 onFocus={() => setSupplierOpen(true)}
                             />
-                            {supplierOpen && (
+                            {showDropdown && (
                                 <div className="ioc-sidebar__dropdown">
-                                    {suppliersLoading ? (
+                                    {selectedSearchProduct ? (
+                                        <>
+                                            <div className="ioc-sidebar__section-label">
+                                                NCC từng nhập {selectedSearchProduct.name}
+                                            </div>
+                                            {productSuppliersLoading ? (
+                                                <div className="ioc-sidebar__empty">Đang tải NCC...</div>
+                                            ) : productSuppliers.length === 0 ? (
+                                                <div className="ioc-sidebar__empty">
+                                                    Chưa có nhà cung cấp từng nhập sản phẩm này
+                                                </div>
+                                            ) : (
+                                                productSuppliers.map((item) => (
+                                                    <button
+                                                        key={item.id}
+                                                        type="button"
+                                                        className="ioc-sidebar__option"
+                                                        onMouseDown={(event) => {
+                                                            event.preventDefault();
+                                                            handleSelectSupplier(item);
+                                                        }}
+                                                    >
+                                                        <strong>{item.name}</strong>
+                                                        <span>{item.supplierCode}</span>
+                                                        {item.notes ? (
+                                                            <span className="ioc-sidebar__option-note">
+                                                                {item.notes}
+                                                            </span>
+                                                        ) : null}
+                                                    </button>
+                                                ))
+                                            )}
+                                        </>
+                                    ) : isQuerying ? (
+                                        searchLoading ? (
+                                            <div className="ioc-sidebar__empty">Đang tìm...</div>
+                                        ) : nameMatches.length === 0 && products.length === 0 ? (
+                                            <div className="ioc-sidebar__empty">
+                                                Không tìm thấy NCC hoặc sản phẩm
+                                            </div>
+                                        ) : (
+                                            <>
+                                                {nameMatches.length > 0 ? (
+                                                    <>
+                                                        <div className="ioc-sidebar__section-label">
+                                                            Nhà cung cấp
+                                                        </div>
+                                                        {nameMatches.map((item) => (
+                                                            <button
+                                                                key={item.id}
+                                                                type="button"
+                                                                className="ioc-sidebar__option"
+                                                                onMouseDown={(event) => {
+                                                                    event.preventDefault();
+                                                                    handleSelectSupplier(item);
+                                                                }}
+                                                            >
+                                                                <strong>{item.name}</strong>
+                                                                <span>{item.supplierCode}</span>
+                                                            </button>
+                                                        ))}
+                                                    </>
+                                                ) : null}
+                                                {products.length > 0 ? (
+                                                    <>
+                                                        <div className="ioc-sidebar__section-label">
+                                                            Theo sản phẩm
+                                                        </div>
+                                                        {products.map((product) => {
+                                                            const name = productDisplayName(product);
+                                                            const attrs = productAttributeLabel(product);
+                                                            return (
+                                                                <button
+                                                                    key={product.id}
+                                                                    type="button"
+                                                                    className="ioc-sidebar__option"
+                                                                    onMouseDown={(event) => {
+                                                                        event.preventDefault();
+                                                                        handleSelectProduct(product);
+                                                                    }}
+                                                                >
+                                                                    <strong>{name}</strong>
+                                                                    <span>
+                                                                        {attrs ||
+                                                                            product.sku ||
+                                                                            product.barcode ||
+                                                                            ''}
+                                                                    </span>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </>
+                                                ) : null}
+                                            </>
+                                        )
+                                    ) : suppliersLoading ? (
                                         <div className="ioc-sidebar__empty">Đang tải NCC...</div>
-                                    ) : supplierResults.length === 0 ? (
+                                    ) : idleResults.length === 0 ? (
                                         <div className="ioc-sidebar__empty">Không tìm thấy NCC</div>
                                     ) : (
-                                        supplierResults.map((item) => (
+                                        idleResults.map((item) => (
                                             <button
                                                 key={item.id}
                                                 type="button"
                                                 className="ioc-sidebar__option"
                                                 onMouseDown={(event) => {
                                                     event.preventDefault();
-                                                    onSelectSupplier(item);
-                                                    setSupplierKeyword('');
-                                                    setSupplierOpen(false);
+                                                    handleSelectSupplier(item);
                                                 }}
                                             >
                                                 <strong>{item.name}</strong>
@@ -137,27 +316,9 @@ export default function ImportOrderCreateSidebar({
                 )}
             </div>
 
-            <div className="ioc-sidebar__field">
-                <label className="ioc-sidebar__label">Mã phiếu nhập</label>
-                <input
-                    type="text"
-                    className="ioc-sidebar__input"
-                    value={orderCode}
-                    placeholder="Mã phiếu tự động"
-                    disabled
-                />
-            </div>
-
-            <div className="ioc-sidebar__field">
-                <label className="ioc-sidebar__label">Trạng thái</label>
-                <span className={`import-order-status import-order-status--${orderStatus.toLowerCase()}`}>
-                    {ORDER_STATUS_LABEL[orderStatus]}
-                </span>
-            </div>
-
             <div className="ioc-sidebar__summary">
                 <div className="ioc-sidebar__summary-row">
-                    <span>Tổng tiền hàng</span>
+                    <span>Tổng hàng nhập</span>
                     <strong>{formatCurrency(totalAmount)}</strong>
                 </div>
 
@@ -175,10 +336,24 @@ export default function ImportOrderCreateSidebar({
                     </div>
                 </div>
 
-                <div className="ioc-sidebar__summary-row ioc-sidebar__summary-row--emphasis">
-                    <span>Cần trả nhà cung cấp</span>
-                    <strong>{formatCurrency(amountDue)}</strong>
-                </div>
+                {returnDeductionAmount > 0 ? (
+                    <div className="ioc-sidebar__summary-row ioc-sidebar__summary-row--return">
+                        <span>Trừ hàng trả NCC</span>
+                        <strong>−{formatCurrency(returnDeductionAmount)}</strong>
+                    </div>
+                ) : null}
+
+                {supplierRefundAmount > 0 ? (
+                    <div className="ioc-sidebar__summary-row ioc-sidebar__summary-row--emphasis ioc-sidebar__summary-row--refund">
+                        <span>NCC trả lại</span>
+                        <strong>{formatCurrency(supplierRefundAmount)}</strong>
+                    </div>
+                ) : (
+                    <div className="ioc-sidebar__summary-row ioc-sidebar__summary-row--emphasis">
+                        <span>Cần trả nhà cung cấp</span>
+                        <strong>{formatCurrency(amountDue)}</strong>
+                    </div>
+                )}
 
                 {amountDue > 0 && (
                     <>

@@ -33,9 +33,32 @@ export default function ImportOrderDetailInfo({ order }) {
                     </dd>
                 </div>
                 <div className="import-order-info-list__item">
-                    <dt>Tổng tiền</dt>
-                    <dd className="import-order-info-list__amount">{formatCurrency(order.totalCost)}</dd>
+                    <dt>Tổng tiền hàng</dt>
+                    <dd className="import-order-info-list__amount">
+                        {formatCurrency(order.goodsTotal ?? order.totalCost)}
+                    </dd>
                 </div>
+                {Number(order.returnDeductionAmount) > 0 ? (
+                    <div className="import-order-info-list__item">
+                        <dt>Trừ hàng trả NCC</dt>
+                        <dd className="import-order-info-list__amount">
+                            −{formatCurrency(order.returnDeductionAmount)}
+                        </dd>
+                    </div>
+                ) : null}
+                {Number(order.supplierRefundAmount) > 0 ? (
+                    <div className="import-order-info-list__item">
+                        <dt>NCC trả lại</dt>
+                        <dd className="import-order-info-list__amount">
+                            {formatCurrency(order.supplierRefundAmount)}
+                        </dd>
+                    </div>
+                ) : (
+                    <div className="import-order-info-list__item">
+                        <dt>Cần trả NCC</dt>
+                        <dd className="import-order-info-list__amount">{formatCurrency(order.totalCost)}</dd>
+                    </div>
+                )}
             </dl>
         </section>
     );

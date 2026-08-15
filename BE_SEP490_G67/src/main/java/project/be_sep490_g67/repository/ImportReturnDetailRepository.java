@@ -29,6 +29,8 @@ public interface ImportReturnDetailRepository extends JpaRepository<ImportReturn
             JOIN FETCH d.product p
             LEFT JOIN FETCH d.stockBatch sb
             LEFT JOIN FETCH d.exchangeBatch eb
+            LEFT JOIN FETCH d.supplier s
+            LEFT JOIN FETCH d.settledImportOrder sio
             WHERE d.id = :id
               AND (d.isRemoved = false OR d.isRemoved IS NULL)
             """)
@@ -43,4 +45,40 @@ public interface ImportReturnDetailRepository extends JpaRepository<ImportReturn
     Optional<ImportReturnDetail> findActiveByReturnIdAndBatchId(
             @Param("returnId") Integer returnId,
             @Param("batchId") Integer batchId);
+
+    @Query("""
+            SELECT d FROM ImportReturnDetail d
+            JOIN FETCH d.importReturn ir
+            JOIN FETCH d.product p
+            LEFT JOIN FETCH d.stockBatch sb
+            LEFT JOIN FETCH d.supplier s
+            LEFT JOIN FETCH d.settledImportOrder sio
+            WHERE (d.isRemoved = false OR d.isRemoved IS NULL)
+              AND (ir.isRemoved = false OR ir.isRemoved IS NULL)
+              AND d.lineStatus = :waitingStatus
+              AND ir.status = :inProgressStatus
+              AND s.id = :supplierId
+              AND (
+                    d.settledImportOrder IS NULL
+                    OR sio.id = COALESCE(:currentOrderId, -1)
+                  )
+            ORDER BY ir.id ASC, d.id ASC
+            """)
+    List<ImportReturnDetail> findPendingBySupplier(
+            @Param("supplierId") Integer supplierId,
+            @Param("currentOrderId") Integer currentOrderId,
+            @Param("waitingStatus") String waitingStatus,
+            @Param("inProgressStatus") String inProgressStatus);
+
+    @Query("""
+            SELECT d FROM ImportReturnDetail d
+            JOIN FETCH d.importReturn ir
+            JOIN FETCH d.product p
+            LEFT JOIN FETCH d.stockBatch sb
+            LEFT JOIN FETCH d.settledImportOrder sio
+            WHERE (d.isRemoved = false OR d.isRemoved IS NULL)
+              AND sio.id = :importOrderId
+            ORDER BY d.id ASC
+            """)
+    List<ImportReturnDetail> findBySettledImportOrderId(@Param("importOrderId") Integer importOrderId);
 }

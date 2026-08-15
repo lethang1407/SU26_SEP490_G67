@@ -110,7 +110,9 @@ export default function SupplierImportHistoryTable({ supplierId, onViewDetail, r
                                         </td>
                                         <td>{formatDate(order.receivedDate)}</td>
                                         <td>{order.createdByName || '—'}</td>
-                                        <td className="supplier-table__debt">{formatCurrency(order.totalCost)}</td>
+                                        <td className="supplier-table__debt">
+                                            <div>{formatCurrency(order.totalCost)}</div>
+                                        </td>
                                         <td>
                                             <span
                                                 className={`supplier-import-status supplier-import-status--${order.status?.toLowerCase()}`}

@@ -36,16 +36,16 @@ public interface ImportOrderRepository extends JpaRepository<ImportOrder, Intege
     // remainingDebt vẫn derive ở Service nên pagination cũng cắt ở Service.
     @Query("""
             SELECT io FROM ImportOrder io
-            JOIN FETCH io.supplier s
+            LEFT JOIN FETCH io.supplier s
             WHERE io.isRemoved = false
-              AND s.isRemoved = false
+              AND (s.id IS NULL OR s.isRemoved = false)
               AND (:search IS NULL OR :search = ''
                    OR LOWER(io.orderCode) LIKE LOWER(CONCAT('%', :search, '%'))
-                   OR LOWER(s.supplierCode) LIKE LOWER(CONCAT('%', :search, '%'))
-                   OR LOWER(s.name) LIKE LOWER(CONCAT('%', :search, '%')))
+                   OR (s.id IS NOT NULL AND LOWER(s.name) LIKE LOWER(CONCAT('%', :search, '%'))))
               AND (:orderStatus IS NULL OR :orderStatus = '' OR :orderStatus = 'ALL'
                    OR io.orderStatus = :orderStatus)
-            ORDER BY io.createdAt DESC, io.id DESC
+            ORDER BY CASE WHEN io.orderStatus = 'DRAFT' THEN 0 ELSE 1 END,
+                     io.createdAt DESC, io.id DESC
             """)
     List<ImportOrder> searchAll(
             @Param("search") String search,
@@ -54,7 +54,7 @@ public interface ImportOrderRepository extends JpaRepository<ImportOrder, Intege
     // Lấy 1 đơn nhập kèm NCC + chi tiết mặt hàng + ĐVT (JOIN FETCH), tránh N+1
     @Query("""
             SELECT DISTINCT io FROM ImportOrder io
-            JOIN FETCH io.supplier s
+            LEFT JOIN FETCH io.supplier s
             LEFT JOIN FETCH io.importOrderDetails iod
             LEFT JOIN FETCH iod.product p
             LEFT JOIN FETCH p.parent
@@ -67,7 +67,7 @@ public interface ImportOrderRepository extends JpaRepository<ImportOrder, Intege
     /** Load phiếu để update — không FETCH detail (tránh xung đột khi bulk delete dòng cũ). */
     @Query("""
             SELECT io FROM ImportOrder io
-            JOIN FETCH io.supplier s
+            LEFT JOIN FETCH io.supplier s
             WHERE io.id = :id
               AND io.isRemoved = false
             """)

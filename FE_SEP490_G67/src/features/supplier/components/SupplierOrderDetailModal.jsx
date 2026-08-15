@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
-import { IMPORT_ORDER_STATUS_LABEL } from '../constants';
-import { formatCurrency, formatDate } from '../utils/supplierUtils';
+import ImportOrderInfoTab from '../../import-order/components/ImportOrderInfoTab';
 import { suppliersApi } from '../api';
+import '../../../css/ImportOrder.css';
 
 export default function SupplierOrderDetailModal({ orderId, onClose }) {
     const [order, setOrder] = useState(null);
@@ -28,8 +28,6 @@ export default function SupplierOrderDetailModal({ orderId, onClose }) {
         return null;
     }
 
-    const items = order?.items || [];
-
     return (
         <div className="supplier-modal-overlay" onClick={onClose} role="presentation">
             <div
@@ -41,74 +39,31 @@ export default function SupplierOrderDetailModal({ orderId, onClose }) {
             >
                 <div className="supplier-modal__header">
                     <h2 id="supplier-order-detail-title" className="supplier-modal__title">
-                        Chi tiết đơn nhập {order?.orderCode || ''}
+                        Chi tiết phiếu nhập
                     </h2>
                     <button type="button" className="supplier-modal__close" onClick={onClose} aria-label="Đóng">
                         <X size={20} />
                     </button>
                 </div>
 
-                <div className="supplier-modal__body">
+                <div className="supplier-modal__body supplier-modal__body--order-detail">
                     {loading ? (
-                        <p className="supplier-detail-empty-text">Đang tải chi tiết đơn nhập...</p>
+                        <p className="supplier-detail-empty-text">Đang tải chi tiết phiếu nhập...</p>
                     ) : error || !order ? (
                         <p className="supplier-detail-empty-text">
-                            Không tải được chi tiết đơn nhập. Vui lòng thử lại.
+                            Không tải được chi tiết phiếu nhập. Vui lòng thử lại.
                         </p>
                     ) : (
                         <>
-                            <div className="supplier-order-detail__meta">
-                                <span>
-                                    Ngày nhập: <strong>{formatDate(order.receivedDate)}</strong>
-                                </span>
-                                <span
-                                    className={`supplier-import-status supplier-import-status--${order.status?.toLowerCase()}`}
-                                >
-                                    {IMPORT_ORDER_STATUS_LABEL[order.status] || order.status}
-                                </span>
-                            </div>
-
-                            {items.length > 0 ? (
-                                <div className="supplier-order-detail__table-wrapper">
-                                    <table className="supplier-order-detail__table">
-                                        <thead>
-                                            <tr>
-                                                <th>Mặt hàng</th>
-                                                <th>Số lượng</th>
-                                                <th>Đơn giá</th>
-                                                <th>Thành tiền</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {items.map((item, index) => (
-                                                <tr key={`${order.id}-${index}`}>
-                                                    <td>{item.productName}</td>
-                                                    <td>{item.quantity}</td>
-                                                    <td>{formatCurrency(item.costPerUnit)}</td>
-                                                    <td>{formatCurrency(item.lineTotal)}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            ) : (
-                                <p className="supplier-detail-empty-text">
-                                    Chưa có dữ liệu chi tiết mặt hàng cho đơn nhập này.
-                                </p>
-                            )}
-
-                            <div className="supplier-order-detail__total">
-                                <span>Tổng tiền đơn nhập</span>
-                                <strong>{formatCurrency(order.totalCost)}</strong>
-                            </div>
+                            <ImportOrderInfoTab order={order} hideSupplierLink />
                         </>
                     )}
+                </div>
 
-                    <div className="supplier-modal__footer">
-                        <button type="button" className="supplier-btn supplier-btn--secondary" onClick={onClose}>
-                            Đóng
-                        </button>
-                    </div>
+                <div className="supplier-modal__footer">
+                    <button type="button" className="supplier-btn supplier-btn--secondary" onClick={onClose}>
+                        Đóng
+                    </button>
                 </div>
             </div>
         </div>

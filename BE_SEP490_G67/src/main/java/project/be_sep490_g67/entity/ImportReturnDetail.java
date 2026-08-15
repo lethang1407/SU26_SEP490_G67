@@ -39,6 +39,11 @@ public class ImportReturnDetail extends BaseEntity {
     @JoinColumn(name = "import_order_id")
     private ImportOrder importOrder;
 
+    /** Phiếu nhập đang gắn / đã đối trừ dòng này. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "settled_import_order_id")
+    private ImportOrder settledImportOrder;
+
     @Column(name = "quantity")
     private Integer quantity;
 

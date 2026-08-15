@@ -37,8 +37,10 @@ public class ImportOrderDetailResponse {
     /** Tổng tiền hàng = SUM(line_total), trước giảm giá. */
     BigDecimal goodsTotal;
     BigDecimal discountAmount;
-    /** Cần trả NCC = goodsTotal - discount (= total_cost). */
+    /** Cần trả NCC = max(goodsTotal - discount - hàng trả, 0) (= total_cost). */
     BigDecimal totalCost;
+    BigDecimal returnDeductionAmount;
+    BigDecimal supplierRefundAmount;
     BigDecimal paidAmount;
     BigDecimal remainingDebt;
 
@@ -48,4 +50,5 @@ public class ImportOrderDetailResponse {
     String invoiceImage;
 
     List<ImportOrderItemResponse> items;
+    List<ImportOrderReturnLineResponse> returnLines;
 }
