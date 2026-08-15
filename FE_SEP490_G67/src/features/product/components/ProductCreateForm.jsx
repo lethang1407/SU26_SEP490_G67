@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Barcode, GripVertical, ImagePlus, Plus, Trash2, TrendingUp } from 'lucide-react';
+import { ArrowLeftRight, Barcode, GripVertical, ImagePlus, Plus, Trash2, TrendingUp } from 'lucide-react';
 import { PRODUCT_UNIT_OPTIONS } from '../constants';
 
 const EMPTY_FORM = {
@@ -9,7 +9,7 @@ const EMPTY_FORM = {
   categoryId: '',
   brand: '',
   description: '',
-  isActive: true,
+  isActive: false,
   baseUnit: 'Chai',
   baseSellPrice: '0',
   costPrice: '0',
@@ -25,6 +25,7 @@ function createConversionUnit(ofUnit = 'Chai') {
     qty: '1',
     ofUnit,
     sellPrice: '0',
+    isReversed: true,
   };
 }
 
@@ -98,24 +99,128 @@ export default function ProductCreateForm({
     setForm((prev) => ({ ...prev, isActive: !prev.isActive }));
   };
 
+  const getUnitPrice = (unitName, currentForm) => {
+    const trimmed = (unitName || '').trim();
+    const baseUnitName = (currentForm.baseUnit || '').trim();
+    const basePrice = parseMoney(currentForm.sellingPrice || currentForm.baseSellPrice);
+
+    if (!trimmed || trimmed === baseUnitName) {
+      return basePrice;
+    }
+    const found = (currentForm.conversionUnits || []).find(
+      (u) => (u.unitName || '').trim() === trimmed
+    );
+    if (found && found.sellPrice != null) {
+      return parseMoney(found.sellPrice);
+    }
+    return basePrice;
+  };
+
+  const handleBasePriceOrUnitChange = (name, value) => {
+    setForm((prev) => {
+      const next = { ...prev, [name]: value };
+
+      if (name === 'sellingPrice') {
+        next.baseSellPrice = value;
+      }
+
+      if (name === 'sellingPrice' || name === 'baseSellPrice' || name === 'baseUnit') {
+        next.conversionUnits = next.conversionUnits.map((u) => {
+          if (!u.isCustomPrice) {
+            const qtyNum = parseFloat(u.qty) || 0;
+            const refUnit = u.ofUnit || next.baseUnit;
+            const refPrice = getUnitPrice(refUnit, next);
+            u.sellPrice = String(Math.round(qtyNum * refPrice));
+          }
+          return u;
+        });
+      }
+
+      return next;
+    });
+    setErrors((prev) => ({ ...prev, [name]: null }));
+  };
+
   const handleAddUnit = () => {
-    const lastUnit =
-      form.conversionUnits.length > 0
-        ? form.conversionUnits[form.conversionUnits.length - 1].unitName || form.baseUnit
-        : form.baseUnit;
+    const defaultOfUnit = form.baseUnit || 'Chai';
+    const newUnit = createConversionUnit(defaultOfUnit);
+    const refPrice = getUnitPrice(defaultOfUnit, form);
+    newUnit.sellPrice = String(refPrice);
+
     setForm((prev) => ({
       ...prev,
-      conversionUnits: [...prev.conversionUnits, createConversionUnit(lastUnit || prev.baseUnit)],
+      conversionUnits: [...prev.conversionUnits, newUnit],
     }));
   };
 
+  const handleToggleSwap = (id) => {
+    setForm((prev) => {
+      const nextConversionUnits = prev.conversionUnits.map((u) => {
+        if (u.id !== id) return u;
+
+        const nextIsReversed = !u.isReversed;
+        const updated = {
+          ...u,
+          isReversed: nextIsReversed,
+        };
+
+        if (!updated.isCustomPrice) {
+          const qtyNum = parseFloat(updated.qty) || 0;
+          const refUnit = updated.ofUnit || prev.baseUnit;
+          const refPrice = getUnitPrice(refUnit, prev);
+
+          if (nextIsReversed) {
+            // Mode B: 1 [ New Unit ] = [ Qty ] [ Ref Unit ]
+            updated.sellPrice = String(Math.round(qtyNum * refPrice));
+          } else {
+            // Mode A: 1 [ Ref Unit ] = [ Qty ] [ New Unit ]
+            updated.sellPrice = String(qtyNum > 0 ? Math.round(refPrice / qtyNum) : 0);
+          }
+        }
+
+        return updated;
+      });
+
+      return {
+        ...prev,
+        conversionUnits: nextConversionUnits,
+      };
+    });
+  };
+
   const handleUnitChange = (id, field, value) => {
-    setForm((prev) => ({
-      ...prev,
-      conversionUnits: prev.conversionUnits.map((u) =>
-        u.id === id ? { ...u, [field]: value } : u,
-      ),
-    }));
+    setForm((prev) => {
+      const nextConversionUnits = prev.conversionUnits.map((u) => {
+        if (u.id !== id) return u;
+
+        const updated = { ...u, [field]: value };
+
+        if (field === 'sellPrice') {
+          updated.isCustomPrice = true;
+        }
+
+        if ((field === 'qty' || field === 'ofUnit' || field === 'unitName') && !updated.isCustomPrice) {
+          const qtyNum = parseFloat(updated.qty) || 0;
+          const refUnit = updated.ofUnit || prev.baseUnit;
+          const refPrice = getUnitPrice(refUnit, prev);
+
+          if (updated.isReversed) {
+            // Mode B: 1 [ New Unit ] = [ Qty ] [ Ref Unit ]
+            updated.sellPrice = String(Math.round(qtyNum * refPrice));
+          } else {
+            // Mode A: 1 [ Ref Unit ] = [ Qty ] [ New Unit ]
+            updated.sellPrice = String(qtyNum > 0 ? Math.round(refPrice / qtyNum) : 0);
+          }
+        }
+
+        return updated;
+      });
+
+      return {
+        ...prev,
+        conversionUnits: nextConversionUnits,
+      };
+    });
   };
 
   const handleRemoveUnit = (id) => {
@@ -305,39 +410,6 @@ export default function ProductCreateForm({
     <form id={formId} className="add-product-form" onSubmit={handleSubmit} noValidate>
       <div className="add-product-page-header">
         <h1 className="add-product-page-header__title">Thêm sản phẩm mới</h1>
-        <div className="add-product-page-header__actions">
-          <button
-            type="button"
-            className="add-product-btn add-product-btn--outline"
-            onClick={onCancel}
-            disabled={saving}
-          >
-            Hủy
-          </button>
-          <button
-            type="submit"
-            className="add-product-btn add-product-btn--primary"
-            disabled={saving}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M17 21v-8H7v8M7 3v5h8"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            {saving ? 'Đang lưu…' : 'Lưu sản phẩm'}
-          </button>
-        </div>
       </div>
 
       {errors.submit ? (
@@ -463,6 +535,12 @@ export default function ProductCreateForm({
               </button>
             </header>
 
+            <datalist id="product-unit-suggestions">
+              {PRODUCT_UNIT_OPTIONS.map((opt) => (
+                <option key={opt} value={opt} />
+              ))}
+            </datalist>
+
             <div className="edit-product-units">
               <div className="edit-product-unit-base">
                 <div className="edit-product-unit-base__grid">
@@ -470,19 +548,16 @@ export default function ProductCreateForm({
                     <label className="add-product-field__label" htmlFor="create-base-unit">
                       Đơn vị cơ bản <span className="add-product-field__required">*</span>
                     </label>
-                    <select
+                    <input
                       id="create-base-unit"
                       name="baseUnit"
-                      className="add-product-field__select"
+                      type="text"
+                      list="product-unit-suggestions"
+                      className="add-product-field__input"
+                      placeholder="Nhập hoặc chọn đơn vị (ví dụ: Chai, Kg, Hộp...)"
                       value={form.baseUnit}
-                      onChange={handleChange}
-                    >
-                      {PRODUCT_UNIT_OPTIONS.map((unit) => (
-                        <option key={unit} value={unit}>
-                          {unit}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(e) => handleBasePriceOrUnitChange('baseUnit', e.target.value)}
+                    />
                   </div>
                 </div>
                 <p className="edit-product-unit-base__hint">
@@ -490,54 +565,111 @@ export default function ProductCreateForm({
                 </p>
               </div>
 
-              {form.conversionUnits.map((unit, index) => {
-                const prevUnitName =
-                  index === 0
-                    ? form.baseUnit
-                    : form.conversionUnits[index - 1].unitName || form.baseUnit;
+              {form.conversionUnits.map((unit) => {
+                const currentProductUnits = [
+                  form.baseUnit?.trim() || 'Chai',
+                  ...(form.conversionUnits || [])
+                    .filter((u) => u.id !== unit.id)
+                    .map((u) => u.unitName?.trim())
+                    .filter(Boolean),
+                ].filter((v, i, self) => self.indexOf(v) === i);
+
+                const refUnit = unit.ofUnit || form.baseUnit;
+                const isRev = Boolean(unit.isReversed);
+
                 return (
                   <div key={unit.id} className="edit-product-unit-row">
+                    <button
+                      type="button"
+                      className={`edit-product-unit-row__swap${isRev ? ' edit-product-unit-row__swap--active' : ''}`}
+                      title={isRev ? "Đang ở chế độ: 1 [Đơn vị mới] = [Số lượng] [Đơn vị gốc]. Bấm để đổi thành: 1 [Đơn vị gốc] = [Số lượng] [Đơn vị mới]" : "Đang ở chế độ: 1 [Đơn vị gốc] = [Số lượng] [Đơn vị mới] (Ví dụ: 1 Kg = 1000 Gam). Bấm để đổi thành: 1 [Đơn vị mới] = [Số lượng] [Đơn vị gốc]"}
+                      onClick={() => handleToggleSwap(unit.id)}
+                    >
+                      <ArrowLeftRight size={16} />
+                    </button>
+
                     <span className="edit-product-unit-row__eq">1</span>
-                    <select
-                      className="add-product-field__select"
-                      value={unit.unitName}
-                      onChange={(e) => handleUnitChange(unit.id, 'unitName', e.target.value)}
-                      aria-label="Tên đơn vị quy đổi"
-                    >
-                      <option value="">Chọn đơn vị</option>
-                      {PRODUCT_UNIT_OPTIONS.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="edit-product-unit-row__eq">=</span>
-                    <input
-                      type="number"
-                      min="1"
-                      className="add-product-field__input"
-                      value={unit.qty}
-                      onChange={(e) => handleUnitChange(unit.id, 'qty', e.target.value)}
-                      aria-label="Số lượng quy đổi"
-                    />
-                    <select
-                      className="add-product-field__select"
-                      value={unit.ofUnit || prevUnitName}
-                      onChange={(e) => handleUnitChange(unit.id, 'ofUnit', e.target.value)}
-                      aria-label="Đơn vị tham chiếu"
-                    >
-                      {PRODUCT_UNIT_OPTIONS.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="edit-product-unit-row__price">
-                      <label className="add-product-field__label">Giá bán lẻ (VNĐ)</label>
+
+                    {isRev ? (
+                      <>
+                        <input
+                          type="text"
+                          list="product-unit-suggestions"
+                          className="add-product-field__input"
+                          placeholder="Tên đơn vị mới"
+                          value={unit.unitName}
+                          onChange={(e) => handleUnitChange(unit.id, 'unitName', e.target.value)}
+                          aria-label="Tên đơn vị mới"
+                        />
+                        <span className="edit-product-unit-row__eq">=</span>
+                        <input
+                          type="number"
+                          step="any"
+                          min="0.000001"
+                          className="add-product-field__input"
+                          placeholder="Số lượng"
+                          value={unit.qty}
+                          onChange={(e) => handleUnitChange(unit.id, 'qty', e.target.value)}
+                          aria-label="Số lượng quy đổi"
+                        />
+                        <select
+                          className="add-product-field__select"
+                          value={refUnit}
+                          onChange={(e) => handleUnitChange(unit.id, 'ofUnit', e.target.value)}
+                          aria-label="Đơn vị tham chiếu"
+                        >
+                          {currentProductUnits.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
+                      </>
+                    ) : (
+                      <>
+                        <select
+                          className="add-product-field__select"
+                          value={refUnit}
+                          onChange={(e) => handleUnitChange(unit.id, 'ofUnit', e.target.value)}
+                          aria-label="Đơn vị tham chiếu"
+                        >
+                          {currentProductUnits.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="edit-product-unit-row__eq">=</span>
+                        <input
+                          type="number"
+                          step="any"
+                          min="0.000001"
+                          className="add-product-field__input"
+                          placeholder="Số lượng"
+                          value={unit.qty}
+                          onChange={(e) => handleUnitChange(unit.id, 'qty', e.target.value)}
+                          aria-label="Số lượng quy đổi"
+                        />
+                        <input
+                          type="text"
+                          list="product-unit-suggestions"
+                          className="add-product-field__input"
+                          placeholder="Tên đơn vị mới"
+                          value={unit.unitName}
+                          onChange={(e) => handleUnitChange(unit.id, 'unitName', e.target.value)}
+                          aria-label="Tên đơn vị mới"
+                        />
+                      </>
+                    )}
+
+                    <div style={{ position: 'relative', width: '100%' }}>
                       <input
                         type="text"
                         inputMode="numeric"
                         className="add-product-field__input"
+                        style={{ paddingRight: '28px' }}
+                        placeholder="Giá bán lẻ"
+                        title="Giá bán lẻ (VNĐ)"
                         value={formatInputMoney(unit.sellPrice)}
                         onChange={(e) =>
                           handleUnitChange(
@@ -547,6 +679,21 @@ export default function ProductCreateForm({
                           )
                         }
                       />
+                      <span
+                        style={{
+                          position: 'absolute',
+                          right: '10px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          color: '#64748b',
+                          pointerEvents: 'none',
+                          userSelect: 'none',
+                        }}
+                      >
+                        đ
+                      </span>
                     </div>
                     <button
                       type="button"
@@ -704,7 +851,7 @@ export default function ProductCreateForm({
             </header>
             <div className="add-product-status">
               <span className="add-product-status__label">
-                Đang kinh doanh · Hiển thị trên POS
+                {form.isActive ? 'Đang kinh doanh · Hiển thị trên POS' : 'Tạm ngừng kinh doanh (Chờ cập nhật giá)'}
               </span>
               <button
                 type="button"
@@ -718,6 +865,40 @@ export default function ProductCreateForm({
             </div>
           </section>
         </aside>
+      </div>
+
+      <div className="add-product-form-actions">
+        <button
+          type="button"
+          className="add-product-btn add-product-btn--outline"
+          onClick={onCancel}
+          disabled={saving}
+        >
+          Hủy
+        </button>
+        <button
+          type="submit"
+          className="add-product-btn add-product-btn--primary"
+          disabled={saving}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M17 21v-8H7v8M7 3v5h8"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          {saving ? 'Đang lưu…' : 'Lưu sản phẩm'}
+        </button>
       </div>
     </form>
   );

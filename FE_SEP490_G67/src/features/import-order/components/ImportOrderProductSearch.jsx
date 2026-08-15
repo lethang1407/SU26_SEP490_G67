@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
 import { importOrdersApi } from '../api';
+import ProductCreateModal from '../../product/components/ProductCreateModal';
 
 const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
@@ -38,6 +38,7 @@ export default function ImportOrderProductSearch({ onSelect }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [open, setOpen] = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
     const wrapRef = useRef(null);
     const requestIdRef = useRef(0);
 
@@ -90,6 +91,17 @@ export default function ImportOrderProductSearch({ onSelect }) {
         setOpen(false);
     };
 
+    const handleProductCreated = (createdProduct) => {
+        if (!createdProduct) return;
+        const mapped = mapProduct({
+            ...createdProduct,
+            productUnits: createdProduct.units || createdProduct.productUnits || [
+                { id: Date.now(), name: createdProduct.baseUnitName || 'Chai', unitBase: 1 },
+            ],
+        });
+        onSelect?.(mapped);
+    };
+
     const showDropdown = open && keyword.trim().length >= MIN_QUERY_LENGTH;
 
     return (
@@ -140,14 +152,21 @@ export default function ImportOrderProductSearch({ onSelect }) {
                 )}
             </div>
 
-            <Link
-                to="/admin/products/create"
+            <button
+                type="button"
                 className="ioc-search-add"
+                onClick={() => setIsModalOpen(true)}
                 title="Thêm hàng hóa mới"
                 aria-label="Thêm hàng hóa mới"
             >
                 <Plus size={20} />
-            </Link>
+            </button>
+
+            <ProductCreateModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onProductCreated={handleProductCreated}
+            />
         </div>
     );
 }

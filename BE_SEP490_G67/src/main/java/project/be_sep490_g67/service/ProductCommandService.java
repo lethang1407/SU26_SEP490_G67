@@ -166,9 +166,16 @@ public class ProductCommandService {
         product.setBarcode(blankToNull(request.getBarcode()));
         product.setCategory(category);
         product.setDescription(request.getDescription());
-        product.setStatus(normalizeStatus(request.getStatus()));
-        product.setCostPrice(nullToZero(request.getCostPrice()));
-        product.setSellingPrice(nullToZero(request.getSellingPrice()));
+        BigDecimal cost = nullToZero(request.getCostPrice());
+        BigDecimal sell = nullToZero(request.getSellingPrice());
+        String status = normalizeStatus(request.getStatus());
+        if (cost.compareTo(BigDecimal.ZERO) == 0 || sell.compareTo(BigDecimal.ZERO) == 0) {
+            status = "inactive";
+        }
+
+        product.setStatus(status);
+        product.setCostPrice(cost);
+        product.setSellingPrice(sell);
         product.setSeasonTag(blankToNull(request.getSeasonTag()));
         product.setIsRemoved(false);
     }

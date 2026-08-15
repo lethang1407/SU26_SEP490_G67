@@ -618,6 +618,9 @@ export default function ProductImportTable({
                         onChange={() => onToggle(allChildIds)}
                       />
                     </div>
+                    <div className="pi-td col-img">
+                      <ProductThumb product={p} />
+                    </div>
                     <div className="pi-td col-sku">
                       <span className="parent-variant-badge" style={{ background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', borderRadius: 12, padding: '2px 8px', fontSize: 11, fontWeight: 600, display: 'inline-block' }}>
                         ({allChildIds.length} phân loại)

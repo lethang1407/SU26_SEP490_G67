@@ -20,12 +20,16 @@ function toUpsertPayload(formData) {
       sellingPrice: sellingPrice,
       isBase: true,
     },
-    ...(formData.conversionUnits || []).map((u) => ({
-      name: u.unitName?.trim() || 'Đơn vị',
-      unitBase: Number(u.qty) || 1,
-      sellingPrice: Number(u.sellPrice) || 0,
-      isBase: false,
-    })),
+    ...(formData.conversionUnits || []).map((u) => {
+      const rawQty = parseFloat(u.qty) || 1;
+      const unitBase = u.isReversed ? rawQty : (rawQty > 0 ? 1 / rawQty : 1);
+      return {
+        name: u.unitName?.trim() || 'Đơn vị',
+        unitBase: unitBase,
+        sellingPrice: Number(u.sellPrice) || 0,
+        isBase: false,
+      };
+    }),
   ];
 
   return {
