@@ -16,6 +16,17 @@ public interface SupplierRepository extends JpaRepository<Supplier, Integer> {
 
     boolean existsBySupplierCodeAndIdNot(String supplierCode, Integer id);
 
+    /**
+     * Lấy số thứ tự lớn nhất trong các mã dạng NCC + chữ số (ví dụ NCC00042).
+     * Dùng để sinh mã nhà cung cấp tiếp theo, tính cả bản ghi đã soft-delete.
+     */
+    @Query(value = """
+            SELECT COALESCE(MAX(CAST(SUBSTRING(supplier_code, 4) AS UNSIGNED)), 0)
+            FROM suppliers
+            WHERE supplier_code REGEXP '^NCC[0-9]+$'
+            """, nativeQuery = true)
+    Long findMaxNccSequence();
+
     // Lấy 1 NCC còn hoạt động theo id — dùng cho màn chi tiết,
     // tránh trả về NCC đã bị xoá mềm (isRemoved = true).
     Optional<Supplier> findByIdAndIsRemovedFalse(Integer id);
@@ -52,4 +63,12 @@ public interface SupplierRepository extends JpaRepository<Supplier, Integer> {
             GROUP BY s.id
             """)
     List<Object[]> findImportedSupplierIdsByProductId(@Param("productId") Integer productId);
+
+    @Query("""
+            SELECT DISTINCT s FROM Supplier s
+            JOIN s.categories c
+            WHERE (s.isRemoved = false OR s.isRemoved IS NULL)
+              AND c.id IN :categoryIds
+            """)
+    List<Supplier> findActiveByCategoryIds(@Param("categoryIds") List<Integer> categoryIds);
 }

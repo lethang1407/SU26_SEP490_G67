@@ -13,17 +13,22 @@ import { useContext } from "react";
 export default function SideBar() {
     const [expanded, setExpanded] = useState(null);
     const location = useLocation();
-    const { logout } = useContext(AuthContext);
+    const { logout, hasPermission } = useContext(AuthContext);
+
+    const filteredMenus = menus.filter(menu => {
+        if (menu.children) {
+            const validChildren = menu.children.filter(child => hasPermission(child.permission));
+            return validChildren.length > 0;
+        }
+        return hasPermission(menu.permission);
+    });
 
     useEffect(() => {
-        const activeMenu = menus.find(menu => 
-            menu.children?.some(child => location.pathname.startsWith(child.path)) || location.pathname.startsWith(menu.path)
+        const activeMenu = filteredMenus.find(menu => 
+            menu.children?.some(child => location.pathname.startsWith(child.path)) || (menu.path && location.pathname.startsWith(menu.path))
         );
         if (activeMenu) {
             setExpanded(activeMenu.id);
-        } else {
-            // Tùy chọn: đóng các menu khác khi chuyển sang menu cấp 1
-            // setExpanded(null); 
         }
     }, [location.pathname]);
 
@@ -56,10 +61,11 @@ export default function SideBar() {
 
             <div className="sidebar-body">
                 {
-                    menus.map((menu) => {
+                    filteredMenus.map((menu) => {
                         const Icon = menu.icon;
                         const isActive = isMenuActive(menu);
                         if (menu.children) {
+                            const allowedChildren = menu.children.filter(child => hasPermission(child.permission));
                             return (
                                 <div
                                     key={menu.id}
@@ -90,7 +96,7 @@ export default function SideBar() {
                                         expanded === menu.id &&
                                         <div className="submenu">
                                             {
-                                                menu.children.map((sub) => (
+                                                allowedChildren.map((sub) => (
                                                     <NavLink
                                                         key={sub.path}
                                                         to={sub.path}

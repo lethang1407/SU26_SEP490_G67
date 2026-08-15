@@ -76,6 +76,13 @@ export async function updateImportReturnLineStatus(
     return response.result;
 }
 
+export async function updateImportReturnLineMethod(returnId, detailId, method) {
+    const response = await api.patch(`/import-returns/${returnId}/lines/${detailId}/method`, {
+        method,
+    });
+    return response.result;
+}
+
 export async function updateImportReturnExchangeExpiry(returnId, detailId, exchangeExpiryDate) {
     const response = await api.patch(`/import-returns/${returnId}/lines/${detailId}/exchange-expiry`, {
         exchangeExpiryDate: exchangeExpiryDate || null,

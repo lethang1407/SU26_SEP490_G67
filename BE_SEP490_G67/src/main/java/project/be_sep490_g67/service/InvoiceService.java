@@ -11,12 +11,18 @@ import project.be_sep490_g67.entity.SalesOrder;
 import project.be_sep490_g67.entity.StoreConfig;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
+import project.be_sep490_g67.repository.DebtPaymentRepository;
+import project.be_sep490_g67.repository.ReturnOrderRepository;
 import project.be_sep490_g67.repository.SalesOrderRepository;
 import project.be_sep490_g67.repository.StoreConfigRepository;
 import project.be_sep490_g67.repository.UserRepository;
+import project.be_sep490_g67.utils.DebtCalculator;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -34,6 +40,8 @@ public class InvoiceService {
     SalesOrderRepository salesOrderRepository;
     StoreConfigRepository storeConfigRepository;
     UserRepository userRepository;
+    DebtPaymentRepository debtPaymentRepository;
+    ReturnOrderRepository returnOrderRepository;
     AuditLogService auditLogService;
 
     private static final DateTimeFormatter VN_FORMATTER = DateTimeFormatter
@@ -84,7 +92,6 @@ public class InvoiceService {
         // Store info
         response.setStoreName(store.getStoreName());
         response.setStoreAddress(store.getAddress());
-        response.setTaxCode(store.getTaxCode());
         response.setCurrency(store.getCurrency() != null ? store.getCurrency() : "VND");
         response.setTaxRate(store.getTaxRate() != null ? store.getTaxRate() : BigDecimal.ZERO);
 
@@ -99,11 +106,18 @@ public class InvoiceService {
         response.setTotalAmount(order.getTotalAmount());
         response.setPaidAmount(order.getPaidAmount());
 
-        // Calculate remaining debt
-        BigDecimal remainingDebt = order.getIsDebt()
-                ? order.getTotalAmount().subtract(order.getPaidAmount())
-                : BigDecimal.ZERO;
-        response.setRemainingDebt(remainingDebt);
+        // Còn nợ = tổng - trả trước - các lần trả nợ sau đó. Bỏ DebtPayment ra
+        // khỏi công thức thì in lại hóa đơn cũ sẽ ra số nợ sai.
+        boolean isDebt = Boolean.TRUE.equals(order.getIsDebt());
+        response.setRemainingDebt(isDebt
+                ? DebtCalculator.remaining(
+                        order.getTotalAmount(),
+                        order.getPaidAmount(),
+                        debtPaymentRepository.sumPaidBySalesOrderId(order.getId()))
+                : BigDecimal.ZERO);
+        response.setDueDate(isDebt ? order.getDueDate() : null);
+        response.setIsCheckDebtUnstable(order.getCustomer() != null
+                && Boolean.TRUE.equals(order.getCustomer().getIsCheckUnstableDebt()));
 
         // Format creation time
         if (order.getCreatedAt() != null) {
@@ -141,9 +155,91 @@ public class InvoiceService {
                 .collect(Collectors.toList());
         response.setItems(items);
 
+        // Vết đổi/trả của hóa đơn này. Đơn đổi không còn đứng riêng trong lịch sử,
+        // nên chi tiết hóa đơn gốc phải kể được cả câu chuyện đổi/trả kèm theo.
+        if (order.getOriginalSalesOrderId() != null) {
+            salesOrderRepository.findActiveById(order.getOriginalSalesOrderId())
+                    .ifPresent(original -> response.setOriginalOrderCode(original.getOrderCode()));
+        }
+        response.setRelatedDocuments(buildRelatedDocuments(orderId));
+
         // 8. Log invoice access
         auditLogService.logInvoicePrint(currentUserId, orderId);
 
         return response;
+    }
+
+    /**
+     * Phiếu trả + đơn đổi sinh ra từ hóa đơn {@code orderId}, sắp theo thời gian.
+     * Dòng hàng của phiếu trả lấy {@code lineRefund} làm thành tiền — đó là số tiền
+     * thực trả về cho dòng đó, không phải đơn giá nhân số lượng.
+     */
+    private record TimedDocument(Instant createdAt, InvoiceResponse.RelatedDocument document) {
+    }
+
+    private List<InvoiceResponse.RelatedDocument> buildRelatedDocuments(Integer orderId) {
+        List<TimedDocument> documents = new ArrayList<>();
+
+        returnOrderRepository.findAllBySalesOrderIdWithDetails(orderId).forEach(returnOrder -> {
+            List<InvoiceResponse.InvoiceLineItem> lines = returnOrder.getReturnOrderDetails().stream()
+                    .filter(detail -> !Boolean.TRUE.equals(detail.getIsRemoved()))
+                    .map(detail -> InvoiceResponse.InvoiceLineItem.builder()
+                            .productId(detail.getProduct().getId())
+                            .productName(detail.getProduct().getName())
+                            .unitName(detail.getUnitName())
+                            .quantity(detail.getQuantity())
+                            .unitPrice(detail.getUnitPrice())
+                            .discountAmount(BigDecimal.ZERO)
+                            .lineTotal(detail.getLineRefund())
+                            .build())
+                    .collect(Collectors.toList());
+
+            documents.add(new TimedDocument(returnOrder.getCreatedAt(),
+                    InvoiceResponse.RelatedDocument.builder()
+                            .id(returnOrder.getId())
+                            .code(returnOrder.getReturnCode())
+                            .type("RETURN")
+                            .createdAtVn(returnOrder.getCreatedAt() != null
+                                    ? VN_FORMATTER.format(returnOrder.getCreatedAt())
+                                    : null)
+                            .amount(returnOrder.getRefundAmount())
+                            .items(lines)
+                            .build()));
+        });
+
+        salesOrderRepository.findByOriginalSalesOrderIdWithDetails(orderId).forEach(exchangeOrder -> {
+            List<InvoiceResponse.InvoiceLineItem> lines = exchangeOrder.getSalesOrderDetails().stream()
+                    .filter(detail -> !Boolean.TRUE.equals(detail.getIsRemoved()))
+                    .map(detail -> InvoiceResponse.InvoiceLineItem.builder()
+                            .productId(detail.getProduct().getId())
+                            .productName(detail.getProduct().getName())
+                            .unitName(detail.getUnitName())
+                            .quantity(detail.getQuantity())
+                            .unitPrice(detail.getUnitPrice())
+                            .discountAmount(detail.getDiscountAmount() != null
+                                    ? detail.getDiscountAmount()
+                                    : BigDecimal.ZERO)
+                            .lineTotal(detail.getLineTotal())
+                            .build())
+                    .collect(Collectors.toList());
+
+            documents.add(new TimedDocument(exchangeOrder.getCreatedAt(),
+                    InvoiceResponse.RelatedDocument.builder()
+                            .id(exchangeOrder.getId())
+                            .code(exchangeOrder.getOrderCode())
+                            .type("EXCHANGE")
+                            .createdAtVn(exchangeOrder.getCreatedAt() != null
+                                    ? VN_FORMATTER.format(exchangeOrder.getCreatedAt())
+                                    : null)
+                            .amount(exchangeOrder.getTotalAmount())
+                            .items(lines)
+                            .build()));
+        });
+
+        return documents.stream()
+                .sorted(Comparator.comparing(TimedDocument::createdAt,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(TimedDocument::document)
+                .collect(Collectors.toList());
     }
 }

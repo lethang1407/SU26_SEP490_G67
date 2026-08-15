@@ -23,6 +23,10 @@ public class CustomerController {
     CustomerService customerService;
     DebtPaymentService debtPaymentService;
 
+    /**
+     * GET /api/customers/phone-lookup?phone=...
+     * POS phone search: returns customer if found, null result if not.
+     */
     @GetMapping("/phone-lookup")
     public ApiResponse<CustomerResponse> lookupByPhone(@RequestParam String phone) {
         return ApiResponse.<CustomerResponse>builder()

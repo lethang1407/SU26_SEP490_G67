@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Table, Pagination, Spinner } from "react-bootstrap";
 import { getDebtPaymentHistory } from "../api";
 
@@ -104,7 +105,11 @@ export default function CustomerPaymentHistory({ customerId, refreshKey }) {
                 <td>{formatDateTime(item.paymentDate)}</td>
                 <td>PT-{item.id}</td>
                 <td>
-                  <a href="#">{item.orderCode}</a>
+                  {item.orderId ? (
+                    <Link to={`/admin/orders/${item.orderId}`}>{item.orderCode}</Link>
+                  ) : (
+                    item.orderCode || "—"
+                  )}
                 </td>
                 <td className="text-success fw-bold">
                   {formatCurrency(item.amountPaid)}

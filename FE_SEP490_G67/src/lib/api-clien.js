@@ -4,12 +4,22 @@ import { env } from '../config/env';
 import publicRoutes from '../app/router/public.routes';
 
 function authRequestInterceptor(config) {
-  const publicEndpoints = publicRoutes.map(route => route.path);
+  // Những endpoint API không cần đính kèm token
+  const publicApiEndpoints = [
+    '/auth/token',
+    '/auth/introspect',
+    '/auth/logout',
+    '/auth/refresh',
+    '/auth/forgot-password/initiate',
+    '/auth/forgot-password/verify-otp',
+    '/auth/forgot-password/change-password'
+  ];
 
   if (config.headers) {
     config.headers.Accept = 'application/json; charset=utf-8';
     
-    if (!publicEndpoints.includes(config.url)) {
+    // Nếu không phải là public API endpoint thì mới gắn token
+    if (!publicApiEndpoints.includes(config.url)) {
       const accessToken = localStorage.getItem('accessToken');
       if (accessToken) {
         config.headers.Authorization = `Bearer ${accessToken}`;

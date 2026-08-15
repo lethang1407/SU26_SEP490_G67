@@ -95,25 +95,44 @@
     cursor: pointer;
 }
 
-/*  Bảng đổi trả  */
-
-.exch-table-scroll {
+.exch-table-split {
+    display: flex;
+    flex-direction: column;
     flex: 1;
-    overflow: auto;
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
-/*
- * Bảng 11 cột phải lọt được màn 1366px (laptop thu ngân) sau khi trừ cột thanh
- * toán: 1366 − 355 − 5 ≈ 1006px. Ô của bảng đổi trả nén lại so với bảng giỏ
- * hàng 8 cột để không sinh thanh cuộn ngang.
- */
+.exch-table-scroll {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-width: 940px;
+    scrollbar-gutter: stable;
+}
+
+.exch-table-split>.exch-table-scroll+.exch-table-scroll {
+    border-top: 2px solid var(--pos-line);
+}
+
 .exch-table {
     min-width: 940px;
+    table-layout: fixed;
 }
 
 .exch-table th,
 .exch-table td {
-    padding: 8px 10px;
+    padding: 8px 8px;
+}
+
+.exch-table th {
+    white-space: nowrap;
+}
+
+.exch-table td {
+    overflow-wrap: anywhere;
 }
 
 .exch-table .unit-select {
@@ -309,6 +328,9 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    /* Cho phép xuống dòng để dòng nợ còn lại nằm gọn trong cùng khung với số tiền
+       mặt, thay vì bị nhồi thành cột thứ ba chen giữa nhãn và số. */
+    flex-wrap: wrap;
     gap: 12px;
     margin-top: 16px;
     padding: 14px 16px;
@@ -316,8 +338,30 @@
     border: 1px solid transparent;
 }
 
-.exch-net-label {
+/* Chiếm trọn chiều ngang nên luôn tự rớt xuống hàng dưới */
+.exch-net-debt {
+    flex: 0 0 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-top: -2px;
+    padding-top: 10px;
+    border-top: 1px dashed currentColor;
     font-size: 13px;
+    font-weight: 600;
+    /* Khung đổi màu theo hướng tiền (đỏ/xanh/xám); dòng nợ mượn màu đó nhưng nhạt
+       hơn để không tranh chỗ với con số tiền mặt cỡ 26px ngay trên. */
+    opacity: 0.75;
+}
+
+.exch-net-debt-value {
+    white-space: nowrap;
+    font-weight: 700;
+}
+
+.exch-net-label {
+    font-size: 14px;
     font-weight: 700;
     letter-spacing: 0.02em;
 }
@@ -346,7 +390,6 @@
     color: #4b5563;
 }
 
-/* Hộp kết quả sau khi lưu phiếu đổi trả */
 .exch-result-modal {
     width: 460px;
 }
@@ -357,15 +400,6 @@
 
 .exch-result-body .exch-net-row {
     margin-top: 12px;
-}
-
-.exch-no-money-note {
-    padding: 12px;
-    border-radius: 6px;
-    background-color: #f9fafb;
-    border: 1px solid var(--pos-line);
-    font-size: 13px;
-    color: #6b7280;
 }
 
 .refund-method-error {
@@ -421,4 +455,146 @@
     .exch-note-input {
         min-height: 36px;
     }
+}
+
+.exchange-picker-row--blocked {
+    cursor: not-allowed;
+    opacity: 0.55;
+    background: repeating-linear-gradient(45deg,
+            transparent, transparent 8px,
+            rgba(220, 38, 38, 0.05) 8px, rgba(220, 38, 38, 0.05) 16px);
+}
+
+.exchange-picker-row--blocked:hover {
+    background-color: transparent;
+}
+
+.exchange-picker-due {
+    font-size: 11px;
+    color: #6b7280;
+    font-weight: 400;
+    margin-top: 2px;
+}
+
+.exchange-picker-due.is-overdue {
+    color: var(--pos-out);
+    font-weight: 600;
+}
+
+.exchange-picker-nodebt {
+    color: #9ca3af;
+}
+
+/* Màn đổi/trả: khối quyết toán công nợ */
+
+.exch-debt-panel {
+    border: 1px solid #fcd34d;
+    background-color: #fffbeb;
+    border-radius: 6px;
+    padding: 10px 12px;
+}
+
+.exch-debt-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--pos-warn);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.exch-debt-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    padding: 3px 0;
+}
+
+.exch-debt-row .exch-debt-value {
+    font-weight: 600;
+}
+
+/* Cấn trừ làm GIẢM nợ, hiển thị cùng màu với tiền ra khỏi cửa hàng */
+.exch-debt-row--offset .exch-debt-value {
+    color: var(--pos-in);
+}
+
+.exch-debt-row--new-debt .exch-debt-value {
+    color: var(--pos-out);
+}
+
+.exch-debt-row--total {
+    border-top: 1px dashed #fcd34d;
+    margin-top: 6px;
+    padding-top: 8px;
+    font-weight: 700;
+}
+
+.exch-debt-hint {
+    font-size: 11px;
+    color: #92400e;
+    line-height: 1.4;
+    margin-top: 6px;
+}
+
+.exch-debt-payment {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #fcd34d;
+}
+
+.exch-debt-payment-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.exch-debt-payment-input {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--pos-line);
+    border-radius: 4px;
+    font-size: 14px;
+    text-align: right;
+}
+
+.exch-debt-payment-input:focus {
+    outline: none;
+    border-color: var(--pos-accent);
+}
+
+.exch-debt-payment-input.is-invalid {
+    border-color: var(--pos-out);
+    background-color: #fef2f2;
+}
+
+.exch-debt-payment-error {
+    color: var(--pos-out);
+    font-size: 11px;
+    margin-top: 4px;
+}
+
+/* Chặn cứng: quá hạn đổi trả hoặc quá hạn nợ  */
+
+.exch-blocked-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 6px;
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    color: var(--pos-out);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.exch-blocked-banner strong {
+    display: block;
+    margin-bottom: 2px;
 }

@@ -19,12 +19,43 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
     @Query("SELECT o.createdBy FROM SalesOrder o WHERE o.id = :id AND o.isRemoved = false")
     Optional<Integer> findCreatedById(@Param("id") Integer id);
 
+    /**
+     * Đơn đổi (hóa đơn bán hàng lấy mới) sinh ra từ một hóa đơn gốc. Lịch sử đơn hàng
+     * không liệt kê chúng thành dòng riêng mà gom vào dòng của hóa đơn gốc.
+     */
+    @Query("""
+            SELECT o FROM SalesOrder o
+            WHERE o.originalSalesOrderId IN :originalIds
+              AND o.isRemoved = false
+            ORDER BY o.createdAt ASC, o.id ASC
+            """)
+    List<SalesOrder> findByOriginalSalesOrderIds(@Param("originalIds") List<Integer> originalIds);
+
+    @Query("""
+            SELECT o FROM SalesOrder o
+            LEFT JOIN FETCH o.salesOrderDetails d
+            LEFT JOIN FETCH d.product
+            WHERE o.originalSalesOrderId = :originalId
+              AND o.isRemoved = false
+            ORDER BY o.createdAt ASC, o.id ASC
+            """)
+    List<SalesOrder> findByOriginalSalesOrderIdWithDetails(@Param("originalId") Integer originalId);
+
     @Query("""
             SELECT o FROM SalesOrder o
             LEFT JOIN o.customer c
             WHERE o.isRemoved = false
+              AND o.originalSalesOrderId IS NULL
               AND (:createdBy IS NULL OR o.createdBy = :createdBy)
-              AND (:search IS NULL OR o.orderCode LIKE :search OR LOWER(c.fullName) LIKE :search)
+              AND (:search IS NULL
+                    OR LOWER(o.orderCode) LIKE :search
+                    OR LOWER(c.fullName) LIKE :search
+                    OR c.phoneNumber LIKE :search
+                    OR EXISTS (
+                        SELECT 1 FROM SalesOrderDetail ds
+                        WHERE ds.salesOrder = o
+                          AND (LOWER(ds.product.name) LIKE :search
+                               OR LOWER(ds.product.barcode) LIKE :search)))
               AND (:orderCode IS NULL OR LOWER(o.orderCode) LIKE :orderCode)
               AND (:customer IS NULL OR LOWER(c.fullName) LIKE :customer OR c.phoneNumber LIKE :customer)
               AND (:product IS NULL OR EXISTS (
@@ -33,7 +64,10 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
                       AND (LOWER(d.product.name) LIKE :product OR LOWER(d.product.barcode) LIKE :product)))
               AND (:dateFrom IS NULL OR o.createdAt >= :dateFrom)
               AND (:dateTo   IS NULL OR o.createdAt <= :dateTo)
-            ORDER BY o.createdAt DESC
+              AND (:orderStatus IS NULL OR o.orderStatus = :orderStatus)
+              AND (:paymentMethod IS NULL OR o.paymentMethod = :paymentMethod)
+              AND (:isDebt IS NULL OR o.isDebt = :isDebt)
+            ORDER BY o.createdAt DESC, o.id DESC
             """)
     Page<SalesOrder> findHistory(@Param("createdBy") Integer createdBy,
                                  @Param("search") String search,
@@ -42,6 +76,9 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
                                  @Param("product") String product,
                                  @Param("dateFrom") Instant dateFrom,
                                  @Param("dateTo") Instant dateTo,
+                                 @Param("orderStatus") String orderStatus,
+                                 @Param("paymentMethod") String paymentMethod,
+                                 @Param("isDebt") Boolean isDebt,
                                  Pageable pageable);
 
     @Query("""
@@ -80,22 +117,59 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
     @Query("SELECT o FROM SalesOrder o LEFT JOIN FETCH o.customer LEFT JOIN FETCH o.salesOrderDetails WHERE o.id = :id AND o.isRemoved = false")
     Optional<SalesOrder> findByIdWithDetails(@Param("id") Integer id);
 
-    @Query(value = """
-    SELECT so FROM SalesOrder so
-    WHERE so.customer.id = :customerId
-    AND (:keyword IS NULL OR so.orderCode LIKE %:keyword%)
-    ORDER BY
-        CASE
-            WHEN so.totalAmount > COALESCE((SELECT SUM(dp.amountPaid) FROM DebtPayment dp WHERE dp.salesOrder = so AND dp.isRemoved = false), 0) AND so.dueDate < :now THEN 1
-            WHEN so.totalAmount > COALESCE((SELECT SUM(dp.amountPaid) FROM DebtPayment dp WHERE dp.salesOrder = so AND dp.isRemoved = false), 0) THEN 2
-            ELSE 3
-        END,
-        so.createdAt DESC
-    """, countQuery = """
-    SELECT count(so) FROM SalesOrder so
-    WHERE so.customer.id = :customerId
-    AND (:keyword IS NULL OR so.orderCode LIKE %:keyword%)
-    """)
+    @Query(
+            value = """
+                SELECT so
+                FROM SalesOrder so
+                WHERE so.customer.id = :customerId
+                  AND (:keyword IS NULL OR so.orderCode LIKE %:keyword%)
+                ORDER BY
+                    CASE
+                        WHEN so.totalAmount >
+                             (
+                                 COALESCE(so.paidAmount, 0)
+                                 +
+                                 COALESCE(
+                                     (
+                                         SELECT SUM(dp.amountPaid)
+                                         FROM DebtPayment dp
+                                         WHERE dp.salesOrder = so
+                                           AND dp.isRemoved = false
+                                     ),
+                                     0
+                                 )
+                             )
+                             AND so.dueDate IS NOT NULL
+                             AND so.dueDate < :now
+                        THEN 1
+
+                        WHEN so.totalAmount >
+                             (
+                                 COALESCE(so.paidAmount, 0)
+                                 +
+                                 COALESCE(
+                                     (
+                                         SELECT SUM(dp.amountPaid)
+                                         FROM DebtPayment dp
+                                         WHERE dp.salesOrder = so
+                                           AND dp.isRemoved = false
+                                     ),
+                                     0
+                                 )
+                             )
+                        THEN 2
+
+                        ELSE 3
+                    END,
+                    so.createdAt DESC
+                """,
+            countQuery = """
+                SELECT COUNT(so)
+                FROM SalesOrder so
+                WHERE so.customer.id = :customerId
+                  AND (:keyword IS NULL OR so.orderCode LIKE %:keyword%)
+                """
+    )
     Page<SalesOrder> findDebtOrdersByCustomerIdWithPriority(
             @Param("customerId") Integer customerId,
             @Param("keyword") String keyword,
@@ -103,5 +177,62 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
             Pageable pageable
     );
 
-    List<SalesOrder> findAllByIsDebtTrueAndCreatedAtBetween(Instant start, Instant end);
+    /**
+     * Kiểm tra khách này đã từng có đơn bán nợ nào chưa. Dùng để nhận biết đơn nợ đầu
+     * tiên của một khách — đơn đó cần quản lý rà soát lại.
+     */
+    @Query("""
+            SELECT COUNT(so) > 0 FROM SalesOrder so
+            WHERE so.customer.id = :customerId
+              AND so.isDebt = true
+              AND so.isRemoved = false
+            """)
+    boolean existsDebtOrderByCustomerId(@Param("customerId") Integer customerId);
+
+    /**
+     * Đơn nợ đã quá hạn của một khách. Lọc theo dueDate — phần "còn nợ bao
+     * nhiêu" để service tính bằng DebtCalculator.
+     */
+    @Query("""
+            SELECT so FROM SalesOrder so
+            WHERE so.customer.id = :customerId
+              AND so.isDebt = true
+              AND so.isRemoved = false
+              AND so.dueDate IS NOT NULL
+              AND so.dueDate < :now
+            """)
+    List<SalesOrder> findOverdueDebtOrdersByCustomerId(
+            @Param("customerId") Integer customerId,
+            @Param("now") Instant now);
+    @Query("""
+            SELECT DISTINCT so FROM SalesOrder so
+            LEFT JOIN FETCH so.customer
+            LEFT JOIN FETCH so.debtPayments
+            WHERE so.isRemoved = false
+              AND so.isDebt = true
+              AND so.createdAt >= :start
+              AND so.createdAt < :end
+            ORDER BY so.createdAt DESC
+            """)
+    List<SalesOrder> findActiveDebtSalesCreatedBetween(@Param("start") Instant start, @Param("end") Instant end);
+
+    @Query("""
+            SELECT COALESCE(SUM(so.paidAmount), 0)
+            FROM SalesOrder so
+            WHERE so.isRemoved = false
+              AND so.orderStatus <> 'CANCELLED'
+              AND (so.paymentMethod = 'CASH' OR so.paymentMethod IS NULL)
+              AND so.createdAt >= :start AND so.createdAt < :end
+            """)
+    BigDecimal sumCashSalesBetween(@Param("start") Instant start, @Param("end") Instant end);
+
+    @Query("""
+            SELECT COALESCE(SUM(so.paidAmount), 0)
+            FROM SalesOrder so
+            WHERE so.isRemoved = false
+              AND so.orderStatus <> 'CANCELLED'
+              AND (so.paymentMethod = 'BANK' OR so.paymentMethod = 'BANK_TRANSFER' OR so.paymentMethod = 'TRANSFER')
+              AND so.createdAt >= :start AND so.createdAt < :end
+            """)
+    BigDecimal sumBankSalesBetween(@Param("start") Instant start, @Param("end") Instant end);
 }

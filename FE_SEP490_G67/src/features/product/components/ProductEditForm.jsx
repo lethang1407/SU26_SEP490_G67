@@ -1,465 +1,640 @@
-import { useEffect, useMemo, useState } from 'react';
-import { categoriesApi } from '../../category/api';
-import { PRODUCT_CATEGORIES } from '../constants';
+import { useEffect, useId, useState } from 'react';
+import { ImagePlus, Plus, Trash2, TrendingUp } from 'lucide-react';
+import { PRODUCT_UNIT_OPTIONS } from '../constants';
 
-function createConversionUnit(baseUnitName) {
-    return {
-        id: crypto.randomUUID(),
-        name: '',
-        ratio: '',
-        sellPrice: '',
-        baseUnitName,
-    };
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/jpg'];
+
+function createConversionUnit(ofUnit = 'Chai') {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    unitName: '',
+    qty: '1',
+    ofUnit,
+    sellPrice: '0',
+  };
 }
 
-function mapProductToForm(product) {
-    const brand = product.brand;
-    const normalizedBrand = brand && brand !== '—' ? brand : '';
-
-    return {
-        name: product.name ?? '',
-        code: product.code ?? '',
-        barcode: product.barcode ?? '',
-        category: product.category ?? '',
-        brand: normalizedBrand,
-        description: product.description ?? '',
-        importPrice: String(product.importPrice ?? ''),
-        sellPrice: String(product.sellPrice ?? ''),
-        businessStatus: product.businessStatus ?? 'active',
-        baseUnit: {
-            name: product.baseUnit?.name ?? 'Chai',
-            sellPrice: String(product.baseUnit?.sellPrice ?? product.sellPrice ?? ''),
-        },
-        conversionUnits: (product.conversionUnits ?? []).map((unit) => ({
-            ...unit,
-            ratio: String(unit.ratio ?? ''),
-            sellPrice: String(unit.sellPrice ?? ''),
-        })),
-    };
+function parseMoney(value) {
+  const n = Number(String(value ?? '').replace(/[^\d.-]/g, ''));
+  return Number.isFinite(n) ? n : 0;
 }
 
-export default function ProductEditForm({ formId, product, isSubmitting = false, onSubmit }) {
-    const [form, setForm] = useState(() => mapProductToForm(product));
-    const [errors, setErrors] = useState({});
-    const [categories, setCategories] = useState(PRODUCT_CATEGORIES);
+function formatInputMoney(value) {
+  const n = parseMoney(value);
+  return n.toLocaleString('vi-VN');
+}
 
-    useEffect(() => {
-        setForm(mapProductToForm(product));
-        setErrors({});
-    }, [product]);
+function calcMargin(cost, sell) {
+  if (!sell || sell <= 0) return null;
+  return Math.round(((sell - cost) / sell) * 1000) / 10;
+}
 
-    useEffect(() => {
-        let isCancelled = false;
-
-        categoriesApi
-            .getAllCategories()
-            .then((items) => {
-                if (!isCancelled && items.length > 0) {
-                    setCategories(items.map((item) => item.name));
-                }
-            })
-            .catch(() => {});
-
-        return () => {
-            isCancelled = true;
-        };
-    }, []);
-
-    const profitMargin = useMemo(() => {
-        const sell = Number(form.sellPrice);
-        const importPrice = Number(form.importPrice);
-
-        if (!sell || sell <= 0) {
-            return '0.0';
-        }
-
-        return (((sell - importPrice) / sell) * 100).toFixed(1);
-    }, [form.sellPrice, form.importPrice]);
-
-    const handleChange = (event) => {
-        const { name, value } = event.target;
-        setForm((prev) => ({ ...prev, [name]: value }));
-        setErrors((prev) => ({ ...prev, [name]: null }));
+function mapInitial(data) {
+  if (!data) {
+    return {
+      name: '',
+      sku: '',
+      barcode: '',
+      categoryId: '',
+      brand: '',
+      description: '',
+      status: 'active',
+      baseUnit: 'Chai',
+      baseSellPrice: '0',
+      costPrice: '0',
+      sellingPrice: '0',
+      vatPercent: 10,
+      conversionUnits: [],
+      images: [],
     };
+  }
 
-    const handleBaseUnitChange = (field, value) => {
-        setForm((prev) => ({
+  return {
+    name: data.name || '',
+    sku: data.sku || '',
+    barcode: data.barcode || '',
+    categoryId: data.categoryId != null ? String(data.categoryId) : '',
+    brand: data.brand || '',
+    description: data.description || '',
+    status: data.status || 'active',
+    baseUnit: data.baseUnit || data.unitName || 'Chai',
+    baseSellPrice: String(data.baseSellPrice ?? data.sellingPrice ?? 0),
+    costPrice: String(data.costPrice ?? 0),
+    sellingPrice: String(data.sellingPrice ?? 0),
+    vatPercent: data.vatPercent ?? 10,
+    conversionUnits: (data.conversionUnits || []).map((u) => ({ ...u })),
+    images: (data.images || []).map((img) => ({ ...img })),
+  };
+}
+
+export default function ProductEditForm({
+  formId,
+  initialData,
+  categories = [],
+  onSubmit,
+  onCancel,
+  onUploadImage,
+  onRemoveImage,
+}) {
+  const fileInputId = useId();
+  const [form, setForm] = useState(() => mapInitial(initialData));
+  const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setForm(mapInitial(initialData));
+    setErrors({});
+  }, [initialData?.id]);
+
+  const costNum = parseMoney(form.costPrice);
+  const sellNum = parseMoney(form.sellingPrice);
+  const margin = calcMargin(costNum, sellNum);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setForm((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === 'sellingPrice') {
+        next.baseSellPrice = value;
+      }
+      if (name === 'baseSellPrice') {
+        next.sellingPrice = value;
+      }
+      if (name === 'baseUnit') {
+        next.conversionUnits = prev.conversionUnits.map((u, idx) =>
+          idx === 0 ? { ...u, ofUnit: value } : u,
+        );
+      }
+      return next;
+    });
+    setErrors((prev) => ({ ...prev, [name]: null }));
+  };
+
+  const handleMoneyChange = (name, raw) => {
+    const digits = String(raw).replace(/[^\d]/g, '');
+    handleChange({ target: { name, value: digits || '0' } });
+  };
+
+  const handleAddUnit = () => {
+    const lastUnit =
+      form.conversionUnits.length > 0
+        ? form.conversionUnits[form.conversionUnits.length - 1].unitName || form.baseUnit
+        : form.baseUnit;
+    setForm((prev) => ({
+      ...prev,
+      conversionUnits: [...prev.conversionUnits, createConversionUnit(lastUnit || prev.baseUnit)],
+    }));
+  };
+
+  const handleUnitChange = (id, field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      conversionUnits: prev.conversionUnits.map((u) =>
+        u.id === id ? { ...u, [field]: value } : u,
+      ),
+    }));
+  };
+
+  const handleRemoveUnit = (id) => {
+    setForm((prev) => ({
+      ...prev,
+      conversionUnits: prev.conversionUnits.filter((u) => u.id !== id),
+    }));
+  };
+
+  const applyImageFile = async (file) => {
+    if (!file) return;
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      setErrors((prev) => ({ ...prev, image: 'Chỉ hỗ trợ ảnh JPG hoặc PNG.' }));
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setErrors((prev) => ({ ...prev, image: 'Ảnh tối đa 5MB.' }));
+      return;
+    }
+
+    try {
+      setErrors((prev) => ({ ...prev, image: null }));
+      if (onUploadImage) {
+        const img = await onUploadImage(file);
+        if (img) {
+          setForm((prev) => ({
             ...prev,
-            baseUnit: { ...prev.baseUnit, [field]: value },
-        }));
-    };
-
-    const handleConversionChange = (id, field, value) => {
-        setForm((prev) => ({
-            ...prev,
-            conversionUnits: prev.conversionUnits.map((unit) =>
-                unit.id === id ? { ...unit, [field]: value } : unit,
-            ),
-        }));
-    };
-
-    const handleAddConversionUnit = () => {
-        setForm((prev) => ({
-            ...prev,
-            conversionUnits: [...prev.conversionUnits, createConversionUnit(prev.baseUnit.name)],
-        }));
-    };
-
-    const handleRemoveConversionUnit = (id) => {
-        setForm((prev) => ({
-            ...prev,
-            conversionUnits: prev.conversionUnits.filter((unit) => unit.id !== id),
-        }));
-    };
-
-    const validateForm = () => {
-        const nextErrors = {};
-
-        if (!form.name.trim()) {
-            nextErrors.name = 'Vui lòng nhập tên sản phẩm.';
+            images: [
+              ...prev.images,
+              {
+                id: img.id,
+                preview: img.url || img.preview,
+                url: img.url,
+                publicId: img.publicId,
+                isMain: img.isMain ?? prev.images.length === 0,
+              },
+            ],
+          }));
         }
-        if (!form.category) {
-            nextErrors.category = 'Vui lòng chọn danh mục.';
+      }
+    } catch (err) {
+      const message =
+        err?.response?.data?.message || err?.message || 'Không tải được ảnh.';
+      setErrors((prev) => ({ ...prev, image: message }));
+    }
+  };
+
+  const handleFileChange = (event) => {
+    applyImageFile(event.target.files?.[0]);
+    event.target.value = '';
+  };
+
+  const handleRemoveImage = async (id) => {
+    try {
+      if (onRemoveImage) {
+        await onRemoveImage(id);
+      }
+      setForm((prev) => {
+        const next = prev.images.filter((img) => String(img.id) !== String(id));
+        if (next.length && !next.some((img) => img.isMain)) {
+          next[0] = { ...next[0], isMain: true };
         }
-        if (!form.sellPrice.trim()) {
-            nextErrors.sellPrice = 'Vui lòng nhập giá bán lẻ.';
-        }
+        return { ...prev, images: next };
+      });
+    } catch (err) {
+      const message =
+        err?.response?.data?.message || err?.message || 'Không xóa được ảnh.';
+      setErrors((prev) => ({ ...prev, image: message }));
+    }
+  };
 
-        setErrors(nextErrors);
-        return Object.keys(nextErrors).length === 0;
-    };
+  const validateForm = () => {
+    const nextErrors = {};
+    if (!form.name.trim()) nextErrors.name = 'Vui lòng nhập tên sản phẩm.';
+    if (!form.sku.trim()) nextErrors.sku = 'Vui lòng nhập mã SKU.';
+    if (!form.categoryId) nextErrors.categoryId = 'Vui lòng chọn danh mục.';
+    if (!form.baseUnit.trim()) nextErrors.baseUnit = 'Vui lòng chọn đơn vị cơ bản.';
+    if (costNum < 0) nextErrors.costPrice = 'Giá nhập không hợp lệ.';
+    if (sellNum < 0) nextErrors.sellingPrice = 'Giá bán không hợp lệ.';
+    if (sellNum > 0 && sellNum < costNum) {
+      nextErrors.sellingPrice = 'Giá bán nên lớn hơn hoặc bằng giá nhập.';
+    }
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
 
-    const handleSubmit = (event) => {
-        event.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!validateForm() || saving) return;
 
-        if (!validateForm()) {
-            return;
-        }
+    setSaving(true);
+    try {
+      await onSubmit?.({
+        ...form,
+        costPrice: costNum,
+        sellingPrice: sellNum,
+        baseSellPrice: parseMoney(form.baseSellPrice),
+        conversionUnits: form.conversionUnits.filter(
+          (u) => u.unitName.trim() || parseMoney(u.sellPrice) > 0,
+        ),
+      });
+    } catch (err) {
+      const message =
+        err?.response?.data?.message || err?.message || 'Không lưu được sản phẩm.';
+      setErrors((prev) => ({ ...prev, submit: message }));
+    } finally {
+      setSaving(false);
+    }
+  };
 
-        onSubmit?.({
-            ...form,
-            importPrice: Number(form.importPrice) || 0,
-            sellPrice: Number(form.sellPrice) || 0,
-            baseUnit: {
-                ...form.baseUnit,
-                sellPrice: Number(form.baseUnit.sellPrice) || 0,
-            },
-            conversionUnits: form.conversionUnits
-                .filter((unit) => unit.name.trim())
-                .map((unit) => ({
-                    ...unit,
-                    ratio: Number(unit.ratio) || 0,
-                    sellPrice: Number(unit.sellPrice) || 0,
-                })),
-        });
-    };
+  const displayName = form.name.trim() || initialData?.name || 'Sản phẩm';
 
-    return (
-        <form id={formId} className="product-edit-form" onSubmit={handleSubmit} noValidate>
-            <fieldset disabled={isSubmitting} className="product-edit-form__fieldset">
-            <div className="product-create-layout">
-                <div className="product-create-main">
-                    <section className="product-create-card">
-                        <h2 className="product-create-card__title">Thông tin cơ bản</h2>
+  return (
+    <form id={formId} className="add-product-form edit-product-form" onSubmit={handleSubmit} noValidate>
+      <div className="add-product-page-header">
+        <h1 className="add-product-page-header__title">
+          Chỉnh sửa sản phẩm: {displayName}
+        </h1>
+        <div className="add-product-page-header__actions">
+          <button
+            type="button"
+            className="add-product-btn add-product-btn--outline"
+            onClick={onCancel}
+            disabled={saving}
+          >
+            Quay lại
+          </button>
+          <button
+            type="submit"
+            className="add-product-btn add-product-btn--primary"
+            disabled={saving}
+          >
+            {saving ? 'Đang lưu…' : 'Lưu thay đổi'}
+          </button>
+        </div>
+      </div>
 
-                        <div className="product-create-field product-create-field--full">
-                            <label className="product-create-field__label" htmlFor="edit-name">
-                                Tên sản phẩm <span className="product-create-field__required">*</span>
-                            </label>
-                            <input
-                                id="edit-name"
-                                name="name"
-                                type="text"
-                                className={`product-create-field__input${
-                                    errors.name ? ' product-create-field__input--error' : ''
-                                }`}
-                                value={form.name}
-                                onChange={handleChange}
-                            />
-                            {errors.name && (
-                                <span className="product-create-field__error">{errors.name}</span>
-                            )}
-                        </div>
+      {errors.submit ? (
+        <p className="add-product-field__error" style={{ marginBottom: 12 }}>
+          {errors.submit}
+        </p>
+      ) : null}
 
-                        <div className="product-create-fields product-create-fields--two-col">
-                            <div className="product-create-field">
-                                <label className="product-create-field__label" htmlFor="edit-code">
-                                    Mã sản phẩm (SKU)
-                                </label>
-                                <input
-                                    id="edit-code"
-                                    name="code"
-                                    type="text"
-                                    className="product-create-field__input product-create-field__input--readonly"
-                                    value={form.code}
-                                    readOnly
-                                />
-                            </div>
-                            <div className="product-create-field">
-                                <label className="product-create-field__label" htmlFor="edit-barcode">
-                                    Mã vạch (Barcode)
-                                </label>
-                                <input
-                                    id="edit-barcode"
-                                    name="barcode"
-                                    type="text"
-                                    className="product-create-field__input product-create-field__input--readonly"
-                                    value={form.barcode}
-                                    readOnly
-                                />
-                            </div>
-                        </div>
+      <div className="add-product-layout">
+        <div className="add-product-main">
+          <section className="add-product-card">
+            <header className="add-product-card__header">
+              <h2 className="add-product-card__title">Thông tin cơ bản</h2>
+            </header>
 
-                        <div className="product-create-fields product-create-fields--two-col">
-                            <div className="product-create-field">
-                                <label className="product-create-field__label" htmlFor="edit-category">
-                                    Danh mục <span className="product-create-field__required">*</span>
-                                </label>
-                                <select
-                                    id="edit-category"
-                                    name="category"
-                                    className={`product-create-field__select${
-                                        errors.category ? ' product-create-field__input--error' : ''
-                                    }`}
-                                    value={form.category}
-                                    onChange={handleChange}
-                                >
-                                    <option value="">Chọn danh mục</option>
-                                    {categories.map((category) => (
-                                        <option key={category} value={category}>
-                                            {category}
-                                        </option>
-                                    ))}
-                                </select>
-                                {errors.category && (
-                                    <span className="product-create-field__error">{errors.category}</span>
-                                )}
-                            </div>
-                            <div className="product-create-field">
-                                <label className="product-create-field__label" htmlFor="edit-brand">
-                                    Thương hiệu
-                                </label>
-                                <input
-                                    id="edit-brand"
-                                    name="brand"
-                                    type="text"
-                                    className="product-create-field__input"
-                                    placeholder="Nhập thương hiệu"
-                                    value={form.brand}
-                                    onChange={handleChange}
-                                />
-                            </div>
-                        </div>
+            <div className="add-product-fields">
+              <div className="add-product-field">
+                <label className="add-product-field__label" htmlFor="edit-product-name">
+                  Tên sản phẩm <span className="add-product-field__required">*</span>
+                </label>
+                <input
+                  id="edit-product-name"
+                  name="name"
+                  type="text"
+                  className={`add-product-field__input${errors.name ? ' add-product-field__input--error' : ''}`}
+                  value={form.name}
+                  onChange={handleChange}
+                  onBlur={() => {
+                    if (!form.name.trim()) {
+                      setErrors((prev) => ({ ...prev, name: 'Vui lòng nhập tên sản phẩm.' }));
+                    }
+                  }}
+                />
+                {errors.name ? <p className="add-product-field__error">{errors.name}</p> : null}
+              </div>
 
-                        <div className="product-edit-units">
-                            <div className="product-edit-units__header">
-                                <h3 className="product-edit-units__title">Quản lý đơn vị tính</h3>
-                                <button
-                                    type="button"
-                                    className="product-create-link-btn"
-                                    onClick={handleAddConversionUnit}
-                                >
-                                    + Thêm đơn vị quy đổi
-                                </button>
-                            </div>
-
-                            <div className="product-edit-base-unit">
-                                <div className="product-edit-base-unit__badge">Đơn vị cơ bản</div>
-                                <div className="product-edit-base-unit__fields">
-                                    <div className="product-create-field">
-                                        <label className="product-create-field__label">Đơn vị</label>
-                                        <input
-                                            type="text"
-                                            className="product-create-field__input"
-                                            value={form.baseUnit.name}
-                                            onChange={(event) =>
-                                                handleBaseUnitChange('name', event.target.value)
-                                            }
-                                        />
-                                    </div>
-                                    <div className="product-create-field">
-                                        <label className="product-create-field__label">Giá bán lẻ</label>
-                                        <div className="product-edit-currency-input">
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                className="product-create-field__input"
-                                                value={form.baseUnit.sellPrice}
-                                                onChange={(event) =>
-                                                    handleBaseUnitChange('sellPrice', event.target.value)
-                                                }
-                                            />
-                                            <span className="product-edit-currency-input__suffix">đ</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <p className="product-edit-base-unit__hint">
-                                    Đơn vị nhỏ nhất dùng để tính kho
-                                </p>
-                            </div>
-
-                            {form.conversionUnits.map((unit) => (
-                                <div key={unit.id} className="product-edit-conversion-row">
-                                    <div className="product-create-field">
-                                        <label className="product-create-field__label">Đơn vị quy đổi</label>
-                                        <input
-                                            type="text"
-                                            className="product-create-field__input"
-                                            placeholder="Ví dụ: Lốc"
-                                            value={unit.name}
-                                            onChange={(event) =>
-                                                handleConversionChange(unit.id, 'name', event.target.value)
-                                            }
-                                        />
-                                    </div>
-                                    <div className="product-create-field">
-                                        <label className="product-create-field__label">Quy đổi</label>
-                                        <div className="product-edit-ratio-input">
-                                            <span className="product-edit-ratio-input__prefix">=</span>
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                className="product-create-field__input"
-                                                value={unit.ratio}
-                                                onChange={(event) =>
-                                                    handleConversionChange(
-                                                        unit.id,
-                                                        'ratio',
-                                                        event.target.value,
-                                                    )
-                                                }
-                                            />
-                                            <span className="product-edit-ratio-input__suffix">
-                                                {form.baseUnit.name}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div className="product-create-field">
-                                        <label className="product-create-field__label">Giá bán lẻ</label>
-                                        <div className="product-edit-currency-input">
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                className="product-create-field__input"
-                                                value={unit.sellPrice}
-                                                onChange={(event) =>
-                                                    handleConversionChange(
-                                                        unit.id,
-                                                        'sellPrice',
-                                                        event.target.value,
-                                                    )
-                                                }
-                                            />
-                                            <span className="product-edit-currency-input__suffix">đ</span>
-                                        </div>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        className="product-create-remove-btn product-edit-conversion-row__remove"
-                                        onClick={() => handleRemoveConversionUnit(unit.id)}
-                                    >
-                                        Xóa
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="product-create-field product-create-field--full">
-                            <label className="product-create-field__label" htmlFor="edit-description">
-                                Mô tả ngắn
-                            </label>
-                            <textarea
-                                id="edit-description"
-                                name="description"
-                                className="product-create-field__textarea"
-                                rows={4}
-                                value={form.description}
-                                onChange={handleChange}
-                            />
-                        </div>
-                    </section>
+              <div className="add-product-fields add-product-fields--two-col">
+                <div className="add-product-field">
+                  <label className="add-product-field__label" htmlFor="edit-product-sku">
+                    Mã sản phẩm (SKU) <span className="add-product-field__required">*</span>
+                  </label>
+                  <input
+                    id="edit-product-sku"
+                    name="sku"
+                    type="text"
+                    className={`add-product-field__input${errors.sku ? ' add-product-field__input--error' : ''}`}
+                    value={form.sku}
+                    onChange={handleChange}
+                  />
+                  {errors.sku ? <p className="add-product-field__error">{errors.sku}</p> : null}
                 </div>
 
-                <aside className="product-create-sidebar">
-                    <section className="product-create-card">
-                        <h2 className="product-create-card__title">Giá cả</h2>
+                <div className="add-product-field">
+                  <label className="add-product-field__label" htmlFor="edit-product-barcode">
+                    Mã vạch
+                  </label>
+                  <input
+                    id="edit-product-barcode"
+                    name="barcode"
+                    type="text"
+                    className="add-product-field__input"
+                    value={form.barcode}
+                    onChange={handleChange}
+                  />
+                </div>
+              </div>
 
-                        <div className="product-create-field">
-                            <label className="product-create-field__label" htmlFor="edit-importPrice">
-                                Giá nhập (VNĐ)
-                            </label>
-                            <div className="product-edit-currency-input">
-                                <input
-                                    id="edit-importPrice"
-                                    name="importPrice"
-                                    type="number"
-                                    min="0"
-                                    className="product-create-field__input"
-                                    value={form.importPrice}
-                                    onChange={handleChange}
-                                />
-                                <span className="product-edit-currency-input__suffix">đ</span>
-                            </div>
-                        </div>
+              <div className="add-product-field edit-product-field--half">
+                <label className="add-product-field__label" htmlFor="edit-product-category">
+                  Danh mục <span className="add-product-field__required">*</span>
+                </label>
+                <select
+                  id="edit-product-category"
+                  name="categoryId"
+                  className={`add-product-field__select${errors.categoryId ? ' add-product-field__input--error' : ''}`}
+                  value={form.categoryId}
+                  onChange={handleChange}
+                >
+                  <option value="">Chọn danh mục</option>
+                  {categories.map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.categoryId ? (
+                  <p className="add-product-field__error">{errors.categoryId}</p>
+                ) : null}
+              </div>
 
-                        <div className="product-create-field">
-                            <label className="product-create-field__label" htmlFor="edit-sellPrice">
-                                Giá bán lẻ (VNĐ){' '}
-                                <span className="product-create-field__required">*</span>
-                            </label>
-                            <div className="product-edit-currency-input">
-                                <input
-                                    id="edit-sellPrice"
-                                    name="sellPrice"
-                                    type="number"
-                                    min="0"
-                                    className={`product-create-field__input${
-                                        errors.sellPrice ? ' product-create-field__input--error' : ''
-                                    }`}
-                                    value={form.sellPrice}
-                                    onChange={handleChange}
-                                />
-                                <span className="product-edit-currency-input__suffix">đ</span>
-                            </div>
-                            {errors.sellPrice && (
-                                <span className="product-create-field__error">{errors.sellPrice}</span>
-                            )}
-                        </div>
+              <div className="edit-product-units">
+                <div className="edit-product-units__head">
+                  <h3 className="edit-product-units__title">Quản lý đơn vị tính</h3>
+                  <button type="button" className="add-product-link-btn" onClick={handleAddUnit}>
+                    <Plus size={14} /> Thêm đơn vị quy đổi
+                  </button>
+                </div>
 
-                        <div className="product-edit-profit">
-                            <span className="product-edit-profit__label">Biên độ lợi nhuận</span>
-                            <span className="product-edit-profit__value">{profitMargin}%</span>
-                        </div>
-                    </section>
+                <div className="edit-product-unit-base">
+                  <div className="edit-product-unit-base__grid">
+                    <div className="add-product-field">
+                      <label className="add-product-field__label" htmlFor="edit-base-unit">
+                        Đơn vị cơ bản
+                      </label>
+                      <select
+                        id="edit-base-unit"
+                        name="baseUnit"
+                        className="add-product-field__select"
+                        value={form.baseUnit}
+                        onChange={handleChange}
+                      >
+                        {PRODUCT_UNIT_OPTIONS.map((unit) => (
+                          <option key={unit} value={unit}>
+                            {unit}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="add-product-field">
+                      <label className="add-product-field__label" htmlFor="edit-base-sell">
+                        Giá bán lẻ (VNĐ)
+                      </label>
+                      <input
+                        id="edit-base-sell"
+                        name="baseSellPrice"
+                        type="text"
+                        inputMode="numeric"
+                        className="add-product-field__input"
+                        value={formatInputMoney(form.baseSellPrice)}
+                        onChange={(e) => handleMoneyChange('baseSellPrice', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <p className="edit-product-unit-base__hint">
+                    Đơn vị nhỏ nhất dùng để tính tồn kho.
+                  </p>
+                </div>
 
-                    <section className="product-create-card">
-                        <h2 className="product-create-card__title">Trạng thái kinh doanh</h2>
-                        <div className="product-edit-status-options">
-                            <label className="product-edit-status-option">
-                                <input
-                                    type="radio"
-                                    name="businessStatus"
-                                    value="active"
-                                    checked={form.businessStatus === 'active'}
-                                    onChange={handleChange}
-                                />
-                                <span className="product-edit-status-option__label">Đang bán</span>
-                            </label>
-                            <label className="product-edit-status-option">
-                                <input
-                                    type="radio"
-                                    name="businessStatus"
-                                    value="inactive"
-                                    checked={form.businessStatus === 'inactive'}
-                                    onChange={handleChange}
-                                />
-                                <span className="product-edit-status-option__label">Ngừng kinh doanh</span>
-                            </label>
-                        </div>
-                    </section>
-                </aside>
+                {form.conversionUnits.map((unit, index) => {
+                  const prevUnitName =
+                    index === 0
+                      ? form.baseUnit
+                      : form.conversionUnits[index - 1].unitName || form.baseUnit;
+                  return (
+                    <div key={unit.id} className="edit-product-unit-row">
+                      <span className="edit-product-unit-row__eq">1</span>
+                      <select
+                        className="add-product-field__select"
+                        value={unit.unitName}
+                        onChange={(e) => handleUnitChange(unit.id, 'unitName', e.target.value)}
+                        aria-label="Tên đơn vị quy đổi"
+                      >
+                        <option value="">Đơn vị</option>
+                        {PRODUCT_UNIT_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="edit-product-unit-row__eq">=</span>
+                      <input
+                        type="number"
+                        min="1"
+                        className="add-product-field__input"
+                        value={unit.qty}
+                        onChange={(e) => handleUnitChange(unit.id, 'qty', e.target.value)}
+                        aria-label="Số lượng quy đổi"
+                      />
+                      <select
+                        className="add-product-field__select"
+                        value={unit.ofUnit || prevUnitName}
+                        onChange={(e) => handleUnitChange(unit.id, 'ofUnit', e.target.value)}
+                        aria-label="Đơn vị tham chiếu"
+                      >
+                        {PRODUCT_UNIT_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="edit-product-unit-row__price">
+                        <label className="add-product-field__label">Giá bán lẻ (VNĐ)</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          className="add-product-field__input"
+                          value={formatInputMoney(unit.sellPrice)}
+                          onChange={(e) =>
+                            handleUnitChange(
+                              unit.id,
+                              'sellPrice',
+                              String(e.target.value).replace(/[^\d]/g, '') || '0',
+                            )
+                          }
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className="edit-product-unit-row__remove"
+                        aria-label="Xóa đơn vị quy đổi"
+                        onClick={() => handleRemoveUnit(unit.id)}
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="add-product-field">
+                <label className="add-product-field__label" htmlFor="edit-product-desc">
+                  Mô tả ngắn
+                </label>
+                <textarea
+                  id="edit-product-desc"
+                  name="description"
+                  className="add-product-field__textarea"
+                  rows={4}
+                  value={form.description}
+                  onChange={handleChange}
+                />
+              </div>
             </div>
-            </fieldset>
-        </form>
-    );
+          </section>
+
+          <section className="add-product-card">
+            <header className="add-product-card__header">
+              <h2 className="add-product-card__title">Hình ảnh sản phẩm</h2>
+            </header>
+            <p className="edit-product-images__hint">
+              Ảnh rõ giúp nhận diện sản phẩm tốt hơn. Hỗ trợ JPG, PNG (Tối đa 5MB).
+            </p>
+
+            <div className="edit-product-images">
+              {form.images.map((img) => (
+                <div key={img.id} className="edit-product-image-card">
+                  <img src={img.preview} alt={img.name || 'Ảnh sản phẩm'} />
+                  {img.isMain ? <span className="edit-product-image-card__badge">Ảnh chính</span> : null}
+                  <button
+                    type="button"
+                    className="edit-product-image-card__remove"
+                    aria-label="Xóa ảnh"
+                    onClick={() => handleRemoveImage(img.id)}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+
+              <label htmlFor={fileInputId} className="edit-product-image-add">
+                <ImagePlus size={22} strokeWidth={1.75} />
+                <span>Thêm ảnh</span>
+              </label>
+              <input
+                id={fileInputId}
+                type="file"
+                accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                className="add-product-file-input"
+                onChange={handleFileChange}
+              />
+            </div>
+            {errors.image ? <p className="add-product-field__error">{errors.image}</p> : null}
+          </section>
+        </div>
+
+        <aside className="add-product-aside">
+          <section className="add-product-card">
+            <header className="add-product-card__header">
+              <h2 className="add-product-card__title">Giá cả</h2>
+            </header>
+
+            <div className="add-product-fields">
+              <div className="add-product-field">
+                <label className="add-product-field__label" htmlFor="edit-cost">
+                  Giá nhập (VNĐ)
+                </label>
+                <div className="edit-product-money">
+                  <input
+                    id="edit-cost"
+                    name="costPrice"
+                    type="text"
+                    inputMode="numeric"
+                    className={`add-product-field__input${errors.costPrice ? ' add-product-field__input--error' : ''}`}
+                    value={formatInputMoney(form.costPrice)}
+                    onChange={(e) => handleMoneyChange('costPrice', e.target.value)}
+                  />
+                  <span className="edit-product-money__suffix">đ</span>
+                </div>
+                {errors.costPrice ? (
+                  <p className="add-product-field__error">{errors.costPrice}</p>
+                ) : null}
+              </div>
+
+              <div className="add-product-field">
+                <label className="add-product-field__label" htmlFor="edit-sell">
+                  Giá bán lẻ (VNĐ) <span className="add-product-field__required">*</span>
+                </label>
+                <div className="edit-product-money">
+                  <input
+                    id="edit-sell"
+                    name="sellingPrice"
+                    type="text"
+                    inputMode="numeric"
+                    className={`add-product-field__input add-product-field__input--accent${errors.sellingPrice ? ' add-product-field__input--error' : ''}`}
+                    value={formatInputMoney(form.sellingPrice)}
+                    onChange={(e) => handleMoneyChange('sellingPrice', e.target.value)}
+                  />
+                  <span className="edit-product-money__suffix">đ</span>
+                </div>
+                {errors.sellingPrice ? (
+                  <p className="add-product-field__error">{errors.sellingPrice}</p>
+                ) : null}
+              </div>
+
+              <div className="edit-product-margin">
+                <span className="edit-product-margin__label">Biên độ lợi nhuận</span>
+                <span
+                  className={`edit-product-margin__value${
+                    margin == null ? '' : margin >= 0 ? ' is-positive' : ' is-negative'
+                  }`}
+                >
+                  {margin == null ? (
+                    '—'
+                  ) : (
+                    <>
+                      <TrendingUp size={14} />
+                      {margin.toFixed(1)}%
+                    </>
+                  )}
+                </span>
+              </div>
+            </div>
+          </section>
+
+          <section className="add-product-card">
+            <header className="add-product-card__header">
+              <h2 className="add-product-card__title">Trạng thái kinh doanh</h2>
+            </header>
+
+            <div className="edit-product-status" role="radiogroup" aria-label="Trạng thái kinh doanh">
+              <label className={`edit-product-status__option${form.status === 'active' ? ' is-checked' : ''}`}>
+                <input
+                  type="radio"
+                  name="status"
+                  value="active"
+                  checked={form.status === 'active'}
+                  onChange={handleChange}
+                />
+                <span className="edit-product-status__radio" aria-hidden="true" />
+                <span>Đang bán</span>
+              </label>
+              <label className={`edit-product-status__option${form.status === 'inactive' ? ' is-checked' : ''}`}>
+                <input
+                  type="radio"
+                  name="status"
+                  value="inactive"
+                  checked={form.status === 'inactive'}
+                  onChange={handleChange}
+                />
+                <span className="edit-product-status__radio" aria-hidden="true" />
+                <span>Ngừng kinh doanh</span>
+              </label>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </form>
+  );
 }

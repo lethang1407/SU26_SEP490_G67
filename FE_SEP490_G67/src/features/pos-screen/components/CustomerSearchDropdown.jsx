@@ -1,7 +1,12 @@
 import { useEffect, useRef } from 'react';
-import { Loader2, UserX, UserPlus } from 'lucide-react';
+import { Loader2, UserPlus, Ban } from 'lucide-react';
+import {
+    debtLevelMeta, canSellOnDebt, debtSummaryText, debtBlockReason,
+} from '../utils/debtStatus';
 
-export default function CustomerSearchDropdown({ results, loading, error, onSelect, onAddNew, onClose }) {
+export default function CustomerSearchDropdown({
+    results, loading, error, onSelect, onAddNew, onClose, debtMode = false,
+}) {
     const ref = useRef(null);
 
     useEffect(() => {
@@ -44,7 +49,6 @@ export default function CustomerSearchDropdown({ results, loading, error, onSele
                     onMouseDown={(e) => { e.preventDefault(); onAddNew?.(); }}
                 >
                     <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <UserX size={16} />
                         Không tìm thấy khách hàng phù hợp
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#2563eb', fontWeight: 500 }}>
@@ -55,21 +59,33 @@ export default function CustomerSearchDropdown({ results, loading, error, onSele
 
             {!loading && !error && results.length > 0 && (
                 <ul className="psd-list">
-                    {results.map((cust) => (
-                        <li
-                            key={cust.id}
-                            className="psd-item"
-                            onMouseDown={(e) => {
-                                e.preventDefault();
-                                onSelect(cust);
-                            }}
-                        >
-                            <div className="psd-item-name">{cust.fullName}</div>
-                            <div className="psd-item-meta">
-                                <span className="psd-barcode">{cust.phoneNumber}</span>
-                            </div>
-                        </li>
-                    ))}
+                    {results.map((cust) => {
+                        const meta = debtLevelMeta(cust);
+                        const blocked = debtMode && !canSellOnDebt(cust);
+                        const summary = debtSummaryText(cust);
+                        return (
+                            <li
+                                key={cust.id}
+                                className={`psd-item${blocked ? ' psd-item--blocked' : ''}`}
+                                title={blocked ? debtBlockReason(cust) : undefined}
+                                onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    if (blocked) return;
+                                    onSelect(cust);
+                                }}
+                            >
+                                <div className="psd-item-name">
+                                    <span className={`debt-dot ${meta.cls}`} title={meta.label} />
+                                    {cust.fullName}
+                                    {blocked && <Ban size={13} className="psd-blocked-icon" />}
+                                </div>
+                                <div className="psd-item-meta">
+                                    <span className="psd-barcode">{cust.phoneNumber}</span>
+                                    {summary && <span className="psd-debt-summary">{summary}</span>}
+                                </div>
+                            </li>
+                        );
+                    })}
                 </ul>
             )}
         </div>

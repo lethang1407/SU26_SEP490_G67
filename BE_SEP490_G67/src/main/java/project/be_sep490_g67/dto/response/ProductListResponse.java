@@ -14,6 +14,10 @@ public class ProductListResponse {
 
     Integer id;
 
+    Integer parentId;
+
+    String parentName;
+
     String code;
 
     String name;

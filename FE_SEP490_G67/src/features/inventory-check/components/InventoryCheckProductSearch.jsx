@@ -20,7 +20,7 @@ function mapProduct(product) {
 
 export default function InventoryCheckProductSearch({
     onSelect,
-    placeholder = 'Tìm hàng hóa theo mã hoặc tên để thêm vào phiếu kiểm...',
+    placeholder = 'Tìm tên hàng hóa để thêm vào phiếu kiểm...',
 }) {
     const [keyword, setKeyword] = useState('');
     const [results, setResults] = useState([]);

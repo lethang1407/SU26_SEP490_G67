@@ -20,7 +20,8 @@ import project.be_sep490_g67.utils.UnitQuantityConverter;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -28,6 +29,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ExchangeOrderService {
+
+    static final ZoneId STORE_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     DocumentCodeService documentCodeService;
     SalesOrderRepository salesOrderRepository;
@@ -40,6 +43,8 @@ public class ExchangeOrderService {
     ProductUnitRepository productUnitRepository;
     StoreConfigRepository storeConfigRepository;
     BatchLocationRepository batchLocationRepository;
+    DebtPaymentRepository debtPaymentRepository;
+    DebtPolicy debtPolicy;
 
     @Transactional(readOnly = true)
     public ExchangeOrderDetailResponse getOrderForExchange(Integer orderId) {
@@ -79,6 +84,10 @@ public class ExchangeOrderService {
                 })
                 .collect(Collectors.toList());
 
+        Instant now = Instant.now();
+        BigDecimal debtRemaining = debtPolicy.remainingOf(order);
+        Instant deadline = returnDeadline(order);
+
         return ExchangeOrderDetailResponse.builder()
                 .orderId(order.getId())
                 .orderCode(order.getOrderCode())
@@ -88,6 +97,13 @@ public class ExchangeOrderService {
                 .createdAt(order.getCreatedAt())
                 .customer(customerInfo)
                 .items(items)
+                .isDebt(Boolean.TRUE.equals(order.getIsDebt()))
+                .dueDate(order.getDueDate())
+                .paidAmount(order.getPaidAmount())
+                .debtRemaining(debtRemaining)
+                .debtOverdue(debtPolicy.isOverdue(order, now))
+                .returnWindowExpired(deadline != null && now.isAfter(deadline))
+                .returnDeadline(deadline)
                 .build();
     }
 
@@ -106,17 +122,13 @@ public class ExchangeOrderService {
         List<ResolvedReturnLine> resolvedLines = resolveReturnLines(request.getReturnItems(), originalOrder,
                 returnedByLine);
 
-        assertWithinReturnWindow(originalOrder, resolvedLines);
-        assertBearerRulesSatisfied(request, originalOrder, resolvedLines);
+        assertWithinReturnWindow(originalOrder);
+        assertDebtNotOverdue(originalOrder);
         ReturnOrder returnOrder = new ReturnOrder();
         returnOrder.setSalesOrder(originalOrder);
         returnOrder.setReturnCode(documentCodeService.generate(DocumentType.CREDIT_NOTE));
         returnOrder.setReturnReason(request.getReturnNote());
         returnOrder.setNote(request.getReturnNote());
-        returnOrder.setBearerName(request.getBearerName());
-        returnOrder.setBearerPhone(request.getBearerPhone());
-        returnOrder.setBearerIsOwner(isBearerTheOwner(request, originalOrder));
-        returnOrder.setApprovedBy(request.getApprovedBy());
         returnOrder.setCreatedBy(staffId);
         returnOrder.setUpdatedBy(staffId);
         returnOrder.setCreatedAt(Instant.now());
@@ -283,11 +295,9 @@ public class ExchangeOrderService {
                     ? request.getExchangeDiscount()
                     : BigDecimal.ZERO);
             salesOrderRepository.save(exchangeOrder);
-
-            originalOrder.setExchangeSalesOrder(exchangeOrder);
         }
 
-        applyPairing(resolvedLines, returnDetails, exchangeLinesByRef);
+        assertPairingValid(resolvedLines, returnDetails, exchangeLinesByRef);
         returnOrderDetailRepository.saveAll(returnDetails);
 
         BigDecimal exchangeDiscount = request.getExchangeDiscount() != null
@@ -295,6 +305,20 @@ public class ExchangeOrderService {
                 : BigDecimal.ZERO;
         BigDecimal totalExchangeAmount = exchangeSubtotal.subtract(exchangeDiscount);
         BigDecimal netAmount = totalReturnAmount.subtract(totalExchangeAmount);
+
+        DebtSettlement settlement = settleAgainstDebt(
+                originalOrder,
+                savedReturnOrder,
+                exchangeOrder,
+                totalReturnAmount,
+                totalExchangeAmount,
+                request.getDebtPaymentAmount(),
+                staffId);
+
+        savedReturnOrder.setDebtOffsetAmount(settlement.debtOffset());
+        savedReturnOrder.setCashRefundAmount(settlement.cashRefund());
+        returnOrderRepository.save(savedReturnOrder);
+
         originalOrder.setOrderStatus(deriveOrderStatus(originalOrder).name());
         originalOrder.setUpdatedBy(staffId);
         originalOrder.setUpdatedAt(Instant.now());
@@ -312,7 +336,34 @@ public class ExchangeOrderService {
                 exchangeDiscount,
                 totalExchangeAmount,
                 netAmount,
-                request.getRefundMethod());
+                request.getRefundMethod(),
+                settlement,
+                exchangeOrder);
+    }
+
+    /**
+     * Kết quả quyết toán tiền của một phiếu đổi/trả. Mỗi con số ở đây đều được in ra phiếu
+     * hoặc hiện trên màn hình, nên chúng được trả về nguyên vẹn thay vì để phía gọi tự suy lại.
+     *
+     * <p>Bất biến: {@code debtOffset + exchangeCredit + cashRefund} = tổng giá trị hàng trả về.
+     */
+    public record DebtSettlement(
+            /** Nợ còn lại của hóa đơn gốc trước khi quyết toán. */
+            BigDecimal remainingBefore,
+            /** Phần giá trị hàng trả được trừ thẳng vào nợ hóa đơn gốc (bước 1). */
+            BigDecimal debtOffset,
+            /** Phần credit dùng để trả cho hàng đổi ra (bước 3). */
+            BigDecimal exchangeCredit,
+            /** Tiền mặt hoàn cho khách (bước 4). */
+            BigDecimal cashRefund,
+            /** Tiền khách bù thêm ngay tại quầy cho hàng đổi đắt hơn — chỉ với đơn thường. */
+            BigDecimal cashCollect,
+            /** Phần chênh được ghi nợ trên đơn đổi — chỉ với đơn còn nợ (quyết định F1). */
+            BigDecimal newDebtOnExchange,
+            /** Tiền khách chủ động trả thêm cho nợ cũ tại màn đổi trả (quyết định F2). */
+            BigDecimal debtPaymentCollected,
+            /** Nợ của hóa đơn gốc sau khi đã cấn trừ và thu thêm. */
+            BigDecimal remainingAfter) {
     }
 
     private record ResolvedReturnLine(
@@ -324,7 +375,136 @@ public class ExchangeOrderService {
             String pairedExchangeItemRef) {
     }
 
-    /** Ghi chu rong va ghi chu toan khoang trang deu la "khong co ghi chu". */
+    /**
+     * Quyết toán tiền của phiếu đổi/trả.
+     *
+     * B1. Cấn trừ nợ hóa đơn gốc:  offset = min(V, R)     → ghi DebtPayment
+     * B2. Credit tiền mặt:         credit = V - offset     ← đây mới là tiền THẬT của khách
+     * B3. Trả cho hàng đổi ra:     dùng   = min(credit, X) → đơn đổi paidAmount = dùng
+     * B4. Dư credit → hoàn tiền mặt;  thiếu → ghi nợ (đơn nợ) hoặc thu tiền (đơn thường)
+     *
+     * <p><b>Vì sao cấn trừ nợ trước:</b> hàng trên đơn nợ chưa phải tiền của khách, nó là khoản
+     * nợ khách đang gánh. Trả hàng đó về thì việc đầu tiên là xóa phần nợ nó sinh ra, chứ không
+     * phải sinh ra một khoản credit để tiêu. Thứ tự này cho hai bất biến mà không cần luật riêng:
+     * tiền mặt chỉ ra khi {@code V > R}, và tiền mặt ra không bao giờ vượt số khách đã thực trả.
+     *
+     * <p>Toàn bộ số học được tính xong và kiểm tra trước, rồi mới ghi — để một request bị từ
+     * chối không để lại nửa vời (dù {@code @Transactional} vẫn rollback).
+     */
+    private DebtSettlement settleAgainstDebt(
+            SalesOrder originalOrder,
+            ReturnOrder returnOrder,
+            SalesOrder exchangeOrder,
+            BigDecimal returnAmount,
+            BigDecimal exchangeAmount,
+            BigDecimal requestedDebtPayment,
+            Integer staffId) {
+
+        Instant now = Instant.now();
+        Customer customer = originalOrder.getCustomer();
+        BigDecimal remaining = debtPolicy.remainingOf(originalOrder);
+
+        // --- B1..B4: số học thuần, chưa ghi gì ---
+        BigDecimal debtOffset = remaining.min(returnAmount);
+        BigDecimal credit = returnAmount.subtract(debtOffset);
+        BigDecimal exchangeCredit = credit.min(exchangeAmount);
+        BigDecimal cashRefund = credit.subtract(exchangeCredit);
+        BigDecimal shortfall = exchangeAmount.subtract(exchangeCredit);
+
+        // Chỉ ghi nợ tiếp khi hóa đơn gốc THỰC SỰ còn nợ và hạn trả còn hiệu lực.
+        // Đơn nợ đã trả hết, hoặc đơn nợ cũ không có dueDate thì phần
+        // chênh phải thu tiền ngay — không thể tạo một khoản nợ mà không định được hạn trả.
+        Instant dueDate = originalOrder.getDueDate();
+        boolean canExtendDebt = remaining.compareTo(BigDecimal.ZERO) > 0
+                && dueDate != null
+                && dueDate.isAfter(now);
+
+        BigDecimal newDebtOnExchange = canExtendDebt ? shortfall : BigDecimal.ZERO;
+        BigDecimal cashCollect = canExtendDebt ? BigDecimal.ZERO : shortfall;
+
+        BigDecimal remainingAfterOffset = remaining.subtract(debtOffset);
+        BigDecimal debtPayment = resolveDebtPayment(requestedDebtPayment, remainingAfterOffset);
+
+        // --- Kiểm tra trước khi ghi ---
+        if (newDebtOnExchange.compareTo(BigDecimal.ZERO) > 0) {
+            debtPolicy.validateDebtSale(customer, dueDate, now);
+        }
+
+        // --- Ghi ---
+        if (debtOffset.compareTo(BigDecimal.ZERO) > 0) {
+            writeDebtPayment(originalOrder, debtOffset, "RETURN_OFFSET",
+                    "Cấn trừ hàng trả " + returnOrder.getReturnCode(), staffId);
+            debtPolicy.reduceCustomerDebt(customer, debtOffset);
+        }
+        // F2: khách trả thêm được ghi SAU bước cấn trừ, nên số nợ nó đối chiếu là số đã
+        // trừ hàng trả rồi.
+        if (debtPayment.compareTo(BigDecimal.ZERO) > 0) {
+            writeDebtPayment(originalOrder, debtPayment, "CASH",
+                    "Khách trả thêm tại phiếu " + returnOrder.getReturnCode(), staffId);
+            debtPolicy.reduceCustomerDebt(customer, debtPayment);
+        }
+
+        if (exchangeOrder != null) {
+            exchangeOrder.setPaidAmount(exchangeCredit.add(cashCollect));
+            exchangeOrder.setIsDebt(newDebtOnExchange.compareTo(BigDecimal.ZERO) > 0);
+            if (newDebtOnExchange.compareTo(BigDecimal.ZERO) > 0) {
+                exchangeOrder.setDueDate(dueDate);
+            }
+            salesOrderRepository.save(exchangeOrder);
+            debtPolicy.addToCustomerDebt(customer, newDebtOnExchange);
+        }
+
+        return new DebtSettlement(
+                remaining,
+                debtOffset,
+                exchangeCredit,
+                cashRefund,
+                cashCollect,
+                newDebtOnExchange,
+                debtPayment,
+                remainingAfterOffset.subtract(debtPayment));
+    }
+
+    /**
+     * Tiền khách trả thêm không được vượt phần nợ còn lại sau khi đã cấn trừ hàng trả.
+     */
+    private BigDecimal resolveDebtPayment(BigDecimal requested, BigDecimal remainingAfterOffset) {
+        if (requested == null || requested.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        if (requested.compareTo(remainingAfterOffset) > 0) {
+            throw new AppException(ErrorCode.DEBT_PAYMENT_EXCEEDS_REMAINING);
+        }
+        return requested;
+    }
+
+    private void writeDebtPayment(SalesOrder order, BigDecimal amount, String method,
+                                  String note, Integer staffId) {
+        DebtPayment payment = new DebtPayment();
+        payment.setCustomer(order.getCustomer());
+        payment.setSalesOrder(order);
+        payment.setAmountPaid(amount);
+        payment.setPaymentMethod(method);
+        payment.setNotes(note);
+        debtPaymentRepository.save(payment);
+    }
+
+    /**
+     * Đơn nợ đã quá hạn trả nợ thì không được đổi/trả.
+     *
+     * <p>Đánh đổi đã ghi nhận: hàng lỗi trên đơn quá hạn sẽ kẹt hoàn toàn — khách không trả
+     * được mà cửa hàng cũng không thu hồi được hàng lỗi. Lối mở theo tình trạng hàng cố ý
+     * không áp dụng ở đây, giống A1 và A2.
+     */
+    private void assertDebtNotOverdue(SalesOrder order) {
+        if (debtPolicy.isOverdue(order, Instant.now())) {
+            throw new AppException(ErrorCode.RETURN_ORDER_HAS_OVERDUE_DEBT);
+        }
+    }
+
+    /**
+     * Ghi chu rong va ghi chu toan khoang trang deu la "khong co ghi chu".
+     */
     private static String trimToNull(String value) {
         if (value == null) {
             return null;
@@ -337,8 +517,12 @@ public class ExchangeOrderService {
         SalesOrder exchangeOrder = new SalesOrder();
         exchangeOrder.setCustomer(originalOrder.getCustomer());
         exchangeOrder.setOrderCode(documentCodeService.generate(DocumentType.EXCHANGE_INVOICE));
+        exchangeOrder.setOriginalSalesOrderId(originalOrder.getId());
         exchangeOrder.setOrderStatus(SalesOrderStatus.COMPLETED.name());
         exchangeOrder.setPaymentMethod(originalOrder.getPaymentMethod());
+        // isDebt/paidAmount/dueDate được settleAgainstDebt đặt lại sau khi biết tổng tiền
+        // hai bên. Trước nhóm quyết định F, isDebt bị hard-code false ở đây, nên đơn đổi của
+        // một khách đang nợ trở thành hàng ra khỏi quầy mà không nằm trong công nợ lẫn dòng tiền.
         exchangeOrder.setIsDebt(false);
         exchangeOrder.setSubtotal(BigDecimal.ZERO);
         exchangeOrder.setDiscountAmount(BigDecimal.ZERO);
@@ -353,7 +537,15 @@ public class ExchangeOrderService {
         return salesOrderRepository.save(exchangeOrder);
     }
 
-    private void applyPairing(
+    /**
+     * Kiểm tra việc ghép cặp "dòng trả ↔ dòng đổi ra" của một phiếu.
+     *
+     * <p>Kết quả ghép cặp không còn được lưu xuống DB (cột paired_out_detail_id đã bỏ ở V26):
+     * không màn hình nào đọc tới nó, còn các luật dưới đây thì vẫn phải giữ vì chúng chặn
+     * những phiếu sai ngay lúc lập — một dòng EXCHANGE_EVEN lệch tiền là tiền lệch thật,
+     * dù có ghi lại cặp hay không.
+     */
+    private void assertPairingValid(
             List<ResolvedReturnLine> resolvedLines,
             List<ReturnOrderDetail> returnDetails,
             Map<String, SalesOrderDetail> exchangeLinesByRef) {
@@ -388,41 +580,6 @@ public class ExchangeOrderService {
                     && detail.getLineRefund().compareTo(replacement.getLineTotal()) != 0) {
                 throw new AppException(ErrorCode.EXCHANGE_EVEN_AMOUNT_MISMATCH);
             }
-
-            detail.setPairedOutDetail(replacement);
-        }
-    }
-
-    private boolean isBearerTheOwner(CreateExchangeOrderRequest request, SalesOrder originalOrder) {
-        Customer owner = originalOrder.getCustomer();
-        if (owner == null) {
-            return true;
-        }
-        if (request.getBearerPhone() == null || request.getBearerPhone().isBlank()) {
-            return true;
-        }
-        return request.getBearerPhone().equals(owner.getPhoneNumber());
-    }
-
-    private void assertBearerRulesSatisfied(
-            CreateExchangeOrderRequest request,
-            SalesOrder originalOrder,
-            List<ResolvedReturnLine> resolvedLines) {
-
-        boolean anyCashRefund = resolvedLines.stream()
-                .anyMatch(line -> line.resolution() == ResolutionType.REFUND);
-
-        if (!anyCashRefund || !"CASH".equalsIgnoreCase(request.getRefundMethod())) {
-            return;
-        }
-        if (isBearerTheOwner(request, originalOrder)) {
-            return;
-        }
-        boolean approved = request.getApprovedBy() != null
-                && request.getBearerName() != null
-                && !request.getBearerName().isBlank();
-        if (!approved) {
-            throw new AppException(ErrorCode.MANAGER_APPROVAL_REQUIRED);
         }
     }
 
@@ -462,7 +619,7 @@ public class ExchangeOrderService {
             }
 
             ItemCondition condition = parseCondition(returnItem.getItemCondition());
-            assertProductIsReturnable(soldLine, condition);
+            assertProductIsReturnable(soldLine);
 
             claimedInThisRequest.put(soldLine.getId(), claimedSoFar + returnItem.getQuantity());
             resolved.add(new ResolvedReturnLine(
@@ -502,28 +659,41 @@ public class ExchangeOrderService {
         return allFullyReturned ? SalesOrderStatus.RETURNED : SalesOrderStatus.PARTIALLY_RETURNED;
     }
 
+    /**
+     * Hạn đổi trả hết vào <b>cuối ngày</b> thứ N sau ngày mua.
+     */
     private boolean isReturnWindowExpired(SalesOrder order) {
+        Instant deadline = returnDeadline(order);
+        return deadline != null && Instant.now().isAfter(deadline);
+    }
+
+    /**
+     * Thời điểm hết hạn đổi trả của một hóa đơn, null khi cửa hàng không đặt hạn hoặc đơn
+     * chưa có ngày tạo.
+     */
+    private Instant returnDeadline(SalesOrder order) {
         Integer windowDays = storeConfigRepository.findFirstByOrderByIdAsc()
                 .orElseThrow(() -> new AppException(ErrorCode.STORE_CONFIG_MISSING))
                 .getReturnWindowDays();
 
         if (windowDays == null || order.getCreatedAt() == null) {
-            return false;
+            return null;
         }
 
-        Instant deadline = order.getCreatedAt().plus(windowDays, ChronoUnit.DAYS);
-        return Instant.now().isAfter(deadline);
+        return order.getCreatedAt()
+                .atZone(STORE_ZONE)
+                .toLocalDate()
+                .plusDays(windowDays)
+                .atTime(LocalTime.MAX)
+                .atZone(STORE_ZONE)
+                .toInstant();
     }
 
-    private void assertWithinReturnWindow(SalesOrder order, List<ResolvedReturnLine> resolvedLines) {
-        if (!isReturnWindowExpired(order)) {
-            return;
-        }
-
-        boolean allOverride = resolvedLines.stream()
-                .allMatch(line -> line.condition().overridesNonReturnablePolicy());
-
-        if (!allOverride) {
+    /**
+     * Quá hạn là cấm hẳn, kể cả hàng hỏng hay hết hạn.
+     */
+    private void assertWithinReturnWindow(SalesOrder order) {
+        if (isReturnWindowExpired(order)) {
             throw new AppException(ErrorCode.RETURN_WINDOW_EXPIRED);
         }
     }
@@ -595,9 +765,9 @@ public class ExchangeOrderService {
         stockMovementRepository.save(movement);
     }
 
-    private void assertProductIsReturnable(SalesOrderDetail soldLine, ItemCondition condition) {
+    private void assertProductIsReturnable(SalesOrderDetail soldLine) {
         Boolean returnable = soldLine.getProduct().getIsReturnable();
-        if (returnable != null && !returnable && !condition.overridesNonReturnablePolicy()) {
+        if (returnable != null && !returnable) {
             throw new AppException(ErrorCode.PRODUCT_NOT_RETURNABLE);
         }
     }
@@ -628,7 +798,9 @@ public class ExchangeOrderService {
             BigDecimal exchangeDiscount,
             BigDecimal totalExchangeAmount,
             BigDecimal netAmount,
-            String refundMethod) {
+            String refundMethod,
+            DebtSettlement settlement,
+            SalesOrder exchangeOrder) {
 
         List<ExchangeOrderResponse.ReturnItemInfo> returnItems = resolvedLines.stream()
                 .map(line -> {
@@ -672,6 +844,8 @@ public class ExchangeOrderService {
                 .returnCode(returnOrder.getReturnCode())
                 .originalOrderId(originalOrder.getId())
                 .originalOrderCode(originalOrder.getOrderCode())
+                .exchangeOrderId(exchangeOrder != null ? exchangeOrder.getId() : null)
+                .exchangeOrderCode(exchangeOrder != null ? exchangeOrder.getOrderCode() : null)
                 .originalTotalAmount(originalOrder.getTotalAmount())
                 .returnSubtotal(returnSubtotal)
                 .returnDiscount(returnDiscount)
@@ -681,6 +855,15 @@ public class ExchangeOrderService {
                 .totalExchangeAmount(totalExchangeAmount)
                 .netAmount(netAmount)
                 .refundMethod(refundMethod)
+                .originalIsDebt(Boolean.TRUE.equals(originalOrder.getIsDebt()))
+                .debtRemainingBefore(settlement.remainingBefore())
+                .debtOffsetAmount(settlement.debtOffset())
+                .exchangeCreditAmount(settlement.exchangeCredit())
+                .cashRefundAmount(settlement.cashRefund())
+                .cashCollectAmount(settlement.cashCollect())
+                .newDebtOnExchange(settlement.newDebtOnExchange())
+                .debtPaymentCollected(settlement.debtPaymentCollected())
+                .debtRemainingAfter(settlement.remainingAfter())
                 .returnNote(returnOrder.getReturnReason())
                 .createdAt(returnOrder.getCreatedAt())
                 .returnItems(returnItems)

@@ -64,11 +64,6 @@ export default function ProductSearchDropdown({ results, loading, error, onSelec
                                 <span className={`psd-stock${Number(product.stockQuantity ?? 0) <= 0 ? ' psd-stock--empty' : ''}`}>
                                     Tồn kho: {Number(product.stockQuantity ?? 0).toLocaleString('vi-VN')}
                                 </span>
-                                <span className="psd-price">
-                                    {product.sellingPrice != null
-                                        ? Number(product.sellingPrice).toLocaleString() + ' ₫'
-                                        : '—'}
-                                </span>
                             </div>
                         </li>
                     ))}

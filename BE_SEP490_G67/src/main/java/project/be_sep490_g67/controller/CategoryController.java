@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
-import project.be_sep490_g67.dto.request.CategoryRequest;
+import project.be_sep490_g67.dto.request.UpsertCategoryRequest;
 import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.CategoryResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
@@ -19,10 +19,11 @@ import project.be_sep490_g67.service.CategoryService;
 public class CategoryController {
     CategoryService categoryService;
 
+    //@PreAuthorize("hasAuthority('PRODUCT:VIEW')")
     @GetMapping
     public ApiResponse<PageResponse<CategoryResponse>> getCategory(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
             @RequestParam(required = false) String search
     ){
         PageResponse<CategoryResponse> listCategory = categoryService.findAllCategory(search, page, size);
@@ -33,7 +34,7 @@ public class CategoryController {
     }
 
     @PostMapping
-    public ApiResponse<CategoryResponse> addCategory(@Valid @RequestBody CategoryRequest request){
+    public ApiResponse<CategoryResponse> addCategory(@Valid @RequestBody UpsertCategoryRequest request){
         CategoryResponse newCategory = categoryService.createCategory(request);
         return ApiResponse.<CategoryResponse>builder()
                 .result(newCategory)
@@ -42,8 +43,8 @@ public class CategoryController {
     }
 
     @PutMapping("/{categoryId}")
-    public ApiResponse<CategoryResponse> updateCategory(@Valid @RequestBody CategoryRequest request, @PathVariable Integer categoryId){
-        CategoryResponse updateCategory = categoryService.updateCategory(request,  categoryId);
+    public ApiResponse<CategoryResponse> updateCategory(@Valid @RequestBody UpsertCategoryRequest request, @PathVariable Integer categoryId){
+        CategoryResponse updateCategory = categoryService.updateCategory(categoryId,request);
 
         return ApiResponse.<CategoryResponse>builder()
                 .result(updateCategory)

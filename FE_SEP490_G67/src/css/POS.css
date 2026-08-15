@@ -1,9 +1,4 @@
-/*
- * Bảng màu dùng chung cho POS và màn đổi trả. Một thông tin chỉ có một tín hiệu
- * màu: tiền/hàng ra khỏi cửa hàng = đỏ, tiền/hàng vào = xanh lá, xanh dương chỉ
- * dùng cho liên kết và tiêu điểm thao tác.
- */
-:root {
+﻿:root {
     --pos-out: #dc2626;
     --pos-in: #16a34a;
     --pos-accent: #2563eb;
@@ -11,21 +6,18 @@
     --pos-line: #e5e7eb;
 }
 
-/* Layout tổng thể */
+/* Layout tổng */
 .pos-container {
     display: flex;
     flex-direction: column;
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
     height: 100vh;
     background-color: #f3f4f6;
     font-size: 14px;
 }
 
-/* Header */
-
-/*
- * Tab cao bằng đúng thanh header: header bỏ padding dọc và cho các con kéo giãn
- * (stretch), những thứ không phải tab thì tự căn giữa lại bằng align-self.
- */
 .pos-header {
     display: flex;
     align-items: stretch;
@@ -40,11 +32,13 @@
     display: flex;
     align-items: stretch;
     gap: 16px;
-    width: 50%;
+    flex: 1;
+    min-width: 0;
 }
 
 .pos-header .search-wrapper {
     align-self: center;
+    flex: 0 0 320px;
 }
 
 .search-wrapper {
@@ -85,11 +79,18 @@
     display: inline-block;
 }
 
+.pos-header-tabs-area {
+    display: flex;
+    align-items: stretch;
+    flex: 1;
+    min-width: 0;
+}
+
 .pos-header-tabs {
     display: flex;
     align-items: stretch;
-    gap: 8px;
-    flex: 1;
+    gap: 0;
+    flex: 0 1 auto;
     min-width: 0;
     overflow-x: auto;
     scrollbar-width: none;
@@ -100,31 +101,41 @@
     height: 100%;
 }
 
+.tab-active,
+.tab-inactive {
+    flex: 0 0 auto;
+    width: 112px;
+    padding: 6px 8px;
+    border-radius: 6px 6px 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    cursor: pointer;
+    border: none;
+}
+
+.tab-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .tab-active {
     background-color: white;
     color: #2563eb;
-    padding: 6px 16px;
-    border-radius: 6px 6px 0 0;
     font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    border: none;
 }
 
 .tab-inactive {
     background-color: rgba(255, 255, 255, 0.18);
     color: rgba(255, 255, 255, 0.85);
-    padding: 6px 16px;
-    border-radius: 6px 6px 0 0;
     font-weight: 400;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    border: none;
     transition: background 0.15s;
+}
+
+.tab-inactive+.tab-inactive {
+    box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.25);
 }
 
 .tab-inactive:hover {
@@ -132,6 +143,7 @@
 }
 
 .tab-close {
+    flex: 0 0 auto;
     color: #9ca3af;
     background: none;
     border: none;
@@ -146,13 +158,28 @@
 
 .btn-add-tab {
     align-self: center;
-    padding: 0 12px;
-    font-size: 20px;
-    font-weight: bold;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    margin-left: 4px;
     background: none;
     border: none;
     color: white;
     cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.15s;
+}
+
+.btn-add-tab:hover:not(:disabled) {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.btn-add-tab:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 .pos-header-right {
@@ -171,7 +198,7 @@
     cursor: pointer;
 }
 
-/* Phần nội dung chính */
+/* các nội dung chính */
 .pos-main {
     display: flex;
     flex: 1;
@@ -179,7 +206,6 @@
     overflow: hidden;
 }
 
-/* Cột trái: Giỏ hàng */
 .pos-cart-section {
     flex: 1;
     display: flex;
@@ -189,7 +215,48 @@
 
 .cart-table-wrapper {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
+}
+
+.cart-actions {
+    display: flex;
+    flex-shrink: 0;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 16px;
+    border-top: 1px solid #e5e7eb;
+    background-color: #f9fafb;
+}
+
+.cart-actions-buttons {
+    display: flex;
+    flex-shrink: 0;
+    gap: 8px;
+}
+
+.cart-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 9px 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background-color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.cart-action-btn:hover {
+    border-color: #2563eb;
+    background-color: #eff6ff;
+    color: #2563eb;
 }
 
 .cart-table {
@@ -292,30 +359,99 @@
     border-color: #2563eb;
 }
 
-/* ── Cột vị trí lấy hàng trong giỏ ── */
-.location-select {
-    max-width: 230px;
+.cart-stock-line {
+    margin-top: 2px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.loc-picker {
+    position: relative;
+    /* max-width: 220px; */
+}
+
+.loc-picker-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
     padding: 4px 6px;
     border: 1px solid #d1d5db;
     border-radius: 4px;
     background: #fff;
     font-size: 13px;
+    color: #374151;
+    cursor: pointer;
 }
 
-.location-select:focus {
-    outline: none;
+.loc-picker-btn:hover:not(:disabled) {
     border-color: #2563eb;
 }
 
-/* Chưa chọn được vị trí, hoặc vị trí đang chọn không đủ hàng */
-.location-select-warn {
+.loc-picker-btn:disabled {
+    cursor: not-allowed;
+    background: #f9fafb;
+    color: #9ca3af;
+}
+
+.loc-picker-btn--warn {
     border-color: #d97706;
     background: #fffbeb;
 }
 
-.location-static {
-    font-size: 13px;
+.loc-picker-label {
+    flex: 1;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.loc-picker-panel {
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 4px);
+    left: 0;
+    width: max-content;
+    min-width: 0;
+    max-height: 260px;
+    overflow-y: auto;
+    padding: 4px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #fff;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.loc-opt {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: max-content;
+}
+
+.loc-opt-name {
     color: #374151;
+}
+
+.loc-opt-qty {
+    font-size: 12px;
+    color: #1d4ed8;
+}
+
+.loc-opt-take {
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #dbeafe;
+    font-size: 11px;
+    font-weight: 600;
+    color: #1d4ed8;
+}
+
+.loc-picker-split {
+    margin-top: 2px;
+    font-size: 12px;
+    color: #1d4ed8;
 }
 
 .location-msg {
@@ -342,11 +478,6 @@
     border-color: #3b82f6;
 }
 
-/*
- * Cột phải: Thanh toán
- * Rộng theo tỉ lệ màn hình thay vì cố định 400px — 1366px cho ~355px, 1920px
- * cho 420px — để bảng bên trái luôn còn đủ chỗ trên máy thu ngân thật.
- */
 .pos-payment-section {
     width: clamp(320px, 26%, 420px);
     flex: 0 0 auto;
@@ -368,9 +499,10 @@
     align-items: center;
     gap: 8px;
     margin-bottom: 8px;
+    position: relative;
+    z-index: 1;
 }
 
-/* Ô tìm khách hàng chiếm hết bề ngang cột thanh toán */
 .customer-search .search-wrapper {
     flex: 1;
     width: auto;
@@ -381,7 +513,6 @@
     left: 4px;
 }
 
-/* Chỉ gạch chân thay vì khung viền bao quanh */
 .customer-input {
     width: 100%;
     padding: 8px 4px 8px 28px;
@@ -413,19 +544,19 @@
     align-items: center;
     color: #4b5563;
     margin-bottom: 16px;
+    font-size: 16px;
 }
 
-/* Số mặt hàng đi kèm nhãn "Tổng tiền" */
+.summary-row--total {
+    margin-bottom: 20px;
+}
+
 .summary-item-count {
     margin-left: 6px;
     color: #2563eb;
     font-weight: 600;
 }
 
-/*
- * Nhóm dòng tiền quan trọng: cùng lề (padding ngang = 0 như .summary-row),
- * cùng canh theo chân chữ để nhãn 15px đứng ngang số 24px.
- */
 .summary-row--major {
     align-items: baseline;
     gap: 12px;
@@ -436,14 +567,10 @@
 .summary-major-label {
     font-size: 15px;
     font-weight: bold;
-    color: #374151;
+    color: black;
     white-space: nowrap;
 }
 
-/*
- * Nhóm thông tin trong cột thanh toán — dùng chung cho hóa đơn bán và hóa đơn
- * đổi trả để hai màn hình có cùng một format phiếu.
- */
 .pos-panel-group {
     padding-bottom: 16px;
     margin-bottom: 16px;
@@ -464,7 +591,6 @@
     text-transform: uppercase;
 }
 
-/* Đường kẻ liền ngăn giữa các nhóm của bảng thanh toán */
 .summary-row--divider {
     border-bottom: 1px solid #d1d5db;
     padding-bottom: 16px;
@@ -548,7 +674,6 @@
     background-color: #eff6ff;
 }
 
-/* Nút thanh toán */
 .payment-footer {
     padding: 16px;
     background-color: white;
@@ -556,6 +681,10 @@
 }
 
 .btn-checkout {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     width: 100%;
     background-color: #2563eb;
     color: white;
@@ -569,11 +698,15 @@
     transition: background-color 0.2s;
 }
 
+.btn-checkout:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
 .btn-checkout:hover {
     background-color: #1d4ed8;
 }
 
-/* Lô hàng column */
 .batch-cell {
     color: black;
     background-color: #f5f3ff;
@@ -1072,12 +1205,52 @@
 }
 
 .psd-item-name {
+    display: flex;
+    align-items: center;
+    gap: 7px;
     font-size: 14px;
     font-weight: 500;
     color: #111827;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.debt-dot {
+    flex-shrink: 0;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+}
+
+.debt-dot--green {
+    background-color: #16a34a;
+}
+
+.debt-dot--yellow {
+    background-color: #eab308;
+}
+
+.debt-dot--red {
+    background-color: #dc2626;
+}
+
+.psd-item--blocked {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.psd-item--blocked:hover {
+    background-color: #fef2f2;
+}
+
+.psd-blocked-icon {
+    color: #dc2626;
+}
+
+.psd-debt-summary {
+    font-size: 11px;
+    color: #b45309;
 }
 
 .psd-item-meta {
@@ -1103,7 +1276,6 @@
     border-radius: 3px;
 }
 
-/* Hết hàng thì báo đỏ ngay trên dòng kết quả */
 .psd-stock--empty {
     color: #b91c1c;
     background-color: #fef2f2;
@@ -1131,6 +1303,37 @@
     background-color: #dcfce7 !important;
 }
 
+.btn-add-customer--clear {
+    border-color: #d1d5db !important;
+    color: #6b7280 !important;
+    background-color: #fff !important;
+}
+
+.btn-add-customer--clear:hover {
+    border-color: #dc2626 !important;
+    color: #dc2626 !important;
+    background-color: #fef2f2 !important;
+}
+
+.cdc-remove {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    margin-left: 6px;
+    padding: 2px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: #9ca3af;
+    cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
+}
+
+.cdc-remove:hover {
+    background-color: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+}
+
 .btn-add-customer--notfound {
     border-color: #f59e0b !important;
     color: #d97706 !important;
@@ -1151,35 +1354,160 @@
     cursor: not-allowed;
 }
 
-.quick-add-form {
-    background-color: #f8faff;
-    border: 1px solid #bfdbfe;
-    border-radius: 6px;
-    padding: 10px 12px;
-    margin-bottom: 12px;
+.quick-add-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2200;
+}
+
+.quick-add-modal {
+    background: #fff;
+    border-radius: 8px;
+    width: 380px;
+    max-width: 92vw;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
     animation: fadeInDown 0.15s ease;
 }
 
-.quick-add-title {
+.quick-add-modal-header {
     display: flex;
     align-items: center;
-    gap: 6px;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.quick-add-modal-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.quick-add-close {
+    display: flex;
+    align-items: center;
+    padding: 4px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: #9ca3af;
+    cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
+}
+
+.quick-add-close:hover:not(:disabled) {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+.quick-add-modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+}
+
+.quick-add-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.quick-add-label {
     font-size: 12px;
     font-weight: 600;
-    color: #2563eb;
-    margin-bottom: 8px;
+    color: #4b5563;
 }
 
-.quick-add-row {
+.quick-add-input {
+    width: 100%;
+    height: 38px;
+    padding: 0 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #111827;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.quick-add-input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.quick-add-input.input-error {
+    border-color: #dc2626;
+}
+
+.quick-add-input:disabled {
+    background-color: #f9fafb;
+    color: #9ca3af;
+}
+
+.quick-add-optional {
+    font-weight: 400;
+    color: #9ca3af;
+}
+
+.quick-add-field-error {
+    font-size: 12px;
+    color: #dc2626;
+}
+
+.quick-add-modal-footer {
     display: flex;
-    gap: 6px;
-    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 14px 18px;
+    border-top: 1px solid #e5e7eb;
+    background-color: #f9fafb;
 }
 
-.quick-add-row .customer-input {
-    padding-left: 10px;
-    font-size: 13px;
-    height: 34px;
+.quick-add-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+
+.quick-add-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.quick-add-btn--ghost {
+    border: 1px solid #d1d5db;
+    background-color: #fff;
+    color: #4b5563;
+}
+
+.quick-add-btn--ghost:hover:not(:disabled) {
+    background-color: #f3f4f6;
+}
+
+.quick-add-btn--primary {
+    border: 1px solid #2563eb;
+    background-color: #2563eb;
+    color: #fff;
+}
+
+.quick-add-btn--primary:hover:not(:disabled) {
+    background-color: #1d4ed8;
 }
 
 .quick-add-error {
@@ -1211,12 +1539,6 @@
     color: #1d4ed8;
 }
 
-/*  Tiền khách đưa / hình thức thanh toán / tiền thừa  */
-/*
- * Bằng cỡ số của "Khách phải trả" (.text-blue-large). field-sizing co ô theo
- * nội dung để gạch chân ôm sát con số; width chỉ là mức dự phòng cho trình
- * duyệt chưa hỗ trợ.
- */
 .cash-given-input {
     field-sizing: content;
     width: 150px;
@@ -1229,7 +1551,7 @@
     padding: 0 2px 2px;
     font-size: 24px;
     font-weight: bold;
-    color: rgba(0, 0, 0, 0.677);
+    color: rgba(0, 0, 0, 0.807);
     outline: none;
     transition: border-bottom-color 0.15s;
 }
@@ -1238,10 +1560,184 @@
     border-bottom-color: #2563eb;
 }
 
-/* Placeholder ở đây là số khách phải trả, không phải gợi ý — phải đọc được */
 .cash-given-input::placeholder {
     color: #9ca3af;
     font-weight: bold;
+}
+
+.input-error {
+    border-bottom-color: #dc2626 !important;
+    border-color: #dc2626 !important;
+}
+
+.customer-debt-card {
+    margin: 10px 0 4px;
+    padding: 9px 12px;
+    border-radius: 6px;
+    border-left: 3px solid transparent;
+    background-color: #f9fafb;
+}
+
+.customer-debt-card--green {
+    border-left-color: #16a34a;
+    background-color: #f0fdf4;
+}
+
+.customer-debt-card--yellow {
+    border-left-color: #eab308;
+    background-color: #fefce8;
+}
+
+.customer-debt-card--red {
+    border-left-color: #dc2626;
+    background-color: #fef2f2;
+}
+
+.cdc-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.cdc-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.cdc-lock {
+    flex-shrink: 0;
+    color: #b91c1c;
+}
+
+.cdc-level {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.cdc-summary {
+    margin-top: 3px;
+    font-size: 12px;
+    color: #b45309;
+}
+
+.cdc-block {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 5px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #b91c1c;
+}
+
+.cdc-warn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 5px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #b45309;
+}
+
+/*  Ghi chú đơn hàng  */
+.order-note {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 460px;
+}
+
+.order-note-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #4b5563;
+}
+
+.order-note-input {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    color: #111827;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.order-note-input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.order-note-input::placeholder {
+    color: #9ca3af;
+}
+
+.debt-form {
+    margin-top: 14px;
+    padding: 12px;
+    border: 1px solid #fde68a;
+    border-radius: 6px;
+    background-color: #fffbeb;
+}
+
+.debt-form-title {
+    margin-bottom: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #92400e;
+}
+
+.debt-remaining-row {
+    border-top: 1px dashed #fcd34d;
+    margin-top: 8px;
+    padding-top: 8px;
+}
+
+.debt-remaining-amount {
+    font-size: 24px;
+    font-weight: bold;
+    color: #b91c1c;
+}
+
+.debt-due-input {
+    padding: 6px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background-color: #fff;
+    font-size: 13px;
+    color: #111827;
+    outline: none;
+}
+
+.debt-due-input:focus {
+    border-color: #2563eb;
+}
+
+.debt-form-error {
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #b91c1c;
+}
+
+.debt-form-note {
+    margin-top: 10px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: #92400e;
 }
 
 .payment-method-select {
@@ -1261,11 +1757,8 @@
     border-color: #2563eb;
 }
 
-/*
- * Bố cục (flex / lề / canh chữ) đã do .summary-row--major lo; ở đây chỉ còn màu.
- */
 .change-due-row {
-    color: #16a34a;
+    color: black;
 }
 
 .change-due-row.is-zero {

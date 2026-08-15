@@ -10,6 +10,7 @@ import project.be_sep490_g67.constants.StorageZoneConstants;
 import project.be_sep490_g67.constants.StorageZoneType;
 import project.be_sep490_g67.dto.request.AssignBatchRequest;
 import project.be_sep490_g67.dto.request.CreateStorageLocationRequest;
+import project.be_sep490_g67.dto.request.MoveAllBatchesRequest;
 import project.be_sep490_g67.dto.request.MoveBatchRequest;
 import project.be_sep490_g67.dto.request.UnassignBatchRequest;
 import project.be_sep490_g67.dto.response.StorageLocationContentResponse;
@@ -90,6 +91,9 @@ public class StorageLocationService {
         }
 
         StorageZone zoneEntity = storageZoneService.ensureZoneExists(zone);
+        if (storageZoneService.isReturnHoldZone(zoneEntity)) {
+            throw new AppException(ErrorCode.STORAGE_RETURN_HOLD_LOCKED);
+        }
 
         StorageLocation location = new StorageLocation();
         location.setStorageZone(zoneEntity);
@@ -184,9 +188,54 @@ public class StorageLocationService {
 
         upsertBatchLocation(batch, destination, quantity);
 
+        clearFullIfEmpty(source.getLocation().getId());
+
         StorageLocation refreshed = storageLocationRepository.findActiveWithContentsById(destination.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
         return toResponse(refreshed);
+    }
+
+    @Transactional
+    public StorageLocationResponse moveAllBatches(MoveAllBatchesRequest request) {
+        if (Objects.equals(request.getFromLocationId(), request.getToLocationId())) {
+            throw new AppException(ErrorCode.INVALID_BATCH_LOCATION_MOVE);
+        }
+
+        StorageLocation source = storageLocationRepository.findActiveWithContentsById(request.getFromLocationId())
+                .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
+        StorageLocation destination = storageLocationRepository.findActiveWithContentsById(request.getToLocationId())
+                .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
+
+        assertNotFull(destination);
+
+        List<BatchLocation> activeLines = source.getBatchLocations().stream()
+                .filter(bl -> !Boolean.TRUE.equals(bl.getIsRemoved()))
+                .filter(bl -> bl.getQuantity() != null && bl.getQuantity() > 0)
+                .sorted(Comparator.comparing(BatchLocation::getId))
+                .toList();
+
+        if (activeLines.isEmpty()) {
+            throw new AppException(ErrorCode.STORAGE_LOCATION_NO_BATCHES_TO_MOVE);
+        }
+
+        for (BatchLocation line : activeLines) {
+            StockBatch batch = line.getBatch();
+            assertWarehouseSingleProduct(destination, batch.getProduct().getId());
+            assertSalesZoneBatchRule(batch, destination);
+
+            int quantity = line.getQuantity();
+            line.setQuantity(0);
+            line.setIsRemoved(true);
+            batchLocationRepository.save(line);
+            upsertBatchLocation(batch, destination, quantity);
+
+            destination = storageLocationRepository.findActiveWithContentsById(destination.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
+        }
+
+        clearFullIfEmpty(source.getId());
+
+        return toResponse(destination);
     }
 
     @Transactional
@@ -194,9 +243,24 @@ public class StorageLocationService {
         BatchLocation batchLocation = batchLocationRepository.findActiveWithDetailsById(request.getBatchLocationId())
                 .orElseThrow(() -> new AppException(ErrorCode.BATCH_LOCATION_NOT_FOUND));
 
+        Integer locationId = batchLocation.getLocation().getId();
         batchLocation.setQuantity(0);
         batchLocation.setIsRemoved(true);
         batchLocationRepository.save(batchLocation);
+        clearFullIfEmpty(locationId);
+    }
+
+    /** Gỡ đánh dấu đầy khi ô không còn hàng. */
+    private void clearFullIfEmpty(Integer locationId) {
+        if (locationId == null) {
+            return;
+        }
+        storageLocationRepository.findActiveWithContentsById(locationId).ifPresent(location -> {
+            if (Boolean.TRUE.equals(location.getIsFull()) && !hasActiveStock(location)) {
+                location.setIsFull(false);
+                storageLocationRepository.save(location);
+            }
+        });
     }
 
     private void upsertBatchLocation(StockBatch batch, StorageLocation location, int quantity) {
@@ -220,9 +284,16 @@ public class StorageLocationService {
     }
 
     private void assertNotFull(StorageLocation location) {
-        if (Boolean.TRUE.equals(location.getIsFull())) {
-            throw new AppException(ErrorCode.STORAGE_LOCATION_FULL);
+        if (!Boolean.TRUE.equals(location.getIsFull())) {
+            return;
         }
+        // Ô trống không được giữ đánh dấu đầy
+        if (!hasActiveStock(location)) {
+            location.setIsFull(false);
+            storageLocationRepository.save(location);
+            return;
+        }
+        throw new AppException(ErrorCode.STORAGE_LOCATION_FULL);
     }
 
     private boolean hasActiveStock(StorageLocation location) {
@@ -263,7 +334,8 @@ public class StorageLocationService {
      * Khu bán: bỏ ràng buộc này — 1 ô được nhiều mặt hàng / nhiều lô.
      */
     private void assertWarehouseSingleProduct(StorageLocation location, Integer productId) {
-        if (storageZoneService.isSalesZone(location.getStorageZone())) {
+        if (storageZoneService.isSalesZone(location.getStorageZone())
+                || storageZoneService.isReturnHoldZone(location.getStorageZone())) {
             return;
         }
 
@@ -309,7 +381,7 @@ public class StorageLocationService {
                         ? location.getSize()
                         : StorageLocationConstants.SIZE_MD)
                 .description(location.getDescription())
-                .isFull(Boolean.TRUE.equals(location.getIsFull()))
+                .isFull(Boolean.TRUE.equals(location.getIsFull()) && hasActiveStock(location))
                 .zoneType(zoneType)
                 .contents(mapContents(location))
                 .build();
@@ -331,6 +403,9 @@ public class StorageLocationService {
         return StorageLocationContentResponse.builder()
                 .id(batchLocation.getId())
                 .batchId(batch.getId())
+                .productId(product.getId())
+                .categoryId(product.getCategory() != null ? product.getCategory().getId() : null)
+                .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
                 .productCode(resolveProductCode(product))
                 .productName(product.getName())
                 .unit(resolveBaseUnitName(product.getId()))
@@ -338,7 +413,18 @@ public class StorageLocationService {
                 .quantity(batchLocation.getQuantity())
                 .importPrice(batch.getCostPerUnit() != null ? batch.getCostPerUnit() : product.getCostPrice())
                 .expiryDate(batch.getExpiryDate() != null ? batch.getExpiryDate().toString() : null)
+                .placedAt(resolvePlacedAt(batchLocation))
                 .build();
+    }
+
+    private String resolvePlacedAt(BatchLocation batchLocation) {
+        if (batchLocation.getUpdatedAt() != null) {
+            return batchLocation.getUpdatedAt().toString();
+        }
+        if (batchLocation.getCreatedAt() != null) {
+            return batchLocation.getCreatedAt().toString();
+        }
+        return null;
     }
 
     private UnplacedBatchResponse toUnplacedResponse(StockBatch batch) {
@@ -346,6 +432,9 @@ public class StorageLocationService {
         return UnplacedBatchResponse.builder()
                 .id(batch.getId())
                 .batchId(batch.getId())
+                .productId(product.getId())
+                .categoryId(product.getCategory() != null ? product.getCategory().getId() : null)
+                .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
                 .productCode(resolveProductCode(product))
                 .productName(product.getName())
                 .unit(resolveBaseUnitName(product.getId()))

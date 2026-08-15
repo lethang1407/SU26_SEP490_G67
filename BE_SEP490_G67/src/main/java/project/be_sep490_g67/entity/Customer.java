@@ -35,6 +35,15 @@ public class Customer extends BaseEntity {
     @Column(name = "allow_debt")
     private Boolean allowDebt = true;
 
+    /**
+     * Cờ "cần rà soát": khách này bắt đầu nợ bằng một đơn do nhân viên (không
+     * phải quản lý) lập. Nằm ở khách chứ không ở từng hoá đơn — nó nói về quan
+     * hệ nợ của khách, nên hoá đơn nợ thứ hai của cùng khách không dựng lại cờ.
+     */
+    @ColumnDefault("0")
+    @Column(name = "is_check_unstable_debt", nullable = false)
+    private Boolean isCheckUnstableDebt = false;
+
     @Lob
     @Column(name = "note")
     private String note;
