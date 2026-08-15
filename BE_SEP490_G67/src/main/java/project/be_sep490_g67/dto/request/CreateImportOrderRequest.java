@@ -43,8 +43,21 @@ public class CreateImportOrderRequest {
     /** Dòng đổi/trả đang chờ (WAITING_SUPPLIER) gắn vào phiếu này. */
     List<Integer> returnLineIds;
 
+    /** Cùng các dòng trên, kèm loại Đổi/Trả chọn lúc nhập (ghi đè method phiếu trả). */
+    List<ReturnLineItem> returnLines;
+
     @Valid
     List<LineItem> lines;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class ReturnLineItem {
+        Integer detailId;
+        /** RETURN | EXCHANGE */
+        String method;
+    }
 
     @Data
     @NoArgsConstructor

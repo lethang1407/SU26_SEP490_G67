@@ -25,13 +25,31 @@ function hasValidSupplier(supplier) {
     return supplier?.id != null && Number(supplier.id) > 0 && !Number.isNaN(Number(supplier.id));
 }
 
-function buildFormSnapshot({ supplier, lines, note, invoiceImageUrl, discountAmount, returnLineIds = [] }) {
+function selectedReturnSnapshot(pendingReturnLines = [], returnLineIds = []) {
+    const byKey = new Map((pendingReturnLines || []).map((line) => [String(line.key), line]));
+    return [...returnLineIds]
+        .map((id) => {
+            const line = byKey.get(String(id));
+            return `${String(id)}:${line?.method || 'RETURN'}`;
+        })
+        .sort();
+}
+
+function buildFormSnapshot({
+    supplier,
+    lines,
+    note,
+    invoiceImageUrl,
+    discountAmount,
+    returnLineIds = [],
+    pendingReturnLines = [],
+}) {
     return JSON.stringify({
         supplierId: supplier?.id ?? null,
         note: note?.trim() || '',
         invoiceImageUrl: invoiceImageUrl || '',
         discountAmount: Number(discountAmount) || 0,
-        returnLineIds: [...returnLineIds].map(String).sort(),
+        returnLineIds: selectedReturnSnapshot(pendingReturnLines, returnLineIds),
         lines: (lines || []).map((line) => ({
             productId: line.productId,
             productUnitId: line.productUnitId ?? null,
@@ -121,7 +139,21 @@ function toApiPayload(orderStatus, {
     safePaidAmount,
     lines,
     returnLineIds = [],
+    pendingReturnLines = [],
 }) {
+    const byKey = new Map((pendingReturnLines || []).map((line) => [String(line.key), line]));
+    const returnLines = returnLineIds
+        .map((id) => {
+            const detailId = Number(id);
+            if (!Number.isInteger(detailId) || detailId <= 0) return null;
+            const line = byKey.get(String(id));
+            return {
+                detailId,
+                method: line?.method === 'EXCHANGE' ? 'EXCHANGE' : 'RETURN',
+            };
+        })
+        .filter(Boolean);
+
     return {
         supplierId: hasValidSupplier(supplier) ? Number(supplier.id) : null,
         orderStatus,
@@ -130,7 +162,8 @@ function toApiPayload(orderStatus, {
         discountAmount: safeDiscount,
         paidAmount: orderStatus === ORDER_STATUS.IMPORTED ? safePaidAmount : 0,
         paymentMethod: 'CASH',
-        returnLineIds: returnLineIds.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0),
+        returnLineIds: returnLines.map((item) => item.detailId),
+        returnLines,
         lines: lines.map((line) => ({
             productId: line.productId,
             productUnitId: line.productUnitId ?? null,
@@ -235,12 +268,13 @@ export default function CreateImportOrderPage() {
                 invoiceImageUrl,
                 discountAmount,
                 returnLineIds: selectedReturnLineKeys,
+                pendingReturnLines,
             }),
-        [supplier, lines, note, invoiceImageUrl, discountAmount, selectedReturnLineKeys],
+        [supplier, lines, note, invoiceImageUrl, discountAmount, selectedReturnLineKeys, pendingReturnLines],
     );
 
     const isDirty = useMemo(() => {
-        if (loadingDetail) return false;
+        if (loadingDetail || loadingReturns) return false;
         if (isEditMode) {
             if (!initialSnapshotRef.current) return false;
             return formSnapshot !== initialSnapshotRef.current;
@@ -255,6 +289,7 @@ export default function CreateImportOrderPage() {
         );
     }, [
         loadingDetail,
+        loadingReturns,
         isEditMode,
         formSnapshot,
         supplier,
@@ -397,6 +432,7 @@ export default function CreateImportOrderPage() {
                     returnLineIds: (detail.returnLines || [])
                         .map((line) => String(line.detailId))
                         .filter(Boolean),
+                    pendingReturnLines: (detail.returnLines || []).map(mapPendingReturnLine),
                 });
             })
             .catch((error) => {
@@ -434,7 +470,13 @@ export default function CreateImportOrderPage() {
             .then((result) => {
                 if (cancelled) return;
                 const mapped = (result || []).map(mapPendingReturnLine);
-                setPendingReturnLines(mapped);
+                setPendingReturnLines((prev) => {
+                    const prevMethods = new Map(prev.map((line) => [String(line.key), line.method]));
+                    return mapped.map((line) => {
+                        const localMethod = prevMethods.get(String(line.key));
+                        return localMethod ? { ...line, method: localMethod } : line;
+                    });
+                });
                 const attachedKeys = mapped
                     .filter((line) => line.attached)
                     .map((line) => String(line.key));
@@ -555,6 +597,15 @@ export default function CreateImportOrderPage() {
             return;
         }
         setSelectedReturnLineKeys(pendingReturnLines.map((line) => String(line.key)));
+    };
+
+    const handleChangeReturnMethod = (lineKey, method) => {
+        const nextMethod = method === 'EXCHANGE' ? 'EXCHANGE' : 'RETURN';
+        setPendingReturnLines((prev) =>
+            prev.map((line) =>
+                String(line.key) === String(lineKey) ? { ...line, method: nextMethod } : line,
+            ),
+        );
     };
 
     const handleInvoiceImageChange = async (file) => {
@@ -713,6 +764,7 @@ export default function CreateImportOrderPage() {
             safePaidAmount,
             lines,
             returnLineIds: selectedReturnLineKeys,
+            pendingReturnLines,
         });
 
         setSubmitting(true);
@@ -731,6 +783,7 @@ export default function CreateImportOrderPage() {
                 invoiceImageUrl,
                 discountAmount,
                 returnLineIds: selectedReturnLineKeys,
+                pendingReturnLines,
             });
 
             const successMessage =
@@ -900,6 +953,7 @@ export default function CreateImportOrderPage() {
                                         loading={loadingReturns}
                                         onToggleLine={handleToggleReturnLine}
                                         onToggleAll={handleToggleAllReturnLines}
+                                        onChangeMethod={handleChangeReturnMethod}
                                     />
                                 </section>
 

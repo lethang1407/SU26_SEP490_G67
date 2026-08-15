@@ -46,6 +46,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
@@ -230,7 +231,8 @@ public class ImportReturnService {
     public List<ImportReturnDetail> requirePendingLinesForSupplier(
             Integer supplierId,
             List<Integer> lineIds,
-            Integer currentImportOrderId) {
+            Integer currentImportOrderId,
+            Map<Integer, String> methodOverrides) {
         if (lineIds == null || lineIds.isEmpty()) {
             return List.of();
         }
@@ -265,6 +267,11 @@ public class ImportReturnService {
                     : null;
             if (settledId != null && !Objects.equals(settledId, currentImportOrderId)) {
                 throw new AppException(ErrorCode.IMPORT_RETURN_LINE_ALREADY_ATTACHED);
+            }
+            if (methodOverrides != null && methodOverrides.containsKey(lineId)
+                    && methodOverrides.get(lineId) != null
+                    && !methodOverrides.get(lineId).isBlank()) {
+                detail.setMethod(ImportReturnConstants.normalizeMethod(methodOverrides.get(lineId)));
             }
             result.add(detail);
         }
