@@ -23,6 +23,7 @@ import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.*;
 import project.be_sep490_g67.utils.DebtCalculator;
+import project.be_sep490_g67.utils.UnitPriceResolver;
 import project.be_sep490_g67.utils.UnitQuantityConverter;
 
 import java.math.BigDecimal;
@@ -138,11 +139,12 @@ public class SalesOrderService {
                                         createdBy,
                                         resolvePicks(item));
 
-                        // Calculate total
+                        BigDecimal unitPrice = UnitPriceResolver.resolve(product, resolvedUnit);
+
                         BigDecimal lineDiscount = item.getDiscountAmount() != null
                                         ? item.getDiscountAmount()
                                         : BigDecimal.ZERO;
-                        BigDecimal lineTotal = item.getUnitPrice()
+                        BigDecimal lineTotal = unitPrice
                                         .multiply(BigDecimal.valueOf(item.getQuantity()))
                                         .subtract(lineDiscount);
 
@@ -155,7 +157,7 @@ public class SalesOrderService {
                                 detail.setStockBatch(stockBatchRepository.getReferenceById(soldFromBatchId));
                         }
                         detail.setQuantity(item.getQuantity());
-                        detail.setUnitPrice(item.getUnitPrice());
+                        detail.setUnitPrice(unitPrice);
                         detail.setDiscountAmount(lineDiscount);
                         detail.setLineTotal(lineTotal);
                         detail.setCreatedBy(createdBy);
@@ -177,17 +179,9 @@ public class SalesOrderService {
                 salesOrderRepository.save(order);
 
                 if (isDebt) {
-                        // Cờ isCheckUnstableDebt giờ chỉ nói MỘT điều: khách này do quản lý
-                        // hay do nhân viên thêm vào (đặt một lần lúc tạo khách, xem
-                        // CustomerService#createCustomer). Bán nợ không đụng vào nó nữa —
-                        // trước đây đơn nợ đầu tiên do nhân viên lập cũng dựng cờ này lên,
-                        // làm khách do nhân viên thêm lẫn thành khách do quản lý thêm.
-                        // Việc rà soát khách nợ mới nay đi bằng thông báo cho admin.
                         debtPolicy.addToCustomerDebt(customer, grandTotal.subtract(paid));
                 }
 
-                // POS không còn điều hướng thu ngân sang trang khách hàng nữa: khách nợ
-                // mới phát sinh từ quầy được đẩy về hộp thông báo của admin để xử lý.
                 if (isDebt && needsReview) {
                         notifyAdminsAboutNewDebtCustomer(customer, saved, grandTotal.subtract(paid));
                 }

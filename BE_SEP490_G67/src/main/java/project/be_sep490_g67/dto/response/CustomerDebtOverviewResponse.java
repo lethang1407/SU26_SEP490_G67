@@ -17,4 +17,5 @@ public class CustomerDebtOverviewResponse {
     long totalDebtSalesCount;
     long uniqueCustomersInDebtCount;
     BigDecimal totalDebtAmountIncurredToday;
+    NewDebtCustomerAlertResponse newDebtCustomerAlert;
 }

@@ -14,8 +14,11 @@ import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.*;
 
 import java.math.BigDecimal;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.math.RoundingMode;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -195,9 +198,20 @@ public class ProductCommandService {
             unit.setProduct(product);
             unit.setName(u.getName().trim());
             unit.setUnitBase(u.getUnitBase());
-            unit.setSellingPrice(u.getSellingPrice() != null ? u.getSellingPrice() : product.getSellingPrice());
+            unit.setSellingPrice(u.getSellingPrice() != null
+                    ? u.getSellingPrice()
+                    : derivePrice(product.getSellingPrice(), u.getUnitBase()));
             productUnitRepository.save(unit);
         }
+    }
+
+    /** Giá của một đơn vị quy đổi khi người dùng không nhập riêng: giá lẻ × hệ số. */
+    private BigDecimal derivePrice(BigDecimal basePrice, BigDecimal unitBase) {
+        BigDecimal price = nullToZero(basePrice);
+        BigDecimal ratio = (unitBase == null || unitBase.signum() <= 0)
+                ? BigDecimal.ONE
+                : unitBase;
+        return price.multiply(ratio).setScale(2, RoundingMode.HALF_UP);
     }
 
     private void replaceAttributes(Product product, List<UpsertProductRequest.AttributeRequest> attrs) {

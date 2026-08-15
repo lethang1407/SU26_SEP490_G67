@@ -7,6 +7,7 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 @Getter
 @Setter
@@ -57,4 +58,10 @@ public class ReturnOrderDetail extends BaseEntity {
     /** Lý do trả của riêng dòng này (cận date, bao bì móp, khách đổi ý...). */
     @Column(name = "note", length = 500)
     private String note;
+
+    @Column(name = "processed_at")
+    private Instant processedAt;
+
+    @Column(name = "processed_by")
+    private Integer processedBy;
 }

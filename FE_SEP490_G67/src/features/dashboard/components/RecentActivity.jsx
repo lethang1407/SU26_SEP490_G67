@@ -1,104 +1,107 @@
-import { ShoppingCart, CreditCard, Package } from 'lucide-react';
-
-const transactions = [
+const activities = [
     {
         id: 1,
         time: '14:32',
-        type: 'sale',
-        typeLabel: 'Bán hàng',
-        typeIcon: ShoppingCart,
+        type: 'Bán hàng',
         customer: 'Khách lẻ',
-        amount: '45.000đ',
-        status: 'done',
-        statusLabel: 'Hoàn thành',
+        user: 'Lan Nguyễn',
+        amount: '+ 125.000đ',
+        amountType: 'income',
     },
     {
         id: 2,
         time: '14:15',
-        type: 'debt',
-        typeLabel: 'Bán nợ',
-        typeIcon: CreditCard,
-        customer: 'Nguyễn Văn A',
-        amount: '120.000đ',
-        status: 'debt',
-        statusLabel: 'Ghi nợ',
+        type: 'Bán nợ',
+        customer: 'Cô Lan',
+        user: 'Lan Nguyễn',
+        amount: '+ 45.000đ',
+        amountType: 'warning',
     },
     {
         id: 3,
-        time: '13:58',
-        type: 'import',
-        typeLabel: 'Nhập hàng',
-        typeIcon: Package,
-        customer: 'NCC Thành Đạt',
-        amount: '850.000đ',
-        status: 'imported',
-        statusLabel: 'Đã nhập',
+        time: '13:40',
+        type: 'Nhập hàng',
+        customer: 'Đại lý bia',
+        user: 'Đức Thắng',
+        amount: '- 850.000đ',
+        amountType: 'expense',
     },
     {
         id: 4,
-        time: '13:20',
-        type: 'sale',
-        typeLabel: 'Bán hàng',
-        typeIcon: ShoppingCart,
-        customer: 'Khách lẻ',
-        amount: '67.000đ',
-        status: 'done',
-        statusLabel: 'Hoàn thành',
+        time: '13:10',
+        type: 'Hủy hóa đơn',
+        customer: 'HD00128',
+        user: 'Đức Thắng',
+        amount: '65.000đ',
+        amountType: 'alert-expense',
+        alert: true,
     },
     {
         id: 5,
         time: '12:45',
-        type: 'sale',
-        typeLabel: 'Bán hàng',
-        typeIcon: ShoppingCart,
-        customer: 'Trần Thị B',
-        amount: '235.000đ',
-        status: 'done',
-        statusLabel: 'Hoàn thành',
+        type: 'Bán hàng',
+        customer: 'Khách lẻ',
+        user: 'Lan Nguyễn',
+        amount: '+ 210.000đ',
+        amountType: 'income',
+    },
+    {
+        id: 6,
+        time: '12:10',
+        type: 'Bán hàng',
+        customer: 'Chú Tư',
+        user: 'Lan Nguyễn',
+        amount: '+ 55.000đ',
+        amountType: 'income',
     },
 ];
 
 export default function RecentActivity() {
     return (
-        <div className="dashboard-card">
-            <div className="dashboard-card__header">
-                <h3 className="dashboard-card__title">Giao Dịch Gần Đây</h3>
-                <button className="dashboard-card__link">
-                    Xem tất cả
-                </button>
+        <section className="dashboard-card dashboard-card--compact recent-activity-card">
+            <div className="dashboard-card_header">
+                <h3 className="dashboard-card_title">Hoạt động gần đây</h3>
             </div>
-            <div className="recent-tx__table-wrapper">
-                <table className="recent-tx__table">
+            <div className="recent-tx_table-wrapper">
+                <table className="recent-tx_table recent-tx_table--overview">
                     <thead>
                         <tr>
-                            <th>Giờ</th>
-                            <th>Loại</th>
-                            <th>Khách hàng</th>
-                            <th>Số tiền</th>
-                            <th>Trạng thái</th>
+                            <th className="text-left">Giờ</th>
+                            <th className="text-left">Hoạt động</th>
+                            <th className="text-left">Người thực hiện</th>
+                            <th className="text-right">Số tiền</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {transactions.map((tx) => (
-                            <tr key={tx.id}>
-                                <td className="recent-tx__time">{tx.time}</td>
+                        {activities.map((activity) => (
+                            <tr
+                                key={activity.id}
+                                className={activity.alert ? 'recent-tx_row--alert' : undefined}
+                            >
+                                <td className="recent-tx_time">{activity.time}</td>
                                 <td>
-                                    <span className={`recent-tx__type recent-tx__type--${tx.type}`}>
-                                        <tx.typeIcon size={14} /> {tx.typeLabel}
-                                    </span>
+                                    <div className="recent-tx_activity">
+                                        <span className="recent-tx_activity-type">
+                                            {activity.alert && <span className="recent-tx_alert-dot">● </span>}
+                                            {activity.type}
+                                        </span>
+                                        <span className="recent-tx_activity-customer">{activity.customer}</span>
+                                    </div>
                                 </td>
-                                <td className="recent-tx__customer">{tx.customer}</td>
-                                <td className="recent-tx__amount">{tx.amount}</td>
-                                <td>
-                                    <span className={`recent-tx__status recent-tx__status--${tx.status}`}>
-                                        {tx.statusLabel}
-                                    </span>
+                                <td className="recent-tx_user">{activity.user}</td>
+                                <td className={`recent-tx_amount recent-tx_amount--${activity.amountType}`}>
+                                    {activity.amount}
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
-        </div>
+            <div className="recent-activity-card_footer-wrap">
+                <button className="recent-activity-card_footer" type="button">
+                    Xem lịch sử đầy đủ
+                </button>
+            </div>
+        </section>
     );
 }

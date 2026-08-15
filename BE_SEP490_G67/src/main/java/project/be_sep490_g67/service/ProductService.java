@@ -22,6 +22,7 @@ import project.be_sep490_g67.entity.Product;
 import project.be_sep490_g67.entity.StockBatch;
 import project.be_sep490_g67.repository.ProductRepository;
 import project.be_sep490_g67.util.StockBatchUtils;
+import project.be_sep490_g67.utils.UnitPriceResolver;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -172,6 +173,7 @@ public class ProductService {
                         .id(u.getId())
                         .name(u.getName())
                         .unitBase(u.getUnitBase())
+                        .sellingPrice(UnitPriceResolver.resolveOrNull(product, u))
                         .build())
                 .toList();
 
@@ -653,6 +655,7 @@ public class ProductService {
                         .id(u.getId())
                         .name(u.getName())
                         .unitBase(u.getUnitBase())
+                        .sellingPrice(UnitPriceResolver.resolveOrNull(product, u))
                         .build())
                 .toList();
 
