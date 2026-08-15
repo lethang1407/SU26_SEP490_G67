@@ -1,5 +1,4 @@
-// Lưu tạm giỏ hàng đang bán vào sessionStorage để không mất khi rời màn POS
-const KEY = 'pos.activeCart.v1';
+const KEY = 'pos.activeCart.v3';
 
 export function saveActiveCart(cartItems, qtyInputs) {
     if (!cartItems?.length) {

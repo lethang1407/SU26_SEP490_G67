@@ -32,6 +32,29 @@ public class ExchangeOrderResponse {
     String returnNote;
     Instant createdAt;
 
+    // ---- Quyết toán công nợ (nhóm quyết định F) ----
+    // Với đơn thường, originalIsDebt = false và mọi con số nợ ở đây bằng 0, nên FE dùng
+    // được cùng một khối hiển thị cho cả hai loại đơn.
+
+    /** Hóa đơn gốc có phải đơn bán nợ không. */
+    Boolean originalIsDebt;
+    /** Nợ còn lại của hóa đơn gốc TRƯỚC khi đổi/trả. */
+    BigDecimal debtRemainingBefore;
+    /** Phần hàng trả được trừ thẳng vào nợ, không ra tiền mặt. */
+    BigDecimal debtOffsetAmount;
+    /** Phần credit dùng trả cho hàng đổi ra. */
+    BigDecimal exchangeCreditAmount;
+    /** Tiền mặt thực hoàn cho khách — luôn ≤ số khách đã thực trả cho hóa đơn gốc. */
+    BigDecimal cashRefundAmount;
+    /** Tiền khách bù thêm tại quầy cho hàng đổi đắt hơn (đơn thường). */
+    BigDecimal cashCollectAmount;
+    /** Phần chênh được ghi nợ trên đơn đổi (đơn còn nợ — quyết định F1). */
+    BigDecimal newDebtOnExchange;
+    /** Tiền khách chủ động trả thêm cho nợ cũ ngay tại màn đổi trả (quyết định F2). */
+    BigDecimal debtPaymentCollected;
+    /** Nợ còn lại của hóa đơn gốc SAU khi đã cấn trừ và thu thêm. */
+    BigDecimal debtRemainingAfter;
+
     List<ReturnItemInfo> returnItems;
     List<ExchangeItemInfo> exchangeItems;
 

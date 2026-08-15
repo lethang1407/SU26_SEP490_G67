@@ -11,7 +11,6 @@ import project.be_sep490_g67.enums.DocumentType;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.DocumentSequenceRepository;
-import project.be_sep490_g67.repository.StoreConfigRepository;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -27,34 +26,31 @@ public class DocumentCodeService {
     static final DateTimeFormatter DATE_PART = DateTimeFormatter.ofPattern("yyMMdd");
 
     DocumentSequenceRepository documentSequenceRepository;
-    StoreConfigRepository storeConfigRepository;
-
 
     @Transactional(propagation = Propagation.MANDATORY)
     public String generate(DocumentType type) {
-        return generate(currentStoreId(), type, LocalDate.now(STORE_ZONE));
+        return generate(type, LocalDate.now(STORE_ZONE));
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public String generate(Integer storeId, DocumentType type, LocalDate date) {
-        int next = nextCounter(storeId, type, date);
+    public String generate(DocumentType type, LocalDate date) {
+        int next = nextCounter(type, date);
 
-        return String.format("%s-%02d-%s-%04d",
+        return String.format("%s-%s-%04d",
                 type.getPrefix(),
-                storeId,
                 DATE_PART.format(date),
                 next);
     }
 
-    private int nextCounter(Integer storeId, DocumentType type, LocalDate date) {
+    private int nextCounter(DocumentType type, LocalDate date) {
         String docType = type.name();
 
         DocumentSequence slot = documentSequenceRepository
-                .lockSlot(storeId, docType, date)
+                .lockSlot(docType, date)
                 .orElseGet(() -> {
-                    documentSequenceRepository.insertSlotIfAbsent(storeId, docType, date);
+                    documentSequenceRepository.insertSlotIfAbsent(docType, date);
                     return documentSequenceRepository
-                            .lockSlot(storeId, docType, date)
+                            .lockSlot(docType, date)
                             .orElseThrow(() -> new AppException(ErrorCode.DOCUMENT_CODE_GENERATION_FAILED));
                 });
 
@@ -62,11 +58,5 @@ public class DocumentCodeService {
         slot.setCounter(next);
         documentSequenceRepository.save(slot);
         return next;
-    }
-
-    private Integer currentStoreId() {
-        return storeConfigRepository.findFirstByOrderByIdAsc()
-                .orElseThrow(() -> new AppException(ErrorCode.STORE_CONFIG_MISSING))
-                .getId();
     }
 }

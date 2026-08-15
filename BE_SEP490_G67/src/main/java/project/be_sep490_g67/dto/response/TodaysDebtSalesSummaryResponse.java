@@ -5,7 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -13,8 +12,5 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TodaysDebtSalesSummaryResponse {
-    private long totalDebtSalesCount;
-    private long uniqueCustomersInDebtCount;
-    private BigDecimal totalDebtAmountIncurredToday;
     private List<DebtOrderResponse> debtSalesDetails;
 }

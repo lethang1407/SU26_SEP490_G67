@@ -30,6 +30,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -57,6 +58,19 @@ public class DebtPaymentService {
                 .atStartOfDay(zoneId)
                 .toInstant();
 
+        List<SalesOrder> todaysDebtSales = salesOrderRepository.findActiveDebtSalesCreatedBetween(startOfDay, endOfDay);
+
+        BigDecimal totalDebtAmountIncurredToday = todaysDebtSales.stream()
+                .map(this::calculateRemainingDebtAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        long uniqueCustomersInDebtCount = todaysDebtSales.stream()
+                .map(SalesOrder::getCustomer)
+                .filter(Objects::nonNull)
+                .map(Customer::getId)
+                .distinct()
+                .count();
+
         return CustomerDebtOverviewResponse.builder()
                 .totalDebt(customerRepository.getTotalDebt())
                 .debtCustomerCount(customerRepository.countInDebtCustomers())
@@ -66,7 +80,21 @@ public class DebtPaymentService {
                                 endOfDay
                         )
                 )
+                .totalDebtSalesCount(todaysDebtSales.size())
+                .uniqueCustomersInDebtCount(uniqueCustomersInDebtCount)
+                .totalDebtAmountIncurredToday(totalDebtAmountIncurredToday)
                 .build();
+    }
+
+    private BigDecimal calculateRemainingDebtAmount(SalesOrder salesOrder) {
+        BigDecimal totalAmount = salesOrder.getTotalAmount() != null ? salesOrder.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal initialPaidAmount = salesOrder.getPaidAmount() != null ? salesOrder.getPaidAmount() : BigDecimal.ZERO;
+        BigDecimal subsequentPayments = salesOrder.getDebtPayments().stream()
+                .filter(dp -> !Boolean.TRUE.equals(dp.getIsRemoved()))
+                .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return totalAmount.subtract(initialPaidAmount.add(subsequentPayments));
     }
 
     @Transactional(readOnly = true)

@@ -15,6 +15,7 @@ import ExchangeOrderPicker from '../components/ExchangeOrderPicker';
 import { getOrderForExchange, processExchangeOrder, searchProductsByName, getInvoiceData } from "../api";
 import { printInvoice } from '../utils/printInvoice';
 import { getApiErrorMessage } from "../../../utils/api-utils";
+import { formatVnd } from "../utils/money";
 
 const ITEM_CONDITIONS = [
     { value: 'RESELLABLE', label: 'Nguyên vẹn' },
@@ -23,7 +24,38 @@ const ITEM_CONDITIONS = [
     { value: 'OPENED', label: 'Đã mở' },
 ];
 
-const CONDITION_OVERRIDES_POLICY = ['DAMAGED', 'EXPIRED'];
+const ExchTableHead = () => (
+    <>
+        <colgroup>
+            <col style={{ width: '6%' }} />
+            <col style={{ width: '4%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '19%' }} />
+            <col style={{ width: '5%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '7%' }} />
+            <col style={{ width: '8%' }} />
+        </colgroup>
+        <thead>
+            <tr>
+                <th className="exch-col-check">TRẢ</th>
+                <th className="col-stt">STT</th>
+                <th>MÃ SKU</th>
+                <th>TÊN SẢN PHẨM</th>
+                <th>ĐVT</th>
+                <th className="text-center">SL MUA</th>
+                <th className="text-center">SL ĐỔI TRẢ</th>
+                <th className="text-center">TÌNH TRẠNG</th>
+                <th>GHI CHÚ</th>
+                <th className="text-right">ĐƠN GIÁ</th>
+                <th className="text-right">THÀNH TIỀN</th>
+            </tr>
+        </thead>
+    </>
+);
 
 export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, onDone, onDirtyChange, ref }) {
     const params = useParams();
@@ -226,11 +258,6 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
         setValidationErrors(prev => ({ ...prev, exchangeItems: null }));
     }, [exchangeItems]);
 
-    /*
-     * Khi nhúng trong POS, ô tìm kiếm nằm trên header của POS (dùng chung một ô
-     * duy nhất cho cả bán hàng lẫn đổi trả). POS gọi ngược xuống đây để thêm
-     * hàng khách lấy đi.
-     */
     useImperativeHandle(ref, () => ({
         addExchangeProduct: handleAddExchangeProduct,
     }), [handleAddExchangeProduct]);
@@ -267,9 +294,8 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                 errors.returnItems = `"${item.productName}" chỉ còn ${item.quantityReturnable} có thể trả`;
             } else if (!item.itemCondition) {
                 errors.returnItems = `Chưa chọn tình trạng cho "${item.productName}"`;
-            } else if (!item.productReturnable
-                && !CONDITION_OVERRIDES_POLICY.includes(item.itemCondition)) {
-                errors.returnItems = `"${item.productName}" không được phép trả lại (chỉ nhận khi hỏng hoặc hết hạn)`;
+            } else if (!item.productReturnable) {
+                errors.returnItems = `"${item.productName}" không được phép trả lại`;
             }
         });
 
@@ -321,11 +347,6 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
             };
 
             const result = await processExchangeOrder(payload);
-
-            /*
-             * Chốt lại số liệu tại thời điểm gửi để in phiếu — không đọc lại state
-             * vì sau khi đóng màn hình các mảng này sẽ bị dọn.
-             */
             setSubmitResult({
                 returnCode: result.returnCode,
                 direction,
@@ -457,7 +478,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                             >
                                 <div className="exchange-dropdown-item-name">{product.name}</div>
                                 <div className="exchange-dropdown-item-price">
-                                    Giá: {(product.sellingPrice || 0).toLocaleString()} đ
+                                    Giá: {formatVnd(product.sellingPrice)}
                                     <span className={`psd-stock${Number(product.stockQuantity ?? 0) <= 0 ? ' psd-stock--empty' : ''}`}>
                                         Tồn kho: {Number(product.stockQuantity ?? 0).toLocaleString('vi-VN')}
                                     </span>
@@ -508,189 +529,175 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                                 checked={hideUnchanged}
                                 onChange={(e) => setHideUnchanged(e.target.checked)}
                             />
-                            <span>Ẩn dòng không đổi trả</span>
+                            <span>Ẩn sản phẩm</span>
                         </label>
 
                     </div>
 
-                    <div className="exch-table-scroll">
-                        <table className="cart-table exch-table">
-                            <thead>
-                                <tr>
-                                    <th className="exch-col-check">TRẢ</th>
-                                    <th className="col-stt">STT</th>
-                                    <th>MÃ SKU</th>
-                                    <th>TÊN SẢN PHẨM</th>
-                                    <th>ĐVT</th>
-                                    <th className="text-center">SL MUA</th>
-                                    <th className="text-center">SL ĐỔI TRẢ</th>
-                                    <th className="text-center">TÌNH TRẠNG</th>
-                                    <th>GHI CHÚ</th>
-                                    <th className="text-right">ĐƠN GIÁ</th>
-                                    <th className="text-right">THÀNH TIỀN</th>
-                                </tr>
-                            </thead>
-
-                            {/* Phần 1: hàng khách TRẢ VỀ cửa hàng  */}
-                            <tbody>
-                                <tr className="exch-group-row exch-group-row--return">
-                                    <td colSpan={COLUMN_COUNT}>
-                                        <CornerUpLeft size={14} /> Hàng khách trả lại
-                                        <span className="exch-group-count">
-                                            {selectedItems.length} / {returnItems.length} dòng được chọn trả
-                                        </span>
-                                    </td>
-                                </tr>
-
-                                {visibleReturnItems.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={COLUMN_COUNT} className="exchange-empty-state">
-                                            Chưa có sản phẩm nào được chọn trả. Bỏ tích “Ẩn” để xem toàn bộ hóa đơn.
+                    <div className="exch-table-split">
+                        {/* Phần 1: hàng khách TRẢ VỀ cửa hàng  */}
+                        <div className="exch-table-scroll">
+                            <table className="cart-table exch-table">
+                                <ExchTableHead />
+                                <tbody>
+                                    <tr className="exch-group-row exch-group-row--return">
+                                        <td colSpan={COLUMN_COUNT}>
+                                            <CornerUpLeft size={14} /> Sản phẩm trả lại
                                         </td>
                                     </tr>
-                                ) : visibleReturnItems.map((item, index) => (
-                                    <tr
-                                        key={item.salesOrderDetailId ?? item.productId}
-                                        className={`exch-row exch-row--return${item.selected ? ' is-active' : ''}`}
-                                    >
-                                        <td className="exch-col-check">
-                                            <input
-                                                type="checkbox"
-                                                className="exch-check"
-                                                checked={item.selected}
-                                                disabled={item.quantityReturnable === 0}
-                                                title={item.quantityReturnable === 0
-                                                    ? 'Dòng này đã trả hết ở lần trước'
-                                                    : 'Trả dòng này'}
-                                                onChange={() => handleToggleReturn(item.salesOrderDetailId)}
-                                            />
-                                        </td>
-                                        <td>{index + 1}</td>
-                                        <td className="font-bold product-code-cell">{item.productCode}</td>
-                                        <td>{item.productName}</td>
-                                        <td>{item.unitName}</td>
-                                        <td className="text-center">
-                                            {item.quantityPurchased}
-                                            {item.quantityReturnable < item.quantityPurchased && (
-                                                <div className="qty-remaining-note">
-                                                    còn trả được {item.quantityReturnable}
-                                                </div>
-                                            )}
-                                        </td>
 
-                                        {/* Chưa tích thì ba ô dưới đây không tồn tại — không có gì để nhập */}
-                                        {item.selected ? (
-                                            <>
-                                                <td>
-                                                    <div className="qty-control">
-                                                        <button className="qty-btn" onClick={() => handleReturnQtyChange(item.salesOrderDetailId, -1)}>-</button>
-                                                        <input type="text" value={item.returnQty} readOnly className="qty-input" />
-                                                        <button className="qty-btn" onClick={() => handleReturnQtyChange(item.salesOrderDetailId, 1)}>+</button>
+                                    {visibleReturnItems.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={COLUMN_COUNT} className="exchange-empty-state">
+                                                Chưa có sản phẩm nào được chọn trả. Bỏ tích “Ẩn” để xem toàn bộ hóa đơn.
+                                            </td>
+                                        </tr>
+                                    ) : visibleReturnItems.map((item, index) => (
+                                        <tr
+                                            key={item.salesOrderDetailId ?? item.productId}
+                                            className={`exch-row exch-row--return${item.selected ? ' is-active' : ''}`}
+                                        >
+                                            <td className="exch-col-check">
+                                                <input
+                                                    type="checkbox"
+                                                    className="exch-check"
+                                                    checked={item.selected}
+                                                    disabled={item.quantityReturnable === 0}
+                                                    title={item.quantityReturnable === 0
+                                                        ? 'Dòng này đã trả hết ở lần trước'
+                                                        : 'Trả dòng này'}
+                                                    onChange={() => handleToggleReturn(item.salesOrderDetailId)}
+                                                />
+                                            </td>
+                                            <td>{index + 1}</td>
+                                            <td className="font-bold product-code-cell">{item.productCode}</td>
+                                            <td>{item.productName}</td>
+                                            <td>{item.unitName}</td>
+                                            <td className="text-center">
+                                                {item.quantityPurchased}
+                                                {item.quantityReturnable < item.quantityPurchased && (
+                                                    <div className="qty-remaining-note">
+                                                        còn trả được {item.quantityReturnable}
                                                     </div>
-                                                </td>
-                                                <td className="text-center">
+                                                )}
+                                            </td>
+
+                                            {/* Chưa tích thì ba ô dưới đây không tồn tại — không có gì để nhập */}
+                                            {item.selected ? (
+                                                <>
+                                                    <td>
+                                                        <div className="qty-control">
+                                                            <button className="qty-btn" onClick={() => handleReturnQtyChange(item.salesOrderDetailId, -1)}>-</button>
+                                                            <input type="text" value={item.returnQty} readOnly className="qty-input" />
+                                                            <button className="qty-btn" onClick={() => handleReturnQtyChange(item.salesOrderDetailId, 1)}>+</button>
+                                                        </div>
+                                                    </td>
+                                                    <td className="text-center">
+                                                        <select
+                                                            className="unit-select"
+                                                            value={item.itemCondition}
+                                                            onChange={(e) => handleConditionChange(item.salesOrderDetailId, e.target.value)}
+                                                        >
+                                                            <option value="">-- Chọn --</option>
+                                                            {ITEM_CONDITIONS.map(c => (
+                                                                <option key={c.value} value={c.value}>{c.label}</option>
+                                                            ))}
+                                                        </select>
+                                                        {!item.productReturnable && (
+                                                            <div className="condition-policy-note">
+                                                                Sản phẩm không cho trả lại
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        <input
+                                                            type="text"
+                                                            className="exch-note-input"
+                                                            placeholder="VD: cận date, bao bì móp..."
+                                                            value={item.note}
+                                                            maxLength={500}
+                                                            onChange={(e) => handleNoteChange(item.salesOrderDetailId, e.target.value)}
+                                                        />
+                                                    </td>
+                                                </>
+                                            ) : (
+                                                <td colSpan={3} className="exch-row-idle">Không đổi trả</td>
+                                            )}
+
+                                            <td className="text-right">{formatVnd(item.unitPrice)}</td>
+                                            <td className="text-right font-bold exch-amount-out">
+                                                {formatVnd(item.selected ? item.total : 0)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Phần 2: hàng khách LẤY ĐI (đổi sang món khác) */}
+                        <div className="exch-table-scroll">
+                            <table className="cart-table exch-table">
+                                <ExchTableHead />
+                                <tbody>
+                                    <tr className="exch-group-row exch-group-row--new">
+                                        <td colSpan={COLUMN_COUNT}>
+                                            <ShoppingCart size={14} /> Thêm sản phẩm mới
+                                        </td>
+                                    </tr>
+
+                                    {exchangeItems.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={COLUMN_COUNT} className="exchange-empty-state">
+                                                Chưa có hàng nào. Bỏ trống nếu khách chỉ trả hàng lấy tiền.
+                                            </td>
+                                        </tr>
+                                    ) : exchangeItems.map((item, index) => (
+                                        <tr key={`${item.productId}-${index}`} className="exch-row exch-row--new">
+                                            <td className="exch-col-check">
+                                                <button
+                                                    className="btn-delete"
+                                                    title="Bỏ dòng này"
+                                                    onClick={() => handleRemoveExchangeItem(index)}
+                                                >
+                                                    <Trash2 size={16} color="#ef4444" />
+                                                </button>
+                                            </td>
+                                            <td>{index + 1}</td>
+                                            <td className="font-bold product-code-cell">{item.productCode}</td>
+                                            <td>{item.productName}</td>
+                                            <td>
+                                                {(item.units ?? []).length > 1 ? (
                                                     <select
                                                         className="unit-select"
-                                                        value={item.itemCondition}
-                                                        onChange={(e) => handleConditionChange(item.salesOrderDetailId, e.target.value)}
+                                                        value={item.productUnitId ?? ''}
+                                                        onChange={(e) => handleExchangeUnitChange(index, e.target.value)}
                                                     >
-                                                        <option value="">-- Chọn --</option>
-                                                        {ITEM_CONDITIONS.map(c => (
-                                                            <option key={c.value} value={c.value}>{c.label}</option>
+                                                        {item.units.map((u) => (
+                                                            <option key={u.id} value={u.id}>{u.name}</option>
                                                         ))}
                                                     </select>
-                                                    {!item.productReturnable && (
-                                                        <div className="condition-policy-note">
-                                                            Không cho trả — chỉ nhận khi hỏng/hết hạn
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td>
-                                                    <input
-                                                        type="text"
-                                                        className="exch-note-input"
-                                                        placeholder="VD: cận date, bao bì móp..."
-                                                        value={item.note}
-                                                        maxLength={500}
-                                                        onChange={(e) => handleNoteChange(item.salesOrderDetailId, e.target.value)}
-                                                    />
-                                                </td>
-                                            </>
-                                        ) : (
-                                            <td colSpan={3} className="exch-row-idle">Không đổi trả</td>
-                                        )}
-
-                                        <td className="text-right">{item.unitPrice.toLocaleString()}</td>
-                                        <td className="text-right font-bold exch-amount-out">
-                                            {item.selected ? item.total.toLocaleString() : '0'}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-
-                            {/* Phần 2: hàng khách LẤY ĐI (đổi sang món khác) */}
-                            <tbody>
-                                <tr className="exch-group-row exch-group-row--new">
-                                    <td colSpan={COLUMN_COUNT}>
-                                        <ShoppingCart size={14} /> Hàng khách lấy mới
-                                        <span className="exch-group-count">
-                                            {exchangeItems.length} dòng
-                                        </span>
-                                    </td>
-                                </tr>
-
-                                {exchangeItems.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={COLUMN_COUNT} className="exchange-empty-state">
-                                            Chưa có hàng nào. Bỏ trống nếu khách chỉ trả hàng lấy tiền.
-                                        </td>
-                                    </tr>
-                                ) : exchangeItems.map((item, index) => (
-                                    <tr key={`${item.productId}-${index}`} className="exch-row exch-row--new">
-                                        <td className="exch-col-check">
-                                            <button
-                                                className="btn-delete"
-                                                title="Bỏ dòng này"
-                                                onClick={() => handleRemoveExchangeItem(index)}
-                                            >
-                                                <Trash2 size={16} color="#ef4444" />
-                                            </button>
-                                        </td>
-                                        <td>{index + 1}</td>
-                                        <td className="font-bold product-code-cell">{item.productCode}</td>
-                                        <td>{item.productName}</td>
-                                        <td>
-                                            {(item.units ?? []).length > 1 ? (
-                                                <select
-                                                    className="unit-select"
-                                                    value={item.productUnitId ?? ''}
-                                                    onChange={(e) => handleExchangeUnitChange(index, e.target.value)}
-                                                >
-                                                    {item.units.map((u) => (
-                                                        <option key={u.id} value={u.id}>{u.name}</option>
-                                                    ))}
-                                                </select>
-                                            ) : (
-                                                item.unitName
-                                            )}
-                                        </td>
-                                        <td className="text-center exch-row-idle">—</td>
-                                        <td>
-                                            <div className="qty-control">
-                                                <button className="qty-btn" onClick={() => handleExchangeQtyChange(index, -1)}>-</button>
-                                                <input type="text" value={item.qty} readOnly className="qty-input" />
-                                                <button className="qty-btn" onClick={() => handleExchangeQtyChange(index, 1)}>+</button>
-                                            </div>
-                                        </td>
-                                        <td colSpan={2} className="exch-row-idle">Hàng bán mới</td>
-                                        <td className="text-right">{item.price.toLocaleString()}</td>
-                                        <td className="text-right font-bold exch-amount-in">
-                                            {item.total.toLocaleString()}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                                ) : (
+                                                    item.unitName
+                                                )}
+                                            </td>
+                                            <td className="text-center exch-row-idle">—</td>
+                                            <td>
+                                                <div className="qty-control">
+                                                    <button className="qty-btn" onClick={() => handleExchangeQtyChange(index, -1)}>-</button>
+                                                    <input type="text" value={item.qty} readOnly className="qty-input" />
+                                                    <button className="qty-btn" onClick={() => handleExchangeQtyChange(index, 1)}>+</button>
+                                                </div>
+                                            </td>
+                                            <td colSpan={2} className="exch-row-idle">Hàng bán mới</td>
+                                            <td className="text-right">{formatVnd(item.price)}</td>
+                                            <td className="text-right font-bold exch-amount-in">
+                                                {formatVnd(item.total)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
                     {validationErrors.returnItems && (
@@ -724,43 +731,43 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                             <div className="summary-row">
                                 <span>Tiền hóa đơn gốc</span>
                                 <span className="font-bold">
-                                    {(originalOrder?.totalAmount || 0).toLocaleString()}
+                                    {formatVnd(originalOrder?.totalAmount)}
                                 </span>
                             </div>
                             <div className="summary-row">
                                 <span>Hàng trả lại</span>
                                 <span className="font-bold exch-amount-out">
-                                    {returnSubtotal.toLocaleString()}
+                                    {formatVnd(returnSubtotal)}
                                 </span>
                             </div>
                             <div className="summary-row">
                                 <span>Hàng lấy mới</span>
                                 <span className="font-bold exch-amount-in">
-                                    {exchangeSubtotal.toLocaleString()}
+                                    {formatVnd(exchangeSubtotal)}
                                 </span>
                             </div>
 
                             <div className={`exch-net-row exch-net-row--${direction}`}>
                                 <span className="exch-net-label">
-                                    {direction === 'refund' ? 'Tiền hoàn cho khách'
-                                        : direction === 'collect' ? 'Khách cần thanh toán thêm'
+                                    {direction === 'refund' ? 'Hoàn tiền'
+                                        : direction === 'collect' ? 'Thanh toán thêm'
                                             : 'Không phát sinh tiền'}
                                 </span>
                                 <span className="exch-net-value">
-                                    {Math.abs(netAmount).toLocaleString()}
+                                    {formatVnd(Math.abs(netAmount))}
                                 </span>
                             </div>
                         </section>
 
                         {/* Thanh toán  */}
                         <section className="pos-panel-group pos-panel-group--last">
-                            <h3 className="pos-panel-group-title">
+                            {/* <h3 className="pos-panel-group-title">
                                 {direction === 'collect' ? 'Khách thanh toán' : 'Hoàn tiền cho khách'}
-                            </h3>
+                            </h3> */}
 
                             {direction === 'even' ? (
                                 <div className="exch-no-money-note">
-                                    Hàng trả và hàng lấy đi bằng tiền nhau — không thu, không hoàn.
+                                    Hàng trả và hàng lấy đi bằng tiền nhau - không thu, không hoàn.
                                 </div>
                             ) : (
                                 <>
@@ -838,7 +845,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                                             : 'Không phát sinh tiền'}
                                 </span>
                                 <span className="exch-net-value">
-                                    {Math.abs(submitResult.netAmount).toLocaleString()}
+                                    {formatVnd(Math.abs(submitResult.netAmount))}
                                 </span>
                             </div>
                         </div>
