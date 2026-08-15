@@ -14,6 +14,8 @@ export default function ImportOrderLineTable({
     onChangeLine,
     onRemoveLine,
     readOnly = false,
+    section = 'import',
+    emptyText = 'Chưa có hàng hóa nào. Tìm và chọn sản phẩm ở ô phía trên để thêm vào phiếu.',
 }) {
     const [openNoteKey, setOpenNoteKey] = useState(null);
     const noteEditorRef = useRef(null);
@@ -42,13 +44,11 @@ export default function ImportOrderLineTable({
     }, [openNoteKey]);
 
     const handleTogglePromotion = (line) => {
-        const next = !line.isPromotion;
-        const patch = { isPromotion: next };
-        if (next && !line.note?.trim()) {
-            patch.note = 'Hàng khuyến mãi';
-        }
-        onChangeLine(line.key, patch);
+        onChangeLine(line.key, { isPromotion: !line.isPromotion });
     };
+
+    const isPromoSection = section === 'promo';
+    const colSpan = 7;
 
     return (
         <div className="ioc-lines-card">
@@ -63,33 +63,45 @@ export default function ImportOrderLineTable({
                             <th>Đơn giá</th>
                             <th>Hạn sử dụng</th>
                             <th>Thành tiền</th>
-                            <th aria-label="Xóa" />
                         </tr>
                     </thead>
                     <tbody>
-                        {lines.length === 0 && (
+                        {lines.length === 0 && emptyText ? (
                             <tr>
-                                <td colSpan={8} className="ioc-lines-table__empty-cell">
-                                    Chưa có hàng hóa nào. Tìm và chọn sản phẩm ở ô phía trên để thêm vào phiếu.
+                                <td colSpan={colSpan} className="ioc-lines-table__empty-cell">
+                                    {emptyText}
                                 </td>
                             </tr>
-                        )}
+                        ) : null}
                         {lines.map((line, index) => {
                             const attributeLabel = formatProductAttributes(line.attributes);
-                            const isPromotion = Boolean(line.isPromotion);
-                            const lineTotal = isPromotion
-                                ? 0
-                                : (Number(line.quantity) || 0) * (Number(line.costPerUnit) || 0);
+                            const isPromotion = isPromoSection || Boolean(line.isPromotion);
+                            const computedTotal =
+                                (Number(line.quantity) || 0) * (Number(line.costPerUnit) || 0);
+                            const lineTotal = isPromotion ? 0 : computedTotal;
                             const hasNote = Boolean(line.note?.trim());
                             const isNoteOpen = openNoteKey === line.key;
                             const priceWarning = canEdit ? getLinePriceWarning(line) : null;
+                            const rowClass = isPromotion
+                                ? 'ioc-lines-table__row--promo'
+                                : undefined;
 
                             return (
-                                <tr
-                                    key={line.key}
-                                    className={isPromotion ? 'ioc-lines-table__row--promo' : undefined}
-                                >
-                                    <td className="ioc-lines-table__stt">{index + 1}</td>
+                                <tr key={line.key} className={rowClass}>
+                                    <td className="ioc-lines-table__stt">
+                                        <span className="ioc-lines-table__stt-num">{index + 1}</span>
+                                        {canRemove ? (
+                                            <button
+                                                type="button"
+                                                className="ioc-lines-table__remove"
+                                                onClick={() => onRemoveLine(line.key)}
+                                                title="Xóa dòng"
+                                                aria-label={`Xóa ${line.productName}`}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        ) : null}
+                                    </td>
                                     <td>
                                         <div className="ioc-lines-table__name">{line.productName}</div>
                                         {attributeLabel ? (
@@ -97,24 +109,32 @@ export default function ImportOrderLineTable({
                                         ) : null}
                                         <div className="ioc-line-meta">
                                             {canEdit ? (
-                                                <button
-                                                    type="button"
-                                                    className={`ioc-promo-chip ${
-                                                        isPromotion ? 'ioc-promo-chip--on' : ''
-                                                    }`}
-                                                    onClick={() => handleTogglePromotion(line)}
-                                                    aria-pressed={isPromotion}
-                                                    title={
-                                                        isPromotion
-                                                            ? 'Bỏ đánh dấu hàng khuyến mãi'
-                                                            : 'Đánh dấu hàng KM / trả thưởng — không thu tiền, vẫn nhập kho'
-                                                    }
-                                                >
-                                                    Hàng KM
-                                                </button>
-                                            ) : isPromotion ? (
-                                                <span className="ioc-promo-chip ioc-promo-chip--on">Hàng KM</span>
-                                            ) : null}
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        className={`ioc-promo-chip ${
+                                                            isPromotion ? 'ioc-promo-chip--on' : ''
+                                                        }`}
+                                                        onClick={() => handleTogglePromotion(line)}
+                                                        aria-pressed={isPromotion}
+                                                        title={
+                                                            isPromotion
+                                                                ? 'Bỏ đánh dấu hàng khuyến mãi'
+                                                                : 'Đánh dấu hàng KM / trả thưởng — không thu tiền, vẫn nhập kho'
+                                                        }
+                                                    >
+                                                        Hàng KM
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    {isPromotion ? (
+                                                        <span className="ioc-promo-chip ioc-promo-chip--on">
+                                                            Hàng KM
+                                                        </span>
+                                                    ) : null}
+                                                </>
+                                            )}
 
                                             {canEdit ? (
                                                 <div className="ioc-line-note">
@@ -282,19 +302,6 @@ export default function ImportOrderLineTable({
                                         ) : (
                                             formatCurrency(lineTotal)
                                         )}
-                                    </td>
-                                    <td>
-                                        {canRemove ? (
-                                            <button
-                                                type="button"
-                                                className="ioc-lines-table__remove"
-                                                onClick={() => onRemoveLine(line.key)}
-                                                title="Xóa dòng"
-                                                aria-label={`Xóa ${line.productName}`}
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        ) : null}
                                     </td>
                                 </tr>
                             );

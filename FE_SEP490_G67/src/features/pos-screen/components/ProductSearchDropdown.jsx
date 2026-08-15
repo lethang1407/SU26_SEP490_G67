@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { Loader2, PackageSearch } from 'lucide-react';
-import { formatVnd } from '../utils/money';
 
 export default function ProductSearchDropdown({ results, loading, error, onSelect, onClose }) {
     const ref = useRef(null);
@@ -64,11 +63,6 @@ export default function ProductSearchDropdown({ results, loading, error, onSelec
                                 {/* Tồn kho để thu ngân biết còn hàng hay không trước khi thêm */}
                                 <span className={`psd-stock${Number(product.stockQuantity ?? 0) <= 0 ? ' psd-stock--empty' : ''}`}>
                                     Tồn kho: {Number(product.stockQuantity ?? 0).toLocaleString('vi-VN')}
-                                </span>
-                                <span className="psd-price">
-                                    {product.sellingPrice != null
-                                        ? formatVnd(product.sellingPrice)
-                                        : '—'}
                                 </span>
                             </div>
                         </li>

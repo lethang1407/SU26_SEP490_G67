@@ -22,6 +22,7 @@ public class CustomerResponse {
     Instant latestDebtDate;
     String note;
     Boolean isOverdue;
+    Boolean isCheckDebtUnstable;
     Long totalOrdersInDebt;
     Long totalOverdueOrders;
 }

@@ -140,6 +140,17 @@ export default function CreateInventoryCheckPage() {
         [lines, localReturnLines, note, checkDate],
     );
 
+    const visibleAttention = useMemo(() => {
+        if (!attention.length || !lines.length) return attention;
+        const selectedKeys = new Set(
+            lines.map((line) => lineKey(line.productId, line.stockBatchId)),
+        );
+        return attention.filter((item) => {
+            const key = lineKey(item.productId, item.batchId ?? null);
+            return !selectedKeys.has(key);
+        });
+    }, [attention, lines]);
+
     const blocker = useBlocker(
         ({ currentLocation, nextLocation }) =>
             !allowLeaveRef.current &&
@@ -643,7 +654,7 @@ export default function CreateInventoryCheckPage() {
 
                             <aside className="inventory-check-detail-sidebar">
                                 <InventoryCheckAttentionPanel
-                                    items={attention}
+                                    items={visibleAttention}
                                     loading={attentionLoading}
                                     onAddItem={handleAddAttentionItem}
                                 />

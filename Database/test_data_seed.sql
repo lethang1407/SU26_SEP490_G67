@@ -109,7 +109,7 @@ INSERT IGNORE INTO `role_permissions` (`permission_id`,`role_id`) VALUES
 
 -- ============================================================
 -- 4. USERS
---    BCrypt hash cho "Test@123":
+    --    BCrypt hash cho "password123":
 --    $2a$10$vPWDXVGwlcy9CkI4GyoG7ezYjUsZT2q6owkXtjDKgRDzPzNAdOeSq
 -- ============================================================
 INSERT INTO `users`

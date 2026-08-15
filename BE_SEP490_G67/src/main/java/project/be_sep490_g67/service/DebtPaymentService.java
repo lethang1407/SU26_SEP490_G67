@@ -9,11 +9,14 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import project.be_sep490_g67.dto.request.BatchDebtPaymentRequest;
 import project.be_sep490_g67.dto.request.DebtPaymentRequest;
+import project.be_sep490_g67.dto.response.BatchDebtPaymentResponse;
 import project.be_sep490_g67.dto.response.CustomerDebtOverviewResponse;
 import project.be_sep490_g67.dto.response.CustomerDebtSummaryResponse;
 import project.be_sep490_g67.dto.response.DebtPaymentHistoryResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
+import project.be_sep490_g67.dto.response.TodaysDebtPaymentSummaryResponse;
 import project.be_sep490_g67.entity.Customer;
 import project.be_sep490_g67.entity.DebtPayment;
 import project.be_sep490_g67.entity.SalesOrder;
@@ -31,8 +34,15 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -44,11 +54,13 @@ public class DebtPaymentService {
     private final CustomerRepository customerRepository;
     private final UserRepository userRepository;
     private final DebtPolicy debtPolicy;
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final DateTimeFormatter PAYMENT_CODE_DATE_FORMAT = DateTimeFormatter.ofPattern("ddMMyy");
 
     @Transactional(readOnly = true)
     public CustomerDebtOverviewResponse getDebtOverview() {
 
-        ZoneId zoneId = ZoneId.of("Asia/Ho_Chi_Minh");
+        ZoneId zoneId = BUSINESS_ZONE;
 
         LocalDate today = LocalDate.now(zoneId);
 
@@ -150,6 +162,8 @@ public class DebtPaymentService {
         // 3. Create and save the debt payment record
         DebtPayment debtPayment = new DebtPayment();
         debtPayment.setSalesOrder(salesOrder);
+        debtPayment.setCustomer(salesOrder.getCustomer());
+        debtPayment.setPaymentCode(generatePaymentCode(request.getPaymentDate(), null));
         debtPayment.setAmountPaid(request.getAmountPaid());
         debtPayment.setPaymentMethod(request.getPaymentMethod().name());
         debtPayment.setNotes(request.getNote());
@@ -176,6 +190,7 @@ public class DebtPaymentService {
 
         return DebtPaymentHistoryResponse.builder()
                 .id(savedPayment.getId())
+                .paymentCode(savedPayment.getPaymentCode())
                 .paymentDate(savedPayment.getCreatedAt())
                 .amountPaid(savedPayment.getAmountPaid())
                 .note(savedPayment.getNotes())
@@ -188,6 +203,103 @@ public class DebtPaymentService {
                 .build();
     }
 
+    @Transactional
+    public BatchDebtPaymentResponse createBatchDebtPayment(BatchDebtPaymentRequest request) {
+        if (request.getSalesOrderIds() == null || request.getSalesOrderIds().isEmpty()) {
+            throw new AppException(ErrorCode.DEBT_PAYMENT_ORDER_LIST_REQUIRED);
+        }
+        if (request.getAmountPaid() == null || request.getAmountPaid().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new AppException(ErrorCode.INVALID_PAYMENT_AMOUNT);
+        }
+
+        List<Integer> distinctOrderIds = request.getSalesOrderIds().stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.collectingAndThen(
+                        Collectors.toCollection(LinkedHashSet::new),
+                        ArrayList::new
+                ));
+        if (distinctOrderIds.isEmpty()) {
+            throw new AppException(ErrorCode.DEBT_PAYMENT_ORDER_LIST_REQUIRED);
+        }
+
+        List<SalesOrder> debtOrders = salesOrderRepository.findActiveDebtOrdersByIdsWithPayments(distinctOrderIds);
+        if (debtOrders.size() != distinctOrderIds.size()) {
+            throw new AppException(ErrorCode.ORDER_NOT_FOUND);
+        }
+
+        Set<Integer> customerIds = debtOrders.stream()
+                .map(SalesOrder::getCustomer)
+                .filter(Objects::nonNull)
+                .map(Customer::getId)
+                .collect(Collectors.toSet());
+        if (customerIds.size() != 1) {
+            throw new AppException(ErrorCode.DEBT_PAYMENT_ORDERS_DIFFERENT_CUSTOMERS);
+        }
+
+        Customer customer = debtOrders.stream()
+                .map(SalesOrder::getCustomer)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
+
+        List<SalesOrder> sortedDebtOrders = debtOrders.stream()
+                .sorted(Comparator.comparing(SalesOrder::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(SalesOrder::getId))
+                .toList();
+
+        BigDecimal totalRemainingAmount = sortedDebtOrders.stream()
+                .map(this::calculateRemainingDebtAmount)
+                .filter(amount -> amount.compareTo(BigDecimal.ZERO) > 0)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (totalRemainingAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new AppException(ErrorCode.DEBT_ORDER_ALREADY_SETTLED);
+        }
+        if (request.getAmountPaid().compareTo(totalRemainingAmount) > 0) {
+            throw new AppException(ErrorCode.PAYMENT_AMOUNT_EXCEEDS_REMAINING_DEBT);
+        }
+
+        BigDecimal unappliedAmount = request.getAmountPaid();
+        List<DebtPaymentHistoryResponse> paymentDetails = new ArrayList<>();
+        int nextPaymentSequence = nextPaymentSequence(request.getPaymentDate());
+
+        for (SalesOrder salesOrder : sortedDebtOrders) {
+            if (unappliedAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                break;
+            }
+
+            BigDecimal orderRemainingAmount = calculateRemainingDebtAmount(salesOrder);
+            if (orderRemainingAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            BigDecimal paidForOrder = unappliedAmount.min(orderRemainingAmount);
+            DebtPayment debtPayment = new DebtPayment();
+            debtPayment.setSalesOrder(salesOrder);
+            debtPayment.setCustomer(customer);
+            debtPayment.setPaymentCode(generatePaymentCode(request.getPaymentDate(), nextPaymentSequence++));
+            debtPayment.setAmountPaid(paidForOrder);
+            debtPayment.setPaymentMethod(request.getPaymentMethod().name());
+            debtPayment.setNotes(request.getNote());
+            if (request.getPaymentDate() != null) {
+                debtPayment.setCreatedAt(request.getPaymentDate());
+            }
+
+            DebtPayment savedPayment = debtPaymentRepository.save(debtPayment);
+            paymentDetails.add(buildDebtPaymentHistoryResponse(savedPayment));
+            unappliedAmount = unappliedAmount.subtract(paidForOrder);
+        }
+
+        debtPolicy.reduceCustomerDebt(customer, request.getAmountPaid());
+
+        return BatchDebtPaymentResponse.builder()
+                .customerId(customer.getId())
+                .customerName(customer.getFullName())
+                .totalPaidAmount(request.getAmountPaid())
+                .paymentDetails(paymentDetails)
+                .build();
+    }
+
 
     @Transactional(readOnly = true)
     public PageResponse<DebtPaymentHistoryResponse> getDebtPaymentHistory(
@@ -196,7 +308,7 @@ public class DebtPaymentService {
     ) {
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
-        ZoneId zoneId = ZoneId.of("Asia/Ho_Chi_Minh");
+        ZoneId zoneId = BUSINESS_ZONE;
         Instant startInstant = startDate != null ? startDate.atStartOfDay(zoneId).toInstant() : null;
         Instant endInstant = endDate != null ? endDate.plusDays(1).atStartOfDay(zoneId).toInstant() : null;
 
@@ -214,6 +326,7 @@ public class DebtPaymentService {
 
             return DebtPaymentHistoryResponse.builder()
                     .id(dp.getId())
+                    .paymentCode(dp.getPaymentCode())
                     .paymentDate(dp.getCreatedAt())
                     .amountPaid(dp.getAmountPaid())
                     .note(dp.getNotes())
@@ -236,8 +349,100 @@ public class DebtPaymentService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<DebtPaymentHistoryResponse> getTodaysDebtPayments(int page, int size) {
-        LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
-        return getDebtPaymentHistory(today, today, null, null, null, page, size);
+    public PageResponse<TodaysDebtPaymentSummaryResponse> getTodaysDebtPayments(int page, int size) {
+        ZoneId zoneId = BUSINESS_ZONE;
+        LocalDate today = LocalDate.now(zoneId);
+        Instant startOfDay = today.atStartOfDay(zoneId).toInstant();
+        Instant endOfDay = today.plusDays(1).atStartOfDay(zoneId).toInstant();
+
+        List<DebtPayment> todaysDebtPayments = debtPaymentRepository.findActiveTodayPaymentsWithOrderAndCustomer(
+                startOfDay,
+                endOfDay
+        );
+
+        Map<Integer, TodaysDebtPaymentSummaryResponse> groupedByCustomer = new LinkedHashMap<>();
+
+        todaysDebtPayments.forEach(dp -> {
+            SalesOrder salesOrder = dp.getSalesOrder();
+            Customer customer = salesOrder != null ? salesOrder.getCustomer() : null;
+            Integer customerId = customer != null ? customer.getId() : null;
+
+            TodaysDebtPaymentSummaryResponse customerGroup = groupedByCustomer.computeIfAbsent(
+                    customerId,
+                    id -> TodaysDebtPaymentSummaryResponse.builder()
+                            .customerId(id)
+                            .customerName(customer != null ? customer.getFullName() : null)
+                            .debtPaymentDetails(new ArrayList<>())
+                            .build()
+            );
+
+            customerGroup.getDebtPaymentDetails().add(buildDebtPaymentHistoryResponse(dp));
+        });
+
+        List<TodaysDebtPaymentSummaryResponse> groupedResponses = new ArrayList<>(groupedByCustomer.values());
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.max(size, 1);
+        int fromIndex = Math.min((safePage - 1) * safeSize, groupedResponses.size());
+        int toIndex = Math.min(fromIndex + safeSize, groupedResponses.size());
+
+        return PageResponse.<TodaysDebtPaymentSummaryResponse>builder()
+                .content(groupedResponses.subList(fromIndex, toIndex))
+                .page(safePage)
+                .size(safeSize)
+                .totalElements(groupedResponses.size())
+                .totalPages((int) Math.ceil((double) groupedResponses.size() / safeSize))
+                .build();
+    }
+
+    private DebtPaymentHistoryResponse buildDebtPaymentHistoryResponse(DebtPayment dp) {
+        SalesOrder salesOrder = dp.getSalesOrder();
+        Customer customer = salesOrder != null ? salesOrder.getCustomer() : null;
+
+        String staffName = "N/A";
+        if (dp.getCreatedBy() != null) {
+            staffName = userRepository.findById(dp.getCreatedBy())
+                    .map(User::getFullName)
+                    .orElse("KhÃ´ng rÃµ");
+        }
+
+        return DebtPaymentHistoryResponse.builder()
+                .id(dp.getId())
+                .paymentCode(dp.getPaymentCode())
+                .paymentDate(dp.getCreatedAt())
+                .amountPaid(dp.getAmountPaid())
+                .note(dp.getNotes())
+                .customerName(customer != null ? customer.getFullName() : null)
+                .customerId(customer != null ? customer.getId() : null)
+                .orderCode(salesOrder != null ? salesOrder.getOrderCode() : null)
+                .paymentMethod(dp.getPaymentMethod())
+                .orderId(salesOrder != null ? salesOrder.getId() : null)
+                .staffName(staffName)
+                .build();
+    }
+
+    private String generatePaymentCode(Instant paymentDate, Integer sequence) {
+        LocalDate receiptDate = resolvePaymentInstant(paymentDate).atZone(BUSINESS_ZONE).toLocalDate();
+        int resolvedSequence = sequence != null ? sequence : nextPaymentSequence(paymentDate);
+        return String.format("TN-%s-%03d", receiptDate.format(PAYMENT_CODE_DATE_FORMAT), resolvedSequence);
+    }
+
+    private int nextPaymentSequence(Instant paymentDate) {
+        LocalDate receiptDate = resolvePaymentInstant(paymentDate).atZone(BUSINESS_ZONE).toLocalDate();
+        String prefix = "TN-" + receiptDate.format(PAYMENT_CODE_DATE_FORMAT) + "-";
+        return debtPaymentRepository.findLatestPaymentCodeByPrefix(prefix)
+                .map(code -> parsePaymentSequence(code, prefix) + 1)
+                .orElse(1);
+    }
+
+    private int parsePaymentSequence(String paymentCode, String prefix) {
+        try {
+            return Integer.parseInt(paymentCode.substring(prefix.length()));
+        } catch (RuntimeException ex) {
+            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+        }
+    }
+
+    private Instant resolvePaymentInstant(Instant paymentDate) {
+        return paymentDate != null ? paymentDate : Instant.now();
     }
 }

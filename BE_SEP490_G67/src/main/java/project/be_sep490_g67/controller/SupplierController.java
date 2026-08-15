@@ -39,12 +39,14 @@ public class SupplierController {
     @PreAuthorize("hasAuthority('SUPPLIER:VIEW')")
     @GetMapping
     public ApiResponse<SupplierListPageResponse> getSuppliers(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) Integer categoryId
+            @RequestParam(required = false) Integer categoryId,
+            @RequestParam(required = false) Integer productId
     ) {
-        SupplierListPageResponse result = supplierService.findAllSuppliers(search, categoryId, page, size);
+        SupplierListPageResponse result = supplierService.findAllSuppliers(
+                search, categoryId, productId, page, size);
         return ApiResponse.<SupplierListPageResponse>builder()
                 .result(result)
                 .message("Lấy danh sách nhà cung cấp thành công")
@@ -85,8 +87,8 @@ public class SupplierController {
     @GetMapping("/{id}/import-orders")
     public ApiResponse<PageResponse<ImportOrderListItemResponse>> getImportHistory(
             @PathVariable Integer id,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "5") int size,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "5") int size,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "ALL") String status
     ) {
@@ -112,8 +114,8 @@ public class SupplierController {
     @GetMapping("/{id}/payments")
     public ApiResponse<PageResponse<SupplierPaymentResponse>> getPaymentHistory(
             @PathVariable Integer id,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "5") int size,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "5") int size,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate

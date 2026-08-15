@@ -22,7 +22,7 @@ import {
   FiTrendingUp,
 } from "react-icons/fi";
 import Header from "../../../components/ui/header-footer/Header";
-import { getOverviewCustomer, getCustomerDebts, getTodayDebtSummary, getCustomerDetail } from "../api";
+import { getOverviewCustomer, getCustomerDebts, getTodayDebtSummary, getCustomerDetail, updateCustomerUnstableDebtStatus } from "../api";
 import CreateCustomerDebtModal from "../components/CreateCustomerDebtModal";
 import TodayPaymentsModal from "../components/TodayPaymentsModal";
 import TodayDebtSalesModal from "../components/TodayDebtSalesModal";
@@ -232,9 +232,8 @@ export default function CustomerDebtPage() {
   }, [noDebtFilters]);
 
   /**
-   * Admin bấm thông báo "Khách hàng nợ mới cần rà soát" thì vào đây kèm
-   * ?completeProfile=<id>. Nạp hồ sơ hiện có rồi mở modal ở chế độ bổ sung.
-   * (POS không còn tự điều hướng thu ngân sang đây — nó chỉ bắn thông báo.)
+   * POS điều hướng sang đây kèm ?completeProfile=<id> sau khi ghi nợ cho một
+   * khách vừa thêm nhanh. Nạp hồ sơ hiện có rồi mở modal ở chế độ bổ sung.
    */
   useEffect(() => {
     const customerId = searchParams.get('completeProfile');
@@ -340,6 +339,28 @@ export default function CustomerDebtPage() {
     setNoDebtFilters(newFilters);
   };
 
+  const handleProcessUnstableDebt = async (e, customerId) => {
+    e.stopPropagation(); // Ngăn không cho điều hướng đến trang chi tiết
+    try {
+      const response = await updateCustomerUnstableDebtStatus(customerId, { isCheckUnstableDebt: false });
+      if (response.code === 1000) {
+        const updatedCustomer = response.result;
+        const updateList = (prev) => ({
+          ...prev,
+          content: prev.content.map(c =>
+            c.id === customerId ? { ...c, ...updatedCustomer } : c
+          )
+        });
+        setDebtCustomers(updateList);
+        setNoDebtCustomers(updateList);
+      }
+    } catch (err) {
+      console.error("Failed to update unstable debt status:", err);
+      alert("Đã có lỗi xảy ra khi cập nhật trạng thái. Vui lòng thử lại.");
+    }
+  };
+
+
   const getActiveFilterLabel = (filters, type) => {
     if (type === "debt") {
       if (filters.isOverdue === true) return "Nợ quá hạn";
@@ -364,18 +385,19 @@ export default function CustomerDebtPage() {
             <th>Điện thoại</th>
             <th>Tổng nợ hiện tại</th>
             <th>Trạng thái</th>
+            <th className="action-col">Hành động</th>
           </tr>
         </thead>
         <tbody>
           {loading ? (
             <tr>
-              <td colSpan="5" className="text-center py-5">
+              <td colSpan="6" className="text-center py-5">
                 <Spinner animation="border" size="sm" /> Đang tải...
               </td>
             </tr>
           ) : data.content.length === 0 ? (
             <tr>
-              <td colSpan="5" className="text-center py-5 text-muted">
+              <td colSpan="6" className="text-center py-5 text-muted">
                 Không tìm thấy dữ liệu.
               </td>
             </tr>
@@ -387,6 +409,10 @@ export default function CustomerDebtPage() {
                 highlightClasses.push("customer-row--overdue");
               } else if (item.debtStatus === "IN_DEBT") {
                 highlightClasses.push("customer-row--in-debt");
+              }
+
+              if (item.isCheckDebtUnstable) {
+                highlightClasses.push("debt-unstable-row");
               }
 
               const overdueAllowedClass =
@@ -427,6 +453,18 @@ export default function CustomerDebtPage() {
                       <span className="text-muted ms-1">
                         ({item.totalOverdueOrders} đơn)
                       </span>
+                    )}
+                  </td>
+                  <td>
+                    {item.isCheckDebtUnstable && (
+                      <Button
+                        variant="outline-primary"
+                        size="sm"
+                        onClick={(e) => handleProcessUnstableDebt(e, item.id)}
+                        title="Đánh dấu đã xử lý"
+                      >
+                        Đã xử lý
+                      </Button>
                     )}
                   </td>
                 </tr>

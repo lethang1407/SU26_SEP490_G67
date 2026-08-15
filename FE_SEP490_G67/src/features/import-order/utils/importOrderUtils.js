@@ -44,7 +44,13 @@ export function formatDateTime(value) {
     });
 }
 
+/** KM: không cộng vào tiền cần trả lúc nhập. */
+export function isNonPayableImportLine(line) {
+    return Boolean(line?.isPromotion);
+}
+
 export function computeLineTotal(line) {
+    if (isNonPayableImportLine(line)) return 0;
     const quantity = Number(line.quantity) || 0;
     const costPerUnit = Number(line.costPerUnit) || 0;
     return quantity * costPerUnit;
@@ -108,7 +114,6 @@ export function filterImportOrders(items, { keyword, statusFilter, dateFilter, o
         const matchesKeyword =
             !normalizedKeyword ||
             item.orderCode?.toLowerCase().includes(normalizedKeyword) ||
-            item.supplierCode?.toLowerCase().includes(normalizedKeyword) ||
             item.supplierName?.toLowerCase().includes(normalizedKeyword) ||
             item.note?.toLowerCase().includes(normalizedKeyword);
 

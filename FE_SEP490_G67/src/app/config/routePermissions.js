@@ -23,9 +23,11 @@ export const ROUTE_PERMISSIONS = [
   { path: '/admin/warehouse/category', permission: 'PRODUCT:VIEW' },
 
   // Inventory & Warehouse Operations
-  { path: '/admin/inventory-checks/create', permission: 'WAREHOUSE:CHECK_CREATE' },
-  { path: '/admin/inventory-checks/:id', permission: 'WAREHOUSE:CHECK_VIEW' },
-  { path: '/admin/inventory-checks', permission: 'WAREHOUSE:CHECK_VIEW' },
+  { path: '/admin/warehouse/check/create', permission: ['WAREHOUSE:CHECK_VIEW', 'WAREHOUSE:CHECK_CREATE'] },
+  { path: '/admin/warehouse/check/history', permission: 'WAREHOUSE:CHECK_VIEW' },
+  { path: '/admin/warehouse/check/:checkId', permission: 'WAREHOUSE:CHECK_VIEW' },
+  { path: '/admin/warehouse/check', permission: ['WAREHOUSE:CHECK_VIEW', 'WAREHOUSE:CHECK_CREATE'] },
+  { path: '/admin/warehouse/locations', permission: 'WAREHOUSE:VIEW' },
   { path: '/admin/storage-locations', permission: 'WAREHOUSE:VIEW' },
   { path: '/admin/import-history', permission: 'IMPORT:VIEW' },
 

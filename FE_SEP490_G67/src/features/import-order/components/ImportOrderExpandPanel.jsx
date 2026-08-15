@@ -117,7 +117,9 @@ export default function ImportOrderExpandPanel({ orderId, onDraftCancelled }) {
             )}
 
             <div className="import-order-expand__panel" role="tabpanel">
-                {currentTab === 'info' && <ImportOrderInfoTab order={order} />}
+                {currentTab === 'info' && (
+                    <ImportOrderInfoTab order={order} />
+                )}
                 {currentTab === 'payments' && hasPayments && (
                     <ImportOrderPaymentHistoryTab orderId={orderId} />
                 )}

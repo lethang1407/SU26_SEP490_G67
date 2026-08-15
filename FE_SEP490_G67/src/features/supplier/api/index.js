@@ -1,12 +1,18 @@
 import { api } from '@/lib/api-clien';
 
 export const suppliersApi = {
-    getSuppliers: async ({ page = 0, size = 10, search = '', categoryId = null } = {}) => {
+    getSuppliers: async ({ page = 0, size = 10, search = '', categoryId = null, productId = null } = {}) => {
         const params = { page, size };
         if (search && search.trim()) params.search = search.trim();
         if (categoryId != null) params.categoryId = categoryId;
+        if (productId != null) params.productId = productId;
         const response = await api.get('/suppliers', { params });
         return response.result;
+    },
+
+    searchProducts: async (query) => {
+        const response = await api.get('/products/search', { params: { q: query } });
+        return response.result ?? [];
     },
 
     addSupplier: async (payload) => {

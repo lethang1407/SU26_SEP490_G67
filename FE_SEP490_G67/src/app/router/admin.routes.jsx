@@ -84,15 +84,15 @@ const adminRoutes = [
     },
     {
         path: '/admin/warehouse/check',
-        element: <ProtectedRoute><InventoryCheckListPage /></ProtectedRoute>,
-    },
-    {
-        path: '/admin/warehouse/check/history',
-        element: <ProtectedRoute><InventoryCheckListPage /></ProtectedRoute>,
+        element: <ProtectedRoute><CreateInventoryCheckPage /></ProtectedRoute>,
     },
     {
         path: '/admin/warehouse/check/create',
         element: <ProtectedRoute><CreateInventoryCheckPage /></ProtectedRoute>,
+    },
+    {
+        path: '/admin/warehouse/check/history',
+        element: <ProtectedRoute><InventoryCheckListPage /></ProtectedRoute>,
     },
     {
         path: '/admin/warehouse/check/:checkId',

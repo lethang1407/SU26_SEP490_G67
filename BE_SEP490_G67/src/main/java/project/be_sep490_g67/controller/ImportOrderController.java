@@ -16,6 +16,7 @@ import project.be_sep490_g67.dto.request.ImportSuggestRequest;
 import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.ImportOrderDetailResponse;
 import project.be_sep490_g67.dto.response.ImportOrderListItemResponse;
+import project.be_sep490_g67.dto.response.ImportOrderReturnLineResponse;
 import project.be_sep490_g67.dto.response.ImportOrderResponseDTO;
 import project.be_sep490_g67.dto.response.ImportSuggestionDTO;
 import project.be_sep490_g67.dto.response.PageResponse;
@@ -70,8 +71,8 @@ public class ImportOrderController {
 
     @GetMapping
     public ApiResponse<PageResponse<ImportOrderListItemResponse>> getImportOrders(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "ALL") String orderStatus,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
@@ -80,6 +81,17 @@ public class ImportOrderController {
         return ApiResponse.<PageResponse<ImportOrderListItemResponse>>builder()
                 .result(importOrderService.getImportOrderList(search, orderStatus, fromDate, toDate, page, size))
                 .message("Lấy danh sách đơn nhập hàng thành công")
+                .build();
+    }
+
+    @GetMapping("/pending-returns")
+    public ApiResponse<List<ImportOrderReturnLineResponse>> getPendingSupplierReturns(
+            @RequestParam Integer supplierId,
+            @RequestParam(required = false) Integer importOrderId
+    ) {
+        return ApiResponse.<List<ImportOrderReturnLineResponse>>builder()
+                .result(importOrderService.getPendingSupplierReturns(supplierId, importOrderId))
+                .message("Lấy sản phẩm đổi/trả đang chờ của nhà cung cấp thành công")
                 .build();
     }
 
@@ -103,8 +115,8 @@ public class ImportOrderController {
     @GetMapping("/{id}/payments")
     public ApiResponse<PageResponse<SupplierPaymentResponse>> getImportOrderPayments(
             @PathVariable Integer id,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size
     ) {
         return ApiResponse.<PageResponse<SupplierPaymentResponse>>builder()
                 .result(supplierPaymentService.getPaymentHistoryByImportOrder(id, page, size))

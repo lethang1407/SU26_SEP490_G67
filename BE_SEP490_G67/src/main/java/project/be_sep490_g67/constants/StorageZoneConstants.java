@@ -18,6 +18,6 @@ public final class StorageZoneConstants {
             return "";
         }
         String normalized = zone.trim().toUpperCase();
-        return ZONE_TITLES.getOrDefault(normalized, "Khu " + normalized);
+        return ZONE_TITLES.getOrDefault(normalized, "Kệ " + normalized);
     }
 }

@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
-import { Loader2, UserX, UserPlus, Ban, Lock } from 'lucide-react';
+import { Loader2, UserPlus, Ban } from 'lucide-react';
 import {
-    debtLevelMeta, canSellOnDebt, debtSummaryText, debtBlockReason, isOverdueCustomer,
+    debtLevelMeta, canSellOnDebt, debtSummaryText, debtBlockReason,
 } from '../utils/debtStatus';
 
 export default function CustomerSearchDropdown({
-    results, loading, error, onSelect, onAddNew, onClose, debtMode = false, canAddNew = true,
+    results, loading, error, onSelect, onAddNew, onClose, debtMode = false,
 }) {
     const ref = useRef(null);
 
@@ -45,21 +45,15 @@ export default function CustomerSearchDropdown({
             {!loading && !error && results.length === 0 && (
                 <div
                     className="psd-state-row psd-empty"
-                    style={canAddNew ? { cursor: 'pointer', justifyContent: 'space-between' } : undefined}
-                    onMouseDown={canAddNew
-                        ? (e) => { e.preventDefault(); onAddNew?.(); }
-                        : undefined}
+                    style={{ cursor: 'pointer', justifyContent: 'space-between' }}
+                    onMouseDown={(e) => { e.preventDefault(); onAddNew?.(); }}
                 >
                     <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {canAddNew
-                            ? 'Không tìm thấy khách hàng phù hợp'
-                            : 'Không tìm thấy - thêm khách hàng mới'}
+                        Không tìm thấy khách hàng phù hợp
                     </span>
-                    {canAddNew && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#2563eb', fontWeight: 500 }}>
-                            <UserPlus size={14} /> Thêm mới
-                        </span>
-                    )}
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#2563eb', fontWeight: 500 }}>
+                        <UserPlus size={14} /> Thêm mới
+                    </span>
                 </div>
             )}
 
@@ -83,9 +77,7 @@ export default function CustomerSearchDropdown({
                                 <div className="psd-item-name">
                                     <span className={`debt-dot ${meta.cls}`} title={meta.label} />
                                     {cust.fullName}
-                                    {blocked && (isOverdueCustomer(cust)
-                                        ? <Lock size={13} className="psd-blocked-icon" />
-                                        : <Ban size={13} className="psd-blocked-icon" />)}
+                                    {blocked && <Ban size={13} className="psd-blocked-icon" />}
                                 </div>
                                 <div className="psd-item-meta">
                                     <span className="psd-barcode">{cust.phoneNumber}</span>

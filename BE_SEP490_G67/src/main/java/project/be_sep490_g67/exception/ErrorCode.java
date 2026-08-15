@@ -53,8 +53,10 @@ public enum ErrorCode {
     INVALID_STORAGE_LOCATION_SIZE(1051, "Kích thước ô không hợp lệ (SM, MD, LG)", HttpStatus.BAD_REQUEST),
     STORAGE_LOCATION_FULL(1054, "Ô này đã được đánh dấu đầy, không thể xếp thêm hàng", HttpStatus.BAD_REQUEST),
     STORAGE_LOCATION_EMPTY_CANNOT_MARK_FULL(1059, "Ô đang trống, không thể đánh dấu đầy", HttpStatus.BAD_REQUEST),
+    STORAGE_LOCATION_NO_BATCHES_TO_MOVE(1080, "Ô nguồn không có hàng để chuyển", HttpStatus.BAD_REQUEST),
     STORAGE_ZONE_NOT_FOUND(1055, "Không tìm thấy khu", HttpStatus.NOT_FOUND),
     INVALID_STORAGE_ZONE_TYPE(1056, "Loại khu không hợp lệ (SALES, WAREHOUSE)", HttpStatus.BAD_REQUEST),
+    STORAGE_RETURN_HOLD_LOCKED(1081, "Không thể thay đổi hoặc tạo thêm vị trí trong khu chứa hàng đổi trả", HttpStatus.BAD_REQUEST),
     SALES_ZONE_PRODUCT_BATCH_EXISTS(1057, "Sản phẩm đã có một lô trên khu bán. Mỗi SP chỉ được 1 lô trên toàn khu bán", HttpStatus.BAD_REQUEST),
     SALES_ZONE_BATCH_SPLIT(1058, "Không thể tách cùng một lô sang nhiều ô trên khu bán", HttpStatus.BAD_REQUEST),
     STOCK_BATCH_NOT_FOUND(1033, "Không tìm thấy lô hàng", HttpStatus.NOT_FOUND),
@@ -63,7 +65,7 @@ public enum ErrorCode {
     INSUFFICIENT_UNPLACED_QUANTITY(1036, "Số lượng xếp vượt quá số lượng lô chưa xếp kệ", HttpStatus.BAD_REQUEST),
     INSUFFICIENT_BATCH_LOCATION_QUANTITY(1037, "Số lượng chuyển vượt quá số lượng đang có trên kệ", HttpStatus.BAD_REQUEST),
     INVALID_BATCH_LOCATION_MOVE(1038, "Không thể chuyển lô về cùng một kệ", HttpStatus.BAD_REQUEST),
-    IMPORT_ITEMS_EMPTY(1039, "Phiếu nhập phải có ít nhất một dòng sản phẩm", HttpStatus.BAD_REQUEST),
+    IMPORT_ITEMS_EMPTY(1039, "Phiếu nhập phải có ít nhất một sản phẩm nhập hoặc một dòng đổi/trả nhà cung cấp", HttpStatus.BAD_REQUEST),
     INVALID_IMPORT_QUANTITY(1040, "Số lượng nhập phải lớn hơn 0", HttpStatus.BAD_REQUEST),
     INVALID_IMPORT_COST(1041, "Đơn giá nhập không hợp lệ", HttpStatus.BAD_REQUEST),
     INVENTORY_CHECK_NOT_FOUND(1042, "Không tìm thấy phiếu kiểm kho", HttpStatus.NOT_FOUND),
@@ -82,6 +84,10 @@ public enum ErrorCode {
     IMPORT_RETURN_INVALID_LINE_STATUS(1069, "Trạng thái dòng đổi trả không hợp lệ", HttpStatus.BAD_REQUEST),
     IMPORT_RETURN_LINE_ALREADY_DONE(1070, "Dòng đổi trả đã hoàn tất, không thể thay đổi", HttpStatus.BAD_REQUEST),
     IMPORT_RETURN_INVALID_STATUS_FILTER(1071, "Bộ lọc trạng thái phiếu đổi trả không hợp lệ", HttpStatus.BAD_REQUEST),
+    IMPORT_RETURN_LINE_NOT_PENDING(1072, "Dòng đổi/trả không còn đang chờ nhà cung cấp", HttpStatus.BAD_REQUEST),
+    IMPORT_RETURN_LINE_SUPPLIER_MISMATCH(1073, "Dòng đổi/trả không thuộc nhà cung cấp của phiếu nhập", HttpStatus.BAD_REQUEST),
+    IMPORT_RETURN_LINE_ALREADY_ATTACHED(1074, "Dòng đổi/trả đã được gắn vào phiếu nhập khác", HttpStatus.BAD_REQUEST),
+    IMPORT_RETURN_REQUIRES_SUPPLIER(1075, "Chọn nhà cung cấp trước khi gắn dòng đổi/trả vào phiếu nhập", HttpStatus.BAD_REQUEST),
 
     INSUFFICIENT_STOCK(1029, "Không đủ tồn kho", HttpStatus.BAD_REQUEST),
     SUPPLIER_HAS_DEBT(1030, "Không thể xóa nhà cung cấp đang còn công nợ. Vui lòng thanh toán hết trước khi xóa.", HttpStatus.BAD_REQUEST),
@@ -90,6 +96,7 @@ public enum ErrorCode {
     INVALID_IMPORT_PAID_AMOUNT(1034, "Số tiền trả NCC không hợp lệ", HttpStatus.BAD_REQUEST),
     IMPORT_ORDER_NOT_EDITABLE(1035, "Chỉ được sửa phiếu tạm. Phiếu đã nhập hàng không thể chỉnh sửa.", HttpStatus.BAD_REQUEST),
     IMPORT_ORDER_NOT_DELETABLE(1036, "Chỉ được hủy phiếu tạm. Phiếu đã nhập hàng không thể xóa.", HttpStatus.BAD_REQUEST),
+    SUPPLIER_REQUIRED_FOR_IMPORT(1037, "Vui lòng chọn nhà cung cấp trước khi hoàn thành phiếu nhập hàng.", HttpStatus.BAD_REQUEST),
 
     // Product / category errors (11xx)
     PRODUCT_NAME_REQUIRED(1101, "Vui lòng nhập tên sản phẩm", HttpStatus.BAD_REQUEST),
@@ -172,6 +179,8 @@ public enum ErrorCode {
     DEBT_DUE_DATE_IN_PAST(4106, "Hạn trả nợ phải sau thời điểm tạo đơn", HttpStatus.BAD_REQUEST),
     DEBT_PAYMENT_EXCEEDS_REMAINING(4107, "Số tiền khách trả thêm vượt quá số nợ còn lại sau khi đã cấn trừ hàng trả", HttpStatus.BAD_REQUEST),
     DEBT_ORDER_ALREADY_SETTLED(4108, "Đơn hàng này đã trả hết nợ", HttpStatus.BAD_REQUEST),
+    DEBT_PAYMENT_ORDER_LIST_REQUIRED(4109, "Danh sách đơn nợ cần thanh toán không được để trống", HttpStatus.BAD_REQUEST),
+    DEBT_PAYMENT_ORDERS_DIFFERENT_CUSTOMERS(4110, "Chỉ được thanh toán nhiều đơn nợ của cùng một khách hàng", HttpStatus.BAD_REQUEST),
 
     // Notification errors (42xx)
     NOTIFICATION_NOT_FOUND(4201, "Không tìm thấy thông báo", HttpStatus.NOT_FOUND),

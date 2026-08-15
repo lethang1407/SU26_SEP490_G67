@@ -6,9 +6,11 @@ import { getApiErrorMessage } from '../../../utils/api-utils';
 import { fetchImportOrderById } from '../api';
 import ImportOrderDetailInfo from '../components/ImportOrderDetailInfo';
 import ImportOrderLineTable from '../components/ImportOrderLineTable';
+import ImportOrderReturnSection from '../components/ImportOrderReturnSection';
 import ImportOrderStatusBadge from '../components/ImportOrderStatusBadge';
 import ImportOrderSummaryPanel from '../components/ImportOrderSummaryPanel';
 import { IMPORT_ORDER_ROUTES } from '../constants';
+import { mapPendingReturnLine } from '../utils/importReturnAttachUtils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Inventory.css';
 import '../../../css/ImportOrder.css';
@@ -50,6 +52,7 @@ export default function ImportOrderDetailPage() {
         };
     }, [orderId]);
 
+    const returnLines = (order?.returnLines ?? []).map(mapPendingReturnLine);
     const lines = (order?.items ?? []).map((item, index) => ({
         id: item.batchId ?? `item-${index}`,
         productId: item.productId,
@@ -68,6 +71,7 @@ export default function ImportOrderDetailPage() {
         locationLabel: item.locationLabel,
         batchCode: item.batchCode,
         isPromotion: Boolean(item.isPromotion),
+        lineTotal: Number(item.lineTotal) || 0,
         note: item.note || '',
     }));
 
@@ -148,6 +152,13 @@ export default function ImportOrderDetailPage() {
                         <div className="import-order-create-layout">
                             <div className="import-order-create-main">
                                 <ImportOrderLineTable lines={lines} readOnly />
+                                {returnLines.length > 0 ? (
+                                    <ImportOrderReturnSection
+                                        lines={returnLines}
+                                        selectedLineKeys={returnLines.map((line) => line.key)}
+                                        readOnly
+                                    />
+                                ) : null}
                             </div>
 
                             <aside className="import-order-detail-sidebar">

@@ -39,6 +39,13 @@ export const importOrdersApi = {
         return response.result;
     },
 
+    getPendingSupplierReturns: async (supplierId, importOrderId) => {
+        const params = { supplierId };
+        if (importOrderId) params.importOrderId = importOrderId;
+        const response = await api.get('/import-orders/pending-returns', { params });
+        return response.result ?? [];
+    },
+
     cancelDraftImportOrder: async (id) => {
         const response = await api.delete(`/import-orders/${id}`);
         return response;

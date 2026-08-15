@@ -24,15 +24,15 @@ const EMPTY_PAGE = {
     debtSupplierCount: 0,
 };
 
-const SEARCH_DEBOUNCE_MS = 400;
-
 export default function SupplierListPage() {
     const location = useLocation();
     const navigate = useNavigate();
     const pendingExpandIdRef = useRef(null);
 
+    const [selectedProduct, setSelectedProduct] = useState(null);
     const [keyword, setKeyword] = useState('');
     const [debouncedKeyword, setDebouncedKeyword] = useState('');
+    const [deepLinkSearch, setDeepLinkSearch] = useState('');
     const [categoryId, setCategoryId] = useState(null);
     const [categories, setCategories] = useState([]);
     const [categoriesLoading, setCategoriesLoading] = useState(false);
@@ -50,11 +50,13 @@ export default function SupplierListPage() {
         const expandId = location.state?.expandSupplierId;
         if (expandId == null) return;
 
-        const code = String(location.state?.expandSupplierCode || '').trim();
+        const name = String(location.state?.expandSupplierName || '').trim();
         pendingExpandIdRef.current = expandId;
-        if (code) {
-            setKeyword(code);
-            setDebouncedKeyword(code);
+        setSelectedProduct(null);
+        if (name) {
+            setKeyword(name);
+            setDebouncedKeyword(name);
+            setDeepLinkSearch(name);
             setPage(1);
         } else {
             setExpandedId(expandId);
@@ -70,8 +72,7 @@ export default function SupplierListPage() {
             if (pendingExpandIdRef.current == null) {
                 setExpandedId(null);
             }
-        }, SEARCH_DEBOUNCE_MS);
-
+        }, 400);
         return () => clearTimeout(timer);
     }, [keyword]);
 
@@ -98,7 +99,13 @@ export default function SupplierListPage() {
         const silent = options.silent === true;
         if (!silent) setLoading(true);
         suppliersApi
-            .getSuppliers({ page: page - 1, size: PAGE_SIZE, search: debouncedKeyword, categoryId })
+            .getSuppliers({
+                page: page - 1,
+                size: PAGE_SIZE,
+                search: deepLinkSearch || debouncedKeyword,
+                categoryId,
+                productId: selectedProduct?.id ?? null,
+            })
             .then((result) => setData(result ?? EMPTY_PAGE))
             .catch(() => {
                 if (!silent) setData(EMPTY_PAGE);
@@ -106,14 +113,27 @@ export default function SupplierListPage() {
             .finally(() => {
                 if (!silent) setLoading(false);
             });
-    }, [page, debouncedKeyword, categoryId]);
+    }, [page, deepLinkSearch, debouncedKeyword, categoryId, selectedProduct]);
 
     useEffect(() => {
         fetchSuppliers();
     }, [fetchSuppliers]);
 
-    const handleKeywordChange = (value) => {
+    const handleKeywordChange = useCallback((value) => {
         setKeyword(value);
+        if (value) setDeepLinkSearch('');
+    }, []);
+
+    const handleSelectProduct = (product) => {
+        setSelectedProduct(product);
+        setPage(1);
+        setExpandedId(null);
+    };
+
+    const handleClearProduct = () => {
+        setSelectedProduct(null);
+        setPage(1);
+        setExpandedId(null);
     };
 
     const handleCategoryChange = (value) => {
@@ -207,11 +227,14 @@ export default function SupplierListPage() {
                         <SupplierSummaryCards summary={summary} />
 
                         <SupplierToolbar
-                            keyword={keyword}
+                            supplierKeyword={keyword}
+                            selectedProduct={selectedProduct}
                             categoryId={categoryId}
                             categories={categories}
                             categoriesLoading={categoriesLoading}
                             onKeywordChange={handleKeywordChange}
+                            onSelectProduct={handleSelectProduct}
+                            onClearProduct={handleClearProduct}
                             onCategoryChange={handleCategoryChange}
                         />
 
@@ -220,6 +243,11 @@ export default function SupplierListPage() {
                             loading={loading}
                             expandedId={expandedId}
                             startIndex={pagination.startIndex}
+                            emptyMessage={
+                                selectedProduct
+                                    ? 'Chưa có nhà cung cấp từng nhập sản phẩm này.'
+                                    : 'Không tìm thấy nhà cung cấp phù hợp.'
+                            }
                             onToggleExpand={handleToggleExpand}
                             onPaymentSuccess={handlePaymentSuccess}
                             onSupplierUpdated={handleSupplierUpdated}

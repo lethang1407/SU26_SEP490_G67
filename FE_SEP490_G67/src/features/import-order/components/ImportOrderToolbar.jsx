@@ -25,7 +25,7 @@ export default function ImportOrderToolbar({
                     <input
                         type="text"
                         className="supplier-toolbar__search-input"
-                        placeholder="Tìm theo mã nhập hàng, mã NCC hoặc tên nhà cung cấp..."
+                        placeholder="Tìm theo mã nhập hàng hoặc tên nhà cung cấp"
                         value={keyword}
                         onChange={(event) => onKeywordChange(event.target.value)}
                         aria-label="Tìm đơn nhập hàng"
