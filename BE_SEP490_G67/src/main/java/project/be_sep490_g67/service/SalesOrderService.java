@@ -17,6 +17,8 @@ import project.be_sep490_g67.dto.response.SalesOrderResponse;
 import project.be_sep490_g67.entity.*;
 import project.be_sep490_g67.enums.DebtStatus;
 import project.be_sep490_g67.enums.DocumentType;
+import project.be_sep490_g67.enums.NotificationReferenceType;
+import project.be_sep490_g67.enums.NotificationType;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.*;
@@ -49,6 +51,7 @@ public class SalesOrderService {
         ReturnOrderDetailRepository returnOrderDetailRepository;
         UserRepository userRepository;
         DebtPolicy debtPolicy;
+        NotificationService notificationService;
 
         @Transactional
         public SalesOrderResponse createOrder(CreateSalesOrderRequest request,
@@ -184,6 +187,12 @@ public class SalesOrderService {
                         debtPolicy.addToCustomerDebt(customer, grandTotal.subtract(paid));
                 }
 
+                // POS không còn điều hướng thu ngân sang trang khách hàng nữa: khách nợ
+                // mới phát sinh từ quầy được đẩy về hộp thông báo của admin để xử lý.
+                if (isDebt && needsReview) {
+                        notifyAdminsAboutNewDebtCustomer(customer, saved, grandTotal.subtract(paid));
+                }
+
                 salesOrderDetailRepository.saveAll(details);
                 return toResponse(saved, details);
         }
@@ -214,6 +223,31 @@ public class SalesOrderService {
                         return false;
                 }
                 return !salesOrderRepository.existsDebtOrderByCustomerId(customerId);
+        }
+
+        /**
+         * Bắn thông báo cho admin khi thu ngân ghi nợ cho một khách hàng nợ mới.
+         * Thông báo trỏ về khách hàng để admin mở thẳng form bổ sung hồ sơ.
+         */
+        private void notifyAdminsAboutNewDebtCustomer(Customer customer,
+                        SalesOrder order,
+                        BigDecimal debtAmount) {
+                String phone = customer.getPhoneNumber() != null && !customer.getPhoneNumber().isBlank()
+                                ? customer.getPhoneNumber()
+                                : "chưa có SĐT";
+                String message = String.format(
+                                "%s (%s) vừa được ghi nợ %s đ ở đơn %s. Vui lòng kiểm tra và bổ sung hồ sơ khách hàng.",
+                                customer.getFullName(),
+                                phone,
+                                String.format("%,.0f", debtAmount),
+                                order.getOrderCode());
+
+                notificationService.notifyAdmins(
+                                NotificationType.DEBT_CUSTOMER_REVIEW,
+                                "Khách hàng nợ mới cần rà soát",
+                                message,
+                                NotificationReferenceType.CUSTOMER,
+                                customer.getId());
         }
 
         private boolean hasAdminRole(Integer userId) {
@@ -398,6 +432,8 @@ public class SalesOrderService {
                                 .returnReason(returnOrder.getReturnReason())
                                 .resolutionType(returnOrder.getResolutionType())
                                 .refundAmount(returnOrder.getRefundAmount())
+                                .debtOffsetAmount(returnOrder.getDebtOffsetAmount())
+                                .cashRefundAmount(returnOrder.getCashRefundAmount())
                                 .note(returnOrder.getNote())
                                 .createdAt(returnOrder.getCreatedAt())
                                 .items(items)
@@ -452,6 +488,9 @@ public class SalesOrderService {
                         String product,
                         Instant dateFrom,
                         Instant dateTo,
+                        String orderStatus,
+                        String paymentMethod,
+                        Boolean isDebt,
                         int page,
                         int size) {
                 int safeSize = Math.min(size, 50);
@@ -463,6 +502,9 @@ public class SalesOrderService {
                                 toLikePattern(customer),
                                 toLikePattern(product),
                                 dateFrom, dateTo,
+                                toExactFilter(orderStatus),
+                                toExactFilter(paymentMethod),
+                                isDebt,
                                 PageRequest.of(page, safeSize));
 
                 List<Integer> orderIds = pg.getContent().stream()
@@ -545,6 +587,15 @@ public class SalesOrderService {
          */
         private boolean isCustomerDebtUnstable(Customer customer) {
                 return customer != null && Boolean.TRUE.equals(customer.getIsCheckUnstableDebt());
+        }
+
+        /**
+         * Bộ lọc khớp chính xác (orderStatus, paymentMethod): chuỗi rỗng nghĩa là
+         * "không lọc", không phải "lọc lấy giá trị rỗng" — FE gửi "" khi người dùng
+         * bỏ chọn.
+         */
+        private String toExactFilter(String value) {
+                return (value == null || value.isBlank()) ? null : value.trim();
         }
 
         private String toLikePattern(String keyword) {

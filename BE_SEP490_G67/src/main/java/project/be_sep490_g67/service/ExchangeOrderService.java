@@ -84,6 +84,10 @@ public class ExchangeOrderService {
                 })
                 .collect(Collectors.toList());
 
+        Instant now = Instant.now();
+        BigDecimal debtRemaining = debtPolicy.remainingOf(order);
+        Instant deadline = returnDeadline(order);
+
         return ExchangeOrderDetailResponse.builder()
                 .orderId(order.getId())
                 .orderCode(order.getOrderCode())
@@ -93,6 +97,13 @@ public class ExchangeOrderService {
                 .createdAt(order.getCreatedAt())
                 .customer(customerInfo)
                 .items(items)
+                .isDebt(Boolean.TRUE.equals(order.getIsDebt()))
+                .dueDate(order.getDueDate())
+                .paidAmount(order.getPaidAmount())
+                .debtRemaining(debtRemaining)
+                .debtOverdue(debtPolicy.isOverdue(order, now))
+                .returnWindowExpired(deadline != null && now.isAfter(deadline))
+                .returnDeadline(deadline)
                 .build();
     }
 
@@ -326,7 +337,8 @@ public class ExchangeOrderService {
                 totalExchangeAmount,
                 netAmount,
                 request.getRefundMethod(),
-                settlement);
+                settlement,
+                exchangeOrder);
     }
 
     /**
@@ -476,11 +488,6 @@ public class ExchangeOrderService {
         payment.setAmountPaid(amount);
         payment.setPaymentMethod(method);
         payment.setNotes(note);
-        payment.setCreatedBy(staffId);
-        payment.setUpdatedBy(staffId);
-        payment.setCreatedAt(Instant.now());
-        payment.setUpdatedAt(Instant.now());
-        payment.setIsRemoved(false);
         debtPaymentRepository.save(payment);
     }
 
@@ -661,22 +668,31 @@ public class ExchangeOrderService {
      * mua buổi sáng gần một ngày, và thu ngân không có cách nào giải thích ở quầy.
      */
     private boolean isReturnWindowExpired(SalesOrder order) {
+        Instant deadline = returnDeadline(order);
+        return deadline != null && Instant.now().isAfter(deadline);
+    }
+
+    /**
+     * Thời điểm hết hạn đổi trả của một hóa đơn, null khi cửa hàng không đặt hạn hoặc đơn
+     * chưa có ngày tạo. Tách riêng để màn đổi trả hiển thị được hạn cho thu ngân thay vì
+     * chỉ biết "quá hạn rồi" sau khi bấm gửi.
+     */
+    private Instant returnDeadline(SalesOrder order) {
         Integer windowDays = storeConfigRepository.findFirstByOrderByIdAsc()
                 .orElseThrow(() -> new AppException(ErrorCode.STORE_CONFIG_MISSING))
                 .getReturnWindowDays();
 
         if (windowDays == null || order.getCreatedAt() == null) {
-            return false;
+            return null;
         }
 
-        Instant deadline = order.getCreatedAt()
+        return order.getCreatedAt()
                 .atZone(STORE_ZONE)
                 .toLocalDate()
                 .plusDays(windowDays)
                 .atTime(LocalTime.MAX)
                 .atZone(STORE_ZONE)
                 .toInstant();
-        return Instant.now().isAfter(deadline);
     }
 
     /**
@@ -796,7 +812,8 @@ public class ExchangeOrderService {
             BigDecimal totalExchangeAmount,
             BigDecimal netAmount,
             String refundMethod,
-            DebtSettlement settlement) {
+            DebtSettlement settlement,
+            SalesOrder exchangeOrder) {
 
         List<ExchangeOrderResponse.ReturnItemInfo> returnItems = resolvedLines.stream()
                 .map(line -> {
@@ -840,6 +857,8 @@ public class ExchangeOrderService {
                 .returnCode(returnOrder.getReturnCode())
                 .originalOrderId(originalOrder.getId())
                 .originalOrderCode(originalOrder.getOrderCode())
+                .exchangeOrderId(exchangeOrder != null ? exchangeOrder.getId() : null)
+                .exchangeOrderCode(exchangeOrder != null ? exchangeOrder.getOrderCode() : null)
                 .originalTotalAmount(originalOrder.getTotalAmount())
                 .returnSubtotal(returnSubtotal)
                 .returnDiscount(returnDiscount)

@@ -68,11 +68,11 @@ public class SalesOrderDetailResponse {
         String returnReason;
         String resolutionType;
         BigDecimal refundAmount;
+        /** Phần refundAmount đã cấn vào công nợ. Đọc lại từ DB, không tính lại. */
+        BigDecimal debtOffsetAmount;
+        /** Phần refundAmount đã chi bằng tiền mặt. Đọc lại từ DB, không tính lại. */
+        BigDecimal cashRefundAmount;
         String note;
-        String bearerName;
-        String bearerPhone;
-        Boolean bearerIsOwner;
-        Integer approvedBy;
         Instant createdAt;
         List<ReturnItemInfo> items;
     }
@@ -84,7 +84,6 @@ public class SalesOrderDetailResponse {
     public static class ReturnItemInfo {
         Integer returnOrderDetailId;
         Integer salesOrderDetailId;
-        Integer pairedOutDetailId;
         Integer productId;
         String productCode;
         String productName;

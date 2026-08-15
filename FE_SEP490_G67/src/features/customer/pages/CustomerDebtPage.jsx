@@ -22,7 +22,7 @@ import {
   FiTrendingUp,
 } from "react-icons/fi";
 import Header from "../../../components/ui/header-footer/Header";
-import { getOverviewCustomer, getCustomerDebts, getTodayDebtSummary, getCustomerDetail } from "../api";
+import { getOverviewCustomer, getCustomerDebts, getCustomerDetail } from "../api";
 import CreateCustomerDebtModal from "../components/CreateCustomerDebtModal";
 import TodayPaymentsModal from "../components/TodayPaymentsModal";
 import TodayDebtSalesModal from "../components/TodayDebtSalesModal";
@@ -63,13 +63,13 @@ const getPriorityInfo = (customer) => {
   if (debtStatus === "NO_DEBT") {
     return allowDebt
       ? {
-          className: "priority-5",
-          tooltip: "Khách hàng được phép nợ, hiện không có nợ",
-        }
+        className: "priority-5",
+        tooltip: "Khách hàng được phép nợ, hiện không có nợ",
+      }
       : {
-          className: "priority-6",
-          tooltip: "Khách hàng không được phép nợ, hiện không có nợ",
-        };
+        className: "priority-6",
+        tooltip: "Khách hàng không được phép nợ, hiện không có nợ",
+      };
   }
 
   // Customers with debt
@@ -77,20 +77,17 @@ const getPriorityInfo = (customer) => {
     return allowDebt
       ? { className: "priority-1", tooltip: "Nợ quá hạn - Cần xử lý ngay" }
       : {
-          className: "priority-3",
-          tooltip: "Nghiêm trọng: Nợ quá hạn và không được phép nợ",
-        };
+        className: "priority-3",
+        tooltip: "Nghiêm trọng: Nợ quá hạn và không được phép nợ",
+      };
   } else {
     return allowDebt
       ? { className: "priority-2", tooltip: "Đang nợ trong hạn" }
       : {
-          className: "priority-4",
-          tooltip: "Cảnh báo: Đang nợ dù không được phép",
-        };
+        className: "priority-4",
+        tooltip: "Cảnh báo: Đang nợ dù không được phép",
+      };
   }
-
-  // Mặc định
-  return { className: "priority-6", tooltip: "" };
 };
 
 export default function CustomerDebtPage() {
@@ -472,263 +469,263 @@ export default function CustomerDebtPage() {
 
   return (
     <div className="admin-content">
-        <Header />
-        <main className="p-4 flex-grow-1" style={{ overflowY: "auto" }}>
-          {toastMessage && (
-            <div className="customer-page__toast">{toastMessage}</div>
-          )}
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <div>
-              <h2 className="fw-bold mb-1">Công nợ khách hàng</h2>
-              <p className="text-muted mb-0">
-                Theo dõi và quản lý các khoản nợ phải thu từ khách hàng
-              </p>
-            </div>
-
-            <div className="d-flex gap-2">
-              <Button
-                variant="primary"
-                className="d-flex align-items-center gap-2"
-                onClick={() => setShowCreateModal(true)}
-              >
-                <FiPlus /> Tạo khách hàng
-              </Button>
-            </div>
+      <Header />
+      <main className="p-4 flex-grow-1" style={{ overflowY: "auto" }}>
+        {toastMessage && (
+          <div className="customer-page__toast">{toastMessage}</div>
+        )}
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <div>
+            <h2 className="fw-bold mb-1">Công nợ khách hàng</h2>
+            <p className="text-muted mb-0">
+              Theo dõi và quản lý các khoản nợ phải thu từ khách hàng
+            </p>
           </div>
 
-          {/* Statistic Cards */}
-          <Row className="mb-4">
-            <Col md={4}>
-              <Card
-                className="shadow-sm border-0 h-100"
-                onClick={() => setShowTodayDebtSalesModal(true)}
-                style={{ cursor: "pointer" }}
-              >
-                <Card.Body>
-                  <div className="d-flex align-items-center gap-3">
-                    <div className="stat-icon bg-warning-soft">
-                      <FiTrendingUp className="text-warning" size={24} />
-                    </div>
-                    <div>
-                      <small className="text-muted">PHÁT SINH NỢ HÔM NAY</small>
-                      <h3 className="fw-bold text-warning mb-0 mt-1">
-                        {formatCurrency(overview?.totalDebtAmountIncurredToday)}
-                      </h3>
-                      {overview?.totalDebtSalesCount > 0 && (
-                        <small className="text-muted d-block mt-1">
-                          {overview.totalDebtSalesCount} đơn /{" "}
-                          {overview.uniqueCustomersInDebtCount} khách
-                        </small>
-                      )}
-                    </div>
+          <div className="d-flex gap-2">
+            <Button
+              variant="primary"
+              className="d-flex align-items-center gap-2"
+              onClick={() => setShowCreateModal(true)}
+            >
+              <FiPlus /> Tạo khách hàng
+            </Button>
+          </div>
+        </div>
+
+        {/* Statistic Cards */}
+        <Row className="mb-4">
+          <Col md={4}>
+            <Card
+              className="shadow-sm border-0 h-100"
+              onClick={() => setShowTodayDebtSalesModal(true)}
+              style={{ cursor: "pointer" }}
+            >
+              <Card.Body>
+                <div className="d-flex align-items-center gap-3">
+                  <div className="stat-icon bg-warning-soft">
+                    <FiTrendingUp className="text-warning" size={24} />
                   </div>
-                </Card.Body>
-              </Card>
-            </Col>
-
-            <Col md={4}>
-              <Card
-                className="shadow-sm border-0 h-100 d-none d-md-block"
-                onClick={() => setShowTodayPaymentsModal(true)}
-                style={{ cursor: "pointer" }}
-              >
-                <Card.Body>
-                  <div className="d-flex align-items-center gap-3">
-                    <div className="stat-icon bg-success-soft">
-                      <FiCheckCircle className="text-success" size={24} />
-                    </div>
-                    <div>
-                      <small className="text-muted">ĐÃ THU HÔM NAY</small>
-                      <h3 className="fw-bold text-success mt-2">
-                        {formatCurrency(overview?.todayCollectedAmount)}
-                      </h3>
-                    </div>
+                  <div>
+                    <small className="text-muted">PHÁT SINH NỢ HÔM NAY</small>
+                    <h3 className="fw-bold text-warning mb-0 mt-1">
+                      {formatCurrency(overview?.totalDebtAmountIncurredToday)}
+                    </h3>
+                    {overview?.totalDebtSalesCount > 0 && (
+                      <small className="text-muted d-block mt-1">
+                        {overview.totalDebtSalesCount} đơn /{" "}
+                        {overview.uniqueCustomersInDebtCount} khách
+                      </small>
+                    )}
                   </div>
-                </Card.Body>
-              </Card>
-            </Col>
-
-            <Col md={4}>
-              <Card className="shadow-sm border-0 h-100">
-                <Card.Body>
-                  <div className="d-flex align-items-center gap-3">
-                    <div className="stat-icon bg-primary-soft">
-                      <FiDollarSign className="text-primary" size={24} />
-                    </div>
-                    <div>
-                      <small className="text-muted">TỔNG NỢ PHẢI THU</small>
-                      <h3 className="fw-bold text-primary mb-0 mt-1">
-                        {formatCurrency(overview?.totalDebt)}
-                      </h3>
-                    </div>
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col>
-          </Row>
-
-          {/* Filter & Search Area */}
-          <Card className="shadow-sm border-0 mb-4">
-            <Card.Body>
-              <Row className="g-3 align-items-end">
-                <Col md={5} lg={4}>
-                  <Form.Label>Tìm kiếm</Form.Label>
-                  <Form.Control
-                    placeholder="Tên khách hàng..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </Col>
-                <Col md={4} lg={3}>
-                  <Form.Label>Lọc theo thời gian</Form.Label>
-                  <Form.Select
-                    onChange={(e) => handleDateFilterChange(e.target.value)}
-                    defaultValue=""
-                  >
-                    <option value="">Tất cả thời gian</option>
-                    <option value="today">Hôm nay</option>
-                    <option value="7days">7 ngày qua</option>
-                    <option value="30days">30 ngày qua</option>
-                    <option value="custom">Tùy chỉnh...</option>
-                  </Form.Select>
-                </Col>
-                {showCustomDateRange && (
-                  <>
-                    <Col md={3} lg={2}>
-                      <Form.Label>Từ ngày</Form.Label>
-                      <Form.Control
-                        type="date"
-                        value={globalFilters.fromDate || ""}
-                        onChange={(e) =>
-                          handleCustomDateChange("fromDate", e.target.value)
-                        }
-                      />
-                    </Col>
-                    <Col md={3} lg={2}>
-                      <Form.Label>Đến ngày</Form.Label>
-                      <Form.Control
-                        type="date"
-                        value={globalFilters.toDate || ""}
-                        onChange={(e) =>
-                          handleCustomDateChange("toDate", e.target.value)
-                        }
-                      />
-                    </Col>
-                  </>
-                )}
-              </Row>
-            </Card.Body>
-          </Card>
-
-          <Accordion
-            activeKey={activeAccordionKey}
-            onSelect={(k) => setActiveAccordionKey(k)}
-            alwaysOpen
-          >
-            <Accordion.Item eventKey="debt">
-              <Accordion.Header>
-                <div className="d-flex justify-content-between align-items-center w-100 pe-2">
-                  <span className="fw-bold">
-                    Khách hàng đang nợ ({debtCustomers.totalElements})
-                  </span>
-                  <Dropdown
-                    onClick={(e) => e.stopPropagation()}
-                    onSelect={handleDebtFilterChange}
-                  >
-                    <Dropdown.Toggle
-                      variant="outline-secondary"
-                      size="sm"
-                      id="dropdown-debt-filter"
-                    >
-                      {getActiveFilterLabel(debtFilters, "debt")}
-                    </Dropdown.Toggle>
-                    <Dropdown.Menu>
-                      <Dropdown.Item eventKey="all">
-                        Tất cả đang nợ
-                      </Dropdown.Item>
-                      <Dropdown.Item eventKey="overdue">
-                        Nợ quá hạn
-                      </Dropdown.Item>
-                      <Dropdown.Item eventKey="not_overdue">
-                        Đang trong hạn nợ
-                      </Dropdown.Item>
-                      <Dropdown.Item eventKey="not_allowed">
-                        Không được phép nợ
-                      </Dropdown.Item>
-                    </Dropdown.Menu>
-                  </Dropdown>
                 </div>
-              </Accordion.Header>
-              <Accordion.Body className="p-0">
-                {renderTable(
-                  debtCustomers,
-                  isLoadingDebt,
-                  fetchDebtData,
-                  debtCustomers.page,
-                )}
-              </Accordion.Body>
-            </Accordion.Item>
+              </Card.Body>
+            </Card>
+          </Col>
 
-            <Accordion.Item eventKey="no-debt">
-              <Accordion.Header>
-                <div className="d-flex justify-content-between align-items-center w-100 pe-2">
-                  <span className="fw-bold">
-                    Khách hàng không nợ ({noDebtCustomers.totalElements})
-                  </span>
-                  <Dropdown
-                    onClick={(e) => e.stopPropagation()}
-                    onSelect={handleNoDebtFilterChange}
-                  >
-                    <Dropdown.Toggle
-                      variant="outline-secondary"
-                      size="sm"
-                      id="dropdown-no-debt-filter"
-                    >
-                      {getActiveFilterLabel(noDebtFilters, "no-debt")}
-                    </Dropdown.Toggle>
-                    <Dropdown.Menu>
-                      <Dropdown.Item eventKey="all">
-                        Tất cả không nợ
-                      </Dropdown.Item>
-                      <Dropdown.Item eventKey="allowed">
-                        Được phép nợ
-                      </Dropdown.Item>
-                      <Dropdown.Item eventKey="not_allowed">
-                        Không được phép nợ
-                      </Dropdown.Item>
-                    </Dropdown.Menu>
-                  </Dropdown>
+          <Col md={4}>
+            <Card
+              className="shadow-sm border-0 h-100 d-none d-md-block"
+              onClick={() => setShowTodayPaymentsModal(true)}
+              style={{ cursor: "pointer" }}
+            >
+              <Card.Body>
+                <div className="d-flex align-items-center gap-3">
+                  <div className="stat-icon bg-success-soft">
+                    <FiCheckCircle className="text-success" size={24} />
+                  </div>
+                  <div>
+                    <small className="text-muted">ĐÃ THU HÔM NAY</small>
+                    <h3 className="fw-bold text-success mt-2">
+                      {formatCurrency(overview?.todayCollectedAmount)}
+                    </h3>
+                  </div>
                 </div>
-              </Accordion.Header>
-              <Accordion.Body className="p-0">
-                {renderTable(
-                  noDebtCustomers,
-                  isLoadingNoDebt,
-                  fetchNoDebtData,
-                  noDebtCustomers.page,
-                )}
-              </Accordion.Body>
-            </Accordion.Item>
-          </Accordion>
-        </main>
+              </Card.Body>
+            </Card>
+          </Col>
 
-        <CreateCustomerDebtModal
-          key={profileToComplete?.id ?? 'new'}
-          show={showCreateModal}
-          onHide={handleCloseCreateModal}
-          onSuccess={handleCreationSuccess}
-          completeProfile={profileToComplete}
-        />
+          <Col md={4}>
+            <Card className="shadow-sm border-0 h-100">
+              <Card.Body>
+                <div className="d-flex align-items-center gap-3">
+                  <div className="stat-icon bg-primary-soft">
+                    <FiDollarSign className="text-primary" size={24} />
+                  </div>
+                  <div>
+                    <small className="text-muted">TỔNG NỢ PHẢI THU</small>
+                    <h3 className="fw-bold text-primary mb-0 mt-1">
+                      {formatCurrency(overview?.totalDebt)}
+                    </h3>
+                  </div>
+                </div>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
 
-        <TodayPaymentsModal
-          show={showTodayPaymentsModal}
-          onHide={() => setShowTodayPaymentsModal(false)}
-        />
+        {/* Filter & Search Area */}
+        <Card className="shadow-sm border-0 mb-4">
+          <Card.Body>
+            <Row className="g-3 align-items-end">
+              <Col md={5} lg={4}>
+                <Form.Label>Tìm kiếm</Form.Label>
+                <Form.Control
+                  placeholder="Tên khách hàng..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </Col>
+              <Col md={4} lg={3}>
+                <Form.Label>Lọc theo thời gian</Form.Label>
+                <Form.Select
+                  onChange={(e) => handleDateFilterChange(e.target.value)}
+                  defaultValue=""
+                >
+                  <option value="">Tất cả thời gian</option>
+                  <option value="today">Hôm nay</option>
+                  <option value="7days">7 ngày qua</option>
+                  <option value="30days">30 ngày qua</option>
+                  <option value="custom">Tùy chỉnh...</option>
+                </Form.Select>
+              </Col>
+              {showCustomDateRange && (
+                <>
+                  <Col md={3} lg={2}>
+                    <Form.Label>Từ ngày</Form.Label>
+                    <Form.Control
+                      type="date"
+                      value={globalFilters.fromDate || ""}
+                      onChange={(e) =>
+                        handleCustomDateChange("fromDate", e.target.value)
+                      }
+                    />
+                  </Col>
+                  <Col md={3} lg={2}>
+                    <Form.Label>Đến ngày</Form.Label>
+                    <Form.Control
+                      type="date"
+                      value={globalFilters.toDate || ""}
+                      onChange={(e) =>
+                        handleCustomDateChange("toDate", e.target.value)
+                      }
+                    />
+                  </Col>
+                </>
+              )}
+            </Row>
+          </Card.Body>
+        </Card>
 
-        <TodayDebtSalesModal
-          show={showTodayDebtSalesModal}
-          onHide={() => setShowTodayDebtSalesModal(false)}
-        />
-      </div>
+        <Accordion
+          activeKey={activeAccordionKey}
+          onSelect={(k) => setActiveAccordionKey(k)}
+          alwaysOpen
+        >
+          <Accordion.Item eventKey="debt">
+            <Accordion.Header>
+              <div className="d-flex justify-content-between align-items-center w-100 pe-2">
+                <span className="fw-bold">
+                  Khách hàng đang nợ ({debtCustomers.totalElements})
+                </span>
+                <Dropdown
+                  onClick={(e) => e.stopPropagation()}
+                  onSelect={handleDebtFilterChange}
+                >
+                  <Dropdown.Toggle
+                    variant="outline-secondary"
+                    size="sm"
+                    id="dropdown-debt-filter"
+                  >
+                    {getActiveFilterLabel(debtFilters, "debt")}
+                  </Dropdown.Toggle>
+                  <Dropdown.Menu>
+                    <Dropdown.Item eventKey="all">
+                      Tất cả đang nợ
+                    </Dropdown.Item>
+                    <Dropdown.Item eventKey="overdue">
+                      Nợ quá hạn
+                    </Dropdown.Item>
+                    <Dropdown.Item eventKey="not_overdue">
+                      Đang trong hạn nợ
+                    </Dropdown.Item>
+                    <Dropdown.Item eventKey="not_allowed">
+                      Không được phép nợ
+                    </Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown>
+              </div>
+            </Accordion.Header>
+            <Accordion.Body className="p-0">
+              {renderTable(
+                debtCustomers,
+                isLoadingDebt,
+                fetchDebtData,
+                debtCustomers.page,
+              )}
+            </Accordion.Body>
+          </Accordion.Item>
+
+          <Accordion.Item eventKey="no-debt">
+            <Accordion.Header>
+              <div className="d-flex justify-content-between align-items-center w-100 pe-2">
+                <span className="fw-bold">
+                  Khách hàng không nợ ({noDebtCustomers.totalElements})
+                </span>
+                <Dropdown
+                  onClick={(e) => e.stopPropagation()}
+                  onSelect={handleNoDebtFilterChange}
+                >
+                  <Dropdown.Toggle
+                    variant="outline-secondary"
+                    size="sm"
+                    id="dropdown-no-debt-filter"
+                  >
+                    {getActiveFilterLabel(noDebtFilters, "no-debt")}
+                  </Dropdown.Toggle>
+                  <Dropdown.Menu>
+                    <Dropdown.Item eventKey="all">
+                      Tất cả không nợ
+                    </Dropdown.Item>
+                    <Dropdown.Item eventKey="allowed">
+                      Được phép nợ
+                    </Dropdown.Item>
+                    <Dropdown.Item eventKey="not_allowed">
+                      Không được phép nợ
+                    </Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown>
+              </div>
+            </Accordion.Header>
+            <Accordion.Body className="p-0">
+              {renderTable(
+                noDebtCustomers,
+                isLoadingNoDebt,
+                fetchNoDebtData,
+                noDebtCustomers.page,
+              )}
+            </Accordion.Body>
+          </Accordion.Item>
+        </Accordion>
+      </main>
+
+      <CreateCustomerDebtModal
+        key={profileToComplete?.id ?? 'new'}
+        show={showCreateModal}
+        onHide={handleCloseCreateModal}
+        onSuccess={handleCreationSuccess}
+        completeProfile={profileToComplete}
+      />
+
+      <TodayPaymentsModal
+        show={showTodayPaymentsModal}
+        onHide={() => setShowTodayPaymentsModal(false)}
+      />
+
+      <TodayDebtSalesModal
+        show={showTodayDebtSalesModal}
+        onHide={() => setShowTodayDebtSalesModal(false)}
+      />
+    </div>
   );
 }

@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,7 @@ import project.be_sep490_g67.repository.CustomerRepository;
 import project.be_sep490_g67.repository.DebtPaymentRepository;
 import project.be_sep490_g67.repository.SalesOrderRepository;
 import project.be_sep490_g67.repository.UserRepository;
+import project.be_sep490_g67.utils.DebtCalculator;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -41,6 +43,7 @@ public class DebtPaymentService {
     private final SalesOrderRepository salesOrderRepository;
     private final CustomerRepository customerRepository;
     private final UserRepository userRepository;
+    private final DebtPolicy debtPolicy;
 
     @Transactional(readOnly = true)
     public CustomerDebtOverviewResponse getDebtOverview() {
@@ -86,15 +89,27 @@ public class DebtPaymentService {
                 .build();
     }
 
+    /**
+     * Số tiền hoá đơn còn nợ, tính từ collection {@code debtPayments} đã nạp sẵn trên
+     * entity thay vì bắn thêm một query như {@link DebtPolicy#remainingOf}. Công thức
+     * vẫn là công thức chung ở {@link DebtCalculator} — chỉ khác nguồn lấy tổng đã trả.
+     *
+     * <p>Phiếu {@code RETURN_OFFSET} (cấn trừ hàng trả) cũng nằm trong collection này và
+     * cố ý được đếm: về mặt công nợ nó giảm nợ y hệt một lần khách trả tiền, chỉ khác là
+     * không có tiền vào két. Đừng thêm bộ lọc theo {@code paymentMethod} ở đây.
+     */
     private BigDecimal calculateRemainingDebtAmount(SalesOrder salesOrder) {
-        BigDecimal totalAmount = salesOrder.getTotalAmount() != null ? salesOrder.getTotalAmount() : BigDecimal.ZERO;
-        BigDecimal initialPaidAmount = salesOrder.getPaidAmount() != null ? salesOrder.getPaidAmount() : BigDecimal.ZERO;
-        BigDecimal subsequentPayments = salesOrder.getDebtPayments().stream()
+        return DebtCalculator.remaining(
+                salesOrder.getTotalAmount(),
+                salesOrder.getPaidAmount(),
+                settledPayments(salesOrder));
+    }
+
+    private BigDecimal settledPayments(SalesOrder salesOrder) {
+        return salesOrder.getDebtPayments().stream()
                 .filter(dp -> !Boolean.TRUE.equals(dp.getIsRemoved()))
                 .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        return totalAmount.subtract(initialPaidAmount.add(subsequentPayments));
     }
 
     @Transactional(readOnly = true)
@@ -115,11 +130,19 @@ public class DebtPaymentService {
             throw new AppException(ErrorCode.ORDER_IS_NOT_A_DEBT_ORDER);
         }
 
-        BigDecimal totalPaidForOrder = salesOrder.getDebtPayments().stream()
-                .map(DebtPayment::getAmountPaid)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal remainingAmount = salesOrder.getTotalAmount().subtract(totalPaidForOrder);
+        if (request.getAmountPaid() == null
+                || request.getAmountPaid().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new AppException(ErrorCode.INVALID_PAYMENT_AMOUNT);
+        }
 
+        // Bản cũ lấy `totalAmount - SUM(debtPayments)`, bỏ qua paidAmount và không lọc
+        // phiếu đã huỷ: đơn 1.000k trả trước 300k bị coi là còn nợ đủ 1.000k nên thu quá
+        // 300k vẫn lọt. Dùng công thức chung để mọi chỗ hiển thị và chỗ chặn khớp nhau.
+        BigDecimal remainingAmount = calculateRemainingDebtAmount(salesOrder);
+
+        if (remainingAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new AppException(ErrorCode.DEBT_ORDER_ALREADY_SETTLED);
+        }
         if (request.getAmountPaid().compareTo(remainingAmount) > 0) {
             throw new AppException(ErrorCode.PAYMENT_AMOUNT_EXCEEDS_REMAINING_DEBT);
         }
@@ -136,20 +159,17 @@ public class DebtPaymentService {
 
         DebtPayment savedPayment = debtPaymentRepository.save(debtPayment);
 
-        // 4. Update customer's total debt
+        // 4. Update customer's total debt — cùng một lối trừ nợ với đường cấn trừ hàng
+        // trả (ExchangeOrderService), gồm cả việc sàn ở 0 và hạ trạng thái về NO_DEBT.
         Customer customer = salesOrder.getCustomer();
-        customer.setTotalDebt(customer.getTotalDebt().subtract(request.getAmountPaid()));
-
-        // Check if customer is now debt-free
-        if (customer.getTotalDebt().compareTo(BigDecimal.ZERO) <= 0) {
-            customer.setTotalDebt(BigDecimal.ZERO); // Ensure it's not negative
-            customer.setStatus(DebtStatus.NO_DEBT.name());
-        }
-        customerRepository.save(customer);
+        debtPolicy.reduceCustomerDebt(customer, request.getAmountPaid());
 
         // 5. Build and return the response
+        // getAuthentication() có thể null (job nền, test). Tên nhân viên chỉ để hiển thị
+        // trên phiếu, không đáng để cả giao dịch thu nợ đổ vì thiếu nó.
         String staffName = "N/A";
-        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Object principal = authentication != null ? authentication.getPrincipal() : null;
         if (principal instanceof User) {
             staffName = ((User) principal).getFullName();
         }

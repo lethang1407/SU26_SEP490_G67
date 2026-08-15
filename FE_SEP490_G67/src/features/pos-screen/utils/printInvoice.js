@@ -54,12 +54,16 @@ class InvoiceDocument {
     }
 
     paymentSection() {
-        const { originalOrderCode, netAmount = 0 } = this.data;
+        const {
+            originalOrderCode, netAmount = 0, isDebtOrder = false, cashRefundAmount = 0,
+        } = this.data;
         if (!this.isExchange) {
             return this.t.metaCell('Thanh toán', this.methodLabel);
         }
+        // Đơn nợ: hướng tiền do phần cấn trừ quyết định, không suy từ netAmount.
+        const refunding = isDebtOrder ? cashRefundAmount > 0 : netAmount > 0;
         return this.t.metaCell('Hóa đơn gốc', originalOrderCode ?? '—')
-            + '\n    ' + this.t.metaCell(netAmount > 0 ? 'Hoàn tiền' : 'Thanh toán', this.methodLabel);
+            + '\n    ' + this.t.metaCell(refunding ? 'Hoàn tiền' : 'Thanh toán', this.methodLabel);
     }
 
     itemRows() {
@@ -99,18 +103,74 @@ class InvoiceDocument {
         return rows.join('');
     }
 
+    /**
+     * Với hóa đơn bán nợ, netAmount (hàng trả − hàng lấy) KHÔNG phải số tiền đổi chủ:
+     * trả 350k lấy 50k trên đơn còn nợ 350k cho netAmount = +300k nhưng khách không nhận
+     * đồng nào — 350k bị cấn hết vào nợ. In "TIỀN HOÀN CHO KHÁCH: 300.000" ở đây là đưa
+     * cho khách một tờ giấy nói cửa hàng đã chi tiền trong khi két không hề động.
+     *
+     * Các số cấn trừ lấy từ phiếu đã lưu (debt_offset_amount / cash_refund_amount), không
+     * tính lại — in lại phiếu cũ sau vài lần thu nợ vẫn phải ra đúng số của lúc lập phiếu.
+     */
     exchangeTotals() {
-        const { returnSubtotal = 0, exchangeSubtotal = 0, netAmount = 0 } = this.data;
+        const {
+            returnSubtotal = 0, exchangeSubtotal = 0, netAmount = 0,
+            isDebtOrder = false,
+            debtOffsetAmount = 0, cashRefundAmount = 0, cashCollectAmount = 0,
+            debtPaymentCollected = 0, newDebtOnExchange = 0, debtRemainingAfter = 0,
+            exchangeOrderCode,
+        } = this.data;
 
-        const netLabel = netAmount > 0 ? 'TIỀN HOÀN CHO KHÁCH:'
-            : netAmount < 0 ? 'KHÁCH THANH TOÁN THÊM:'
-                : 'KHÔNG PHÁT SINH TIỀN:';
-
-        return [
+        const rows = [
             this.t.totalRow({ label: 'Hàng trả lại:', value: this.money(returnSubtotal), tone: 'out' }),
             this.t.totalRow({ label: 'Hàng lấy mới:', value: this.money(exchangeSubtotal), tone: 'in' }),
-            this.t.totalRow({ label: netLabel, value: this.money(Math.abs(netAmount)), grand: true }),
         ];
+
+        if (!isDebtOrder) {
+            const netLabel = netAmount > 0 ? 'TIỀN HOÀN CHO KHÁCH:'
+                : netAmount < 0 ? 'KHÁCH THANH TOÁN THÊM:'
+                    : 'KHÔNG PHÁT SINH TIỀN:';
+            rows.push(this.t.totalRow({
+                label: netLabel, value: this.money(Math.abs(netAmount)), grand: true,
+            }));
+            return rows;
+        }
+
+        if (debtOffsetAmount > 0) {
+            rows.push(this.t.totalRow({
+                label: 'Cấn trừ công nợ:', value: '- ' + this.money(debtOffsetAmount), tone: 'out',
+            }));
+        }
+        if (newDebtOnExchange > 0) {
+            rows.push(this.t.totalRow({
+                label: 'Ghi nợ đơn đổi' + (exchangeOrderCode ? ` ${exchangeOrderCode}` : '') + ':',
+                value: '+ ' + this.money(newDebtOnExchange), tone: 'in',
+            }));
+        }
+        if (debtPaymentCollected > 0) {
+            rows.push(this.t.totalRow({
+                label: 'Khách nộp thêm nợ cũ:', value: '- ' + this.money(debtPaymentCollected), tone: 'out',
+            }));
+        }
+
+        const cashIn = cashCollectAmount + debtPaymentCollected;
+        rows.push(cashRefundAmount > 0
+            ? this.t.totalRow({
+                label: 'TIỀN HOÀN CHO KHÁCH:', value: this.money(cashRefundAmount), grand: true,
+            })
+            : cashIn > 0
+                ? this.t.totalRow({
+                    label: 'KHÁCH THANH TOÁN:', value: this.money(cashIn), grand: true,
+                })
+                : this.t.totalRow({
+                    label: 'KHÔNG PHÁT SINH TIỀN:', value: this.money(0), grand: true,
+                }));
+
+        rows.push(this.t.totalRow({
+            label: 'Nợ còn lại hóa đơn gốc:', value: this.money(debtRemainingAfter),
+        }));
+
+        return rows;
     }
 
     salesTotals() {

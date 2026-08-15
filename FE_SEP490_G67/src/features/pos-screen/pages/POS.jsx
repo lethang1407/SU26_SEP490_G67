@@ -190,7 +190,6 @@ const POSScreen = () => {
     // Bán nợ: tiền khách đưa trước, để trống là nợ toàn bộ
     const [prepaidInput, setPrepaidInput] = useState('');
     const [dueDate, setDueDate] = useState(defaultDueDate);
-    const [quickAddedCustomerId, setQuickAddedCustomerId] = useState(null);
 
     const [showQuickAdd, setShowQuickAdd] = useState(false);
     const [quickAddName, setQuickAddName] = useState('');
@@ -329,7 +328,6 @@ const POSScreen = () => {
 
     const handleRemoveCustomer = useCallback(() => {
         detachCustomer();
-        setQuickAddedCustomerId(null);
         setShowQuickAdd(false);
         setQuickAddError(null);
         clearCustomerResults();
@@ -363,7 +361,6 @@ const POSScreen = () => {
                 phoneNumber: phone.trim(),
             });
             attachCustomer(newCustomer);
-            setQuickAddedCustomerId(newCustomer.id);
             setShowQuickAdd(false);
         } catch (err) {
             const msg = err.response?.data?.message ?? 'Không thể thêm khách hàng. Vui lòng thử lại.';
@@ -457,7 +454,6 @@ const POSScreen = () => {
         setPaymentMethod('cash');
         setPrepaidInput('');
         setDueDate(defaultDueDate());
-        setQuickAddedCustomerId(null);
     };
 
     const handleCheckout = async () => {
@@ -473,15 +469,9 @@ const POSScreen = () => {
         });
         if (!result.ok) return;
 
-        const needsProfile = isDebtMode && quickAddedCustomerId
-            && result.customer?.id === quickAddedCustomerId;
-        const profileCustomer = result.customer;
-
+        // Khách nợ mới không còn kéo thu ngân rời quầy sang trang hồ sơ khách hàng:
+        // BE tự bắn thông báo cho admin xử lý, POS chỉ việc mở đơn kế tiếp.
         handleNewOrder();
-
-        if (needsProfile) {
-            navigate(`/admin/customer?completeProfile=${profileCustomer.id}`);
-        }
     };
 
     // Discount editing
