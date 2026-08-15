@@ -20,7 +20,7 @@ import project.be_sep490_g67.service.CategoryService;
 public class CategoryController {
     CategoryService categoryService;
 
-    @PreAuthorize("hasAuthority('PRODUCT:VIEW')")
+    //@PreAuthorize("hasAuthority('PRODUCT:VIEW')")
     @GetMapping
     public ApiResponse<PageResponse<CategoryResponse>> getCategory(
             @RequestParam(defaultValue = "0") int page,
@@ -33,7 +33,7 @@ public class CategoryController {
                 .message("Lấy danh sách danh mục hàng hóa thành công")
                 .build();
     }
-    @PreAuthorize("hasAuthority('PRODUCT:CREATE')")
+   // @PreAuthorize("hasAuthority('PRODUCT:CREATE')")
     @PostMapping
     public ApiResponse<CategoryResponse> addCategory(@Valid @RequestBody UpsertCategoryRequest request){
         CategoryResponse newCategory = categoryService.createCategory(request);
@@ -43,7 +43,7 @@ public class CategoryController {
                 .build();
     }
 
-    @PreAuthorize("hasAuthority('PRODUCT:UPDATE')")
+   // @PreAuthorize("hasAuthority('PRODUCT:UPDATE')")
     @PutMapping("/{categoryId}")
     public ApiResponse<CategoryResponse> updateCategory(@Valid @RequestBody UpsertCategoryRequest request, @PathVariable Integer categoryId){
         CategoryResponse updateCategory = categoryService.updateCategory(categoryId,request);
