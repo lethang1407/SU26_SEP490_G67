@@ -1,9 +1,9 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { GripVertical, ImagePlus, Plus, Trash2, TrendingUp } from 'lucide-react';
 import { PRODUCT_UNIT_OPTIONS } from '../constants';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/jpg'];
+const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
 
 function createConversionUnit(ofUnit = 'Chai') {
   return {
@@ -136,7 +136,6 @@ export default function ProductEditForm({
   onUploadImage,
   onRemoveImage,
 }) {
-  const fileInputId = useId();
   const data = initialData || product;
   const [form, setForm] = useState(() => mapInitial(data));
   const [attributes, setAttributes] = useState(() => parseInitialAttributes(data?.attributes));
@@ -255,10 +254,15 @@ export default function ProductEditForm({
     setAttributes((prev) => prev.filter((attr) => attr.id !== id));
   };
 
+  const fileInputRef = useRef(null);
+
   const applyImageFile = async (file) => {
     if (!file) return;
-    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-      setErrors((prev) => ({ ...prev, image: 'Chỉ hỗ trợ ảnh JPG hoặc PNG.' }));
+    const ext = (file.name || '').split('.').pop()?.toLowerCase();
+    const isValidType = ACCEPTED_IMAGE_TYPES.includes(file.type) || ['jpg', 'jpeg', 'png', 'webp'].includes(ext);
+
+    if (!isValidType) {
+      setErrors((prev) => ({ ...prev, image: 'Chỉ hỗ trợ ảnh JPG, PNG hoặc WEBP.' }));
       return;
     }
     if (file.size > MAX_IMAGE_BYTES) {
@@ -290,12 +294,18 @@ export default function ProductEditForm({
       const message =
         err?.response?.data?.message || err?.message || 'Không tải được ảnh.';
       setErrors((prev) => ({ ...prev, image: message }));
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
   const handleFileChange = (event) => {
-    applyImageFile(event.target.files?.[0]);
-    event.target.value = '';
+    const file = event.target.files?.[0];
+    if (file) {
+      applyImageFile(file);
+    }
   };
 
   const handleRemoveImage = async (id) => {
@@ -727,15 +737,26 @@ export default function ProductEditForm({
                 </div>
               ))}
 
-              <label htmlFor={fileInputId} className="edit-product-image-add">
+              <div
+                className="edit-product-image-add"
+                onClick={() => fileInputRef.current?.click()}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    fileInputRef.current?.click();
+                  }
+                }}
+              >
                 <ImagePlus size={22} strokeWidth={1.75} />
                 <span>Thêm ảnh</span>
-              </label>
+              </div>
               <input
-                id={fileInputId}
+                ref={fileInputRef}
                 type="file"
-                accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-                className="add-product-file-input"
+                accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                style={{ display: 'none' }}
                 onChange={handleFileChange}
               />
             </div>
