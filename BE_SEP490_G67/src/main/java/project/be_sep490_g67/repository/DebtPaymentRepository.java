@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface DebtPaymentRepository extends JpaRepository<DebtPayment, Integer> {
@@ -83,4 +84,26 @@ public interface DebtPaymentRepository extends JpaRepository<DebtPayment, Intege
     );
 
     List<DebtPayment> findAllByCreatedAtBetween(Instant start, Instant end);
+
+    @Query("""
+            SELECT dp FROM DebtPayment dp
+            JOIN FETCH dp.salesOrder so
+            JOIN FETCH so.customer c
+            WHERE dp.isRemoved = false
+              AND dp.createdAt >= :start
+              AND dp.createdAt < :end
+            ORDER BY dp.createdAt DESC
+            """)
+    List<DebtPayment> findActiveTodayPaymentsWithOrderAndCustomer(
+            @Param("start") Instant start,
+            @Param("end") Instant end
+    );
+
+    @Query(value = """
+            SELECT dp.payment_code FROM debt_payments dp
+            WHERE dp.payment_code LIKE CONCAT(:prefix, '%')
+            ORDER BY dp.payment_code DESC
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<String> findLatestPaymentCodeByPrefix(@Param("prefix") String prefix);
 }

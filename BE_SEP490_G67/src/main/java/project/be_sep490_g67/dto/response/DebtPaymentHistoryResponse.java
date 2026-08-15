@@ -13,6 +13,7 @@ import java.time.Instant;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class DebtPaymentHistoryResponse {
     Integer id;
+    String paymentCode;
     Integer customerId;
     Integer orderId;
     Instant paymentDate;

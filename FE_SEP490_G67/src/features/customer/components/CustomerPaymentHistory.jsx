@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Table, Pagination, Spinner } from "react-bootstrap";
+import { Table, Pagination, Spinner, Row } from "react-bootstrap";
 import { getDebtPaymentHistory } from "../api";
 
 const formatCurrency = (value) => {
@@ -28,6 +27,8 @@ const translatePaymentMethod = (method) => {
       return "Tiền mặt";
     case "BANK":
       return "Chuyển khoản";
+    case "RETURN_OFFSET":
+      return "Đổi trả hàng";
     default:
       return method || "N/A";
   }
@@ -69,8 +70,8 @@ export default function CustomerPaymentHistory({ customerId, refreshKey }) {
   };
 
   return (
-    <div className="p-4">
-      <Table hover responsive className="align-middle">
+    <>
+      <Table hover responsive className="align-middle customer-detail-table">
         <thead>
           <tr>
             <th>Ngày thu</th>
@@ -103,13 +104,9 @@ export default function CustomerPaymentHistory({ customerId, refreshKey }) {
             historyData.content.map((item) => (
               <tr key={item.id}>
                 <td>{formatDateTime(item.paymentDate)}</td>
-                <td>PT-{item.id}</td>
+                <td>{item.paymentCode}</td>
                 <td>
-                  {item.orderId ? (
-                    <Link to={`/admin/orders/${item.orderId}`}>{item.orderCode}</Link>
-                  ) : (
-                    item.orderCode || "—"
-                  )}
+                  {item.orderCode}
                 </td>
                 <td className="text-success fw-bold">
                   {formatCurrency(item.amountPaid)}
@@ -150,6 +147,6 @@ export default function CustomerPaymentHistory({ customerId, refreshKey }) {
           </Pagination>
         </div>
       )}
-    </div>
+    </>
   );
 }

@@ -160,6 +160,17 @@ body{
   border-bottom-color: #0d6efd;
 }
 
-.customer-detail-tabs__panel {
-  /* No extra styling needed for the panel wrapper */
+.customer-detail-table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+.customer-detail-table th,
+.customer-detail-table td {
+    word-wrap: break-word;
+    vertical-align: middle;
+}
+
+.customer-detail-table td {
+    font-size: 16px;
 }

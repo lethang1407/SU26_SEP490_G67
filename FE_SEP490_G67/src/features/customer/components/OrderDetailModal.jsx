@@ -106,9 +106,13 @@ export default function OrderDetailModal({ show, onHide, orderId }) {
                                 <p><FiTag className="me-2" />Mã đơn: <strong>{orderDetail.orderCode}</strong></p>
                                 <p><FiCalendar className="me-2" />Ngày tạo: {formatDateTime(orderDetail.createdAt)}</p>
                                 <p><FiDollarSign className="me-2" />Tổng tiền: <strong>{formatCurrency(orderDetail.totalAmount)}</strong></p>
-                                <p><FiPackage className="me-2" />Trạng thái: {getOrderStatusBadge(orderDetail.orderStatus)}</p>
-                                <p><FiRefreshCcw className="me-2" />Thanh toán: {getPaymentMethodLabel(orderDetail.paymentMethod)}</p>
-                                {orderDetail.isDebt && <p><Badge bg="danger">Đơn nợ</Badge></p>}
+                                {orderDetail.isDebt && (
+                                    <>
+                                        <p className="text-success"><FiDollarSign className="me-2" />Đã trả: <strong>{formatCurrency(orderDetail.paidAmount)}</strong></p>
+                                    </>
+                                )}
+                                <p><FiPackage className="me-2" />Trạng thái đơn: {getOrderStatusBadge(orderDetail.orderStatus)}</p>
+                                <p><FiRefreshCcw className="me-2" />Thanh toán: {orderDetail.isDebt && <Badge bg="danger">Đơn nợ</Badge>}</p>
                             </Col>
                             <Col md={6}>
                                 <h5>Thông tin khách hàng</h5>
@@ -160,30 +164,7 @@ export default function OrderDetailModal({ show, onHide, orderId }) {
                                         <h6>Phiếu #{rIndex + 1}: {returnOrder.returnCode}</h6>
                                         <p>Lý do: {returnOrder.returnReason}</p>
                                         <p>Ngày tạo: {formatDateTime(returnOrder.createdAt)}</p>
-                                        <p>Giá trị hàng trả: {formatCurrency(returnOrder.refundAmount)}</p>
-
-                                        {/*
-                                            Với đơn nợ, giá trị hàng trả KHÔNG phải tiền đã hoàn — phần lớn
-                                            thường bị cấn thẳng vào công nợ. Hiện một dòng "Tổng hoàn tiền"
-                                            duy nhất sẽ báo là đã chi tiền trong khi két không hề động.
-
-                                            Hai số này đọc thẳng từ DB (debt_offset_amount / cash_refund_amount),
-                                            KHÔNG tính lại: công nợ đã đổi sau các lần thu nợ tiếp theo, suy
-                                            ngược từ số nợ hôm nay sẽ ra con số của hôm nay chứ không phải của
-                                            lúc lập phiếu.
-
-                                            null = phiếu lập trước migration V30, chưa tách hai phần — lúc đó
-                                            không nói gì còn hơn nói một con số bịa.
-                                        */}
-                                        {returnOrder.cashRefundAmount != null && (
-                                            <>
-                                                {returnOrder.debtOffsetAmount > 0 && (
-                                                    <p>Cấn trừ công nợ: {formatCurrency(returnOrder.debtOffsetAmount)}</p>
-                                                )}
-                                                <p>Hoàn tiền mặt: {formatCurrency(returnOrder.cashRefundAmount)}</p>
-                                            </>
-                                        )}
-
+                                        <p>Tổng hoàn tiền: {formatCurrency(returnOrder.refundAmount)}</p>
                                         {returnOrder.note && <p>Ghi chú phiếu: {returnOrder.note}</p>}
 
                                         <Table striped bordered hover responsive size="sm" className="mt-3">

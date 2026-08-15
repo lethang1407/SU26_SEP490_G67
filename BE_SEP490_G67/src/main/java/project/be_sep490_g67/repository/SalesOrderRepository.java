@@ -217,6 +217,16 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
     List<SalesOrder> findActiveDebtSalesCreatedBetween(@Param("start") Instant start, @Param("end") Instant end);
 
     @Query("""
+            SELECT DISTINCT so FROM SalesOrder so
+            LEFT JOIN FETCH so.customer
+            LEFT JOIN FETCH so.debtPayments
+            WHERE so.id IN :ids
+              AND so.isRemoved = false
+              AND so.isDebt = true
+            """)
+    List<SalesOrder> findActiveDebtOrdersByIdsWithPayments(@Param("ids") List<Integer> ids);
+
+    @Query("""
             SELECT COALESCE(SUM(so.paidAmount), 0)
             FROM SalesOrder so
             WHERE so.isRemoved = false
