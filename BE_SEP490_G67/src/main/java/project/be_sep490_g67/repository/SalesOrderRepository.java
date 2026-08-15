@@ -52,6 +52,9 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
                                  @Param("product") String product,
                                  @Param("dateFrom") Instant dateFrom,
                                  @Param("dateTo") Instant dateTo,
+                                 @Param("orderStatus") String orderStatus,
+                                 @Param("paymentMethod") String paymentMethod,
+                                 @Param("isDebt") Boolean isDebt,
                                  Pageable pageable);
 
     @Query("""
