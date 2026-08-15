@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -35,9 +36,15 @@ public class CreateExchangeOrderRequest {
 
     BigDecimal returnDiscount;
     BigDecimal exchangeDiscount;
-    String bearerName;
-    String bearerPhone;
-    Integer approvedBy;
+
+    /**
+     * Tiền khách trả thêm cho khoản nợ của hóa đơn gốc ngay tại màn đổi trả (quyết định F2).
+     *
+     * <p>Được ghi nhận <b>sau</b> bước cấn trừ hàng trả, không phải trước: làm ngược lại sẽ
+     * có tình huống khách nộp tiền xong lại được hoàn về vì hàng trả đã xóa hết nợ.
+     */
+    @PositiveOrZero(message = "Số tiền khách trả thêm không được âm")
+    BigDecimal debtPaymentAmount;
 
     @Data
     @NoArgsConstructor

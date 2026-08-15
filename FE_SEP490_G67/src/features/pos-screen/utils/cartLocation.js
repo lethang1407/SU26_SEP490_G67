@@ -1,48 +1,72 @@
-export const locationKey = (loc) =>
-    loc ? `${loc.locationId}-${loc.batchId}` : '';
+export const pickKey = (loc) =>
+    loc ? `${loc.locationId}-${loc.batchId ?? 'all'}` : '';
 
-export function toBaseUnits(item) {
+export const selectedKeys = (item) => item?.pickKeys ?? [];
+
+export const selectedPicks = (item) =>
+    (item?.locations ?? []).filter((loc) => selectedKeys(item).includes(pickKey(loc)));
+
+/** Số đơn vị cơ sở trong một đơn vị bán đang chọn (thùng = 12 chai → 12). */
+export function unitFactor(item) {
     const unit = (item.units ?? []).find(
         (u) => String(u.id) === String(item.productUnitId)
     );
-    const factor = Number(unit?.unitBase) || 1;
-    return item.qty * factor;
+    return Number(unit?.unitBase) || 1;
 }
 
-export const findLocation = (item, key) =>
-    (item.locations ?? []).find((loc) => locationKey(loc) === key) ?? null;
-
-export const selectedLocation = (item) =>
-    findLocation(item, item.locationKey);
-
-export function isLocationShort(item) {
-    const loc = selectedLocation(item);
-    if (!loc) return false;
-    return Number(loc.quantity ?? 0) < toBaseUnits(item);
+export function toBaseUnits(item) {
+    return item.qty * unitFactor(item);
 }
 
-export const needsLocationPick = (item) => !selectedLocation(item);
+/** Tổng tồn (đơn vị cơ sở) của các lô đã tick. */
+export const selectedQuantity = (item) =>
+    selectedPicks(item).reduce((sum, loc) => sum + Number(loc.quantity ?? 0), 0);
+
+export function allocateQuantity(item) {
+    let remaining = toBaseUnits(item);
+    const parts = [];
+    for (const loc of selectedPicks(item)) {
+        if (remaining <= 0) break;
+        const take = Math.min(Number(loc.quantity ?? 0), remaining);
+        if (take > 0) {
+            parts.push({
+                key: pickKey(loc),
+                locationId: loc.locationId,
+                label: formatLocationShort(loc),
+                quantity: take,
+            });
+            remaining -= take;
+        }
+    }
+    return parts;
+}
+
+export const needsLocationPick = (item) => selectedPicks(item).length === 0;
+
+export const isLocationShort = (item) =>
+    !needsLocationPick(item) && selectedQuantity(item) < toBaseUnits(item);
 
 export const hasLocationProblem = (item) =>
     needsLocationPick(item) || isLocationShort(item);
 
-const formatDate = (iso) =>
-    iso ? new Date(iso).toLocaleDateString('vi-VN') : null;
-
-export function formatLocationOption(loc) {
-    const zone = loc.zoneType === 'SALES' ? 'Quầy' : 'Kho';
-    const parts = [
-        `${zone} ${loc.label}`,
-        loc.batchCode ? `Lô ${loc.batchCode}` : null,
-        `còn ${Number(loc.quantity ?? 0).toLocaleString('vi-VN')}`,
-    ];
-    const expiry = formatDate(loc.expiryDate);
-    if (expiry) parts.push(`HSD ${expiry}`);
-    return parts.filter(Boolean).join(' · ');
-}
+const zoneName = (loc) => (loc?.zoneType === 'SALES' ? 'Quầy' : 'Kho');
 
 export function formatLocationShort(loc) {
     if (!loc) return null;
-    const zone = loc.zoneType === 'SALES' ? 'Quầy' : 'Kho';
-    return `${zone} ${loc.label}`;
+    return `${zoneName(loc)} ${loc.label}`;
 }
+
+/** Nhãn gọn trên nút chọn: "Quầy A1" hoặc "Quầy A1 +2 lô". */
+export function locationSummary(item) {
+    const picked = selectedPicks(item);
+    if (picked.length === 0) return null;
+    const first = formatLocationShort(picked[0]);
+    return picked.length === 1 ? first : `${first} +${picked.length - 1} lô`;
+}
+
+/** Payload gửi BE: BE trừ đúng lô này, theo đúng thứ tự trong mảng. */
+export const toStockPicks = (item) =>
+    selectedPicks(item).map((loc) => ({
+        locationId: loc.locationId,
+        batchId: loc.batchId ?? null,
+    }));

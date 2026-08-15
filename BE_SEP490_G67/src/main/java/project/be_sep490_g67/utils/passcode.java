@@ -6,7 +6,7 @@ public class passcode {
     public static void main(String[] args) {
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
 
-        String rawPassword = "password123";
+        String rawPassword = "Test@123";
         String encodedPassword = passwordEncoder.encode(rawPassword);
 
         System.out.println("Mật khẩu gốc: " + rawPassword);

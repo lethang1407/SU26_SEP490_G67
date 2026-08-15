@@ -3,6 +3,7 @@ package project.be_sep490_g67.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -36,6 +37,11 @@ public class Supplier extends BaseEntity {
 
     @Column(name = "supplier_code", nullable = false, length = 30)
     private String supplierCode;
+
+    /** Ngày từ đặt → hàng về kệ */
+    @ColumnDefault("3")
+    @Column(name = "lead_time_days", nullable = false)
+    private Integer leadTimeDays = 3;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "supplier_category",

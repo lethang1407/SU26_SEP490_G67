@@ -18,4 +18,6 @@ public class ApiPath {
     public static final String STOCK_BATCHES = BASE_URL_V1 + "/stock-batches";
     public static final String IMPORT_RETURNS = BASE_URL_V1 + "/import-returns";
     public static final String DEBT_PAYMENTS_CUSTOMER = BASE_URL_V1 + "/debt-payments";
+    public static final String IMPORT_HISTORY = BASE_URL_V1 + "/import-history";
+    public static final String SALES_HISTORY = BASE_URL_V1 + "/sales-history";
 }

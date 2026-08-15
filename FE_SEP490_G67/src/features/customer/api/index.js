@@ -51,3 +51,8 @@ export async function createDebtPayment(data) {
     // return response;
     return null;
 }
+
+export async function getSalesOrderDetail(orderId) {
+    const response = await api.get(`/sales-orders/${orderId}/detail`);
+    return response.result;
+}

@@ -11,9 +11,11 @@ import project.be_sep490_g67.entity.SalesOrder;
 import project.be_sep490_g67.entity.StoreConfig;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
+import project.be_sep490_g67.repository.DebtPaymentRepository;
 import project.be_sep490_g67.repository.SalesOrderRepository;
 import project.be_sep490_g67.repository.StoreConfigRepository;
 import project.be_sep490_g67.repository.UserRepository;
+import project.be_sep490_g67.utils.DebtCalculator;
 import java.math.BigDecimal;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -34,6 +36,7 @@ public class InvoiceService {
     SalesOrderRepository salesOrderRepository;
     StoreConfigRepository storeConfigRepository;
     UserRepository userRepository;
+    DebtPaymentRepository debtPaymentRepository;
     AuditLogService auditLogService;
 
     private static final DateTimeFormatter VN_FORMATTER = DateTimeFormatter
@@ -99,11 +102,18 @@ public class InvoiceService {
         response.setTotalAmount(order.getTotalAmount());
         response.setPaidAmount(order.getPaidAmount());
 
-        // Calculate remaining debt
-        BigDecimal remainingDebt = order.getIsDebt()
-                ? order.getTotalAmount().subtract(order.getPaidAmount())
-                : BigDecimal.ZERO;
-        response.setRemainingDebt(remainingDebt);
+        // Còn nợ = tổng - trả trước - các lần trả nợ sau đó. Bỏ DebtPayment ra
+        // khỏi công thức thì in lại hóa đơn cũ sẽ ra số nợ sai.
+        boolean isDebt = Boolean.TRUE.equals(order.getIsDebt());
+        response.setRemainingDebt(isDebt
+                ? DebtCalculator.remaining(
+                        order.getTotalAmount(),
+                        order.getPaidAmount(),
+                        debtPaymentRepository.sumPaidBySalesOrderId(order.getId()))
+                : BigDecimal.ZERO);
+        response.setDueDate(isDebt ? order.getDueDate() : null);
+        response.setIsCheckDebtUnstable(order.getCustomer() != null
+                && Boolean.TRUE.equals(order.getCustomer().getIsCheckUnstableDebt()));
 
         // Format creation time
         if (order.getCreatedAt() != null) {

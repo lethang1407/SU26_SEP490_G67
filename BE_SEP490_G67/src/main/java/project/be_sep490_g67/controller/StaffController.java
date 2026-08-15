@@ -24,7 +24,7 @@ import java.util.List;
 public class StaffController {
     StaffService staffService;
 
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('STAFF:VIEW')")
     @GetMapping
     ApiResponse<List<StaffListResponse>> getStaffList(
             @RequestParam(required = false) String keyword,
@@ -35,7 +35,7 @@ public class StaffController {
                 .build();
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('STAFF:VIEW')")
     @GetMapping("/{staffId}")
     ApiResponse<StaffDetailResponse> getStaffById(@PathVariable Integer staffId) {
         return ApiResponse.<StaffDetailResponse>builder()
@@ -43,7 +43,7 @@ public class StaffController {
                 .build();
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('STAFF:CREATE')")
     @PostMapping
     ApiResponse<StaffDetailResponse> createStaff(@Valid @RequestBody CreateStaffRequest request) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -53,7 +53,7 @@ public class StaffController {
                 .build();
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('STAFF:UPDATE')")
     @PutMapping("/{staffId}")
     ApiResponse<StaffDetailResponse> updateStaff(
             @PathVariable Integer staffId,
