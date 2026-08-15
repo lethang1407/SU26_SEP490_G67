@@ -81,8 +81,8 @@ public class ImportOrderService {
 
         List<CreateImportOrderRequest.LineItem> requestLines =
                 request.getLines() == null ? List.of() : request.getLines();
-        List<Integer> returnLineIds =
-                request.getReturnLineIds() == null ? List.of() : request.getReturnLineIds();
+        Map<Integer, String> returnMethodOverrides = collectReturnMethodOverrides(request);
+        List<Integer> returnLineIds = new ArrayList<>(returnMethodOverrides.keySet());
         if (requestLines.isEmpty() && returnLineIds.isEmpty()) {
             throw new AppException(ErrorCode.IMPORT_ITEMS_EMPTY);
         }
@@ -99,7 +99,8 @@ public class ImportOrderService {
         List<ImportReturnDetail> returnLines = importReturnService.requirePendingLinesForSupplier(
                 supplier != null ? supplier.getId() : null,
                 returnLineIds,
-                null);
+                null,
+                returnMethodOverrides);
 
         BigDecimal discount = request.getDiscountAmount() != null
                 ? request.getDiscountAmount()
@@ -178,8 +179,8 @@ public class ImportOrderService {
 
         List<CreateImportOrderRequest.LineItem> requestLines =
                 request.getLines() == null ? List.of() : request.getLines();
-        List<Integer> returnLineIds =
-                request.getReturnLineIds() == null ? List.of() : request.getReturnLineIds();
+        Map<Integer, String> returnMethodOverrides = collectReturnMethodOverrides(request);
+        List<Integer> returnLineIds = new ArrayList<>(returnMethodOverrides.keySet());
         if (requestLines.isEmpty() && returnLineIds.isEmpty()) {
             throw new AppException(ErrorCode.IMPORT_ITEMS_EMPTY);
         }
@@ -196,7 +197,8 @@ public class ImportOrderService {
         List<ImportReturnDetail> returnLines = importReturnService.requirePendingLinesForSupplier(
                 supplier != null ? supplier.getId() : null,
                 returnLineIds,
-                order.getId());
+                order.getId(),
+                returnMethodOverrides);
 
         BigDecimal discount = request.getDiscountAmount() != null
                 ? request.getDiscountAmount()
@@ -934,6 +936,25 @@ public class ImportOrderService {
         }
 
         return prefix + String.format("%0" + seqLength + "d", nextSeq);
+    }
+
+    private Map<Integer, String> collectReturnMethodOverrides(CreateImportOrderRequest request) {
+        Map<Integer, String> methods = new LinkedHashMap<>();
+        if (request.getReturnLines() != null) {
+            for (CreateImportOrderRequest.ReturnLineItem item : request.getReturnLines()) {
+                if (item != null && item.getDetailId() != null && item.getDetailId() > 0) {
+                    methods.put(item.getDetailId(), item.getMethod());
+                }
+            }
+        }
+        if (request.getReturnLineIds() != null) {
+            for (Integer id : request.getReturnLineIds()) {
+                if (id != null && id > 0) {
+                    methods.putIfAbsent(id, null);
+                }
+            }
+        }
+        return methods;
     }
 
     private String blankToNull(String value) {
