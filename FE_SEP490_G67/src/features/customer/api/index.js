@@ -47,12 +47,16 @@ export async function getTodayDebtPayments(params) {
 }
 
 export async function createDebtPayment(data) {
-    // const response = await api.post('/debt-payments', data);
-    // return response;
-    return null;
+    const response = await api.post('/debt-payments/batch', data);
+    return response;
 }
 
 export async function getSalesOrderDetail(orderId) {
     const response = await api.get(`/sales-orders/${orderId}/detail`);
     return response.result;
+}
+
+export async function updateCustomerUnstableDebtStatus(customerId, data) {
+    const response = await api.patch(`/customers/${customerId}/check-unstable-debt`, data);
+    return response;
 }

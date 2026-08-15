@@ -52,6 +52,7 @@ export default function SupplierTable({
     loading,
     expandedId,
     startIndex = 1,
+    emptyMessage = 'Không tìm thấy nhà cung cấp phù hợp.',
     onToggleExpand,
     onPaymentSuccess,
     onSupplierUpdated,
@@ -63,7 +64,7 @@ export default function SupplierTable({
     if (items.length === 0) {
         return (
             <div className="supplier-table-card supplier-table-card--empty">
-                <p>Không tìm thấy nhà cung cấp phù hợp.</p>
+                <p>{emptyMessage}</p>
             </div>
         );
     }
@@ -114,7 +115,7 @@ export default function SupplierTable({
                                                 supplier.currentDebt > 0 ? 'supplier-table__debt--highlight' : ''
                                             }`}
                                         >
-                                            {formatCurrency(supplier.currentDebt)}
+                                            <div>{formatCurrency(supplier.currentDebt)}</div>
                                         </td>
                                     </tr>
                                     {isExpanded && (

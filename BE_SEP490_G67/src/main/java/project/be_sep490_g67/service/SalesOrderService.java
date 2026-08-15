@@ -177,13 +177,12 @@ public class SalesOrderService {
                 salesOrderRepository.save(order);
 
                 if (isDebt) {
-                        // Cờ "cần rà soát" nằm trên KHÁCH chứ không trên đơn: nó nói về
-                        // quan hệ nợ của khách này. Chỉ dựng, không bao giờ hạ — đơn nợ
-                        // sau do quản lý lập không xoá được việc rà soát còn treo từ đơn
-                        // đầu. Đặt ngay trước addToCustomerDebt để khách chỉ lưu một lần.
-                        if (needsReview) {
-                                customer.setIsCheckUnstableDebt(true);
-                        }
+                        // Cờ isCheckUnstableDebt giờ chỉ nói MỘT điều: khách này do quản lý
+                        // hay do nhân viên thêm vào (đặt một lần lúc tạo khách, xem
+                        // CustomerService#createCustomer). Bán nợ không đụng vào nó nữa —
+                        // trước đây đơn nợ đầu tiên do nhân viên lập cũng dựng cờ này lên,
+                        // làm khách do nhân viên thêm lẫn thành khách do quản lý thêm.
+                        // Việc rà soát khách nợ mới nay đi bằng thông báo cho admin.
                         debtPolicy.addToCustomerDebt(customer, grandTotal.subtract(paid));
                 }
 
@@ -511,15 +510,12 @@ public class SalesOrderService {
                                 .map(SalesOrder::getId)
                                 .toList();
 
-                // Mã phiếu trả mới nhất của từng hóa đơn trong trang
-                Map<Integer, String> returnCodeByOrderId = orderIds.isEmpty()
+                // Chứng từ đổi/trả của từng hóa đơn trong trang. Đơn đổi không còn là
+                // dòng riêng trong lịch sử (findHistory đã lọc originalSalesOrderId),
+                // nên toàn bộ vết đổi/trả phải quy về dòng hóa đơn gốc.
+                Map<Integer, List<SalesOrderListResponse.RelatedDocument>> relatedByOrderId = orderIds.isEmpty()
                                 ? Map.of()
-                                : returnOrderRepository.findAllBySalesOrderIds(orderIds).stream()
-                                                .filter(r -> r.getReturnCode() != null)
-                                                .collect(Collectors.toMap(
-                                                                r -> r.getSalesOrder().getId(),
-                                                                ReturnOrder::getReturnCode,
-                                                                (first, latest) -> latest));
+                                : collectRelatedDocuments(orderIds);
 
                 // Tổng đã trả nợ
                 Map<Integer, BigDecimal> debtPaidByOrderId = orderIds.isEmpty()
@@ -534,7 +530,7 @@ public class SalesOrderService {
                 List<SalesOrderListResponse.Item> items = pg.getContent().stream()
                                 .map(o -> toHistoryItem(
                                                 o,
-                                                returnCodeByOrderId.get(o.getId()),
+                                                relatedByOrderId.getOrDefault(o.getId(), List.of()),
                                                 debtPaidByOrderId.getOrDefault(o.getId(), BigDecimal.ZERO),
                                                 now))
                                 .toList();
@@ -552,8 +548,41 @@ public class SalesOrderService {
          * Một dòng lịch sử hóa đơn. Thông tin công nợ chỉ được tính cho hóa đơn
          * bán nợ; đơn trả tiền ngay để null để FE không hiện badge nợ.
          */
+        /**
+         * Gom phiếu trả (ReturnOrder) và đơn đổi (SalesOrder có originalSalesOrderId)
+         * của cả trang về theo hóa đơn gốc, trong hai query thay vì N+1.
+         */
+        private Map<Integer, List<SalesOrderListResponse.RelatedDocument>> collectRelatedDocuments(
+                        List<Integer> orderIds) {
+                Map<Integer, List<SalesOrderListResponse.RelatedDocument>> byOrderId = new HashMap<>();
+
+                for (ReturnOrder r : returnOrderRepository.findAllBySalesOrderIds(orderIds)) {
+                        byOrderId.computeIfAbsent(r.getSalesOrder().getId(), k -> new ArrayList<>())
+                                        .add(SalesOrderListResponse.RelatedDocument.builder()
+                                                        .id(r.getId())
+                                                        .code(r.getReturnCode())
+                                                        .type("RETURN")
+                                                        .createdAt(r.getCreatedAt())
+                                                        .amount(r.getRefundAmount())
+                                                        .build());
+                }
+
+                for (SalesOrder e : salesOrderRepository.findByOriginalSalesOrderIds(orderIds)) {
+                        byOrderId.computeIfAbsent(e.getOriginalSalesOrderId(), k -> new ArrayList<>())
+                                        .add(SalesOrderListResponse.RelatedDocument.builder()
+                                                        .id(e.getId())
+                                                        .code(e.getOrderCode())
+                                                        .type("EXCHANGE")
+                                                        .createdAt(e.getCreatedAt())
+                                                        .amount(e.getTotalAmount())
+                                                        .build());
+                }
+
+                return byOrderId;
+        }
+
         private SalesOrderListResponse.Item toHistoryItem(SalesOrder o,
-                        String returnCode,
+                        List<SalesOrderListResponse.RelatedDocument> relatedDocuments,
                         BigDecimal debtPaid,
                         Instant now) {
                 boolean isDebt = Boolean.TRUE.equals(o.getIsDebt());
@@ -564,7 +593,7 @@ public class SalesOrderService {
                 return SalesOrderListResponse.Item.builder()
                                 .id(o.getId())
                                 .orderCode(o.getOrderCode())
-                                .returnCode(returnCode)
+                                .relatedDocuments(relatedDocuments)
                                 .createdAt(o.getCreatedAt())
                                 .customerName(o.getCustomer() != null ? o.getCustomer().getFullName() : null)
                                 .customerPhone(o.getCustomer() != null ? o.getCustomer().getPhoneNumber() : null)
@@ -582,18 +611,13 @@ public class SalesOrderService {
         }
 
         /**
-         * Khách bị xóa (OnDelete SET_NULL) hoặc đơn nợ dữ liệu cũ không có khách
+         * Khách bị xóa hoặc đơn nợ dữ liệu cũ không có khách
          * thì coi như không cần rà soát — không có ai để rà.
          */
         private boolean isCustomerDebtUnstable(Customer customer) {
                 return customer != null && Boolean.TRUE.equals(customer.getIsCheckUnstableDebt());
         }
 
-        /**
-         * Bộ lọc khớp chính xác (orderStatus, paymentMethod): chuỗi rỗng nghĩa là
-         * "không lọc", không phải "lọc lấy giá trị rỗng" — FE gửi "" khi người dùng
-         * bỏ chọn.
-         */
         private String toExactFilter(String value) {
                 return (value == null || value.isBlank()) ? null : value.trim();
         }

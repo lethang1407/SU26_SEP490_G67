@@ -328,11 +328,36 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    /* Cho phép xuống dòng để dòng nợ còn lại nằm gọn trong cùng khung với số tiền
+       mặt, thay vì bị nhồi thành cột thứ ba chen giữa nhãn và số. */
+    flex-wrap: wrap;
     gap: 12px;
     margin-top: 16px;
     padding: 14px 16px;
     border-radius: 8px;
     border: 1px solid transparent;
+}
+
+/* Chiếm trọn chiều ngang nên luôn tự rớt xuống hàng dưới */
+.exch-net-debt {
+    flex: 0 0 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-top: -2px;
+    padding-top: 10px;
+    border-top: 1px dashed currentColor;
+    font-size: 13px;
+    font-weight: 600;
+    /* Khung đổi màu theo hướng tiền (đỏ/xanh/xám); dòng nợ mượn màu đó nhưng nhạt
+       hơn để không tranh chỗ với con số tiền mặt cỡ 26px ngay trên. */
+    opacity: 0.75;
+}
+
+.exch-net-debt-value {
+    white-space: nowrap;
+    font-weight: 700;
 }
 
 .exch-net-label {
@@ -375,15 +400,6 @@
 
 .exch-result-body .exch-net-row {
     margin-top: 12px;
-}
-
-.exch-no-money-note {
-    padding: 12px;
-    border-radius: 6px;
-    background-color: #f9fafb;
-    border: 1px solid var(--pos-line);
-    font-size: 13px;
-    color: #6b7280;
 }
 
 .refund-method-error {

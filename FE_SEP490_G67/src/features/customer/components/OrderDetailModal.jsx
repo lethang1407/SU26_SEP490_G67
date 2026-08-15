@@ -106,9 +106,13 @@ export default function OrderDetailModal({ show, onHide, orderId }) {
                                 <p><FiTag className="me-2" />Mã đơn: <strong>{orderDetail.orderCode}</strong></p>
                                 <p><FiCalendar className="me-2" />Ngày tạo: {formatDateTime(orderDetail.createdAt)}</p>
                                 <p><FiDollarSign className="me-2" />Tổng tiền: <strong>{formatCurrency(orderDetail.totalAmount)}</strong></p>
-                                <p><FiPackage className="me-2" />Trạng thái: {getOrderStatusBadge(orderDetail.orderStatus)}</p>
-                                <p><FiRefreshCcw className="me-2" />Thanh toán: {getPaymentMethodLabel(orderDetail.paymentMethod)}</p>
-                                {orderDetail.isDebt && <p><Badge bg="danger">Đơn nợ</Badge></p>}
+                                {orderDetail.isDebt && (
+                                    <>
+                                        <p className="text-success"><FiDollarSign className="me-2" />Đã trả: <strong>{formatCurrency(orderDetail.paidAmount)}</strong></p>
+                                    </>
+                                )}
+                                <p><FiPackage className="me-2" />Trạng thái đơn: {getOrderStatusBadge(orderDetail.orderStatus)}</p>
+                                <p><FiRefreshCcw className="me-2" />Thanh toán: {orderDetail.isDebt && <Badge bg="danger">Đơn nợ</Badge>}</p>
                             </Col>
                             <Col md={6}>
                                 <h5>Thông tin khách hàng</h5>

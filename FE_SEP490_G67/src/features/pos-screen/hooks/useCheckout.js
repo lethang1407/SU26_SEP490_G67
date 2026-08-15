@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import { getCustomerByPhone, createInvoice, createDebtInvoice, getInvoiceData } from '../api';
-import { printInvoice } from '../utils/printInvoice';
 import { hasLocationProblem, toStockPicks } from '../utils/cartLocation';
 import { debtBlockReason } from '../utils/debtStatus';
 
@@ -33,17 +32,12 @@ export function useCheckout() {
                 setInvoiceType('not_found');
             }
             return found;
-        } catch (err) {
+        } catch {
             setError('Lỗi tra cứu khách hàng. Vui lòng thử lại.');
             return null;
         }
     }, []);
 
-    /**
-     * Gắn khách vào đơn. Xóa luôn ô tìm kiếm: khách đã chọn được hiển thị ở
-     * thẻ tình trạng công nợ bên dưới rồi, để lại số điện thoại trong ô đang
-     * bị khóa chỉ làm thu ngân tưởng còn gõ tiếp được.
-     */
     const attachCustomer = useCallback((customerObj) => {
         setCustomer(customerObj);
         setInvoiceType('found');
@@ -57,12 +51,7 @@ export function useCheckout() {
         setError(null);
     }, []);
 
-    /**
-     * @param {object} [debtInfo] - chỉ dùng khi paymentMethod === 'debt'
-     * @param {number} debtInfo.paidAmount - tiền trả trước, 0 = nợ toàn bộ
-     * @param {string} debtInfo.dueDate - hạn trả, dạng yyyy-MM-dd từ input date
-     */
-    const submitCheckout = useCallback(async (cartItems, paymentMethod, debtInfo) => {
+    const submitCheckout = useCallback(async (cartItems, paymentMethod, debtInfo, note) => {
         if (!cartItems || cartItems.length === 0) {
             setError('Giỏ hàng trống. Vui lòng thêm sản phẩm.');
             return { ok: false };
@@ -98,6 +87,7 @@ export function useCheckout() {
             const payload = {
                 paymentMethod: paymentMethod.toUpperCase(),
                 discountAmount,
+                note: note?.trim() ? note.trim() : null,
                 items: cartItems.map((item) => ({
                     productId: item.productId,
                     // Lô-tại-ô thu ngân đã tick là một phần của đơn: BE không
@@ -125,9 +115,16 @@ export function useCheckout() {
                 invoice = await createInvoice(payload);
             }
 
-            const invoiceData = await getInvoiceData(invoice.id);
-            if (invoiceData) printInvoice(invoiceData);
-            return { ok: true, order: invoice, customer };
+            // Không in thẳng nữa: POS mở màn xem trước hóa đơn, thu ngân tự quyết
+            // in hay hủy. Vẫn nạp sẵn dữ liệu ở đây để nút "In" không phải chờ.
+            let invoiceData = null;
+            try {
+                invoiceData = await getInvoiceData(invoice.id);
+            } catch {
+                // Đơn đã lưu xong rồi — không lấy được bản in thì vẫn coi là thành công,
+                // màn hóa đơn sẽ tự tải lại khi bấm In.
+            }
+            return { ok: true, order: invoice, invoice: invoiceData, customer };
         } catch (err) {
             const message = err.response?.data?.message || 'Thanh toán thất bại. Vui lòng thử lại.';
             setError(message);

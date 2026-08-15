@@ -29,6 +29,7 @@ import EditCustomerModal from "../components/EditCustomerModal";
 import CreatePaymentModal from "../components/CreatePaymentModal";
 import ConfirmationModal from "../components/ConfirmationModal";
 import CustomerPaymentHistory from "../components/CustomerPaymentHistory";
+import OrderDetailModal from "../components/OrderDetailModal";
 import "../../../css/CustomerDetail.css";
 
 const formatCurrency = (value) => {
@@ -72,7 +73,7 @@ const getStatusBadge = (status) => {
 export default function CustomerDetailPage() {
   const { customerId } = useParams();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [customer, setCustomer] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -86,7 +87,9 @@ export default function CustomerDetailPage() {
   });
   const [refreshKey, setRefreshKey] = useState(0);
   const [activeTab, setActiveTab] = useState('invoice');
-  const [initialOrderId, setInitialOrderId] = useState(null);
+
+  const [showOrderDetailModal, setShowOrderDetailModal] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState(null);
 
   const fetchCustomer = async () => {
     setIsLoading(true);
@@ -109,8 +112,9 @@ export default function CustomerDetailPage() {
 
     // Lấy orderId từ URL để mở modal chi tiết hóa đơn
     const orderToOpen = searchParams.get('openOrder');
-    if (orderToOpen) {
-      setInitialOrderId(orderToOpen);
+    if (orderToOpen && !showOrderDetailModal) {
+      setSelectedOrderId(orderToOpen);
+      setShowOrderDetailModal(true);
     }
   }, [customerId, refreshKey]);
 
@@ -139,6 +143,17 @@ export default function CustomerDetailPage() {
     // Trigger re-fetch for all components that depend on this key
     setRefreshKey(prev => prev + 1);
   };
+
+  const handleShowOrderDetail = (orderId) => {
+    setSelectedOrderId(orderId);
+    setShowOrderDetailModal(true);
+  };
+
+  const handleHideOrderDetail = () => {
+    setShowOrderDetailModal(false);
+    searchParams.delete('openOrder');
+    setSearchParams(searchParams, { replace: true });
+  }
 
   const handleAllowDebtChange = async (e) => {
     const isChecked = e.target.checked;
@@ -400,7 +415,11 @@ export default function CustomerDetailPage() {
               <div className="customer-detail-tabs__panel" role="tabpanel">
                 {activeTab === 'invoice' && (
                   <div className="p-4">
-                    <CustomerDebtInvoices customerId={customerId} refreshKey={refreshKey} initialOrderId={initialOrderId} />
+                    <CustomerDebtInvoices
+                      customerId={customerId}
+                      refreshKey={refreshKey}
+                      onShowDetail={handleShowOrderDetail}
+                    />
                   </div>
                 )}
                 {activeTab === 'history' && (
@@ -425,6 +444,12 @@ export default function CustomerDetailPage() {
           onHide={() => setShowPaymentModal(false)}
           onSuccess={handlePaymentSuccess}
           customer={customer}
+        />
+
+        <OrderDetailModal
+          show={showOrderDetailModal}
+          onHide={handleHideOrderDetail}
+          orderId={selectedOrderId}
         />
 
         <ConfirmationModal

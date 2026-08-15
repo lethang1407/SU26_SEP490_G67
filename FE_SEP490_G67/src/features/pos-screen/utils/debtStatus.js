@@ -13,15 +13,18 @@ const LEVEL_META = {
 };
 
 /**
- * Đỏ   = bị cấm nợ, hoặc đang có đơn quá hạn -> không được ghi nợ thêm
- * Vàng = đang nợ nhưng còn trong hạn -> cho nợ, cần xác nhận
+ * Đỏ   = bị cấm nợ (allowDebt = false) -> không được ghi nợ thêm
+ * Vàng = đang nợ, kể cả khi có đơn quá hạn -> vẫn cho nợ, cần xác nhận
  * Xanh = không nợ -> cho nợ
  */
 export function debtLevel(customer) {
     if (!customer) return null;
     if (customer.allowDebt === false) return DEBT_LEVEL.RED;
-    if (customer.debtStatus === 'OVERDUE' || customer.isOverdue === true) return DEBT_LEVEL.RED;
-    if (customer.debtStatus === 'IN_DEBT') return DEBT_LEVEL.YELLOW;
+    if (customer.debtStatus === 'IN_DEBT'
+        || customer.debtStatus === 'OVERDUE'
+        || customer.isOverdue === true) {
+        return DEBT_LEVEL.YELLOW;
+    }
     return DEBT_LEVEL.GREEN;
 }
 
@@ -61,15 +64,24 @@ export function debtSummaryText(customer) {
     return parts.join(' · ');
 }
 
-/** Lý do không cho ghi nợ, để hiện tooltip và banner. Null nghĩa là được phép. */
+/**
+ * Lý do không cho ghi nợ, để hiện tooltip và banner. Null nghĩa là được phép.
+ * Chỉ còn một lý do chặn: khách bị đánh dấu không được phép mua nợ.
+ */
 export function debtBlockReason(customer) {
     if (!customer) return 'Đơn nợ phải có thông tin khách hàng.';
     if (customer.allowDebt === false) return `${customer.fullName} không được phép mua nợ.`;
-    if (debtLevel(customer) === DEBT_LEVEL.RED) {
-        const overdue = Number(customer.totalOverdueOrders ?? 0);
-        return overdue > 0
-            ? `${customer.fullName} đang có ${overdue} đơn nợ quá hạn, phải thu nợ trước khi bán nợ tiếp.`
-            : `${customer.fullName} đang có đơn nợ quá hạn.`;
-    }
     return null;
+}
+
+/**
+ * Cảnh báo (không chặn) khi khách còn đơn quá hạn — thu ngân vẫn ghi nợ được,
+ * nhưng nên biết để nhắc khách trả nợ cũ.
+ */
+export function debtOverdueWarning(customer) {
+    if (!isOverdueCustomer(customer)) return null;
+    const overdue = Number(customer.totalOverdueOrders ?? 0);
+    return overdue > 0
+        ? `${customer.fullName} đang có ${overdue} đơn nợ quá hạn — nên nhắc khách thu xếp trả nợ cũ.`
+        : `${customer.fullName} đang có đơn nợ quá hạn — nên nhắc khách thu xếp trả nợ cũ.`;
 }

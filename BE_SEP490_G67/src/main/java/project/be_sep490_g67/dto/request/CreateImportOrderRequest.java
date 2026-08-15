@@ -3,7 +3,6 @@ package project.be_sep490_g67.dto.request;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -21,7 +20,6 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CreateImportOrderRequest {
 
-    @NotNull(message = "Nhà cung cấp không được để trống")
     Integer supplierId;
 
     /** DRAFT | IMPORTED */
@@ -42,7 +40,9 @@ public class CreateImportOrderRequest {
 
     String paymentMethod;
 
-    @NotEmpty(message = "Phiếu nhập phải có ít nhất một sản phẩm")
+    /** Dòng đổi/trả đang chờ (WAITING_SUPPLIER) gắn vào phiếu này. */
+    List<Integer> returnLineIds;
+
     @Valid
     List<LineItem> lines;
 

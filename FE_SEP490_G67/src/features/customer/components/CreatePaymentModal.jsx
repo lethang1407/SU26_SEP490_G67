@@ -19,7 +19,7 @@ const suggestionAmounts = [5000, 10000, 20000, 50000, 100000, 200000, 500000];
 export default function CreatePaymentModal({ show, onHide, onSuccess, customer }) {
     const [orders, setOrders] = useState([]);
     const [loadingOrders, setLoadingOrders] = useState(false);
-    const [selectedOrderId, setSelectedOrderId] = useState('');
+    const [selectedOrderIds, setSelectedOrderIds] = useState([]);
     const [amount, setAmount] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('CASH');
     const [note, setNote] = useState('');
@@ -32,7 +32,7 @@ export default function CreatePaymentModal({ show, onHide, onSuccess, customer }
         if (!show || !customer?.id) return;
 
         // Reset form state when modal opens
-        setSelectedOrderId('');
+        setSelectedOrderIds([]);
         setAmount('');
         setNote('');
         setPaymentMethod('CASH');
@@ -43,8 +43,10 @@ export default function CreatePaymentModal({ show, onHide, onSuccess, customer }
         const fetchOrders = async () => {
             setLoadingOrders(true);
             try {
-                const data = await getCustomerDebtOrders(customer.id, { size: 100, status: 'UNPAID' });
-                setOrders(data?.content || []);
+                const data = await getCustomerDebtOrders(customer.id, { size: 100, status: 'IN_DEBT' });
+                // Lọc chỉ lấy những đơn hàng còn nợ > 0
+                const filteredOrders = (data?.content || []).filter(order => order.amountRemaining > 0);
+                setOrders(filteredOrders);
             } catch (error) {
                 console.error("Failed to fetch debt orders:", error);
                 setApiError("Không thể tải danh sách hóa đơn nợ.");
@@ -56,35 +58,51 @@ export default function CreatePaymentModal({ show, onHide, onSuccess, customer }
         fetchOrders();
     }, [show, customer?.id]);
 
-    const selectedOrder = useMemo(
-        () => orders.find((order) => String(order.id) === String(selectedOrderId)) || null,
-        [orders, selectedOrderId]
+    const handleOrderSelectionChange = (orderId) => {
+        setSelectedOrderIds(prev =>
+            prev.includes(orderId)
+                ? prev.filter(id => id !== orderId)
+                : [...prev, orderId]
+        );
+        setClientError('');
+    };
+
+    const selectedOrders = useMemo(
+        () => orders.filter(order => selectedOrderIds.includes(order.id)),
+        [orders, selectedOrderIds]
+    );
+
+    const totalRemainingDebt = useMemo(
+        () => selectedOrders.reduce((sum, order) => sum + order.amountRemaining, 0),
+        [selectedOrders]
     );
 
     const parsedAmount = Number(String(amount).replace(/\D/g, '')) || 0;
-    const remainingAfterPayment = selectedOrder ? Math.max(selectedOrder.amountRemaining - parsedAmount, 0) : 0;
-    const changeToCustomer = selectedOrder ? Math.max(0, parsedAmount - selectedOrder.amountRemaining) : 0;
+    const remainingAfterPayment = Math.max(totalRemainingDebt - parsedAmount, 0);
 
     const handleSubmit = async (event) => {
         event.preventDefault();
         setClientError('');
         setApiError('');
 
-        if (!selectedOrder) {
-            setClientError('Vui lòng chọn hóa đơn cần thu nợ.');
+        if (selectedOrderIds.length === 0) {
+            setClientError('Vui lòng chọn ít nhất một hóa đơn để thanh toán.');
             return;
         }
         if (parsedAmount <= 0) {
             setClientError('Số tiền thu phải lớn hơn 0.');
             return;
         }
+        if (parsedAmount > totalRemainingDebt) {
+            setClientError(`Số tiền không được vượt quá tổng nợ đã chọn (${formatCurrency(totalRemainingDebt)}).`);
+            return;
+        }
 
         setIsSubmitting(true);
         try {
-            const actualPayment = Math.min(parsedAmount, selectedOrder.amountRemaining);
             await createDebtPayment({
-                orderId: selectedOrder.id,
-                amountPaid: actualPayment,
+                salesOrderIds: selectedOrderIds,
+                amountPaid: parsedAmount,
                 paymentMethod,
                 note: note.trim(),
             });
@@ -112,26 +130,23 @@ export default function CreatePaymentModal({ show, onHide, onSuccess, customer }
                     <Form.Group as={Row} className="mb-3 align-items-center">
                         <Form.Label column sm={4}>Chọn hóa đơn nợ <span className="text-danger">*</span></Form.Label>
                         <Col sm={8}>
-                            <Form.Select
-                                value={selectedOrderId}
-                                onChange={(e) => {
-                                    setSelectedOrderId(e.target.value);
-                                    setAmount('');
-                                    setClientError('');
-                                }}
-                                disabled={loadingOrders || orders.length === 0 || isSubmitting}
-                                required
-                            >
-                                <option value="">{loadingOrders ? 'Đang tải...' : '-- Chọn hóa đơn --'}</option>
-                                {orders.map((order) => (
-                                    <option key={order.id} value={order.id}>
-                                        {`${order.orderCode} - Nợ: ${formatCurrency(order.amountRemaining)}`}
-                                    </option>
+                            <div className="border rounded p-2" style={{ maxHeight: '150px', overflowY: 'auto' }}>
+                                {loadingOrders && <Spinner size="sm" />}
+                                {!loadingOrders && orders.length > 0 && orders.map((order) => (
+                                    <Form.Check
+                                        key={order.id}
+                                        type="checkbox"
+                                        id={`order-${order.id}`}
+                                        label={`${order.orderCode} - Nợ: ${formatCurrency(order.amountRemaining)}`}
+                                        checked={selectedOrderIds.includes(order.id)}
+                                        onChange={() => handleOrderSelectionChange(order.id)}
+                                        disabled={isSubmitting}
+                                    />
                                 ))}
-                            </Form.Select>
-                            {!loadingOrders && orders.length === 0 && (
-                                <Form.Text className="text-muted">Khách hàng này không có hóa đơn nào chưa thanh toán.</Form.Text>
-                            )}
+                                {!loadingOrders && orders.length === 0 && (
+                                    <Form.Text className="text-muted">Khách hàng này không có hóa đơn nào chưa thanh toán.</Form.Text>
+                                )}
+                            </div>
                         </Col>
                     </Form.Group>
 
@@ -147,7 +162,7 @@ export default function CreatePaymentModal({ show, onHide, onSuccess, customer }
                                     setAmount(formatAmountInput(e.target.value));
                                     setClientError('');
                                 }}
-                                disabled={!selectedOrder || isSubmitting}
+                                disabled={selectedOrderIds.length === 0 || isSubmitting}
                                 required
                             />
                         </Col>
@@ -159,11 +174,9 @@ export default function CreatePaymentModal({ show, onHide, onSuccess, customer }
                                 <Button
                                     variant="outline-success"
                                     size="sm"
-                                    disabled={!selectedOrder || isSubmitting}
+                                    disabled={selectedOrderIds.length === 0 || isSubmitting}
                                     onClick={() => {
-                                        if (selectedOrder) {
-                                            setAmount(formatAmountInput(String(selectedOrder.amountRemaining)));
-                                        }
+                                        setAmount(formatAmountInput(String(totalRemainingDebt)));
                                     }}
                                 >
                                     Trả hết nợ
@@ -173,7 +186,7 @@ export default function CreatePaymentModal({ show, onHide, onSuccess, customer }
                                         key={suggAmount}
                                         variant="outline-secondary"
                                         size="sm"
-                                        disabled={!selectedOrder || isSubmitting}
+                                        disabled={selectedOrderIds.length === 0 || isSubmitting}
                                         onClick={() => {
                                             const newAmount = parsedAmount + suggAmount;
                                             setAmount(formatAmountInput(String(newAmount)));
@@ -206,19 +219,14 @@ export default function CreatePaymentModal({ show, onHide, onSuccess, customer }
                     <hr />
 
                     <div className="mt-3">
-                        <Row className="mb-2"><Col sm={4} className="text-muted">Nợ của đơn</Col><Col sm={8}><strong>{selectedOrder ? formatCurrency(selectedOrder.amountRemaining) : '—'}</strong></Col></Row>
+                        <Row className="mb-2"><Col sm={4} className="text-muted">Tổng nợ đã chọn</Col><Col sm={8}><strong>{formatCurrency(totalRemainingDebt)}</strong></Col></Row>
                         <Row className="mb-2"><Col sm={4} className="text-muted">Số tiền khách đưa</Col><Col sm={8}><strong>{formatCurrency(parsedAmount)}</strong></Col></Row>
-                        <Row className="mb-2"><Col sm={4} className="text-muted">Nợ còn lại</Col><Col sm={8}><strong className="text-danger">{selectedOrder ? formatCurrency(remainingAfterPayment) : '—'}</strong></Col></Row>
-                        {changeToCustomer > 0 && (
-                            <Row className="mt-3 pt-2 border-top">
-                                <Col sm={4} className="text-muted fw-bold">Tiền trả lại khách</Col><Col sm={8}><strong className="text-success fs-5">{formatCurrency(changeToCustomer)}</strong></Col>
-                            </Row>
-                        )}
+                        <Row className="mb-2"><Col sm={4} className="text-muted">Nợ còn lại</Col><Col sm={8}><strong className="text-danger">{formatCurrency(remainingAfterPayment)}</strong></Col></Row>
                     </div>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={onHide} disabled={isSubmitting}>Hủy</Button>
-                    <Button variant="primary" type="submit" disabled={!selectedOrder || isSubmitting}>
+                    <Button variant="primary" type="submit" disabled={selectedOrderIds.length === 0 || isSubmitting}>
                         {isSubmitting ? <><Spinner as="span" size="sm" /> Đang xử lý...</> : 'Xác nhận thu nợ'}
                     </Button>
                 </Modal.Footer>

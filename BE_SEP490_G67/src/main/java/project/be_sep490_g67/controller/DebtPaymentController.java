@@ -7,10 +7,13 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
+import project.be_sep490_g67.dto.request.BatchDebtPaymentRequest;
 import project.be_sep490_g67.dto.request.DebtPaymentRequest;
 import project.be_sep490_g67.dto.response.ApiResponse;
+import project.be_sep490_g67.dto.response.BatchDebtPaymentResponse;
 import project.be_sep490_g67.dto.response.DebtPaymentHistoryResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
+import project.be_sep490_g67.dto.response.TodaysDebtPaymentSummaryResponse;
 import project.be_sep490_g67.service.DebtPaymentService;
 
 import java.time.LocalDate;
@@ -29,6 +32,15 @@ public class DebtPaymentController {
         return ApiResponse.<DebtPaymentHistoryResponse>builder()
                 .result(result)
                 .message("Tạo thanh toán công nợ thành công")
+                .build();
+    }
+
+    @PostMapping("/batch")
+    public ApiResponse<BatchDebtPaymentResponse> createBatchDebtPayment(@Valid @RequestBody BatchDebtPaymentRequest request) {
+        BatchDebtPaymentResponse result = debtPaymentService.createBatchDebtPayment(request);
+        return ApiResponse.<BatchDebtPaymentResponse>builder()
+                .result(result)
+                .message("Thanh toán công nợ thành công")
                 .build();
     }
 
@@ -52,12 +64,12 @@ public class DebtPaymentController {
     }
 
     @GetMapping("/today")
-    public ApiResponse<PageResponse<DebtPaymentHistoryResponse>> getTodaysDebtPayments(
+    public ApiResponse<PageResponse<TodaysDebtPaymentSummaryResponse>> getTodaysDebtPayments(
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer size
     ) {
-        PageResponse<DebtPaymentHistoryResponse> result = debtPaymentService.getTodaysDebtPayments(page, size);
-        return ApiResponse.<PageResponse<DebtPaymentHistoryResponse>>builder()
+        PageResponse<TodaysDebtPaymentSummaryResponse> result = debtPaymentService.getTodaysDebtPayments(page, size);
+        return ApiResponse.<PageResponse<TodaysDebtPaymentSummaryResponse>>builder()
                 .result(result)
                 .message("Lấy danh sách thu nợ trong ngày thành công")
                 .build();

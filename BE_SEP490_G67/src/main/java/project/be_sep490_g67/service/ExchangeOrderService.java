@@ -376,14 +376,12 @@ public class ExchangeOrderService {
     }
 
     /**
-     * Quyết toán tiền của phiếu đổi/trả theo mô hình bốn bước của nhóm quyết định F.
+     * Quyết toán tiền của phiếu đổi/trả.
      *
-     * <pre>
      * B1. Cấn trừ nợ hóa đơn gốc:  offset = min(V, R)     → ghi DebtPayment
      * B2. Credit tiền mặt:         credit = V - offset     ← đây mới là tiền THẬT của khách
      * B3. Trả cho hàng đổi ra:     dùng   = min(credit, X) → đơn đổi paidAmount = dùng
      * B4. Dư credit → hoàn tiền mặt;  thiếu → ghi nợ (đơn nợ) hoặc thu tiền (đơn thường)
-     * </pre>
      *
      * <p><b>Vì sao cấn trừ nợ trước:</b> hàng trên đơn nợ chưa phải tiền của khách, nó là khoản
      * nợ khách đang gánh. Trả hàng đó về thì việc đầu tiên là xóa phần nợ nó sinh ra, chứ không
@@ -662,10 +660,7 @@ public class ExchangeOrderService {
     }
 
     /**
-     * Hạn đổi trả hết vào <b>cuối ngày</b> thứ N sau ngày mua, không phải đúng N×24 giờ:
-     * mua 15h ngày 09/08 với hạn 4 ngày thì trả được tới hết ngày 13/08, chứ không phải
-     * tới 15h ngày 13/08. Tính theo giờ tròn khiến khách mua buổi chiều bị ít hơn khách
-     * mua buổi sáng gần một ngày, và thu ngân không có cách nào giải thích ở quầy.
+     * Hạn đổi trả hết vào <b>cuối ngày</b> thứ N sau ngày mua.
      */
     private boolean isReturnWindowExpired(SalesOrder order) {
         Instant deadline = returnDeadline(order);
@@ -674,8 +669,7 @@ public class ExchangeOrderService {
 
     /**
      * Thời điểm hết hạn đổi trả của một hóa đơn, null khi cửa hàng không đặt hạn hoặc đơn
-     * chưa có ngày tạo. Tách riêng để màn đổi trả hiển thị được hạn cho thu ngân thay vì
-     * chỉ biết "quá hạn rồi" sau khi bấm gửi.
+     * chưa có ngày tạo.
      */
     private Instant returnDeadline(SalesOrder order) {
         Integer windowDays = storeConfigRepository.findFirstByOrderByIdAsc()
@@ -696,9 +690,7 @@ public class ExchangeOrderService {
     }
 
     /**
-     * Quá hạn là cấm hẳn, kể cả hàng hỏng hay hết hạn. Trước đây
-     * {@code ItemCondition.overridesNonReturnablePolicy()} cho hai tình trạng đó vượt rào;
-     * quyết định A1 (13/08) bỏ lối này, mọi ngoại lệ do nhân viên xử lý ngoài hệ thống.
+     * Quá hạn là cấm hẳn, kể cả hàng hỏng hay hết hạn.
      */
     private void assertWithinReturnWindow(SalesOrder order) {
         if (isReturnWindowExpired(order)) {
@@ -773,11 +765,6 @@ public class ExchangeOrderService {
         stockMovementRepository.save(movement);
     }
 
-    /**
-     * Hàng gắn cờ cấm trả thì khoá cứng, không còn ngoại lệ cho hỏng/hết hạn (quyết định A2,
-     * 13/08). Khách vẫn có thể nài ở quầy, nhưng đó là việc nhân viên từ chối bằng miệng —
-     * phần mềm không có nút nào cho việc đó.
-     */
     private void assertProductIsReturnable(SalesOrderDetail soldLine) {
         Boolean returnable = soldLine.getProduct().getIsReturnable();
         if (returnable != null && !returnable) {

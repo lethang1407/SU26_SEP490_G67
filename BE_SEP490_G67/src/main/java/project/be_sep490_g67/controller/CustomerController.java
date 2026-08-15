@@ -8,12 +8,14 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.request.CustomerRequest;
+import project.be_sep490_g67.dto.request.UpdateCustomerUnstableDebtRequest;
 import project.be_sep490_g67.dto.response.*;
 import project.be_sep490_g67.enums.DebtStatus;
 import project.be_sep490_g67.service.CustomerService;
 import project.be_sep490_g67.service.DebtPaymentService;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping(ApiPath.CUSTOMERS)
@@ -98,10 +100,21 @@ public class CustomerController {
                 .build();
     }
 
+    @PatchMapping("/{id}/check-unstable-debt")
+    public ApiResponse<CustomerResponse> updateCustomerUnstableDebt(
+            @PathVariable Integer id,
+            @Valid @RequestBody UpdateCustomerUnstableDebtRequest request
+    ) {
+        return ApiResponse.<CustomerResponse>builder()
+                .result(customerService.updateCustomerUnstableDebt(id, request))
+                .message("Cập nhật trạng thái kiểm tra công nợ thành công")
+                .build();
+    }
+
     @GetMapping("/today-debt-summary")
-    public ApiResponse<TodaysDebtSalesSummaryResponse> getTodaysDebtSalesSummary() {
-        TodaysDebtSalesSummaryResponse result = customerService.getTodaysDebtSalesSummary();
-        return ApiResponse.<TodaysDebtSalesSummaryResponse>builder()
+    public ApiResponse<List<TodaysDebtSalesSummaryResponse>> getTodaysDebtSalesSummary() {
+        List<TodaysDebtSalesSummaryResponse> result = customerService.getTodaysDebtSalesSummary();
+        return ApiResponse.<List<TodaysDebtSalesSummaryResponse>>builder()
                 .result(result)
                 .message("Lấy tổng hợp bán nợ trong ngày thành công")
                 .build();

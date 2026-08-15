@@ -46,6 +46,11 @@ public class DebtPolicy {
     /**
      * Điều kiện để được ghi nợ. Màu trạng thái trên POS chỉ là gợi ý cho thu ngân;
      * quyết định cuối cùng nằm ở đây vì FE có thể bị bỏ qua bằng cách gọi thẳng API.
+     *
+     * <p>Nợ quá hạn KHÔNG còn chặn bán nợ: cửa hàng vẫn bán tiếp cho khách quen đang
+     * trễ hạn, việc thu nợ cũ xử lý riêng. Cửa chặn duy nhất còn lại là cờ
+     * {@code allowDebt} do quản lý đặt trên hồ sơ khách. {@link #hasOverdueDebt} vẫn
+     * giữ lại vì các nghiệp vụ khác (đổi/trả) còn dùng để cảnh báo.
      */
     public void validateDebtSale(Customer customer, Instant dueDate, Instant now) {
         if (customer == null) {
@@ -60,13 +65,10 @@ public class DebtPolicy {
         if (!dueDate.isAfter(now)) {
             throw new AppException(ErrorCode.DEBT_DUE_DATE_IN_PAST);
         }
-        if (hasOverdueDebt(customer.getId(), now)) {
-            throw new AppException(ErrorCode.CUSTOMER_HAS_OVERDUE_DEBT);
-        }
     }
 
     /**
-     * Khách còn đơn nợ nào quá hạn mà chưa trả hết không. Query JPQL chỉ lọc theo
+     * Kiểm tra khách còn đơn nợ nào quá hạn mà chưa trả hết không lọc theo
      * {@code dueDate < now}; phần "còn nợ bao nhiêu" để {@link DebtCalculator} tính ở tầng
      * service, tránh nhúng công thức nợ vào JPQL thêm một lần nữa.
      */
