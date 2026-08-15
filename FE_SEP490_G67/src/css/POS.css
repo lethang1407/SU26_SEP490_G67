@@ -6,7 +6,7 @@
     --pos-line: #e5e7eb;
 }
 
-/* Layout tá»•ng thá»ƒ */
+/* Layout tổng */
 .pos-container {
     display: flex;
     flex-direction: column;
@@ -198,7 +198,7 @@
     cursor: pointer;
 }
 
-/* Pháº§n ná»™i dung chÃ­nh */
+/* các nội dung chính */
 .pos-main {
     display: flex;
     flex: 1;
@@ -206,7 +206,6 @@
     overflow: hidden;
 }
 
-/* Cá»™t trÃ¡i: Giá» hÃ ng */
 .pos-cart-section {
     flex: 1;
     display: flex;
@@ -352,14 +351,12 @@
     border-color: #2563eb;
 }
 
-/* Tá»“n kho hiá»ƒn thá»‹ ngay dÆ°á»›i tÃªn hÃ ng */
 .cart-stock-line {
     margin-top: 2px;
     font-size: 12px;
     color: #6b7280;
 }
 
-/*Chá»n Ã´ láº¥y hÃ ng (tick Ä‘Æ°á»£c nhiá»u Ã´) */
 .loc-picker {
     position: relative;
     /* max-width: 220px; */
@@ -542,7 +539,6 @@
     font-size: 16px;
 }
 
-/* DÃ²ng tá»•ng tiá»n hÃ ng */
 .summary-row--total {
     margin-bottom: 20px;
 }
@@ -670,7 +666,6 @@
     background-color: #eff6ff;
 }
 
-/* NÃºt thanh toÃ¡n */
 .payment-footer {
     padding: 16px;
     background-color: white;
@@ -695,7 +690,6 @@
     transition: background-color 0.2s;
 }
 
-/* Bá»‹ khÃ³a vÃ¬ khÃ¡ch ná»£ quÃ¡ háº¡n*/
 .btn-checkout:disabled {
     cursor: not-allowed;
     opacity: 0.6;
@@ -705,7 +699,6 @@
     background-color: #1d4ed8;
 }
 
-/* LÃ´ hÃ ng column */
 .batch-cell {
     color: black;
     background-color: #f5f3ff;
@@ -1215,7 +1208,6 @@
     text-overflow: ellipsis;
 }
 
-/* Tráº¡ng thÃ¡i cÃ´ng ná»£ khÃ¡ch hÃ ng: Ä‘á» / vÃ ng / xanh  */
 .debt-dot {
     flex-shrink: 0;
     width: 9px;
@@ -1235,7 +1227,6 @@
     background-color: #dc2626;
 }
 
-/* KhÃ¡ch khÃ´ng Ä‘Æ°á»£c ghi ná»£: váº«n tháº¥y Ä‘Æ°á»£c nhÆ°ng khÃ´ng chá»n Ä‘Æ°á»£c khi bÃ¡n ná»£ */
 .psd-item--blocked {
     cursor: not-allowed;
     opacity: 0.55;
@@ -1355,7 +1346,6 @@
     cursor: not-allowed;
 }
 
-/*  Popup thÃªm nhanh khÃ¡ch hÃ ng  */
 .quick-add-overlay {
     position: fixed;
     inset: 0;
@@ -1607,7 +1597,6 @@
     color: #111827;
 }
 
-/* KhÃ¡ch Ä‘ang ná»£ quÃ¡ háº¡n: khÃ³a cho tá»›i khi thu ná»£ xong */
 .cdc-lock {
     flex-shrink: 0;
     color: #b91c1c;
@@ -1638,7 +1627,6 @@
     color: #b91c1c;
 }
 
-/* Ná»£ quÃ¡ háº¡n: cáº£nh bÃ¡o cho thu ngÃ¢n, khÃ´ng cháº·n ghi ná»£ -> mÃ u cam chá»© khÃ´ng Ä‘á» */
 .cdc-warn {
     display: flex;
     align-items: center;
