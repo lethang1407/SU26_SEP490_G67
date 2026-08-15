@@ -77,16 +77,35 @@ public class StorageZoneService {
         return StorageZoneType.SALES.equals(zone.getZoneType());
     }
 
+    @Transactional(readOnly = true)
+    public boolean isReturnHoldZone(StorageZone zone) {
+        if (zone == null || zone.getZoneType() == null) {
+            return false;
+        }
+        return StorageZoneType.RETURN_HOLD.equals(zone.getZoneType());
+    }
+
     @Transactional
     public StorageZoneResponse updateZone(String code, UpdateStorageZoneRequest request) {
         StorageZone zone = getRequiredByCode(code);
 
+        if (StorageZoneType.RETURN_HOLD.equals(zone.getZoneType())) {
+            if (request.getZoneType() != null
+                    && !request.getZoneType().isBlank()
+                    && !StorageZoneType.RETURN_HOLD.equals(StorageZoneType.normalize(request.getZoneType()))) {
+                throw new AppException(ErrorCode.STORAGE_RETURN_HOLD_LOCKED);
+            }
+        }
+
         if (request.getZoneType() != null && !request.getZoneType().isBlank()) {
             String type = StorageZoneType.normalize(request.getZoneType());
-            if (!StorageZoneType.isValid(type)) {
+            if (StorageZoneType.RETURN_HOLD.equals(zone.getZoneType())) {
+                // Giữ nguyên loại khu chứa hàng đổi trả
+            } else if (!StorageZoneType.isAssignableZoneType(type)) {
                 throw new AppException(ErrorCode.INVALID_STORAGE_ZONE_TYPE);
+            } else {
+                zone.setZoneType(type);
             }
-            zone.setZoneType(type);
         }
         if (request.getTitle() != null) {
             String title = request.getTitle().trim();

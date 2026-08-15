@@ -232,9 +232,8 @@ export default function CustomerDebtPage() {
   }, [noDebtFilters]);
 
   /**
-   * Admin bấm thông báo "Khách hàng nợ mới cần rà soát" thì vào đây kèm
-   * ?completeProfile=<id>. Nạp hồ sơ hiện có rồi mở modal ở chế độ bổ sung.
-   * (POS không còn tự điều hướng thu ngân sang đây — nó chỉ bắn thông báo.)
+   * POS điều hướng sang đây kèm ?completeProfile=<id> sau khi ghi nợ cho một
+   * khách vừa thêm nhanh. Nạp hồ sơ hiện có rồi mở modal ở chế độ bổ sung.
    */
   useEffect(() => {
     const customerId = searchParams.get('completeProfile');

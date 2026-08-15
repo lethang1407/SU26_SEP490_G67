@@ -22,8 +22,8 @@ public class ImportSuggestionController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Integer categoryId,
             @RequestParam(required = false) String keyword,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size
     ) {
         PageResponse<GroupedSuggestionDTO> result = importSuggestionService.getGroupedSuggestions(
                 status, categoryId, keyword, page, size

@@ -5,24 +5,62 @@ import {
     assignBatchToLocation,
     fetchStorageLocations,
     fetchUnplacedBatches,
+    moveAllBatchesFromLocation,
     moveBatchLocation,
     unassignBatchFromLocation,
 } from '../api';
-import { ZONE_TYPE } from '../constants';
-import { getApiErrorMessage } from '../../../utils/api-utils';
 import {
     formatDate,
     getLocationMetrics,
     getLocationProductPreview,
+    getLocationStatus,
     groupLocationsByZone,
     groupZoneGroupsByType,
+    suggestLocationsForBatch,
 } from '../utils/storageLocationUtils';
+import { LOCATION_STATUS, ZONE_TYPE } from '../constants';
+import { getApiErrorMessage } from '../../../utils/api-utils';
 import PlaceBatchQuantityModal from './PlaceBatchQuantityModal';
+import AlertNoticeModal from '../../../components/ui/AlertNoticeModal';
 
 const DRAG_TYPE = {
     unplaced: 'unplaced',
     shelf: 'shelf',
 };
+
+const PICK_MODE = {
+    none: null,
+    moveOne: 'moveOne',
+    moveAll: 'moveAll',
+};
+
+const SALES_ZONE_ALERT_CODES = new Set([1057, 1058]);
+const PRODUCT_MISMATCH_ALERT_CODE = 1035;
+const UNPLACED_PAGE_SIZE_OPTIONS = [10, 20, 50];
+
+function isSalesZoneAlertError(error) {
+    const code = error?.response?.data?.code;
+    if (SALES_ZONE_ALERT_CODES.has(Number(code))) {
+        return true;
+    }
+    const message = String(error?.response?.data?.message ?? '');
+    return (
+        message.includes('khu bán') &&
+        (message.includes('1 lô') || message.includes('tách cùng một lô'))
+    );
+}
+
+function isProductMismatchAlertError(error) {
+    const code = Number(error?.response?.data?.code);
+    if (code === PRODUCT_MISMATCH_ALERT_CODE) {
+        return true;
+    }
+    const message = String(error?.response?.data?.message ?? '');
+    return (
+        message.includes('Mỗi ô khu kho chỉ chứa một loại sản phẩm') ||
+        message.includes('Ô khu kho đang chứa sản phẩm khác')
+    );
+}
 
 function cloneLocations(locations) {
     return (locations ?? []).map((location) => ({
@@ -40,6 +78,7 @@ function LocationTree({
     onDropOnLocation,
     isSaving,
     initialExpandLocationId,
+    suggestedById = {},
 }) {
     const zoneGroups = useMemo(
         () => groupLocationsByZone(draftLocations),
@@ -69,6 +108,30 @@ function LocationTree({
         }
     }, [initialLocation]);
 
+    useEffect(() => {
+        const suggestedIds = Object.keys(suggestedById);
+        if (suggestedIds.length === 0) {
+            return;
+        }
+        const nextZones = new Set();
+        const nextTypes = new Set();
+        draftLocations.forEach((location) => {
+            if (!suggestedById[location.id]) {
+                return;
+            }
+            if (location.zone) {
+                nextZones.add(location.zone);
+            }
+            nextTypes.add(location.zoneType === ZONE_TYPE.SALES ? 'sales' : 'warehouse');
+        });
+        if (nextZones.size > 0) {
+            setExpandedZones((prev) => new Set([...prev, ...nextZones]));
+        }
+        if (nextTypes.size > 0) {
+            setExpandedTypes((prev) => new Set([...prev, ...nextTypes]));
+        }
+    }, [suggestedById, draftLocations]);
+
     const toggleType = (typeKey) => {
         setExpandedTypes((prev) => {
             const next = new Set(prev);
@@ -96,6 +159,11 @@ function LocationTree({
     const renderZoneGroups = (groups) =>
         groups.map((group) => {
             const zoneOpen = expandedZones.has(group.zone);
+            const floorCount = new Set(
+                (group.locations ?? [])
+                    .map((location) => String(location.shelf ?? '').trim())
+                    .filter(Boolean),
+            ).size;
             return (
                 <div key={group.zone} className="storage-adjust-modal__zone-node">
                     <button
@@ -111,8 +179,9 @@ function LocationTree({
                                     : 'storage-adjust-modal__chevron'
                             }
                         />
-                        <span>Khu {group.zone}</span>
+                        <span>Kệ {group.zone}</span>
                         <span className="storage-adjust-modal__tree-count">
+                            {floorCount > 0 ? `${floorCount} tầng · ` : ''}
                             {group.locations.length} ô
                         </span>
                     </button>
@@ -121,18 +190,24 @@ function LocationTree({
                             {group.locations.map((location) => {
                                 const { batchCount, productCount } = getLocationMetrics(location);
                                 const preview = getLocationProductPreview(location, 1);
+                                const status = getLocationStatus(location);
                                 const isDropTarget = dragOverTarget === `loc-${location.id}`;
+                                const suggest = suggestedById[location.id];
                                 return (
                                     <button
                                         key={location.id}
                                         type="button"
                                         className={[
                                             'storage-adjust-modal__location-item',
+                                            `storage-adjust-modal__location-item--${status}`,
                                             selectedLocationId === location.id
                                                 ? 'storage-adjust-modal__location-item--active'
                                                 : '',
                                             isDropTarget
                                                 ? 'storage-adjust-modal__location-item--drop'
+                                                : '',
+                                            suggest
+                                                ? 'storage-adjust-modal__location-item--suggest'
                                                 : '',
                                         ]
                                             .filter(Boolean)
@@ -153,13 +228,23 @@ function LocationTree({
                                     >
                                         <span className="storage-adjust-modal__location-label">
                                             {location.label}
+                                            {status === LOCATION_STATUS.FULL ? (
+                                                <span className="storage-adjust-modal__full-badge">
+                                                    Đầy
+                                                </span>
+                                            ) : null}
+                                            {suggest ? (
+                                                <span className="storage-adjust-modal__suggest-badge">
+                                                    Gợi ý · {suggest.reason}
+                                                </span>
+                                            ) : null}
                                         </span>
                                         <span className="storage-adjust-modal__location-meta">
                                             {batchCount > 0
                                                 ? productCount > 1
                                                     ? `${productCount} SP · ${batchCount} lô`
                                                     : `${batchCount} lô · ${preview}`
-                                                : 'Kệ trống'}
+                                                : null}
                                         </span>
                                     </button>
                                 );
@@ -221,11 +306,14 @@ export default function AdjustStorageLocationModal({
     locations,
     onSaved,
     initialLocationId = null,
+    initialUnplacedBatchId = null,
 }) {
     const [draftLocations, setDraftLocations] = useState([]);
     const [unplacedBatches, setUnplacedBatches] = useState([]);
     const [selectedLocationId, setSelectedLocationId] = useState(null);
     const [unplacedKeyword, setUnplacedKeyword] = useState('');
+    const [unplacedPage, setUnplacedPage] = useState(1);
+    const [unplacedPageSize, setUnplacedPageSize] = useState(10);
     const [message, setMessage] = useState(null);
     const [dragOverTarget, setDragOverTarget] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -233,6 +321,29 @@ export default function AdjustStorageLocationModal({
     const [hasChanges, setHasChanges] = useState(false);
     const [sessionInitialLocationId, setSessionInitialLocationId] = useState(null);
     const [placeQtyRequest, setPlaceQtyRequest] = useState(null);
+    const [focusBatch, setFocusBatch] = useState(null);
+    const [pickMode, setPickMode] = useState(PICK_MODE.none);
+    const [pendingMoveItem, setPendingMoveItem] = useState(null);
+    const [alertNotice, setAlertNotice] = useState(null);
+
+    const reportApiError = (error, fallback) => {
+        const text = getApiErrorMessage(error, fallback);
+        if (isProductMismatchAlertError(error)) {
+            setAlertNotice({
+                title: 'Không thể chuyển kệ',
+                message: 'Không thể chuyển kệ.',
+            });
+            return;
+        }
+        if (isSalesZoneAlertError(error)) {
+            setAlertNotice({
+                title: 'Không thể xếp vào khu bán',
+                message: text,
+            });
+            return;
+        }
+        setMessage({ type: 'error', text });
+    };
 
     const reloadData = async (preferLocations, preferredId) => {
         const [nextLocations, nextUnplaced] = await Promise.all([
@@ -240,8 +351,9 @@ export default function AdjustStorageLocationModal({
             fetchUnplacedBatches(),
         ]);
         const cloned = cloneLocations(nextLocations);
+        const unplaced = nextUnplaced ?? [];
         setDraftLocations(cloned);
-        setUnplacedBatches(nextUnplaced ?? []);
+        setUnplacedBatches(unplaced);
         setSelectedLocationId((prev) => {
             const preferred = preferredId ?? prev;
             if (preferred && cloned.some((location) => location.id === preferred)) {
@@ -249,7 +361,7 @@ export default function AdjustStorageLocationModal({
             }
             return null;
         });
-        return cloned;
+        return { locations: cloned, unplaced };
     };
 
     useEffect(() => {
@@ -265,11 +377,49 @@ export default function AdjustStorageLocationModal({
             setMessage(null);
             setDragOverTarget(null);
             setUnplacedKeyword('');
+            setUnplacedPage(1);
             setHasChanges(false);
             setPlaceQtyRequest(null);
+            setFocusBatch(null);
+            setPickMode(PICK_MODE.none);
+            setPendingMoveItem(null);
+            setAlertNotice(null);
 
             try {
-                await reloadData(locations, initialLocationId);
+                const { unplaced } = await reloadData(locations, initialLocationId);
+                if (!cancelled && initialUnplacedBatchId != null) {
+                    const batch = unplaced.find(
+                        (item) =>
+                            item.id === initialUnplacedBatchId ||
+                            String(item.id) === String(initialUnplacedBatchId),
+                    );
+                    if (batch) {
+                        const batchIndex = unplaced.findIndex(
+                            (item) =>
+                                item.id === batch.id ||
+                                String(item.id) === String(batch.id),
+                        );
+                        if (batchIndex >= 0) {
+                            setUnplacedPage(
+                                Math.floor(batchIndex / unplacedPageSize) + 1,
+                            );
+                        }
+                        setFocusBatch({
+                            ...batch,
+                            _sourceLocationId: null,
+                        });
+                        setPickMode(PICK_MODE.moveOne);
+                        setPendingMoveItem({
+                            ...batch,
+                            locationId: null,
+                            placeMode: 'assign',
+                        });
+                        setMessage({
+                            type: 'info',
+                            text: `Chọn ô đích để xếp lô ${batch.batchCode}.`,
+                        });
+                    }
+                }
             } catch (error) {
                 if (!cancelled) {
                     const cloned = cloneLocations(locations);
@@ -285,7 +435,7 @@ export default function AdjustStorageLocationModal({
                         type: 'error',
                         text: getApiErrorMessage(
                             error,
-                            'Không tải được danh sách lô chưa xếp. Đang dùng dữ liệu vị trí hiện có.',
+                            'Không tải được danh sách hàng hóa chưa sắp xếp. Đang dùng dữ liệu vị trí hiện có.',
                         ),
                     });
                 }
@@ -319,9 +469,64 @@ export default function AdjustStorageLocationModal({
             (batch) =>
                 batch.batchCode?.toLowerCase().includes(keyword) ||
                 batch.productName?.toLowerCase().includes(keyword) ||
-                batch.productCode?.toLowerCase().includes(keyword),
+                batch.productCode?.toLowerCase().includes(keyword) ||
+                batch.categoryName?.toLowerCase().includes(keyword),
         );
     }, [unplacedBatches, unplacedKeyword]);
+
+    const unplacedTotalItems = filteredUnplaced.length;
+    const unplacedTotalPages = Math.max(
+        1,
+        Math.ceil(unplacedTotalItems / unplacedPageSize) || 1,
+    );
+    const safeUnplacedPage = Math.min(unplacedPage, unplacedTotalPages);
+
+    const pagedUnplaced = useMemo(() => {
+        const start = (safeUnplacedPage - 1) * unplacedPageSize;
+        return filteredUnplaced.slice(start, start + unplacedPageSize);
+    }, [filteredUnplaced, safeUnplacedPage, unplacedPageSize]);
+
+    const unplacedStartIndex =
+        unplacedTotalItems === 0 ? 0 : (safeUnplacedPage - 1) * unplacedPageSize + 1;
+    const unplacedEndIndex = Math.min(
+        safeUnplacedPage * unplacedPageSize,
+        unplacedTotalItems,
+    );
+
+    useEffect(() => {
+        setUnplacedPage(1);
+    }, [unplacedKeyword, unplacedPageSize]);
+
+    useEffect(() => {
+        if (unplacedPage > unplacedTotalPages) {
+            setUnplacedPage(unplacedTotalPages);
+        }
+    }, [unplacedPage, unplacedTotalPages]);
+
+    const suggestions = useMemo(() => {
+        // Chỉ gợi ý khi đang ở chế độ chuyển 1 lô (bấm nút Chuyển)
+        if (pickMode !== PICK_MODE.moveOne || !focusBatch) {
+            return [];
+        }
+        return suggestLocationsForBatch(focusBatch, draftLocations, {
+            excludeLocationId: focusBatch._sourceLocationId ?? null,
+            preferredZone: selectedLocation?.zone ?? null,
+        });
+    }, [pickMode, focusBatch, draftLocations, selectedLocation]);
+
+    const suggestedById = useMemo(() => {
+        const map = {};
+        suggestions.forEach((item) => {
+            map[item.locationId] = item;
+        });
+        return map;
+    }, [suggestions]);
+
+    const clearPickMode = () => {
+        setPickMode(PICK_MODE.none);
+        setPendingMoveItem(null);
+        setFocusBatch(null);
+    };
 
     const handleClose = () => {
         const shouldReload = hasChanges;
@@ -379,7 +584,7 @@ export default function AdjustStorageLocationModal({
             if (maxQty < 1) {
                 setMessage({
                     type: 'error',
-                    text: 'Lô không còn số lượng chưa xếp.',
+                    text: 'Hàng hóa không còn số lượng chưa sắp xếp.',
                 });
                 return;
             }
@@ -457,10 +662,7 @@ export default function AdjustStorageLocationModal({
             }
             setPlaceQtyRequest(null);
         } catch (error) {
-            setMessage({
-                type: 'error',
-                text: getApiErrorMessage(error, 'Không thể cập nhật vị trí lô. Vui lòng thử lại.'),
-            });
+            reportApiError(error, 'Không thể cập nhật vị trí lô. Vui lòng thử lại.');
             setPlaceQtyRequest(null);
         } finally {
             setIsSaving(false);
@@ -489,7 +691,7 @@ export default function AdjustStorageLocationModal({
             setHasChanges(true);
             setMessage({
                 type: 'success',
-                text: 'Đã gỡ lô khỏi kệ — trả về danh sách chưa xếp.',
+                text: 'Đã gỡ lô khỏi kệ — trả về danh sách hàng hóa chưa sắp xếp.',
             });
         } catch (error) {
             setMessage({
@@ -501,6 +703,144 @@ export default function AdjustStorageLocationModal({
         }
     };
 
+    const handleSelectLocation = async (locationId) => {
+        if (pickMode === PICK_MODE.moveAll && selectedLocationId) {
+            if (locationId === selectedLocationId) {
+                setMessage({
+                    type: 'error',
+                    text: 'Chọn một ô khác làm đích chuyển.',
+                });
+                return;
+            }
+            const destination = draftLocations.find((item) => item.id === locationId);
+            setIsSaving(true);
+            try {
+                await moveAllBatchesFromLocation({
+                    fromLocationId: selectedLocationId,
+                    toLocationId: locationId,
+                });
+                await reloadData(null, locationId);
+                setHasChanges(true);
+                clearPickMode();
+                setFocusBatch(null);
+                setMessage({
+                    type: 'success',
+                    text: `Đã chuyển toàn bộ hàng sang kệ ${destination?.label || ''}.`,
+                });
+            } catch (error) {
+                reportApiError(
+                    error,
+                    'Không thể chuyển toàn bộ hàng. Kiểm tra rule khu kho / ô đầy.',
+                );
+            } finally {
+                setIsSaving(false);
+            }
+            return;
+        }
+
+        if (pickMode === PICK_MODE.moveOne && pendingMoveItem) {
+            const isAssign = pendingMoveItem.placeMode === 'assign';
+            if (!isAssign && locationId === pendingMoveItem.locationId) {
+                setMessage({
+                    type: 'error',
+                    text: 'Chọn một ô khác làm đích chuyển.',
+                });
+                return;
+            }
+            const destination = draftLocations.find((item) => item.id === locationId);
+            const maxQty = Number(pendingMoveItem.quantity) || 0;
+            clearPickMode();
+            if (isAssign) {
+                setPlaceQtyRequest({
+                    mode: 'assign',
+                    batchId: pendingMoveItem.batchId ?? pendingMoveItem.id,
+                    batchCode: pendingMoveItem.batchCode,
+                    productName: pendingMoveItem.productName,
+                    unit: pendingMoveItem.unit,
+                    locationId,
+                    locationLabel: destination?.label,
+                    maxQty,
+                });
+            } else {
+                setPlaceQtyRequest({
+                    mode: 'move',
+                    batchLocationId: pendingMoveItem.id,
+                    batchCode: pendingMoveItem.batchCode,
+                    productName: pendingMoveItem.productName,
+                    unit: pendingMoveItem.unit,
+                    locationId,
+                    locationLabel: destination?.label,
+                    maxQty,
+                });
+            }
+            return;
+        }
+
+        setSelectedLocationId(locationId);
+        setFocusBatch(null);
+        setMessage(null);
+    };
+
+    const startMoveAll = () => {
+        if (!selectedLocation || (selectedLocation.contents ?? []).length === 0) {
+            return;
+        }
+        setPickMode(PICK_MODE.moveAll);
+        setPendingMoveItem(null);
+        setMessage({
+            type: 'info',
+            text: 'Chọn ô đích trên cột trái để chuyển toàn bộ hàng.',
+        });
+    };
+
+    const startMoveOne = (item) => {
+        if (!selectedLocation || !item) {
+            return;
+        }
+        setFocusBatch({
+            ...item,
+            _sourceLocationId: selectedLocation.id,
+        });
+        setPickMode(PICK_MODE.moveOne);
+        setPendingMoveItem({
+            ...item,
+            locationId: selectedLocation.id,
+            placeMode: 'move',
+        });
+        setMessage({
+            type: 'info',
+            text: `Chọn ô đích để chuyển lô ${item.batchCode}.`,
+        });
+    };
+
+    const startAssignUnplaced = (batch) => {
+        if (!batch) {
+            return;
+        }
+        setFocusBatch({
+            ...batch,
+            _sourceLocationId: null,
+        });
+        setPickMode(PICK_MODE.moveOne);
+        setPendingMoveItem({
+            ...batch,
+            locationId: null,
+            placeMode: 'assign',
+        });
+        setMessage({
+            type: 'info',
+            text: `Chọn ô đích để xếp lô ${batch.batchCode}.`,
+        });
+    };
+
+    const handleSuggestChipClick = (locationId) => {
+        if (pickMode === PICK_MODE.moveAll || pickMode === PICK_MODE.moveOne) {
+            handleSelectLocation(locationId);
+            return;
+        }
+        setSelectedLocationId(locationId);
+    };
+
     if (!show) {
         return null;
     }
@@ -510,6 +850,8 @@ export default function AdjustStorageLocationModal({
         <Modal
             show={show}
             onHide={handleClose}
+            className="storage-modal--stacked"
+            backdropClassName="storage-modal-backdrop--stacked"
             dialogClassName="storage-adjust-modal"
             centered
             enforceFocus={!placeQtyRequest}
@@ -534,15 +876,13 @@ export default function AdjustStorageLocationModal({
                             <LocationTree
                                 draftLocations={draftLocations}
                                 selectedLocationId={selectedLocationId}
-                                onSelectLocation={(id) => {
-                                    setSelectedLocationId(id);
-                                    setMessage(null);
-                                }}
+                                onSelectLocation={handleSelectLocation}
                                 dragOverTarget={dragOverTarget}
                                 setDragOverTarget={setDragOverTarget}
                                 onDropOnLocation={handleDropOnLocation}
                                 isSaving={isSaving}
                                 initialExpandLocationId={sessionInitialLocationId}
+                                suggestedById={suggestedById}
                             />
                         </aside>
 
@@ -574,13 +914,66 @@ export default function AdjustStorageLocationModal({
                                 }
                             }}
                         >
-                            <h3 className="storage-adjust-modal__section-title">
-                                {selectedLocation?.label || 'Chọn vị trí'}
-                            </h3>
+                            <div className="storage-adjust-modal__content-header">
+                                <h3 className="storage-adjust-modal__section-title">
+                                    {selectedLocation?.label || 'Chọn vị trí'}
+                                </h3>
+                                {selectedLocation &&
+                                (selectedLocation.contents ?? []).length > 0 ? (
+                                    <button
+                                        type="button"
+                                        className="inventory-btn inventory-btn--secondary storage-adjust-modal__move-all-btn"
+                                        disabled={isSaving || Boolean(pickMode)}
+                                        onClick={startMoveAll}
+                                    >
+                                        Chuyển tất cả
+                                    </button>
+                                ) : null}
+                            </div>
+                            {pickMode ? (
+                                <div className="storage-adjust-modal__pick-banner">
+                                    {pickMode === PICK_MODE.moveAll
+                                        ? 'Đang chọn ô đích để chuyển toàn bộ hàng.'
+                                        : pendingMoveItem?.placeMode === 'assign'
+                                          ? `Đang chọn ô đích để xếp lô ${pendingMoveItem?.batchCode || ''}.`
+                                          : `Đang chọn ô đích để chuyển lô ${pendingMoveItem?.batchCode || ''}.`}
+                                    <button type="button" onClick={clearPickMode} disabled={isSaving}>
+                                        Hủy
+                                    </button>
+                                </div>
+                            ) : null}
+                            {suggestions.length > 0 ? (
+                                <div className="storage-adjust-modal__suggest-list">
+                                    <p className="storage-adjust-modal__suggest-list-title">
+                                        Nên xếp vào
+                                        {focusBatch?.productName
+                                            ? ` · ${focusBatch.productName}`
+                                            : ''}
+                                        {focusBatch?.categoryName
+                                            ? ` (${focusBatch.categoryName})`
+                                            : ''}
+                                    </p>
+                                    <div className="storage-adjust-modal__suggest-chips">
+                                        {suggestions.map((item) => (
+                                            <button
+                                                key={item.locationId}
+                                                type="button"
+                                                className="storage-adjust-modal__suggest-chip"
+                                                disabled={isSaving}
+                                                onClick={() =>
+                                                    handleSuggestChipClick(item.locationId)
+                                                }
+                                            >
+                                                {item.label} · {item.reason}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
                             {selectedLocation ? (
                                 <>
                                     <p className="storage-adjust-modal__location-desc">
-                                        Khu {selectedLocation.zone}
+                                        Kệ {selectedLocation.zone}
                                         {selectedLocation.zoneType === ZONE_TYPE.SALES
                                             ? ' · Bán'
                                             : ' · Kho'}{' '}
@@ -589,8 +982,7 @@ export default function AdjustStorageLocationModal({
                                     </p>
                                     {selectedLocation.zoneType !== ZONE_TYPE.SALES ? (
                                         <div className="storage-adjust-modal__rule-box">
-                                            Khu kho: mỗi ô chỉ chứa 1 loại sản phẩm (có thể nhiều lô
-                                            cùng SP).
+                                            Khu kho: lưu trữ các sản phẩm được nhập về trong cửa hàng
                                         </div>
                                     ) : null}
 
@@ -613,16 +1005,25 @@ export default function AdjustStorageLocationModal({
                                             selectedLocation.contents.map((item) => (
                                                 <div
                                                     key={item.id}
-                                                    className="storage-adjust-modal__batch-item storage-adjust-modal__batch-item--draggable"
+                                                    className={[
+                                                        'storage-adjust-modal__batch-item storage-adjust-modal__batch-item--draggable',
+                                                        focusBatch?.id === item.id &&
+                                                        focusBatch?._sourceLocationId ===
+                                                            selectedLocation.id
+                                                            ? 'storage-adjust-modal__batch-item--focus'
+                                                            : '',
+                                                    ]
+                                                        .filter(Boolean)
+                                                        .join(' ')}
                                                     draggable={!isSaving}
-                                                    onDragStart={(event) =>
+                                                    onDragStart={(event) => {
                                                         handleDragStart(event, {
                                                             type: DRAG_TYPE.shelf,
                                                             batchId: item.id,
                                                             locationId: selectedLocation.id,
                                                             quantity: item.quantity,
-                                                        })
-                                                    }
+                                                        });
+                                                    }}
                                                     onDragEnd={handleDragEnd}
                                                 >
                                                     <GripVertical
@@ -632,6 +1033,11 @@ export default function AdjustStorageLocationModal({
                                                     <div className="storage-adjust-modal__batch-item-body">
                                                         <strong>{item.batchCode}</strong>
                                                         <p>{item.productName}</p>
+                                                        {item.categoryName ? (
+                                                            <p className="storage-adjust-modal__helper storage-adjust-modal__helper--tight">
+                                                                {item.categoryName}
+                                                            </p>
+                                                        ) : null}
                                                     </div>
                                                     <div className="storage-adjust-modal__batch-item-meta">
                                                         <span>
@@ -640,6 +1046,19 @@ export default function AdjustStorageLocationModal({
                                                         <span>
                                                             HSD {formatDate(item.expiryDate)}
                                                         </span>
+                                                    </div>
+                                                    <div className="storage-adjust-modal__batch-item-actions">
+                                                        <button
+                                                            type="button"
+                                                            className="inventory-btn inventory-btn--secondary"
+                                                            disabled={isSaving}
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                startMoveOne(item);
+                                                            }}
+                                                        >
+                                                            Chuyển
+                                                        </button>
                                                     </div>
                                                 </div>
                                             ))
@@ -652,7 +1071,7 @@ export default function AdjustStorageLocationModal({
                                     </div>
                                 </>
                             ) : (
-                                <div className="storage-adjust-modal__empty">
+                                <div className="storage-adjust-modal__empty storage-adjust-modal__empty--compact">
                                     Chọn một ô từ cột trái để xem và xếp lô.
                                 </div>
                             )}
@@ -680,9 +1099,11 @@ export default function AdjustStorageLocationModal({
                             }}
                             onDrop={handleDropOnUnplaced}
                         >
-                            <h3 className="storage-adjust-modal__section-title">Lô chưa xếp kệ</h3>
+                            <h3 className="storage-adjust-modal__section-title">
+                                Hàng hóa chưa sắp xếp
+                            </h3>
                             <p className="storage-adjust-modal__helper storage-adjust-modal__helper--tight">
-                                Kéo thả vào ô kệ để xếp.
+                                Kéo thả hoặc bấm Chuyển để xếp vào ô kệ.
                             </p>
 
                             <div className="storage-adjust-modal__search">
@@ -697,22 +1118,30 @@ export default function AdjustStorageLocationModal({
                             </div>
 
                             <div className="storage-adjust-modal__unplaced-count">
-                                {filteredUnplaced.length} lô chờ xếp
+                                {unplacedTotalItems} hàng hóa chờ xếp
                             </div>
 
                             <div className="storage-adjust-modal__unplaced-list">
-                                {filteredUnplaced.length > 0 ? (
-                                    filteredUnplaced.map((batch) => (
+                                {pagedUnplaced.length > 0 ? (
+                                    pagedUnplaced.map((batch) => (
                                         <div
                                             key={batch.id}
-                                            className="storage-adjust-modal__unplaced-card"
+                                            className={[
+                                                'storage-adjust-modal__unplaced-card',
+                                                focusBatch?.id === batch.id &&
+                                                focusBatch?._sourceLocationId == null
+                                                    ? 'storage-adjust-modal__unplaced-card--focus'
+                                                    : '',
+                                            ]
+                                                .filter(Boolean)
+                                                .join(' ')}
                                             draggable={!isSaving}
-                                            onDragStart={(event) =>
+                                            onDragStart={(event) => {
                                                 handleDragStart(event, {
                                                     type: DRAG_TYPE.unplaced,
                                                     batchId: batch.id,
-                                                })
-                                            }
+                                                });
+                                            }}
                                             onDragEnd={handleDragEnd}
                                         >
                                             <div className="storage-adjust-modal__unplaced-card-top">
@@ -725,6 +1154,11 @@ export default function AdjustStorageLocationModal({
                                             <p className="storage-adjust-modal__unplaced-name">
                                                 {batch.productName}
                                             </p>
+                                            {batch.categoryName ? (
+                                                <p className="storage-adjust-modal__helper storage-adjust-modal__helper--tight">
+                                                    {batch.categoryName}
+                                                </p>
+                                            ) : null}
                                             <div className="storage-adjust-modal__unplaced-meta">
                                                 <span>
                                                     {batch.quantity} {batch.unit}
@@ -734,16 +1168,81 @@ export default function AdjustStorageLocationModal({
                                             <span className="storage-adjust-modal__unplaced-code">
                                                 {batch.productCode}
                                             </span>
+                                            <div className="storage-adjust-modal__unplaced-actions">
+                                                <button
+                                                    type="button"
+                                                    className="inventory-btn inventory-btn--secondary"
+                                                    disabled={isSaving}
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        startAssignUnplaced(batch);
+                                                    }}
+                                                >
+                                                    Chuyển
+                                                </button>
+                                            </div>
                                         </div>
                                     ))
                                 ) : (
                                     <div className="storage-adjust-modal__empty">
                                         {unplacedBatches.length === 0
-                                            ? 'Không còn lô chưa xếp kệ.'
-                                            : 'Không tìm thấy lô phù hợp.'}
+                                            ? 'Không còn hàng hóa chưa sắp xếp.'
+                                            : 'Không tìm thấy hàng hóa phù hợp.'}
                                     </div>
                                 )}
                             </div>
+
+                            {unplacedTotalItems > 0 ? (
+                                <div className="storage-adjust-modal__unplaced-pagination">
+                                    <div className="storage-adjust-modal__unplaced-pagination-info">
+                                        {unplacedStartIndex}–{unplacedEndIndex} / {unplacedTotalItems}
+                                    </div>
+                                    <div className="storage-adjust-modal__unplaced-pagination-controls">
+                                        <label className="storage-adjust-modal__page-size">
+                                            <span>Số bản ghi</span>
+                                            <select
+                                                value={unplacedPageSize}
+                                                onChange={(event) =>
+                                                    setUnplacedPageSize(Number(event.target.value))
+                                                }
+                                            >
+                                                {UNPLACED_PAGE_SIZE_OPTIONS.map((size) => (
+                                                    <option key={size} value={size}>
+                                                        {size}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </label>
+                                        <button
+                                            type="button"
+                                            className="storage-adjust-modal__page-btn"
+                                            disabled={safeUnplacedPage <= 1}
+                                            onClick={() =>
+                                                setUnplacedPage((prev) => Math.max(1, prev - 1))
+                                            }
+                                            aria-label="Trang trước"
+                                        >
+                                            ‹
+                                        </button>
+                                        <span className="storage-adjust-modal__page-label">
+                                            {safeUnplacedPage}/{unplacedTotalPages}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            className="storage-adjust-modal__page-btn"
+                                            disabled={safeUnplacedPage >= unplacedTotalPages}
+                                            onClick={() =>
+                                                setUnplacedPage((prev) =>
+                                                    Math.min(unplacedTotalPages, prev + 1),
+                                                )
+                                            }
+                                            aria-label="Trang sau"
+                                        >
+                                            ›
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : null}
                         </aside>
                     </>
                 )}
@@ -762,6 +1261,13 @@ export default function AdjustStorageLocationModal({
                     if (!isSaving) setPlaceQtyRequest(null);
                 }}
                 onConfirm={handleConfirmPlaceQuantity}
+            />
+            <AlertNoticeModal
+                open={Boolean(alertNotice?.message)}
+                title={alertNotice?.title ?? 'Cảnh báo'}
+                message={alertNotice?.message}
+                overlayClassName="storage-adjust-alert-overlay"
+                onClose={() => setAlertNotice(null)}
             />
         </>
     );

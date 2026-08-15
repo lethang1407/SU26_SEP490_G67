@@ -22,8 +22,8 @@ public class CategoryController {
     //@PreAuthorize("hasAuthority('PRODUCT:VIEW')")
     @GetMapping
     public ApiResponse<PageResponse<CategoryResponse>> getCategory(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
             @RequestParam(required = false) String search
     ){
         PageResponse<CategoryResponse> listCategory = categoryService.findAllCategory(search, page, size);

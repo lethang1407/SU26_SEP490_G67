@@ -1,8 +1,7 @@
 export const INVENTORY_CHECK_ROUTES = {
     create: '/admin/warehouse/check',
     history: '/admin/warehouse/check/history',
-    /** @deprecated dùng create — giữ để tương thích link cũ */
-    list: '/admin/warehouse/check',
+    list: '/admin/warehouse/check/history',
     detail: (id) => `/admin/warehouse/check/${id}`,
 };
 

@@ -2,6 +2,17 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
+function InfoField({ label, children }) {
+    return (
+        <div className="place-batch-qty-modal__field">
+            <span className="place-batch-qty-modal__field-label">{label}</span>
+            <div className="place-batch-qty-modal__field-box">
+                <span className="place-batch-qty-modal__field-value">{children}</span>
+            </div>
+        </div>
+    );
+}
+
 export default function PlaceBatchQuantityModal({
     open,
     mode = 'assign',
@@ -90,16 +101,11 @@ export default function PlaceBatchQuantityModal({
                 </div>
 
                 <div className="supplier-modal__body">
-                    <p className="supplier-modal__confirm-text">
-                        <strong>{productName || '—'}</strong>
-                        <br />
-                        Lô: {batchCode || '—'}
-                        <br />
-                        Vào kệ: <strong>{locationLabel || '—'}</strong>
-                        <br />
-                        Có thể xếp: {max}
-                        {unit ? ` ${unit}` : ''}
-                    </p>
+                    <div className="place-batch-qty-modal__info">
+                        <InfoField label="Sản phẩm">{productName || '—'}</InfoField>
+                        <InfoField label="Lô">{batchCode || '—'}</InfoField>
+                        <InfoField label="Kệ">{locationLabel || '—'}</InfoField>
+                    </div>
 
                     <label className="inventory-check-modal-field">
                         <span>Số lượng đưa vào kệ</span>

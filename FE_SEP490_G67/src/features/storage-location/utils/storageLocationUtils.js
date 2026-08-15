@@ -4,7 +4,10 @@ import {
     SHELF_CAPACITY,
     SHELF_SIZE,
     SHELF_SIZE_LABEL,
+    ZONE_TYPE,
+    isReturnHoldLocation,
     normalizeShelfSize,
+    normalizeZoneType,
 } from '../constants';
 
 export function formatCurrency(value) {
@@ -27,6 +30,23 @@ export function formatDate(dateString) {
         return dateString;
     }
     return date.toLocaleDateString('vi-VN');
+}
+
+export function formatDateTime(dateString) {
+    if (!dateString) {
+        return '—';
+    }
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) {
+        return dateString;
+    }
+    return date.toLocaleString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 }
 
 export function isNearExpiry(expiryDate, referenceDate = new Date()) {
@@ -130,7 +150,7 @@ export function getLocationStatus(location) {
 }
 
 export function formatLocationAddress(location) {
-    const parts = [`Khu ${location.zone}`];
+    const parts = [`Kệ ${location.zone}`];
     if (location.shelf) {
         parts.push(`Tầng ${location.shelf}`);
     }
@@ -166,12 +186,19 @@ export function buildLocationSummary(locations) {
 }
 
 export function getZoneOptions(locations) {
-    const zones = [...new Set(locations.map((item) => item.zone))].sort();
+    const zones = [
+        ...new Set(
+            locations
+                .filter((item) => !isReturnHoldLocation(item))
+                .map((item) => item.zone)
+                .filter(Boolean),
+        ),
+    ].sort();
     return [
         { value: 'all', label: 'Tất cả khu' },
         ...zones.map((zone) => ({
             value: zone,
-            label: `Khu ${zone}`,
+            label: `Kệ ${zone}`,
         })),
     ];
 }
@@ -417,7 +444,7 @@ export function groupLocationsByZone(locations) {
         if (!groups.has(location.zone)) {
             groups.set(location.zone, {
                 zone: location.zone,
-                zoneType: location.zoneType ?? 'WAREHOUSE',
+                zoneType: normalizeZoneType(location.zoneType),
                 zoneTitle: location.zoneTitle,
                 locations: [],
             });
@@ -425,7 +452,7 @@ export function groupLocationsByZone(locations) {
         const group = groups.get(location.zone);
         group.locations.push(location);
         if (location.zoneType) {
-            group.zoneType = location.zoneType;
+            group.zoneType = normalizeZoneType(location.zoneType);
         }
         if (location.zoneTitle) {
             group.zoneTitle = location.zoneTitle;
@@ -467,12 +494,16 @@ export function groupLocationsByZone(locations) {
     });
 }
 
-/** Nhóm zone groups thành 2 section: bán hàng / kho. */
+/** Nhóm zone groups thành section: bán hàng / kho (bỏ RETURN_HOLD). */
 export function groupZoneGroupsByType(zoneGroups) {
     const sales = [];
     const warehouse = [];
     (zoneGroups ?? []).forEach((group) => {
-        if (group.zoneType === 'SALES') {
+        const type = normalizeZoneType(group.zoneType);
+        if (type === ZONE_TYPE.RETURN_HOLD) {
+            return;
+        }
+        if (type === ZONE_TYPE.SALES) {
             sales.push(group);
         } else {
             warehouse.push(group);
@@ -480,3 +511,144 @@ export function groupZoneGroupsByType(zoneGroups) {
     });
     return { sales, warehouse };
 }
+
+export function getReturnHoldLocation(locations) {
+    return (locations ?? []).find((location) => isReturnHoldLocation(location)) ?? null;
+}
+
+export function getShelfLocations(locations) {
+    return (locations ?? []).filter((location) => !isReturnHoldLocation(location));
+}
+
+export function getLineValue(item) {
+    const qty = Number(item?.quantity ?? 0);
+    const price = Number(item?.importPrice ?? 0);
+    if (!Number.isFinite(qty) || !Number.isFinite(price)) {
+        return 0;
+    }
+    return qty * price;
+}
+
+/**
+ * Gợi ý ô xếp cho 1 lô (unplaced hoặc dòng trên kệ).
+ * Ưu tiên: cùng lô > cùng SP > cùng danh mục > ô trống.
+ * Nếu SP đã có mã lô khác trên khu bán → không gợi ý khu bán (chỉ khu kho).
+ * Cùng mã lô đã xếp một phần trên khu bán → vẫn gợi ý các ô đó để xếp tiếp.
+ */
+export function suggestLocationsForBatch(batch, locations, options = {}) {
+    if (!batch) {
+        return [];
+    }
+    const excludeLocationId = options.excludeLocationId ?? null;
+    const productId = batch.productId ?? null;
+    const categoryId = batch.categoryId ?? null;
+    const preferredZone = options.preferredZone ?? null;
+    const batchId = batch.batchId ?? batch.id ?? null;
+    const batchCode = batch.batchCode ?? null;
+
+    const isSameBatch = (item) => {
+        if (!item) {
+            return false;
+        }
+        if (batchId != null && item.batchId != null) {
+            return item.batchId === batchId;
+        }
+        if (batchCode && item.batchCode) {
+            return String(item.batchCode) === String(batchCode);
+        }
+        return false;
+    };
+
+    // SP đã có mã lô khác trên khu bán → chặn gợi ý khu bán
+    const salesHasOtherBatchOfProduct =
+        productId != null &&
+        (locations ?? []).some(
+            (location) =>
+                location &&
+                location.id !== excludeLocationId &&
+                location.zoneType === ZONE_TYPE.SALES &&
+                (location.contents ?? []).some(
+                    (item) => item.productId === productId && !isSameBatch(item),
+                ),
+        );
+
+    const scored = [];
+    for (const location of locations ?? []) {
+        if (!location || location.id === excludeLocationId) {
+            continue;
+        }
+        if (isReturnHoldLocation(location)) {
+            continue;
+        }
+        if (location.isFull) {
+            continue;
+        }
+
+        const isWarehouse = normalizeZoneType(location.zoneType) === ZONE_TYPE.WAREHOUSE;
+        if (!isWarehouse && salesHasOtherBatchOfProduct) {
+            continue;
+        }
+
+        const contents = location.contents ?? [];
+        const occupiedProductIds = [
+            ...new Set(contents.map((item) => item.productId).filter((id) => id != null)),
+        ];
+        const occupiedCategoryIds = [
+            ...new Set(contents.map((item) => item.categoryId).filter((id) => id != null)),
+        ];
+        const isEmpty = contents.length === 0;
+        const hasSameBatch = contents.some(isSameBatch);
+
+        if (
+            isWarehouse &&
+            occupiedProductIds.length > 0 &&
+            productId != null &&
+            !occupiedProductIds.includes(productId)
+        ) {
+            continue;
+        }
+
+        let score = 0;
+        let reason = '';
+
+        if (hasSameBatch) {
+            score = 120;
+            reason = 'cùng lô';
+        } else if (productId != null && occupiedProductIds.includes(productId)) {
+            score = 100;
+            reason = 'cùng SP';
+        } else if (
+            categoryId != null &&
+            occupiedCategoryIds.includes(categoryId) &&
+            (!isWarehouse || isEmpty)
+        ) {
+            score = 70;
+            reason = 'cùng danh mục';
+        } else if (isEmpty) {
+            score = 50;
+            reason = 'ô trống';
+        } else if (!isWarehouse) {
+            score = 20;
+            reason = 'khu bán';
+        } else {
+            continue;
+        }
+
+        if (preferredZone && location.zone === preferredZone) {
+            score += 5;
+        }
+
+        scored.push({
+            locationId: location.id,
+            label: location.label,
+            zone: location.zone,
+            score,
+            reason,
+        });
+    }
+
+    return scored
+        .sort((a, b) => b.score - a.score || String(a.label).localeCompare(String(b.label)))
+        .slice(0, 6);
+}
+
