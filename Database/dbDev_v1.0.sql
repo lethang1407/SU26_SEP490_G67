@@ -11,6 +11,7 @@
 /*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
 /*!40103 SET TIME_ZONE='+00:00' */;
 /*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+UNLOCK TABLES;
 /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
@@ -39,10 +40,8 @@ CREATE TABLE `attributes` (
 -- Dumping data for table `attributes`
 --
 
-LOCK TABLES `attributes` WRITE;
 /*!40000 ALTER TABLE `attributes` DISABLE KEYS */;
 /*!40000 ALTER TABLE `attributes` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `audit_logs`
@@ -74,10 +73,8 @@ CREATE TABLE `audit_logs` (
 -- Dumping data for table `audit_logs`
 --
 
-LOCK TABLES `audit_logs` WRITE;
 /*!40000 ALTER TABLE `audit_logs` DISABLE KEYS */;
 /*!40000 ALTER TABLE `audit_logs` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `batch_locations`
@@ -108,10 +105,8 @@ CREATE TABLE `batch_locations` (
 -- Dumping data for table `batch_locations`
 --
 
-LOCK TABLES `batch_locations` WRITE;
 /*!40000 ALTER TABLE `batch_locations` DISABLE KEYS */;
 /*!40000 ALTER TABLE `batch_locations` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `categories`
@@ -129,7 +124,11 @@ CREATE TABLE `categories` (
   `updated_at` datetime(6) DEFAULT NULL,
   `name` varchar(100) NOT NULL,
   `description` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  `cover_days` int NOT NULL DEFAULT '7',
+  `default_supplier_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_categories_default_supplier` (`default_supplier_id`),
+  CONSTRAINT `FK_categories_default_supplier` FOREIGN KEY (`default_supplier_id`) REFERENCES `suppliers` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -137,10 +136,8 @@ CREATE TABLE `categories` (
 -- Dumping data for table `categories`
 --
 
-LOCK TABLES `categories` WRITE;
 /*!40000 ALTER TABLE `categories` DISABLE KEYS */;
 /*!40000 ALTER TABLE `categories` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `customers`
@@ -168,10 +165,8 @@ CREATE TABLE `customers` (
 -- Dumping data for table `customers`
 --
 
-LOCK TABLES `customers` WRITE;
 /*!40000 ALTER TABLE `customers` DISABLE KEYS */;
 /*!40000 ALTER TABLE `customers` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `debt_payments`
@@ -205,10 +200,8 @@ CREATE TABLE `debt_payments` (
 -- Dumping data for table `debt_payments`
 --
 
-LOCK TABLES `debt_payments` WRITE;
 /*!40000 ALTER TABLE `debt_payments` DISABLE KEYS */;
 /*!40000 ALTER TABLE `debt_payments` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `import_order_details`
@@ -226,7 +219,10 @@ CREATE TABLE `import_order_details` (
   `is_removed` bit(1) DEFAULT b'0',
   `line_total` decimal(15,2) DEFAULT NULL,
   `product_id` int NOT NULL,
+  `product_unit_id` int DEFAULT NULL,
   `quantity` int NOT NULL,
+  `note` varchar(500) DEFAULT NULL,
+  `is_promotion` bit(1) NOT NULL DEFAULT b'0',
   `updated_by` int DEFAULT NULL,
   `created_at` datetime(6) DEFAULT NULL,
   `updated_at` datetime(6) DEFAULT NULL,
@@ -242,10 +238,8 @@ CREATE TABLE `import_order_details` (
 -- Dumping data for table `import_order_details`
 --
 
-LOCK TABLES `import_order_details` WRITE;
 /*!40000 ALTER TABLE `import_order_details` DISABLE KEYS */;
 /*!40000 ALTER TABLE `import_order_details` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `import_orders`
@@ -265,6 +259,9 @@ CREATE TABLE `import_orders` (
   `created_at` datetime(6) DEFAULT NULL,
   `updated_at` datetime(6) DEFAULT NULL,
   `order_code` varchar(30) DEFAULT NULL,
+  `discount_amount` decimal(15,2) DEFAULT '0.00',
+  `status` varchar(30) DEFAULT NULL,
+  `invoice_image` varchar(500) DEFAULT NULL,
   `note` tinytext,
   PRIMARY KEY (`id`),
   KEY `FK5d8le1rq70wflcxloxhwnthlt` (`supplier_id`),
@@ -276,30 +273,97 @@ CREATE TABLE `import_orders` (
 -- Dumping data for table `import_orders`
 --
 
-LOCK TABLES `import_orders` WRITE;
 /*!40000 ALTER TABLE `import_orders` DISABLE KEYS */;
 /*!40000 ALTER TABLE `import_orders` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `import_return_details`
 --
 
 DROP TABLE IF EXISTS `import_return_details`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+DROP TABLE IF EXISTS `import_returns`;
+DROP TABLE IF EXISTS `inventory_check_details`;
+DROP TABLE IF EXISTS `inventory_checks`;
+
+CREATE TABLE `inventory_checks` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `check_code` varchar(40) NOT NULL,
+  `check_date` datetime(6) DEFAULT NULL,
+  `status` varchar(30) NOT NULL,
+  `warehouse` varchar(100) DEFAULT NULL,
+  `note` varchar(1000) DEFAULT NULL,
+  `is_removed` bit(1) DEFAULT b'0',
+  `created_at` datetime(6) DEFAULT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  `updated_by` int DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `inventory_check_details` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `inventory_check_id` int NOT NULL,
+  `product_id` int NOT NULL,
+  `stock_batch_id` int DEFAULT NULL,
+  `system_qty` int NOT NULL,
+  `actual_qty` int DEFAULT NULL,
+  `note` varchar(500) DEFAULT NULL,
+  `is_removed` bit(1) DEFAULT b'0',
+  `created_at` datetime(6) DEFAULT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  `updated_by` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_icd_check` (`inventory_check_id`),
+  KEY `FK_icd_product` (`product_id`),
+  CONSTRAINT `FK_icd_check` FOREIGN KEY (`inventory_check_id`) REFERENCES `inventory_checks` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `FK_icd_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `import_returns` (
+  `created_by` int DEFAULT NULL,
+  `id` int NOT NULL AUTO_INCREMENT,
+  `import_order_id` int DEFAULT NULL,
+  `supplier_id` int DEFAULT NULL,
+  `inventory_check_id` int DEFAULT NULL,
+  `return_code` varchar(30) DEFAULT NULL,
+  `status` varchar(20) DEFAULT 'COMPLETED',
+  `source` varchar(30) NOT NULL DEFAULT 'MANUAL',
+  `total_refund` decimal(15,2) DEFAULT '0.00',
+  `note` tinytext,
+  `is_removed` bit(1) DEFAULT b'0',
+  `updated_by` int DEFAULT NULL,
+  `created_at` datetime(6) DEFAULT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FKkw5n4klftugkwax9g9ps1p4y4` (`import_order_id`),
+  KEY `FK_import_returns_supplier` (`supplier_id`),
+  KEY `FK_import_returns_inventory_check` (`inventory_check_id`),
+  CONSTRAINT `FKkw5n4klftugkwax9g9ps1p4y4` FOREIGN KEY (`import_order_id`) REFERENCES `import_orders` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `FK_import_returns_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `suppliers` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `FK_import_returns_inventory_check` FOREIGN KEY (`inventory_check_id`) REFERENCES `inventory_checks` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE `import_return_details` (
   `created_by` int DEFAULT NULL,
   `id` int NOT NULL AUTO_INCREMENT,
   `import_return_id` int NOT NULL,
-  `is_removed` bit(1) DEFAULT b'0',
   `product_id` int NOT NULL,
+  `stock_batch_id` int DEFAULT NULL,
+  `supplier_id` int DEFAULT NULL,
+  `import_order_id` int DEFAULT NULL,
+  `exchange_batch_id` int DEFAULT NULL,
   `quantity` int DEFAULT NULL,
   `return_price` decimal(15,2) DEFAULT NULL,
+  `return_reason` varchar(255) DEFAULT NULL,
+  `method` varchar(20) NOT NULL DEFAULT 'RETURN',
+  `line_status` varchar(30) NOT NULL DEFAULT 'WAITING_SUPPLIER',
+  `note` varchar(500) DEFAULT NULL,
+  `stock_reserved` bit(1) NOT NULL DEFAULT b'0',
+  `is_removed` bit(1) DEFAULT b'0',
   `updated_by` int DEFAULT NULL,
   `created_at` datetime(6) DEFAULT NULL,
   `updated_at` datetime(6) DEFAULT NULL,
-  `return_reason` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `FKhi2w488xwhj7bylhww1ebpvxu` (`import_return_id`),
   KEY `FKhtgbodm2urm3meg1l77oircg1` (`product_id`),
@@ -309,46 +373,11 @@ CREATE TABLE `import_return_details` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `import_return_details`
---
-
-LOCK TABLES `import_return_details` WRITE;
-/*!40000 ALTER TABLE `import_return_details` DISABLE KEYS */;
-/*!40000 ALTER TABLE `import_return_details` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `import_returns`
---
-
-DROP TABLE IF EXISTS `import_returns`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `import_returns` (
-  `created_by` int DEFAULT NULL,
-  `id` int NOT NULL AUTO_INCREMENT,
-  `import_order_id` int NOT NULL,
-  `is_removed` bit(1) DEFAULT b'0',
-  `total_refund` decimal(15,2) DEFAULT '0.00',
-  `updated_by` int DEFAULT NULL,
-  `created_at` datetime(6) DEFAULT NULL,
-  `updated_at` datetime(6) DEFAULT NULL,
-  `return_code` varchar(30) DEFAULT NULL,
-  `note` tinytext,
-  PRIMARY KEY (`id`),
-  KEY `FKkw5n4klftugkwax9g9ps1p4y4` (`import_order_id`),
-  CONSTRAINT `FKkw5n4klftugkwax9g9ps1p4y4` FOREIGN KEY (`import_order_id`) REFERENCES `import_orders` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
 -- Dumping data for table `import_returns`
 --
 
-LOCK TABLES `import_returns` WRITE;
 /*!40000 ALTER TABLE `import_returns` DISABLE KEYS */;
 /*!40000 ALTER TABLE `import_returns` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `notification_recipients`
@@ -379,10 +408,8 @@ CREATE TABLE `notification_recipients` (
 -- Dumping data for table `notification_recipients`
 --
 
-LOCK TABLES `notification_recipients` WRITE;
 /*!40000 ALTER TABLE `notification_recipients` DISABLE KEYS */;
 /*!40000 ALTER TABLE `notification_recipients` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `notifications`
@@ -411,10 +438,8 @@ CREATE TABLE `notifications` (
 -- Dumping data for table `notifications`
 --
 
-LOCK TABLES `notifications` WRITE;
 /*!40000 ALTER TABLE `notifications` DISABLE KEYS */;
 /*!40000 ALTER TABLE `notifications` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `permissions`
@@ -442,11 +467,9 @@ CREATE TABLE `permissions` (
 -- Dumping data for table `permissions`
 --
 
-LOCK TABLES `permissions` WRITE;
 /*!40000 ALTER TABLE `permissions` DISABLE KEYS */;
 INSERT INTO `permissions` VALUES (NULL,1,_binary '\0',NULL,NULL,NULL,'AUTH','AUTH:LOGIN','Login',NULL),(NULL,2,_binary '\0',NULL,NULL,NULL,'AUTH','AUTH:RESET_PASSWORD','Reset Password',NULL);
 /*!40000 ALTER TABLE `permissions` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `product_attributes`
@@ -477,10 +500,8 @@ CREATE TABLE `product_attributes` (
 -- Dumping data for table `product_attributes`
 --
 
-LOCK TABLES `product_attributes` WRITE;
 /*!40000 ALTER TABLE `product_attributes` DISABLE KEYS */;
 /*!40000 ALTER TABLE `product_attributes` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `product_units`
@@ -495,6 +516,7 @@ CREATE TABLE `product_units` (
   `is_removed` bit(1) DEFAULT b'0',
   `product_id` int NOT NULL,
   `unit_base` decimal(10,4) DEFAULT '1.0000',
+  `selling_price` decimal(15,2) DEFAULT NULL,
   `updated_by` int DEFAULT NULL,
   `created_at` datetime(6) DEFAULT NULL,
   `updated_at` datetime(6) DEFAULT NULL,
@@ -509,10 +531,8 @@ CREATE TABLE `product_units` (
 -- Dumping data for table `product_units`
 --
 
-LOCK TABLES `product_units` WRITE;
 /*!40000 ALTER TABLE `product_units` DISABLE KEYS */;
 /*!40000 ALTER TABLE `product_units` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `products`
@@ -530,19 +550,16 @@ CREATE TABLE `products` (
   `is_removed` bit(1) DEFAULT b'0',
   `min_stock` int DEFAULT '0',
   `selling_price` decimal(15,2) DEFAULT '0.00',
-  `vat_percent` decimal(5,2) NOT NULL DEFAULT '10.00',
   `updated_by` int DEFAULT NULL,
   `created_at` datetime(6) DEFAULT NULL,
   `updated_at` datetime(6) DEFAULT NULL,
   `barcode` varchar(50) DEFAULT NULL,
   `sku` varchar(50) DEFAULT NULL,
   `name` varchar(200) DEFAULT NULL,
-  `brand` varchar(100) DEFAULT NULL,
-  `product_img` varchar(500) DEFAULT NULL,
   `description` varchar(255) DEFAULT NULL,
   `status` varchar(20) NOT NULL DEFAULT 'active',
   `season_tag` varchar(50) DEFAULT NULL,
-  `cover_days_override` int DEFAULT NULL,
+  `is_returnable` bit(1) NOT NULL DEFAULT b'1',
   PRIMARY KEY (`id`),
   KEY `FKog2rp4qthbtt2lfyhfo32lsw9` (`category_id`),
   KEY `FK_products_parent` (`parent_id`),
@@ -555,10 +572,8 @@ CREATE TABLE `products` (
 -- Dumping data for table `products`
 --
 
-LOCK TABLES `products` WRITE;
 /*!40000 ALTER TABLE `products` DISABLE KEYS */;
 /*!40000 ALTER TABLE `products` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `return_order_details`
@@ -591,10 +606,8 @@ CREATE TABLE `return_order_details` (
 -- Dumping data for table `return_order_details`
 --
 
-LOCK TABLES `return_order_details` WRITE;
 /*!40000 ALTER TABLE `return_order_details` DISABLE KEYS */;
 /*!40000 ALTER TABLE `return_order_details` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `return_orders`
@@ -626,10 +639,8 @@ CREATE TABLE `return_orders` (
 -- Dumping data for table `return_orders`
 --
 
-LOCK TABLES `return_orders` WRITE;
 /*!40000 ALTER TABLE `return_orders` DISABLE KEYS */;
 /*!40000 ALTER TABLE `return_orders` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `role_permissions`
@@ -652,7 +663,6 @@ CREATE TABLE `role_permissions` (
 -- Dumping data for table `role_permissions`
 --
 
-LOCK TABLES `role_permissions` WRITE;
 /*!40000 ALTER TABLE `role_permissions` DISABLE KEYS */;
 INSERT INTO `role_permissions` VALUES
 -- ADMIN (1)
@@ -667,7 +677,6 @@ INSERT INTO `role_permissions` VALUES
 -- WAREHOUSE (4)
 (6,4),(7,4),(8,4),(9,4),(10,4),(11,4),(12,4),(13,4),(14,4),(15,4),(16,4),(17,4),(18,4),(19,4),(20,4),(21,4);
 /*!40000 ALTER TABLE `role_permissions` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `roles`
@@ -694,7 +703,6 @@ CREATE TABLE `roles` (
 -- Dumping data for table `roles`
 --
 
-LOCK TABLES `roles` WRITE;
 /*!40000 ALTER TABLE `roles` DISABLE KEYS */;
 INSERT INTO `roles` VALUES
 (NULL,1,_binary '\0',NULL,NULL,NULL,'ADMIN','Store owner – full system access'),
@@ -702,7 +710,6 @@ INSERT INTO `roles` VALUES
 (NULL,3,_binary '\0',NULL,NULL,NULL,'ACCOUNTANT','Kế toán'),
 (NULL,4,_binary '\0',NULL,NULL,NULL,'WAREHOUSE','Nhân viên kho hàng');
 /*!40000 ALTER TABLE `roles` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `sales_order_details`
@@ -736,10 +743,8 @@ CREATE TABLE `sales_order_details` (
 -- Dumping data for table `sales_order_details`
 --
 
-LOCK TABLES `sales_order_details` WRITE;
 /*!40000 ALTER TABLE `sales_order_details` DISABLE KEYS */;
 /*!40000 ALTER TABLE `sales_order_details` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `sales_orders`
@@ -774,10 +779,8 @@ CREATE TABLE `sales_orders` (
 -- Dumping data for table `sales_orders`
 --
 
-LOCK TABLES `sales_orders` WRITE;
 /*!40000 ALTER TABLE `sales_orders` DISABLE KEYS */;
 /*!40000 ALTER TABLE `sales_orders` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `stock_adjustments`
@@ -807,10 +810,8 @@ CREATE TABLE `stock_adjustments` (
 -- Dumping data for table `stock_adjustments`
 --
 
-LOCK TABLES `stock_adjustments` WRITE;
 /*!40000 ALTER TABLE `stock_adjustments` DISABLE KEYS */;
 /*!40000 ALTER TABLE `stock_adjustments` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `stock_batches`
@@ -829,6 +830,7 @@ CREATE TABLE `stock_batches` (
   `product_id` int NOT NULL,
   `quantity_in` int DEFAULT NULL,
   `received_date` date DEFAULT NULL,
+  `batch_code` varchar(50) DEFAULT NULL,
   `updated_by` int DEFAULT NULL,
   `created_at` datetime(6) DEFAULT NULL,
   `updated_at` datetime(6) DEFAULT NULL,
@@ -845,10 +847,8 @@ CREATE TABLE `stock_batches` (
 -- Dumping data for table `stock_batches`
 --
 
-LOCK TABLES `stock_batches` WRITE;
 /*!40000 ALTER TABLE `stock_batches` DISABLE KEYS */;
 /*!40000 ALTER TABLE `stock_batches` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `stock_movements`
@@ -880,33 +880,50 @@ CREATE TABLE `stock_movements` (
 -- Dumping data for table `stock_movements`
 --
 
-LOCK TABLES `stock_movements` WRITE;
 /*!40000 ALTER TABLE `stock_movements` DISABLE KEYS */;
 /*!40000 ALTER TABLE `stock_movements` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `storage_locations`
 --
 
 DROP TABLE IF EXISTS `storage_locations`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+DROP TABLE IF EXISTS `storage_zones`;
+
+CREATE TABLE `storage_zones` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `code` varchar(50) NOT NULL,
+  `title` varchar(200) DEFAULT NULL,
+  `zone_type` varchar(20) NOT NULL DEFAULT 'WAREHOUSE',
+  `sort_order` int NOT NULL DEFAULT '0',
+  `is_removed` bit(1) DEFAULT b'0',
+  `created_at` datetime(6) DEFAULT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  `updated_by` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `UK_storage_zones_code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE `storage_locations` (
   `created_by` int DEFAULT NULL,
   `id` int NOT NULL AUTO_INCREMENT,
+  `zone_id` int DEFAULT NULL,
+  `aisle` varchar(20) DEFAULT NULL,
+  `bin` varchar(20) DEFAULT NULL,
+  `shelf` varchar(20) DEFAULT NULL,
+  `label` varchar(50) NOT NULL,
+  `description` varchar(255) DEFAULT NULL,
+  `size` varchar(10) NOT NULL DEFAULT 'MEDIUM',
+  `is_full` bit(1) NOT NULL DEFAULT b'0',
   `is_active` bit(1) DEFAULT b'1',
   `is_removed` bit(1) DEFAULT b'0',
   `updated_by` int DEFAULT NULL,
   `created_at` datetime(6) DEFAULT NULL,
   `updated_at` datetime(6) DEFAULT NULL,
-  `aisle` varchar(20) DEFAULT NULL,
-  `bin` varchar(20) DEFAULT NULL,
-  `shelf` varchar(20) DEFAULT NULL,
-  `label` varchar(50) NOT NULL,
-  `zone` varchar(50) NOT NULL,
-  `description` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `FK_storage_locations_zone` (`zone_id`),
+  CONSTRAINT `FK_storage_locations_zone` FOREIGN KEY (`zone_id`) REFERENCES `storage_zones` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -914,10 +931,8 @@ CREATE TABLE `storage_locations` (
 -- Dumping data for table `storage_locations`
 --
 
-LOCK TABLES `storage_locations` WRITE;
 /*!40000 ALTER TABLE `storage_locations` DISABLE KEYS */;
 /*!40000 ALTER TABLE `storage_locations` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `store_config`
@@ -939,6 +954,7 @@ CREATE TABLE `store_config` (
   `owner_full_name` varchar(100) DEFAULT NULL,
   `store_name` varchar(200) NOT NULL DEFAULT 'Cửa hàng tạp hóa Đức Thắng',
   `address` varchar(255) DEFAULT NULL,
+  `return_window_days` int DEFAULT '7',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -947,11 +963,9 @@ CREATE TABLE `store_config` (
 -- Dumping data for table `store_config`
 --
 
-LOCK TABLES `store_config` WRITE;
 /*!40000 ALTER TABLE `store_config` DISABLE KEYS */;
-INSERT INTO `store_config` VALUES (NULL,1,_binary '\0',1.50,NULL,NULL,NULL,'VND','0999999999','Le Thang','Cửa hàng Đức Thắng','Ha Noi');
+INSERT INTO `store_config` (`created_by`,`id`,`is_removed`,`tax_rate`,`updated_by`,`created_at`,`updated_at`,`currency`,`tax_code`,`owner_full_name`,`store_name`,`address`,`return_window_days`) VALUES (NULL,1,_binary '\0',1.50,NULL,NULL,NULL,'VND','0999999999','Le Thang','Cửa hàng Đức Thắng','Ha Noi',7);
 /*!40000 ALTER TABLE `store_config` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `supplier_payments`
@@ -986,10 +1000,8 @@ CREATE TABLE `supplier_payments` (
 -- Dumping data for table `supplier_payments`
 --
 
-LOCK TABLES `supplier_payments` WRITE;
 /*!40000 ALTER TABLE `supplier_payments` DISABLE KEYS */;
 /*!40000 ALTER TABLE `supplier_payments` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `suppliers`
@@ -1011,6 +1023,7 @@ CREATE TABLE `suppliers` (
   `name` varchar(150) NOT NULL,
   `address` varchar(255) DEFAULT NULL,
   `notes` tinytext,
+  `lead_time_days` int NOT NULL DEFAULT '3',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -1019,10 +1032,8 @@ CREATE TABLE `suppliers` (
 -- Dumping data for table `suppliers`
 --
 
-LOCK TABLES `suppliers` WRITE;
 /*!40000 ALTER TABLE `suppliers` DISABLE KEYS */;
 /*!40000 ALTER TABLE `suppliers` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `tax_records`
@@ -1055,10 +1066,8 @@ CREATE TABLE `tax_records` (
 -- Dumping data for table `tax_records`
 --
 
-LOCK TABLES `tax_records` WRITE;
 /*!40000 ALTER TABLE `tax_records` DISABLE KEYS */;
 /*!40000 ALTER TABLE `tax_records` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `users`
@@ -1089,11 +1098,9 @@ CREATE TABLE `users` (
 -- Dumping data for table `users`
 --
 
-LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
 INSERT INTO `users` VALUES (NULL,1,_binary '\0',NULL,'2026-06-09 16:07:56.000000','2026-06-18 13:29:02.000000','0901234573','ACTIVE','test123','Hồ Huy Thành','$2a$10$vPWDXVGwlcy9CkI4GyoG7ezYjUsZT2q6owkXtjDKgRDzPzNAdOeSq');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Table structure for table `users_roles`
@@ -1116,11 +1123,9 @@ CREATE TABLE `users_roles` (
 -- Dumping data for table `users_roles`
 --
 
-LOCK TABLES `users_roles` WRITE;
 /*!40000 ALTER TABLE `users_roles` DISABLE KEYS */;
 INSERT INTO `users_roles` VALUES (1,1);
 /*!40000 ALTER TABLE `users_roles` ENABLE KEYS */;
-UNLOCK TABLES;
 
 --
 -- Dumping routines for database 'dbdev'
@@ -1141,27 +1146,10 @@ UNLOCK TABLES;
 -- NEW TABLES FOR ORDER RECONCILIATION & AUDIT
 -- 
 
-CREATE TABLE `daily_reconciliations` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `reconciliation_date` date NOT NULL,
-  `opening_cash` decimal(15,2) DEFAULT '0.00',
-  `cash_sales` decimal(15,2) DEFAULT '0.00',
-  `cash_debt_collected` decimal(15,2) DEFAULT '0.00',
-  `cash_refunded` decimal(15,2) DEFAULT '0.00',
-  `theoretical_cash` decimal(15,2) DEFAULT '0.00',
-  `actual_cash` decimal(15,2) DEFAULT '0.00',
-  `cash_discrepancy` decimal(15,2) DEFAULT '0.00',
-  `bank_transfer_confirmed` decimal(15,2) DEFAULT '0.00',
-  `bank_transfer_pending` decimal(15,2) DEFAULT '0.00',
-  `bank_actual` decimal(15,2) DEFAULT '0.00',
-  `bank_discrepancy` decimal(15,2) DEFAULT '0.00',
-  `status` varchar(20) DEFAULT 'COMPLETED',
-  `note` text,
-  `created_by` int DEFAULT NULL,
-  `created_at` datetime(6) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `idx_reconciliation_date` (`reconciliation_date`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+DROP TABLE IF EXISTS `sales_order_adjustment_details`;
+DROP TABLE IF EXISTS `sales_order_adjustments`;
+DROP TABLE IF EXISTS `audit_resolutions`;
+DROP TABLE IF EXISTS `api_endpoint_permissions`;
 
 CREATE TABLE `sales_order_adjustments` (
   `id` int NOT NULL AUTO_INCREMENT,
@@ -1204,3 +1192,19 @@ CREATE TABLE `audit_resolutions` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_anomaly_target` (`anomaly_type`, `target_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `api_endpoint_permissions` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `http_method` varchar(10) NOT NULL,
+  `url_pattern` varchar(255) NOT NULL,
+  `permission_code` varchar(100) NOT NULL,
+  `description` varchar(255) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `is_removed` bit(1) DEFAULT b'0',
+  `created_at` datetime(6) DEFAULT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  `updated_by` int DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+

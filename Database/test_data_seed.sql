@@ -20,6 +20,7 @@
 -- ============================================================
 
 SET NAMES utf8mb4;
+UNLOCK TABLES;
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- ============================================================
@@ -181,44 +182,44 @@ ON DUPLICATE KEY UPDATE `name`=VALUES(`name`);
 -- ============================================================
 INSERT INTO `products`
     (`id`,`name`,`barcode`,`category_id`,`cost_price`,`selling_price`,
-     `min_stock`,`description`,`product_img`,`is_removed`,`created_at`,`updated_at`,`created_by`,`parent_id`)
+     `min_stock`,`description`,`is_removed`,`created_at`,`updated_at`,`created_by`,`parent_id`)
 VALUES
 -- Do uong (cat 1)
-(1, 'Nuoc suoi Lavie 500ml',      '8934563118015',1,  3500.00,  5000.00,10,'Nuoc suoi tinh khiet Lavie chai 500ml',          NULL,b'0',NOW(),NOW(),1,NULL),
+(1, 'Nuoc suoi Lavie 500ml',      '8934563118015',1,  3500.00,  5000.00,10,'Nuoc suoi tinh khiet Lavie chai 500ml',b'0',NOW(),NOW(),1,NULL),
 -- Nhom Pepsi (Parent ID: 21) & Cac San pham Con (Child Variants parent_id: 21)
-(21,'Nuoc ngot Pepsi','PEPSI_GRP_01',1, 0.00,   0.00,   0, 'Nhom nuoc ngot Pepsi lon & chai',               NULL,b'0',NOW(),NOW(),1,NULL),
-(2, 'Nuoc ngot Pepsi-Vi Chanh Muoi-330ml(Lon)','8936082960024',1, 8000.00, 12000.00,10,'Nuoc ngot Pepsi lon 330ml vi chanh muoi', NULL,b'0',NOW(),NOW(),1,21),
-(22,'Nuoc ngot Pepsi-Khong Calo-330ml(Lon)',  '8936082960025',1, 8000.00, 12000.00,10,'Nuoc ngot Pepsi lon 330ml khong calo',   NULL,b'0',NOW(),NOW(),1,21),
-(3, 'Bia Tiger 330ml',            '8934673600032',1, 15000.00, 20000.00,12,'Bia Tiger lon 330ml',                            NULL,b'0',NOW(),NOW(),1,NULL),
-(4, 'Nuoc cam ep Tropicana 1L',   '8936001310047',1, 30000.00, 42000.00, 6,'Nuoc cam ep nguyen chat Tropicana 1 lit',        NULL,b'0',NOW(),NOW(),1,NULL),
+(21,'Nuoc ngot Pepsi','PEPSI_GRP_01',1, 0.00,   0.00,   0, 'Nhom nuoc ngot Pepsi lon & chai',b'0',NOW(),NOW(),1,NULL),
+(2, 'Nuoc ngot Pepsi-Vi Chanh Muoi-330ml','8936082960024',1, 8000.00, 12000.00,10,'Nuoc ngot Pepsi lon 330ml vi chanh muoi',b'0',NOW(),NOW(),1,21),
+(22,'Nuoc ngot Pepsi-Khong Calo-330ml',  '8936082960025',1, 8000.00, 12000.00,10,'Nuoc ngot Pepsi lon 330ml khong calo',b'0',NOW(),NOW(),1,21),
+(3, 'Bia Tiger 330ml',            '8934673600032',1, 15000.00, 20000.00,12,'Bia Tiger lon 330ml',b'0',NOW(),NOW(),1,NULL),
+(4, 'Nuoc cam ep Tropicana 1L',   '8936001310047',1, 30000.00, 42000.00, 6,'Nuoc cam ep nguyen chat Tropicana 1 lit',b'0',NOW(),NOW(),1,NULL),
 
 -- Thuc pham kho (cat 2)
-(5, 'Gao Jasmine tui 5kg',        '8934561005043',2, 75000.00,100000.00, 5,'Gao Jasmine thom, tui 5kg',                     NULL,b'0',NOW(),NOW(),1,NULL),
-(6, 'Mi Hao Hao tom chua cay',    '8934822010062',2,  3500.00,  5000.00,30,'Goi mi an lien Hao Hao vi tom chua cay 75g',    NULL,b'0',NOW(),NOW(),1,NULL),
-(7, 'Pho bo A Dong 75g',          '8935086020071',2,  7000.00, 10000.00,20,'Pho bo an lien A Dong 75g',                     NULL,b'0',NOW(),NOW(),1,NULL),
+(5, 'Gao Jasmine tui 5kg',        '8934561005043',2, 75000.00,100000.00, 5,'Gao Jasmine thom, tui 5kg',b'0',NOW(),NOW(),1,NULL),
+(6, 'Mi Hao Hao tom chua cay',    '8934822010062',2,  3500.00,  5000.00,30,'Goi mi an lien Hao Hao vi tom chua cay 75g',b'0',NOW(),NOW(),1,NULL),
+(7, 'Pho bo A Dong 75g',          '8935086020071',2,  7000.00, 10000.00,20,'Pho bo an lien A Dong 75g',b'0',NOW(),NOW(),1,NULL),
 
 -- Banh keo (cat 3)
-(8, 'Banh Oreo hop 137g',         '7622210951199',3, 25000.00, 35000.00,10,'Banh quy Oreo kem vani hop 137g',               NULL,b'0',NOW(),NOW(),1,NULL),
-(9, 'Keo cao su Extra dau',       '4902888105579',3,  8000.00, 12000.00,15,'Keo cao su Extra khong duong vi dau, vi 5 vien', NULL,b'0',NOW(),NOW(),1,NULL),
+(8, 'Banh Oreo hop 137g',         '7622210951199',3, 25000.00, 35000.00,10,'Banh quy Oreo kem vani hop 137g',b'0',NOW(),NOW(),1,NULL),
+(9, 'Keo cao su Extra dau',       '4902888105579',3,  8000.00, 12000.00,15,'Keo cao su Extra khong duong vi dau, vi 5 vien',b'0',NOW(),NOW(),1,NULL),
 
 -- Gia vi (cat 4)
-(10,'Nuoc mam Chin-Su 500ml',     '8934563420156',4, 22000.00, 30000.00, 8,'Nuoc mam Chin-Su dac biet, chai 500ml',         NULL,b'0',NOW(),NOW(),1,NULL),
-(11,'Dau an Tuong An 1 lit',      '8934561300119',4, 40000.00, 55000.00, 6,'Dau an tinh luyen Tuong An, chai 1 lit',        NULL,b'0',NOW(),NOW(),1,NULL),
+(10,'Nuoc mam Chin-Su 500ml',     '8934563420156',4, 22000.00, 30000.00, 8,'Nuoc mam Chin-Su dac biet, chai 500ml',b'0',NOW(),NOW(),1,NULL),
+(11,'Dau an Tuong An 1 lit',      '8934561300119',4, 40000.00, 55000.00, 6,'Dau an tinh luyen Tuong An, chai 1 lit',b'0',NOW(),NOW(),1,NULL),
 
 -- Cham soc ca nhan (cat 5)
-(12,'Dau goi Clear Men 320g',     '8934804036128',5, 55000.00, 75000.00, 5,'Dau goi Clear Men sach gau, chai 320g',         NULL,b'0',NOW(),NOW(),1,NULL),
-(13,'Kem danh rang Colgate 230g', '9780000000138',5, 28000.00, 40000.00, 8,'Kem danh rang Colgate triple action, tuyp 230g',NULL,b'0',NOW(),NOW(),1,NULL),
+(12,'Dau goi Clear Men 320g',     '8934804036128',5, 55000.00, 75000.00, 5,'Dau goi Clear Men sach gau, chai 320g',b'0',NOW(),NOW(),1,NULL),
+(13,'Kem danh rang Colgate 230g', '9780000000138',5, 28000.00, 40000.00, 8,'Kem danh rang Colgate triple action, tuyp 230g',b'0',NOW(),NOW(),1,NULL),
 
 -- Do dung gia dinh (cat 6)
-(14,'Tui nilon den cuon lon',     '8934561991401',6,  8000.00, 12000.00,20,'Tui nilon den cuon loai lon, tien dung',        NULL,b'0',NOW(),NOW(),1,NULL),
-(15,'Nuoc rua chen Sunlight 750ml','8934563221152',6, 18000.00, 25000.00, 8,'Nuoc rua chen Sunlight chanh, chai 750ml',     NULL,b'0',NOW(),NOW(),1,NULL),
+(14,'Tui nilon den cuon lon',     '8934561991401',6,  8000.00, 12000.00,20,'Tui nilon den cuon loai lon, tien dung',b'0',NOW(),NOW(),1,NULL),
+(15,'Nuoc rua chen Sunlight 750ml','8934563221152',6, 18000.00, 25000.00, 8,'Nuoc rua chen Sunlight chanh, chai 750ml',b'0',NOW(),NOW(),1,NULL),
 
 -- SP Nhóm Dép Tổ Ong (Parent ID: 16) & Các Sản phẩm Con (Child Variants parent_id: 16)
-(16,'Dep to ong sieu nhe dai cua thanh','DEP_GRP_001',6,0.00,0.00,0,'Nhom dep to ong sieu nhe dai cao cap',NULL,b'0',NOW(),NOW(),1,NULL),
-(17,'Dep to ong sieu nhe dai cua thanh-Size 36-Mau Vang(Doi)','8935001100171',6,37000.00,40000.00,5,'Dep to ong Mau Vang Size 36',NULL,b'0',NOW(),NOW(),1,16),
-(18,'Dep to ong sieu nhe dai cua thanh-Size 37-Mau Vang(Doi)','8935001100188',6,37000.00,40000.00,5,'Dep to ong Mau Vang Size 37',NULL,b'0',NOW(),NOW(),1,16),
-(19,'Dep to ong sieu nhe dai cua thanh-Size 36-Mau Do(Doi)',  '8935001100195',6,37000.00,40000.00,5,'Dep to ong Mau Do Size 36',  NULL,b'0',NOW(),NOW(),1,16),
-(20,'Dep to ong sieu nhe dai cua thanh-Size 37-Mau Do(Doi)',  '8935001100201',6,37000.00,40000.00,5,'Dep to ong Mau Do Size 37',  NULL,b'0',NOW(),NOW(),1,16)
+(16,'Dep to ong sieu nhe dai cua thanh','DEP_GRP_001',6,0.00,0.00,0,'Nhom dep to ong sieu nhe dai cao cap',b'0',NOW(),NOW(),1,NULL),
+(17,'Dep to ong sieu nhe dai cua thanh-Size 36-Mau Vang','8935001100171',6,37000.00,40000.00,5,'Dep to ong Mau Vang Size 36',b'0',NOW(),NOW(),1,16),
+(18,'Dep to ong sieu nhe dai cua thanh-Size 37-Mau Vang','8935001100188',6,37000.00,40000.00,5,'Dep to ong Mau Vang Size 37',b'0',NOW(),NOW(),1,16),
+(19,'Dep to ong sieu nhe dai cua thanh-Size 36-Mau Do',  '8935001100195',6,37000.00,40000.00,5,'Dep to ong Mau Do Size 36',b'0',NOW(),NOW(),1,16),
+(20,'Dep to ong sieu nhe dai cua thanh-Size 37-Mau Do',  '8935001100201',6,37000.00,40000.00,5,'Dep to ong Mau Do Size 37',b'0',NOW(),NOW(),1,16)
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`), `selling_price`=VALUES(`selling_price`), `parent_id`=VALUES(`parent_id`);
 
 -- ============================================================
@@ -356,17 +357,25 @@ VALUES
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`);
 
 -- ============================================================
--- 12. STORAGE LOCATIONS
+-- 12. STORAGE ZONES & LOCATIONS
 -- ============================================================
+INSERT INTO `storage_zones`
+    (`id`,`code`,`title`,`zone_type`,`sort_order`,`is_removed`,`created_at`,`updated_at`,`created_by`)
+VALUES
+(1,'KHO-A','Khu vuc A','WAREHOUSE',1,b'0',NOW(),NOW(),1),
+(2,'KHO-B','Khu vuc B','WAREHOUSE',2,b'0',NOW(),NOW(),1),
+(3,'KHO-C','Khu vuc C','WAREHOUSE',3,b'0',NOW(),NOW(),1)
+ON DUPLICATE KEY UPDATE `code`=VALUES(`code`);
+
 INSERT INTO `storage_locations`
-    (`id`,`zone`,`label`,`aisle`,`shelf`,`bin`,`description`,
+    (`id`,`zone_id`,`label`,`aisle`,`shelf`,`bin`,`description`,`size`,`is_full`,
      `is_active`,`is_removed`,`created_at`,`updated_at`,`created_by`)
 VALUES
-(1,'KHO-A','KHO-A-01','A','1','01','Khu A - ke 1, ngan 1',b'1',b'0',NOW(),NOW(),1),
-(2,'KHO-A','KHO-A-02','A','1','02','Khu A - ke 1, ngan 2',b'1',b'0',NOW(),NOW(),1),
-(3,'KHO-B','KHO-B-01','B','2','01','Khu B - ke 2, ngan 1',b'1',b'0',NOW(),NOW(),1),
-(4,'KHO-B','KHO-B-02','B','2','02','Khu B - ke 2, ngan 2',b'1',b'0',NOW(),NOW(),1),
-(5,'KHO-C','KHO-C-01','C','3','01','Khu C - ke 3, ngan 1',b'1',b'0',NOW(),NOW(),1)
+(1,1,'KHO-A-01','A','1','01','Khu A - ke 1, ngan 1','MEDIUM',b'0',b'1',b'0',NOW(),NOW(),1),
+(2,1,'KHO-A-02','A','1','02','Khu A - ke 1, ngan 2','MEDIUM',b'0',b'1',b'0',NOW(),NOW(),1),
+(3,2,'KHO-B-01','B','2','01','Khu B - ke 2, ngan 1','MEDIUM',b'0',b'1',b'0',NOW(),NOW(),1),
+(4,2,'KHO-B-02','B','2','02','Khu B - ke 2, ngan 2','MEDIUM',b'0',b'1',b'0',NOW(),NOW(),1),
+(5,3,'KHO-C-01','C','3','01','Khu C - ke 3, ngan 1','MEDIUM',b'0',b'1',b'0',NOW(),NOW(),1)
 ON DUPLICATE KEY UPDATE `label`=VALUES(`label`);
 
 -- ============================================================
@@ -417,31 +426,31 @@ ON DUPLICATE KEY UPDATE `quantity`=VALUES(`quantity`);
 -- 15. STOCK BATCHES
 -- ============================================================
 INSERT INTO `stock_batches`
-    (`id`,`product_id`,`import_order_id`,`quantity_in`,`cost_per_unit`,
+    (`id`,`product_id`,`import_order_id`,`batch_code`,`quantity_in`,`cost_per_unit`,
      `received_date`,`expiry_date`,`batch_note`,`is_removed`,`created_at`,`updated_at`,`created_by`)
 VALUES
-(1, 1,1,300, 3500.00,'2026-07-01','2027-01-01','Lavie - lo 1',        b'0',NOW(),NOW(),1),
-(2, 2,1,150, 8000.00,'2026-07-01','2027-06-01','Pepsi - lo 1',        b'0',NOW(),NOW(),1),
-(3, 3,1,100,15000.00,'2026-07-01','2027-03-01','Tiger - lo 1',        b'0',NOW(),NOW(),1),
-(4, 4,1, 15,15000.00,'2026-07-01','2027-02-01','Tropicana - lo 1',    b'0',NOW(),NOW(),1),
-(5, 5,2, 15,75000.00,'2026-07-05','2027-12-31','Gao Jasmine - lo 1',  b'0',NOW(),NOW(),1),
-(6, 6,2,200, 3500.00,'2026-07-05','2027-06-01','Hao Hao - lo 1',      b'0',NOW(),NOW(),1),
-(7, 7,2,100, 7000.00,'2026-07-05','2027-06-01','Pho A Dong - lo 1',   b'0',NOW(),NOW(),1),
-(8, 6,2,100, 3500.00,'2026-07-05','2027-09-01','Hao Hao - lo 2',      b'0',NOW(),NOW(),1),
-(9, 8,3, 20,25000.00,'2026-07-10','2027-04-01','Oreo - lo 1',         b'0',NOW(),NOW(),1),
-(10,9,3, 50, 7000.00,'2026-07-10','2027-08-01','Extra - lo 1',        b'0',NOW(),NOW(),1),
-(11,10,4,50,22000.00,'2026-07-15','2028-01-01','Chin-Su - lo 1',      b'0',NOW(),NOW(),1),
-(12,11,4,30,40000.00,'2026-07-15','2028-01-01','Tuong An - lo 1',     b'0',NOW(),NOW(),1),
-(13,12,5,20,55000.00,'2026-07-20','2028-06-01','Clear Men - lo 1',    b'0',NOW(),NOW(),1),
-(14,13,5,30,28000.00,'2026-07-20','2028-06-01','Colgate - lo 1',      b'0',NOW(),NOW(),1),
-(15,14,5,50, 8000.00,'2026-07-20','2028-12-31','Tui nilon - lo 1',    b'0',NOW(),NOW(),1),
-(16,15,5,40,18000.00,'2026-07-20','2028-06-01','Sunlight - lo 1',     b'0',NOW(),NOW(),1),
-(17,17,5,20,37000.00,'2026-07-20','2028-06-01','Dep Vang 36 - lo 1',   b'0',NOW(),NOW(),1),
-(18,18,5,15,37000.00,'2026-07-20','2028-06-01','Dep Vang 37 - lo 1',   b'0',NOW(),NOW(),1),
-(19,19,5,10,37000.00,'2026-07-20','2028-06-01','Dep Do 36 - lo 1',     b'0',NOW(),NOW(),1),
-(20,20,5,12,37000.00,'2026-07-20','2028-06-01','Dep Do 37 - lo 1',     b'0',NOW(),NOW(),1),
-(21,22,1,100, 8000.00,'2026-07-01','2027-06-01','Pepsi Khong Calo - lo 1', b'0',NOW(),NOW(),1)
-ON DUPLICATE KEY UPDATE `batch_note`=VALUES(`batch_note`);
+(1, 1,1,'BATCH-001',300, 3500.00,'2026-07-01','2027-01-01','Lavie - lo 1',        b'0',NOW(),NOW(),1),
+(2, 2,1,'BATCH-002',150, 8000.00,'2026-07-01','2027-06-01','Pepsi - lo 1',        b'0',NOW(),NOW(),1),
+(3, 3,1,'BATCH-003',100,15000.00,'2026-07-01','2027-03-01','Tiger - lo 1',        b'0',NOW(),NOW(),1),
+(4, 4,1,'BATCH-004', 15,15000.00,'2026-07-01','2027-02-01','Tropicana - lo 1',    b'0',NOW(),NOW(),1),
+(5, 5,2,'BATCH-005', 15,75000.00,'2026-07-05','2027-12-31','Gao Jasmine - lo 1',  b'0',NOW(),NOW(),1),
+(6, 6,2,'BATCH-006',200, 3500.00,'2026-07-05','2027-06-01','Hao Hao - lo 1',      b'0',NOW(),NOW(),1),
+(7, 7,2,'BATCH-007',100, 7000.00,'2026-07-05','2027-06-01','Pho A Dong - lo 1',   b'0',NOW(),NOW(),1),
+(8, 6,2,'BATCH-008',100, 3500.00,'2026-07-05','2027-09-01','Hao Hao - lo 2',      b'0',NOW(),NOW(),1),
+(9, 8,3,'BATCH-009', 20,25000.00,'2026-07-10','2027-04-01','Oreo - lo 1',         b'0',NOW(),NOW(),1),
+(10,9,3,'BATCH-010', 50, 7000.00,'2026-07-10','2027-08-01','Extra - lo 1',        b'0',NOW(),NOW(),1),
+(11,10,4,'BATCH-011',50,22000.00,'2026-07-15','2028-01-01','Chin-Su - lo 1',      b'0',NOW(),NOW(),1),
+(12,11,4,'BATCH-012',30,40000.00,'2026-07-15','2028-01-01','Tuong An - lo 1',     b'0',NOW(),NOW(),1),
+(13,12,5,'BATCH-013',20,55000.00,'2026-07-20','2028-06-01','Clear Men - lo 1',    b'0',NOW(),NOW(),1),
+(14,13,5,'BATCH-014',30,28000.00,'2026-07-20','2028-06-01','Colgate - lo 1',      b'0',NOW(),NOW(),1),
+(15,14,5,'BATCH-015',50, 8000.00,'2026-07-20','2028-12-31','Tui nilon - lo 1',    b'0',NOW(),NOW(),1),
+(16,15,5,'BATCH-016',40,18000.00,'2026-07-20','2028-06-01','Sunlight - lo 1',     b'0',NOW(),NOW(),1),
+(17,17,5,'BATCH-017',20,37000.00,'2026-07-20','2028-06-01','Dep Vang 36 - lo 1',   b'0',NOW(),NOW(),1),
+(18,18,5,'BATCH-018',15,37000.00,'2026-07-20','2028-06-01','Dep Vang 37 - lo 1',   b'0',NOW(),NOW(),1),
+(19,19,5,'BATCH-019',10,37000.00,'2026-07-20','2028-06-01','Dep Do 36 - lo 1',     b'0',NOW(),NOW(),1),
+(20,20,5,'BATCH-020',12,37000.00,'2026-07-20','2028-06-01','Dep Do 37 - lo 1',     b'0',NOW(),NOW(),1),
+(21,22,1,'BATCH-021',100, 8000.00,'2026-07-01','2027-06-01','Pepsi Khong Calo - lo 1', b'0',NOW(),NOW(),1)
+ON DUPLICATE KEY UPDATE `batch_code`=VALUES(`batch_code`), `batch_note`=VALUES(`batch_note`);
 
 -- ============================================================
 -- 16. BATCH LOCATIONS

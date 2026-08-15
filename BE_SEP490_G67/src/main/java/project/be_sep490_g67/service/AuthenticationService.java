@@ -159,21 +159,28 @@ public class AuthenticationService {
     }
 
     private String[] buildScope(User user) {
-        if (CollectionUtils.isEmpty(user.getRoles())) {
-            return new String[0];
+        java.util.Set<String> scopes = new java.util.HashSet<>();
+
+        if (!CollectionUtils.isEmpty(user.getRoles())) {
+            user.getRoles().forEach(role -> {
+                scopes.add("ROLE_" + role.getName());
+                if (!CollectionUtils.isEmpty(role.getPermissions())) {
+                    role.getPermissions().forEach(permission -> {
+                        if (permission.getCode() != null) {
+                            scopes.add(permission.getCode());
+                        }
+                    });
+                }
+            });
         }
 
-        java.util.Set<String> scopes = new java.util.HashSet<>();
-        user.getRoles().forEach(role -> {
-            scopes.add("ROLE_" + role.getName());
-            if (!CollectionUtils.isEmpty(role.getPermissions())) {
-                role.getPermissions().forEach(permission -> {
-                    if (permission.getCode() != null) {
-                        scopes.add(permission.getCode());
-                    }
-                });
-            }
-        });
+        if (!CollectionUtils.isEmpty(user.getCustomPermissions())) {
+            user.getCustomPermissions().forEach(permission -> {
+                if (permission.getCode() != null) {
+                    scopes.add(permission.getCode());
+                }
+            });
+        }
 
         return scopes.toArray(new String[0]);
     }

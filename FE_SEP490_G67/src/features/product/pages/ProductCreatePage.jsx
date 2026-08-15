@@ -1,6 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import ProductCreateForm from '../components/ProductCreateForm';
 import { productsApi } from '../api';
@@ -64,11 +63,9 @@ export default function ProductCreatePage() {
   };
 
   return (
-    <div className="admin-layout">
-      <SideBar />
-      <div className="admin-content">
-        <AdminHeader />
-        <main className="admin-main">
+    <div className="admin-content">
+      <AdminHeader />
+      <main className="admin-main">
           <div className="dashboard-container add-product-page">
             <nav className="add-product-breadcrumb" aria-label="Breadcrumb">
               <span className="add-product-breadcrumb__muted">Sản phẩm</span>
@@ -89,6 +86,5 @@ export default function ProductCreatePage() {
           </div>
         </main>
       </div>
-    </div>
   );
 }
