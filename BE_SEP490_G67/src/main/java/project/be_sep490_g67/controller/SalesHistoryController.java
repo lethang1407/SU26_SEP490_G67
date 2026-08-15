@@ -29,8 +29,8 @@ public class SalesHistoryController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Integer productId,
             @RequestParam(required = false) String status,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "5") int size
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "5") int size
     ) {
         return ApiResponse.<PageResponse<SalesHistoryRowDTO>>builder()
                 .result(salesHistoryService.list(from, to, keyword, productId, status, page, size))

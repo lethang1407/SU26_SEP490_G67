@@ -29,8 +29,8 @@ public class ImportHistoryController {
             @RequestParam(required = false) String supplierKeyword,
             @RequestParam(required = false) Integer productId,
             @RequestParam(required = false) String status,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "5") int size
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "5") int size
     ) {
         return ApiResponse.<PageResponse<ImportHistoryRowDTO>>builder()
                 .result(importHistoryService.list(from, to, supplierKeyword, productId, status, page, size))

@@ -11,6 +11,7 @@ import {
     fetchImportReturns,
     submitImportReturn,
     updateImportReturnExchangeExpiry,
+    updateImportReturnLineMethod,
     updateImportReturnLineStatus,
 } from '../api';
 import {
@@ -238,6 +239,20 @@ export default function ImportReturnListModal({
         }
     };
 
+    const handleLineMethod = async (detailId, method) => {
+        if (!detail?.id) return;
+        setBusy(true);
+        setError(null);
+        try {
+            const result = await updateImportReturnLineMethod(detail.id, detailId, method);
+            setDetail(result);
+        } catch (methodError) {
+            setError(getApiErrorMessage(methodError, 'Không cập nhật hình thức dòng.'));
+        } finally {
+            setBusy(false);
+        }
+    };
+
     const handleExchangeExpiry = async (detailId, exchangeExpiryDate) => {
         if (!detail?.id) return;
         setBusy(true);
@@ -423,6 +438,7 @@ export default function ImportReturnListModal({
                                 onClose?.();
                             }}
                             onLineStatus={handleLineStatus}
+                            onLineMethod={handleLineMethod}
                             onSaveExchangeExpiry={handleExchangeExpiry}
                         />
                     )}
@@ -466,6 +482,7 @@ function DetailBody({
     onSubmitDraft,
     onEditDraft,
     onLineStatus,
+    onLineMethod,
     onSaveExchangeExpiry,
 }) {
     const [pendingExpiry, setPendingExpiry] = useState({});
@@ -579,7 +596,32 @@ function DetailBody({
                                     <td>{line.quantity}</td>
                                     <td>{line.supplierName || '—'}</td>
                                     <td>{line.note || line.returnReason || '—'}</td>
-                                    <td>{formatMethod(line.method)}</td>
+                                    <td>
+                                        {isDone ||
+                                        detail.status === DOC_STATUS.COMPLETED ? (
+                                            formatMethod(line.method)
+                                        ) : (
+                                            <StyledSelect
+                                                value={
+                                                    line.method || RETURN_METHOD.RETURN
+                                                }
+                                                disabled={busy}
+                                                options={[
+                                                    {
+                                                        value: RETURN_METHOD.RETURN,
+                                                        label: 'Trả',
+                                                    },
+                                                    {
+                                                        value: RETURN_METHOD.EXCHANGE,
+                                                        label: 'Đổi',
+                                                    },
+                                                ]}
+                                                onChange={(next) =>
+                                                    onLineMethod?.(line.detailId, next)
+                                                }
+                                            />
+                                        )}
+                                    </td>
                                     <td>{formatCurrency(line.lineValue)}</td>
                                     {showHistoryCols ? (
                                         <td>

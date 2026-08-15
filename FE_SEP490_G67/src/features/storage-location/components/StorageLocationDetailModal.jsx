@@ -29,6 +29,8 @@ export default function StorageLocationDetailModal({
         <Modal
             show={show}
             onHide={onClose}
+            className="storage-modal--stacked"
+            backdropClassName="storage-modal-backdrop--stacked"
             dialogClassName="storage-location-detail-modal"
             contentClassName="storage-location-detail-modal__content"
             centered
@@ -141,7 +143,7 @@ export default function StorageLocationDetailModal({
                     </Modal.Body>
 
                     <Modal.Footer className="storage-location-detail-modal__footer">
-                        {(!isEmpty || isFull) && (
+                        {!isEmpty ? (
                             <button
                                 type="button"
                                 className={`inventory-btn storage-location-detail-modal__action ${
@@ -153,7 +155,7 @@ export default function StorageLocationDetailModal({
                                 <CircleDot size={18} />
                                 {isFull ? 'Bỏ đánh dấu đầy' : 'Đánh dấu đầy'}
                             </button>
-                        )}
+                        ) : null}
                         <button
                             type="button"
                             className="inventory-btn inventory-btn--secondary storage-location-detail-modal__action"

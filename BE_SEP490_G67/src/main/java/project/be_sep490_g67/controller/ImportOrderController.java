@@ -70,8 +70,8 @@ public class ImportOrderController {
 
     @GetMapping
     public ApiResponse<PageResponse<ImportOrderListItemResponse>> getImportOrders(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "ALL") String orderStatus,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
@@ -103,8 +103,8 @@ public class ImportOrderController {
     @GetMapping("/{id}/payments")
     public ApiResponse<PageResponse<SupplierPaymentResponse>> getImportOrderPayments(
             @PathVariable Integer id,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size
     ) {
         return ApiResponse.<PageResponse<SupplierPaymentResponse>>builder()
                 .result(supplierPaymentService.getPaymentHistoryByImportOrder(id, page, size))

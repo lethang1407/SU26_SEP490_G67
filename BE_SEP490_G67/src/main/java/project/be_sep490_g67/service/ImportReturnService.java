@@ -11,6 +11,7 @@ import project.be_sep490_g67.constants.ImportReturnConstants;
 import project.be_sep490_g67.dto.request.CreateImportReturnFromInventoryCheckRequest;
 import project.be_sep490_g67.dto.request.SaveImportReturnRequest;
 import project.be_sep490_g67.dto.request.UpdateExchangeExpiryRequest;
+import project.be_sep490_g67.dto.request.UpdateImportReturnLineMethodRequest;
 import project.be_sep490_g67.dto.request.UpdateImportReturnLineStatusRequest;
 import project.be_sep490_g67.dto.response.ImportReturnDetailResponse;
 import project.be_sep490_g67.dto.response.ImportReturnListItemResponse;
@@ -258,6 +259,32 @@ public class ImportReturnService {
             throw new AppException(ErrorCode.IMPORT_RETURN_INVALID_LINE_STATUS);
         }
 
+        return toDetail(header);
+    }
+
+    @Transactional
+    public ImportReturnDetailResponse updateLineMethod(
+            Integer userId, Integer returnId, Integer detailId, UpdateImportReturnLineMethodRequest request) {
+        ImportReturn header = requireActive(returnId);
+        if (!ImportReturnConstants.STATUS_IN_PROGRESS.equals(header.getStatus())
+                && !ImportReturnConstants.STATUS_DRAFT.equals(header.getStatus())) {
+            throw new AppException(ErrorCode.IMPORT_RETURN_NOT_IN_PROGRESS);
+        }
+        if (userId != null && header.getCreatedBy() != null && !Objects.equals(header.getCreatedBy(), userId)) {
+            throw new AppException(ErrorCode.IMPORT_RETURN_NOT_FOUND);
+        }
+
+        ImportReturnDetail detail = importReturnDetailRepository.findActiveWithReturnById(detailId)
+                .orElseThrow(() -> new AppException(ErrorCode.IMPORT_RETURN_DETAIL_NOT_FOUND));
+        if (!Objects.equals(detail.getImportReturn().getId(), header.getId())) {
+            throw new AppException(ErrorCode.IMPORT_RETURN_DETAIL_NOT_FOUND);
+        }
+        if (ImportReturnConstants.LINE_DONE.equals(detail.getLineStatus())) {
+            throw new AppException(ErrorCode.IMPORT_RETURN_LINE_ALREADY_DONE);
+        }
+
+        detail.setMethod(ImportReturnConstants.normalizeMethod(request.getMethod()));
+        importReturnDetailRepository.save(detail);
         return toDetail(header);
     }
 

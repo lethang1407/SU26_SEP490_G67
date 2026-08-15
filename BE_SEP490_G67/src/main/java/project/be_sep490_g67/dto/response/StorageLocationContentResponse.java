@@ -19,6 +19,9 @@ public class StorageLocationContentResponse {
     Integer id;
     /** ID lô stock_batches */
     Integer batchId;
+    Integer productId;
+    Integer categoryId;
+    String categoryName;
     String productCode;
     String productName;
     String unit;
@@ -26,4 +29,6 @@ public class StorageLocationContentResponse {
     Integer quantity;
     BigDecimal importPrice;
     String expiryDate;
+    /** Thời điểm hàng được đưa vào vị trí (ISO-8601), dùng cho khu đổi trả. */
+    String placedAt;
 }

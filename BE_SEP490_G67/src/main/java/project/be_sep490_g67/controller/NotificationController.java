@@ -34,8 +34,8 @@ public class NotificationController {
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     public ApiResponse<PageResponse<NotificationResponse>> getMyNotifications(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size) {
         return ApiResponse.<PageResponse<NotificationResponse>>builder()
                 .result(notificationService.getInbox(currentUserId(), page, size))
                 .build();

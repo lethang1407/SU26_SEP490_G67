@@ -1,0 +1,15 @@
+package project.be_sep490_g67.dto.request;
+
+import jakarta.validation.constraints.NotBlank;
+import lombok.AccessLevel;
+import lombok.Data;
+import lombok.experimental.FieldDefaults;
+
+@Data
+@FieldDefaults(level = AccessLevel.PRIVATE)
+public class UpdateImportReturnLineMethodRequest {
+
+    /** RETURN | EXCHANGE */
+    @NotBlank
+    String method;
+}

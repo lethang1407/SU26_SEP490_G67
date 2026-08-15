@@ -17,6 +17,9 @@ import java.math.BigDecimal;
 public class UnplacedBatchResponse {
     Integer id;
     Integer batchId;
+    Integer productId;
+    Integer categoryId;
+    String categoryName;
     String productCode;
     String productName;
     String unit;
