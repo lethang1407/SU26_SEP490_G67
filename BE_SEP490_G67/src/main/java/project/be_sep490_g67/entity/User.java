@@ -25,6 +25,14 @@ public class User extends BaseEntity {
     )
     private Set<Role> roles;
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "user_permissions",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "permission_id")
+    )
+    private Set<Permission> customPermissions = new LinkedHashSet<>();
+
     @Column(name = "full_name", length = 100)
     private String fullName;
 

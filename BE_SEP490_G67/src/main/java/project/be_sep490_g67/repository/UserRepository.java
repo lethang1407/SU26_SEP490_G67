@@ -25,7 +25,7 @@ public interface UserRepository extends JpaRepository<User, Integer> {
 
     boolean existsByUsernameAndIdNotAndIsRemovedFalse(String username, Integer id);
 
-    @EntityGraph(attributePaths = {"roles", "roles.permissions"})
+    @EntityGraph(attributePaths = {"roles", "roles.permissions", "customPermissions"})
     @Query("SELECT u FROM User u WHERE u.username = :username AND u.isRemoved = false")
     Optional<User> findActiveByUsernameWithRole(@Param("username") String username);
 

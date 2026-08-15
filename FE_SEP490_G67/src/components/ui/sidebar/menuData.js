@@ -7,6 +7,7 @@ import {
     ShoppingCart,
     FileText,
     User,
+    ShieldCheck,
 } from "lucide-react";
 
 export const menus = [
@@ -135,6 +136,13 @@ export const menus = [
         title: "Nhân viên",
         icon: User,
         path: "/admin/staff",
+        permission: "STAFF:VIEW"
+    },
+    {
+        id: "api-permissions",
+        title: "Phân quyền API",
+        icon: ShieldCheck,
+        path: "/admin/api-permissions",
         permission: "STAFF:VIEW"
     }
 ];

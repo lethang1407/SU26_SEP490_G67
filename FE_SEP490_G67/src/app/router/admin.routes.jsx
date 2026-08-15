@@ -27,12 +27,16 @@ import CustomerDetailPage from '../../features/customer/pages/CustomerDetailPage
 import SalesOrderListPage from '../../features/sales-order/pages/SalesOrderListPage';
 import SalesOrderDetailPage from '../../features/sales-order/pages/SalesOrderDetailPage';
 import OrderReconciliationPage from '../../features/sales-order/pages/OrderReconciliationPage';
-import ProtectedRoute from './ProtectedRoute';
+import ApiPermissionsPage from '../../features/permission/pages/ApiPermissionsPage';
 
 const adminRoutes = [
     {
         path: '/admin/dashboard',
         element: <ProtectedRoute><AdminDashboard /></ProtectedRoute>,
+    },
+    {
+        path: '/admin/api-permissions',
+        element: <ProtectedRoute requiredRole={['MANAGER', 'ADMIN']}><ApiPermissionsPage /></ProtectedRoute>,
     },
     {
         path: '/admin/staff/create',

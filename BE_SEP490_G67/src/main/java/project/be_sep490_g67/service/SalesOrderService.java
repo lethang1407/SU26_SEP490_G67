@@ -15,6 +15,8 @@ import project.be_sep490_g67.dto.response.SalesOrderListResponse;
 import project.be_sep490_g67.dto.response.SalesOrderResponse;
 import project.be_sep490_g67.entity.*;
 import project.be_sep490_g67.enums.DocumentType;
+import project.be_sep490_g67.exception.AppException;
+import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.*;
 import project.be_sep490_g67.utils.DebtCalculator;
 import project.be_sep490_g67.utils.UnitQuantityConverter;
@@ -153,30 +155,6 @@ public class SalesOrderService {
                 salesOrderDetailRepository.saveAll(details);
                 return toResponse(saved, details);
         }
-
-        @Transactional(readOnly = true)
-        public SalesOrderResponse getReceipt(Integer orderId) {
-                SalesOrder order = salesOrderRepository.findActiveById(orderId)
-                                .orElseThrow(() -> new ResponseStatusException(
-                                                HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng"));
-
-                List<SalesOrderDetail> details = new ArrayList<>(order.getSalesOrderDetails());
-
-                List<SalesOrderResponse.SalesOrderDetailInfo> itemInfos = details.stream()
-                                .map(d -> SalesOrderResponse.SalesOrderDetailInfo.builder()
-                                                .productId(d.getProduct().getId())
-                                                .name(d.getProduct().getName())
-                                                .unitName(d.getUnitName())
-                                                .quantity(d.getQuantity())
-                                                .unitPrice(d.getUnitPrice())
-                                                .discountAmount(d.getDiscountAmount())
-                                                .lineTotal(d.getLineTotal())
-                                                .build())
-                                .toList();
-
-                return getSalesOrderResponse(order, itemInfos);
-        }
-
         private SalesOrderResponse getSalesOrderResponse(SalesOrder order,
                         List<SalesOrderResponse.SalesOrderDetailInfo> itemInfos) {
                 SalesOrderResponse.CustomerInfo customerInfo = null;

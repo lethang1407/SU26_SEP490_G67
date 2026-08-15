@@ -263,10 +263,4 @@ public class ProductListService {
     boolean matchesFacet(ProductListItemDTO dto, String facet) {
         return facet.equals(dto.getFacetStatus());
     }
-
-    int storeCoverDefault() {
-        return storeConfigRepository.findById(1)
-                .map(sc -> sc.getDefaultCoverDays() != null ? sc.getDefaultCoverDays() : STORE_COVER_DEFAULT)
-                .orElse(STORE_COVER_DEFAULT);
-    }
 }

@@ -33,6 +33,8 @@ public class SecurityConfig {
     @Autowired
     private CustomJwtDecoder customJwtDecoder;
 
+    @Autowired
+    private DynamicAuthorizationManager dynamicAuthorizationManager;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
@@ -43,7 +45,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(request -> request
                         .requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINTS).permitAll()
                         .anyRequest()
-                        .authenticated());
+                        .access(dynamicAuthorizationManager));
 
         httpSecurity.oauth2ResourceServer(oauth2 -> oauth2.jwt(jwtConfigurer -> jwtConfigurer
                         .decoder(customJwtDecoder)
