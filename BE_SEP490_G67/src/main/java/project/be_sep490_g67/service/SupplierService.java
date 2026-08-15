@@ -24,6 +24,7 @@ import project.be_sep490_g67.repository.SupplierRepository;
 import project.be_sep490_g67.repository.UserRepository;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -43,35 +44,54 @@ public class SupplierService {
     UserRepository userRepository;
 
     @Transactional(readOnly = true)
-    public SupplierListPageResponse findAllSuppliers(String search, Integer categoryId, int page, int size) {
+    public SupplierListPageResponse findAllSuppliers(
+            String search, Integer categoryId, Integer productId, int page, int size) {
         String safeSearch = (search == null || search.isBlank()) ? "" : search.trim();
 
-        // Bước 1: Lấy NCC khớp từ khóa + danh mục (nếu có)
-        List<Supplier> suppliers = supplierRepository.searchSuppliers(safeSearch, categoryId);
+        Map<Integer, Instant> lastImportedAt = Map.of();
+        List<Supplier> suppliers;
+        if (productId != null) {
+            // productId: NCC từng nhập SP; search/danh mục vẫn AND thêm nếu có
+            List<Object[]> importedRows = supplierRepository.findImportedSupplierIdsByProductId(productId);
+            lastImportedAt = importedRows.stream()
+                    .collect(Collectors.toMap(
+                            row -> (Integer) row[0],
+                            row -> toInstant(row[1]),
+                            (left, right) -> left.isAfter(right) ? left : right));
+            suppliers = lastImportedAt.isEmpty()
+                    ? List.of()
+                    : supplierRepository.findAllById(lastImportedAt.keySet()).stream()
+                            .filter(s -> !Boolean.TRUE.equals(s.getIsRemoved()))
+                            .filter(s -> matchesSupplierSearch(s, safeSearch))
+                            .filter(s -> matchesSupplierCategory(s, categoryId))
+                            .toList();
+        } else {
+            suppliers = supplierRepository.searchSuppliers(safeSearch, categoryId);
+        }
 
         // Bước 2: Tính nợ hiện tại của từng NCC — derive từ (totalCost - đã trả),
         // KHÔNG đọc từ cột cache nào để tránh lệch số liệu khi thanh toán mới phát sinh.
         Map<Integer, BigDecimal> debtMap = calculateDebtPerSupplier();
 
-        // Bước 3: Gắn nợ vào từng NCC, tạo danh sách response
         List<SupplierListItemResponse> allItems = suppliers.stream()
-                .map(s -> SupplierListItemResponse.builder()
-                        .id(s.getId())
-                        .supplierCode(s.getSupplierCode())
-                        .name(s.getName())
-                        .phoneNumber(s.getPhoneNumber())
-                        .notes(s.getNotes())
-                        .currentDebt(debtMap.getOrDefault(s.getId(), BigDecimal.ZERO))
-                        .build())
+                .map(s -> toListItem(s, debtMap.getOrDefault(s.getId(), BigDecimal.ZERO)))
                 .toList();
 
-        // Bước 4: Sort nợ giảm dần (ưu tiên NCC nợ nhiều), cùng nợ thì theo tên A–Z
+        // Bước 4: Lọc theo SP → lần nhập gần nhất; không thì nợ giảm dần, cùng nợ thì tên A–Z
+        final Map<Integer, Instant> lastImportedAtMap = lastImportedAt;
         List<SupplierListItemResponse> sorted = allItems.stream()
-                .sorted(Comparator
-                        .comparing(SupplierListItemResponse::getCurrentDebt,
-                                Comparator.nullsLast(Comparator.reverseOrder()))
-                        .thenComparing(item -> item.getName() == null ? "" : item.getName(),
-                                String.CASE_INSENSITIVE_ORDER))
+                .sorted(productId != null
+                        ? Comparator
+                            .comparing((SupplierListItemResponse item) ->
+                                    lastImportedAtMap.getOrDefault(item.getId(), Instant.EPOCH),
+                                    Comparator.reverseOrder())
+                            .thenComparing(item -> item.getName() == null ? "" : item.getName(),
+                                    String.CASE_INSENSITIVE_ORDER)
+                        : Comparator
+                            .comparing(SupplierListItemResponse::getCurrentDebt,
+                                    Comparator.nullsLast(Comparator.reverseOrder()))
+                            .thenComparing(item -> item.getName() == null ? "" : item.getName(),
+                                    String.CASE_INSENSITIVE_ORDER))
                 .toList();
 
         // Bước 5: Phân trang thủ công
@@ -97,6 +117,49 @@ public class SupplierService {
                 .totalPages(totalPages)
                 .totalDebt(totalDebt)
                 .debtSupplierCount(debtSupplierCount)
+                .build();
+    }
+
+    private boolean matchesSupplierSearch(Supplier supplier, String search) {
+        if (search == null || search.isBlank()) {
+            return true;
+        }
+        String needle = search.toLowerCase();
+        String name = supplier.getName() == null ? "" : supplier.getName().toLowerCase();
+        return name.contains(needle);
+    }
+
+    private boolean matchesSupplierCategory(Supplier supplier, Integer categoryId) {
+        if (categoryId == null) {
+            return true;
+        }
+        if (supplier.getCategories() == null || supplier.getCategories().isEmpty()) {
+            return false;
+        }
+        return supplier.getCategories().stream().anyMatch(category -> categoryId.equals(category.getId()));
+    }
+
+    private Instant toInstant(Object value) {
+        if (value instanceof Instant instant) {
+            return instant;
+        }
+        if (value instanceof java.sql.Timestamp timestamp) {
+            return timestamp.toInstant();
+        }
+        if (value instanceof java.util.Date date) {
+            return date.toInstant();
+        }
+        return Instant.EPOCH;
+    }
+
+    private SupplierListItemResponse toListItem(Supplier supplier, BigDecimal currentDebt) {
+        return SupplierListItemResponse.builder()
+                .id(supplier.getId())
+                .supplierCode(supplier.getSupplierCode())
+                .name(supplier.getName())
+                .phoneNumber(supplier.getPhoneNumber())
+                .notes(supplier.getNotes())
+                .currentDebt(currentDebt)
                 .build();
     }
 

@@ -8,7 +8,7 @@ function formatMoneyPlain(value) {
     return new Intl.NumberFormat('vi-VN').format(amount);
 }
 
-export default function ImportOrderInfoTab({ order }) {
+export default function ImportOrderInfoTab({ order, hideSupplierLink = false }) {
     const items = order.items || [];
     const goodsTotal = Number(order.goodsTotal) || 0;
     const discountAmount = Number(order.discountAmount) || 0;
@@ -45,12 +45,12 @@ export default function ImportOrderInfoTab({ order }) {
                 </div>
                 <div className="import-order-expand__info-item">
                     <span className="import-order-expand__label">Tên NCC</span>
-                    {order.supplierId ? (
+                    {order.supplierId && !hideSupplierLink ? (
                         <Link
                             to="/admin/warehouse/supplier"
                             state={{
                                 expandSupplierId: order.supplierId,
-                                expandSupplierCode: order.supplierCode || '',
+                                expandSupplierName: order.supplierName || '',
                             }}
                             className="import-order-expand__value import-order-expand__value--link"
                             title={order.supplierCode || undefined}
@@ -161,7 +161,9 @@ export default function ImportOrderInfoTab({ order }) {
                                     </td>
                                     <td
                                         className={`import-order-expand__col-num import-order-expand__col-total ${
-                                            item.isPromotion ? 'import-order-expand__col-total--promo' : ''
+                                            item.isPromotion
+                                                ? 'import-order-expand__col-total--promo'
+                                                : ''
                                         }`}
                                     >
                                         {item.isPromotion ? (

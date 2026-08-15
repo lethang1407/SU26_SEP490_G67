@@ -12,6 +12,7 @@ import project.be_sep490_g67.dto.request.CreateImportReturnFromInventoryCheckReq
 import project.be_sep490_g67.dto.request.SaveImportReturnRequest;
 import project.be_sep490_g67.dto.request.UpdateExchangeExpiryRequest;
 import project.be_sep490_g67.dto.request.UpdateImportReturnLineStatusRequest;
+import project.be_sep490_g67.dto.response.ImportOrderReturnLineResponse;
 import project.be_sep490_g67.dto.response.ImportReturnDetailResponse;
 import project.be_sep490_g67.dto.response.ImportReturnListItemResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
@@ -41,8 +42,11 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -194,6 +198,153 @@ public class ImportReturnService {
         return submit(userId, draft.getId());
     }
 
+    @Transactional(readOnly = true)
+    public List<ImportOrderReturnLineResponse> listPendingForSupplier(Integer supplierId, Integer currentOrderId) {
+        if (supplierId == null || supplierId <= 0) {
+            return List.of();
+        }
+        return importReturnDetailRepository.findPendingBySupplier(
+                        supplierId,
+                        currentOrderId,
+                        ImportReturnConstants.LINE_WAITING,
+                        ImportReturnConstants.STATUS_IN_PROGRESS)
+                .stream()
+                .map(detail -> toImportOrderReturnLine(detail, currentOrderId))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ImportOrderReturnLineResponse> listSettledForImportOrder(Integer importOrderId) {
+        if (importOrderId == null) {
+            return List.of();
+        }
+        return importReturnDetailRepository.findBySettledImportOrderId(importOrderId).stream()
+                .map(detail -> toImportOrderReturnLine(detail, importOrderId))
+                .toList();
+    }
+
+    /**
+     * Kiểm tra dòng đổi/trả đang chờ thuộc đúng NCC, chưa gắn phiếu khác.
+     */
+    public List<ImportReturnDetail> requirePendingLinesForSupplier(
+            Integer supplierId,
+            List<Integer> lineIds,
+            Integer currentImportOrderId) {
+        if (lineIds == null || lineIds.isEmpty()) {
+            return List.of();
+        }
+        if (supplierId == null || supplierId <= 0) {
+            throw new AppException(ErrorCode.IMPORT_RETURN_REQUIRES_SUPPLIER);
+        }
+
+        Set<Integer> seen = new LinkedHashSet<>();
+        for (Integer lineId : lineIds) {
+            if (lineId != null) {
+                seen.add(lineId);
+            }
+        }
+
+        List<ImportReturnDetail> result = new ArrayList<>();
+        for (Integer lineId : seen) {
+            ImportReturnDetail detail = importReturnDetailRepository.findActiveWithReturnById(lineId)
+                    .orElseThrow(() -> new AppException(ErrorCode.IMPORT_RETURN_DETAIL_NOT_FOUND));
+            ImportReturn header = detail.getImportReturn();
+            if (header == null || !ImportReturnConstants.STATUS_IN_PROGRESS.equals(header.getStatus())) {
+                throw new AppException(ErrorCode.IMPORT_RETURN_NOT_IN_PROGRESS);
+            }
+            if (!ImportReturnConstants.LINE_WAITING.equals(detail.getLineStatus())) {
+                throw new AppException(ErrorCode.IMPORT_RETURN_LINE_NOT_PENDING);
+            }
+            Integer lineSupplierId = detail.getSupplier() != null ? detail.getSupplier().getId() : null;
+            if (!Objects.equals(lineSupplierId, supplierId)) {
+                throw new AppException(ErrorCode.IMPORT_RETURN_LINE_SUPPLIER_MISMATCH);
+            }
+            Integer settledId = detail.getSettledImportOrder() != null
+                    ? detail.getSettledImportOrder().getId()
+                    : null;
+            if (settledId != null && !Objects.equals(settledId, currentImportOrderId)) {
+                throw new AppException(ErrorCode.IMPORT_RETURN_LINE_ALREADY_ATTACHED);
+            }
+            result.add(detail);
+        }
+        return result;
+    }
+
+    public BigDecimal returnDeductionOf(List<ImportReturnDetail> lines) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (ImportReturnDetail line : lines) {
+            if (ImportReturnConstants.METHOD_EXCHANGE.equals(
+                    ImportReturnConstants.normalizeMethod(line.getMethod()))) {
+                continue;
+            }
+            int qty = line.getQuantity() != null ? line.getQuantity() : 0;
+            BigDecimal price = line.getReturnPrice() != null ? line.getReturnPrice() : BigDecimal.ZERO;
+            total = total.add(price.multiply(BigDecimal.valueOf(qty)));
+        }
+        return total;
+    }
+
+    @Transactional
+    public void syncSettledLines(ImportOrder order, List<ImportReturnDetail> selected, boolean complete) {
+        if (order == null || order.getId() == null) {
+            return;
+        }
+        Set<Integer> selectedIds = new HashSet<>();
+        for (ImportReturnDetail line : selected) {
+            if (line.getId() != null) {
+                selectedIds.add(line.getId());
+            }
+        }
+
+        List<ImportReturnDetail> currentlyAttached =
+                importReturnDetailRepository.findBySettledImportOrderId(order.getId());
+        for (ImportReturnDetail existing : currentlyAttached) {
+            if (selectedIds.contains(existing.getId())) {
+                continue;
+            }
+            if (ImportReturnConstants.LINE_WAITING.equals(existing.getLineStatus())) {
+                existing.setSettledImportOrder(null);
+                importReturnDetailRepository.save(existing);
+            }
+        }
+
+        Set<Integer> headerIdsToCheck = new HashSet<>();
+        for (ImportReturnDetail detail : selected) {
+            detail.setSettledImportOrder(order);
+            if (complete && !ImportReturnConstants.LINE_DONE.equals(detail.getLineStatus())) {
+                if (ImportReturnConstants.METHOD_EXCHANGE.equals(
+                        ImportReturnConstants.normalizeMethod(detail.getMethod()))) {
+                    createExchangeBatch(detail, null, order);
+                }
+                detail.setLineStatus(ImportReturnConstants.LINE_DONE);
+                if (detail.getImportReturn() != null && detail.getImportReturn().getId() != null) {
+                    headerIdsToCheck.add(detail.getImportReturn().getId());
+                }
+            }
+            importReturnDetailRepository.save(detail);
+        }
+
+        if (complete) {
+            for (Integer headerId : headerIdsToCheck) {
+                importReturnRepository.findActiveById(headerId).ifPresent(this::maybeCompleteHeader);
+            }
+        }
+    }
+
+    @Transactional
+    public void releaseSettledLines(Integer importOrderId) {
+        if (importOrderId == null) {
+            return;
+        }
+        List<ImportReturnDetail> attached = importReturnDetailRepository.findBySettledImportOrderId(importOrderId);
+        for (ImportReturnDetail detail : attached) {
+            if (ImportReturnConstants.LINE_WAITING.equals(detail.getLineStatus())) {
+                detail.setSettledImportOrder(null);
+                importReturnDetailRepository.save(detail);
+            }
+        }
+    }
+
     /** Tạo nháp mới từ kiểm kho + trừ tồn (không ghi đè). */
     @Transactional
     public ImportReturnDetailResponse createFromInventoryCheck(
@@ -246,7 +397,7 @@ public class ImportReturnService {
                 && !ImportReturnConstants.LINE_DONE.equals(current)) {
             if (ImportReturnConstants.METHOD_EXCHANGE.equals(
                     ImportReturnConstants.normalizeMethod(detail.getMethod()))) {
-                createExchangeBatch(detail, request.getExchangeExpiryDate());
+                createExchangeBatch(detail, request.getExchangeExpiryDate(), null);
             }
             detail.setLineStatus(ImportReturnConstants.LINE_DONE);
             importReturnDetailRepository.save(detail);
@@ -396,7 +547,7 @@ public class ImportReturnService {
         }
     }
 
-    private void createExchangeBatch(ImportReturnDetail detail, LocalDate exchangeExpiryDate) {
+    private void createExchangeBatch(ImportReturnDetail detail, LocalDate exchangeExpiryDate, ImportOrder settlingOrder) {
         if (detail.getExchangeBatch() != null) {
             return;
         }
@@ -410,13 +561,19 @@ public class ImportReturnService {
         int qty = detail.getQuantity() != null ? detail.getQuantity() : 0;
         StockBatch exchange = new StockBatch();
         exchange.setProduct(source.getProduct());
-        exchange.setImportOrder(null);
+        exchange.setImportOrder(settlingOrder);
         exchange.setBatchCode(generateExchangeBatchCode());
         exchange.setCostPerUnit(source.getCostPerUnit());
         exchange.setQuantityIn(qty);
         exchange.setReceivedDate(LocalDate.now());
         exchange.setExpiryDate(exchangeExpiryDate);
-        exchange.setBatchNote("Lô đổi từ phiếu trả #" + detail.getImportReturn().getId());
+        String returnRef = detail.getImportReturn() != null ? String.valueOf(detail.getImportReturn().getId()) : "?";
+        String orderRef = settlingOrder != null && settlingOrder.getOrderCode() != null
+                ? settlingOrder.getOrderCode()
+                : "";
+        exchange.setBatchNote(orderRef.isBlank()
+                ? "Lô đổi từ phiếu trả #" + returnRef
+                : "Lô đổi từ phiếu trả #" + returnRef + " — nhập " + orderRef);
         exchange.setIsRemoved(false);
         stockBatchRepository.save(exchange);
 
@@ -424,7 +581,7 @@ public class ImportReturnService {
         movement.setStockBatch(exchange);
         movement.setMovementType(ImportReturnConstants.MOVEMENT_EXCHANGE_IN);
         movement.setReferenceType(ImportReturnConstants.REFERENCE_TYPE);
-        movement.setReferenceId(detail.getImportReturn().getId());
+        movement.setReferenceId(detail.getImportReturn() != null ? detail.getImportReturn().getId() : null);
         movement.setQuantityDelta(qty);
         movement.setStockAfter(qty);
         movement.setIsRemoved(false);
@@ -597,6 +754,32 @@ public class ImportReturnService {
                         exchange != null && exchange.getExpiryDate() != null
                                 ? exchange.getExpiryDate().toString()
                                 : null)
+                .build();
+    }
+
+    private ImportOrderReturnLineResponse toImportOrderReturnLine(ImportReturnDetail detail, Integer currentOrderId) {
+        Product product = detail.getProduct();
+        StockBatch batch = detail.getStockBatch();
+        ImportReturn header = detail.getImportReturn();
+        int qty = detail.getQuantity() != null ? detail.getQuantity() : 0;
+        BigDecimal price = detail.getReturnPrice() != null ? detail.getReturnPrice() : BigDecimal.ZERO;
+        Integer settledId = detail.getSettledImportOrder() != null ? detail.getSettledImportOrder().getId() : null;
+        boolean attached = currentOrderId != null && Objects.equals(settledId, currentOrderId);
+
+        return ImportOrderReturnLineResponse.builder()
+                .detailId(detail.getId())
+                .returnId(header != null ? header.getId() : null)
+                .returnCode(header != null ? header.getReturnCode() : null)
+                .productId(product != null ? product.getId() : null)
+                .productName(product != null ? product.getName() : null)
+                .method(ImportReturnConstants.normalizeMethod(detail.getMethod()))
+                .quantity(qty)
+                .returnPrice(price)
+                .lineValue(price.multiply(BigDecimal.valueOf(qty)))
+                .batchCode(batch != null ? batch.getBatchCode() : null)
+                .returnReason(detail.getReturnReason())
+                .lineStatus(detail.getLineStatus())
+                .attached(attached)
                 .build();
     }
 

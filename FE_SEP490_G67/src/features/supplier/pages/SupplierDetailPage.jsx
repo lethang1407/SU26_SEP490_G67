@@ -137,7 +137,10 @@ export default function SupplierDetailPage() {
 
                         <SupplierDetailStats supplier={supplier} />
 
-                        <SupplierDetailTabs supplier={supplier} refreshToken={refreshToken} />
+                        <SupplierDetailTabs
+                            supplier={supplier}
+                            refreshToken={refreshToken}
+                        />
 
                         <SupplierPaymentModal
                             open={paymentOpen}

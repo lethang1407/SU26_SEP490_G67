@@ -22,6 +22,7 @@ export default function SupplierDetailTabs({
     const [activeTab, setActiveTab] = useState('general');
     const [viewingOrderId, setViewingOrderId] = useState(null);
     const showEditFooter = Boolean(onEdit) && activeTab === 'general';
+    const historyRefresh = refreshToken || 0;
 
     const handleViewReference = async (referenceCode) => {
         try {
@@ -77,14 +78,14 @@ export default function SupplierDetailTabs({
                 {activeTab === 'import' && (
                     <SupplierImportHistoryTable
                         supplierId={supplier.id}
-                        refreshToken={refreshToken}
+                        refreshToken={historyRefresh}
                         onViewDetail={(order) => setViewingOrderId(order.id)}
                     />
                 )}
                 {activeTab === 'debt' && (
                     <SupplierPaymentHistoryTable
                         supplierId={supplier.id}
-                        refreshToken={refreshToken}
+                        refreshToken={historyRefresh}
                         onViewReference={handleViewReference}
                     />
                 )}
@@ -104,7 +105,10 @@ export default function SupplierDetailTabs({
                 </div>
             )}
 
-            <SupplierOrderDetailModal orderId={viewingOrderId} onClose={() => setViewingOrderId(null)} />
+            <SupplierOrderDetailModal
+                orderId={viewingOrderId}
+                onClose={() => setViewingOrderId(null)}
+            />
         </div>
     );
 }

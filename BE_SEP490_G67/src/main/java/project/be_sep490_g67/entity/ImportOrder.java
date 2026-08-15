@@ -21,8 +21,8 @@ public class ImportOrder extends BaseEntity {
     @Column(name = "id", nullable = false)
     private Integer id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "supplier_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "supplier_id")
     private Supplier supplier;
 
     @Column(name = "order_code", length = 30)
@@ -32,10 +32,19 @@ public class ImportOrder extends BaseEntity {
     @Column(name = "total_cost", precision = 15, scale = 2)
     private BigDecimal totalCost;
 
-   
     @ColumnDefault("0.00")
     @Column(name = "discount_amount", precision = 15, scale = 2)
     private BigDecimal discountAmount;
+
+    /** Giá trị hàng trả (RETURN) đã gắn vào đơn này. */
+    @ColumnDefault("0.00")
+    @Column(name = "return_deduction_amount", precision = 15, scale = 2)
+    private BigDecimal returnDeductionAmount;
+
+    /** Phần hàng trả vượt quá tiền nhập — NCC phải trả lại cửa hàng. */
+    @ColumnDefault("0.00")
+    @Column(name = "supplier_refund_amount", precision = 15, scale = 2)
+    private BigDecimal supplierRefundAmount;
 
     @Column(name = "received_date")
     private LocalDate receivedDate;

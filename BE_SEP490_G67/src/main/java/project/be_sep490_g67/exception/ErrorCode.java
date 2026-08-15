@@ -65,7 +65,7 @@ public enum ErrorCode {
     INSUFFICIENT_UNPLACED_QUANTITY(1036, "Số lượng xếp vượt quá số lượng lô chưa xếp kệ", HttpStatus.BAD_REQUEST),
     INSUFFICIENT_BATCH_LOCATION_QUANTITY(1037, "Số lượng chuyển vượt quá số lượng đang có trên kệ", HttpStatus.BAD_REQUEST),
     INVALID_BATCH_LOCATION_MOVE(1038, "Không thể chuyển lô về cùng một kệ", HttpStatus.BAD_REQUEST),
-    IMPORT_ITEMS_EMPTY(1039, "Phiếu nhập phải có ít nhất một dòng sản phẩm", HttpStatus.BAD_REQUEST),
+    IMPORT_ITEMS_EMPTY(1039, "Phiếu nhập phải có ít nhất một sản phẩm nhập hoặc một dòng đổi/trả nhà cung cấp", HttpStatus.BAD_REQUEST),
     INVALID_IMPORT_QUANTITY(1040, "Số lượng nhập phải lớn hơn 0", HttpStatus.BAD_REQUEST),
     INVALID_IMPORT_COST(1041, "Đơn giá nhập không hợp lệ", HttpStatus.BAD_REQUEST),
     INVENTORY_CHECK_NOT_FOUND(1042, "Không tìm thấy phiếu kiểm kho", HttpStatus.NOT_FOUND),
@@ -84,6 +84,10 @@ public enum ErrorCode {
     IMPORT_RETURN_INVALID_LINE_STATUS(1069, "Trạng thái dòng đổi trả không hợp lệ", HttpStatus.BAD_REQUEST),
     IMPORT_RETURN_LINE_ALREADY_DONE(1070, "Dòng đổi trả đã hoàn tất, không thể thay đổi", HttpStatus.BAD_REQUEST),
     IMPORT_RETURN_INVALID_STATUS_FILTER(1071, "Bộ lọc trạng thái phiếu đổi trả không hợp lệ", HttpStatus.BAD_REQUEST),
+    IMPORT_RETURN_LINE_NOT_PENDING(1072, "Dòng đổi/trả không còn đang chờ nhà cung cấp", HttpStatus.BAD_REQUEST),
+    IMPORT_RETURN_LINE_SUPPLIER_MISMATCH(1073, "Dòng đổi/trả không thuộc nhà cung cấp của phiếu nhập", HttpStatus.BAD_REQUEST),
+    IMPORT_RETURN_LINE_ALREADY_ATTACHED(1074, "Dòng đổi/trả đã được gắn vào phiếu nhập khác", HttpStatus.BAD_REQUEST),
+    IMPORT_RETURN_REQUIRES_SUPPLIER(1075, "Chọn nhà cung cấp trước khi gắn dòng đổi/trả vào phiếu nhập", HttpStatus.BAD_REQUEST),
 
     INSUFFICIENT_STOCK(1029, "Không đủ tồn kho", HttpStatus.BAD_REQUEST),
     SUPPLIER_HAS_DEBT(1030, "Không thể xóa nhà cung cấp đang còn công nợ. Vui lòng thanh toán hết trước khi xóa.", HttpStatus.BAD_REQUEST),
@@ -92,6 +96,7 @@ public enum ErrorCode {
     INVALID_IMPORT_PAID_AMOUNT(1034, "Số tiền trả NCC không hợp lệ", HttpStatus.BAD_REQUEST),
     IMPORT_ORDER_NOT_EDITABLE(1035, "Chỉ được sửa phiếu tạm. Phiếu đã nhập hàng không thể chỉnh sửa.", HttpStatus.BAD_REQUEST),
     IMPORT_ORDER_NOT_DELETABLE(1036, "Chỉ được hủy phiếu tạm. Phiếu đã nhập hàng không thể xóa.", HttpStatus.BAD_REQUEST),
+    SUPPLIER_REQUIRED_FOR_IMPORT(1037, "Vui lòng chọn nhà cung cấp trước khi hoàn thành phiếu nhập hàng.", HttpStatus.BAD_REQUEST),
 
     // Invoice errors (3xxx)
     ORDER_NOT_FOUND(3001, "Không tìm thấy đơn hàng", HttpStatus.NOT_FOUND),

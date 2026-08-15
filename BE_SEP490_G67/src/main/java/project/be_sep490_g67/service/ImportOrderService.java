@@ -12,11 +12,13 @@ import project.be_sep490_g67.dto.request.CreateImportOrderRequest;
 import project.be_sep490_g67.dto.response.ImportOrderDetailResponse;
 import project.be_sep490_g67.dto.response.ImportOrderItemResponse;
 import project.be_sep490_g67.dto.response.ImportOrderListItemResponse;
+import project.be_sep490_g67.dto.response.ImportOrderReturnLineResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.dto.response.ProductAttributeResponse;
 import project.be_sep490_g67.mapper.ProductMapper;
 import project.be_sep490_g67.entity.ImportOrder;
 import project.be_sep490_g67.entity.ImportOrderDetail;
+import project.be_sep490_g67.entity.ImportReturnDetail;
 import project.be_sep490_g67.entity.Product;
 import project.be_sep490_g67.entity.ProductUnit;
 import project.be_sep490_g67.entity.StockBatch;
@@ -66,22 +68,35 @@ public class ImportOrderService {
     StockBatchRepository stockBatchRepository;
     StockMovementRepository stockMovementRepository;
     UserRepository userRepository;
+    ImportReturnService importReturnService;
 
     @Transactional
     public ImportOrderListItemResponse createImportOrder(CreateImportOrderRequest request) {
         String orderStatus = normalizeCreateOrderStatus(request.getOrderStatus());
         boolean isImported = ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(orderStatus);
-        Supplier supplier = supplierRepository.findByIdAndIsRemovedFalse(request.getSupplierId())
-                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
+        Supplier supplier = resolveSupplier(request.getSupplierId(), isImported);
+
+        List<CreateImportOrderRequest.LineItem> requestLines =
+                request.getLines() == null ? List.of() : request.getLines();
+        List<Integer> returnLineIds =
+                request.getReturnLineIds() == null ? List.of() : request.getReturnLineIds();
+        if (requestLines.isEmpty() && returnLineIds.isEmpty()) {
+            throw new AppException(ErrorCode.IMPORT_ITEMS_EMPTY);
+        }
 
         BigDecimal goodsTotal = BigDecimal.ZERO;
         List<ImportOrderDetail> details = new ArrayList<>();
 
-        for (CreateImportOrderRequest.LineItem line : request.getLines()) {
+        for (CreateImportOrderRequest.LineItem line : requestLines) {
             ImportOrderDetail detail = buildDetailFromLine(line);
             details.add(detail);
             goodsTotal = goodsTotal.add(detail.getLineTotal() != null ? detail.getLineTotal() : BigDecimal.ZERO);
         }
+
+        List<ImportReturnDetail> returnLines = importReturnService.requirePendingLinesForSupplier(
+                supplier != null ? supplier.getId() : null,
+                returnLineIds,
+                null);
 
         BigDecimal discount = request.getDiscountAmount() != null
                 ? request.getDiscountAmount()
@@ -90,12 +105,12 @@ public class ImportOrderService {
             throw new AppException(ErrorCode.INVALID_IMPORT_DISCOUNT);
         }
 
-        BigDecimal amountDue = goodsTotal.subtract(discount);
+        MoneySplit money = splitMoney(goodsTotal, discount, importReturnService.returnDeductionOf(returnLines));
 
         BigDecimal paidAmount = request.getPaidAmount() != null
                 ? request.getPaidAmount()
                 : BigDecimal.ZERO;
-        if (paidAmount.compareTo(BigDecimal.ZERO) < 0 || paidAmount.compareTo(amountDue) > 0) {
+        if (paidAmount.compareTo(BigDecimal.ZERO) < 0 || paidAmount.compareTo(money.amountDue()) > 0) {
             throw new AppException(ErrorCode.INVALID_IMPORT_PAID_AMOUNT);
         }
 
@@ -103,7 +118,9 @@ public class ImportOrderService {
         order.setSupplier(supplier);
         order.setOrderCode(generateOrderCode());
         order.setDiscountAmount(discount);
-        order.setTotalCost(amountDue);
+        order.setReturnDeductionAmount(money.returnDeduction());
+        order.setSupplierRefundAmount(money.refund());
+        order.setTotalCost(money.amountDue());
         order.setOrderStatus(orderStatus);
         order.setNote(blankToNull(request.getNote()));
         order.setInvoiceImage(blankToNull(request.getInvoiceImage()));
@@ -115,7 +132,11 @@ public class ImportOrderService {
         for (ImportOrderDetail detail : details) {
             detail.setImportOrder(saved);
         }
-        importOrderDetailRepository.saveAll(details);
+        if (!details.isEmpty()) {
+            importOrderDetailRepository.saveAll(details);
+        }
+
+        importReturnService.syncSettledLines(saved, returnLines, isImported);
 
         BigDecimal recordedPaid = BigDecimal.ZERO;
         if (isImported) {
@@ -129,7 +150,7 @@ public class ImportOrderService {
         }
 
         log.info("Created import order {} status={} lines={} amountDue={} paid={}",
-                saved.getOrderCode(), orderStatus, details.size(), amountDue, recordedPaid);
+                saved.getOrderCode(), orderStatus, details.size(), money.amountDue(), recordedPaid);
 
         return toListItemResponse(saved, supplier, orderStatus, recordedPaid);
     }
@@ -150,17 +171,29 @@ public class ImportOrderService {
 
         String orderStatus = normalizeCreateOrderStatus(request.getOrderStatus());
         boolean isImported = ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(orderStatus);
-        Supplier supplier = supplierRepository.findByIdAndIsRemovedFalse(request.getSupplierId())
-                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
+        Supplier supplier = resolveSupplier(request.getSupplierId(), isImported);
+
+        List<CreateImportOrderRequest.LineItem> requestLines =
+                request.getLines() == null ? List.of() : request.getLines();
+        List<Integer> returnLineIds =
+                request.getReturnLineIds() == null ? List.of() : request.getReturnLineIds();
+        if (requestLines.isEmpty() && returnLineIds.isEmpty()) {
+            throw new AppException(ErrorCode.IMPORT_ITEMS_EMPTY);
+        }
 
         BigDecimal goodsTotal = BigDecimal.ZERO;
         List<ImportOrderDetail> details = new ArrayList<>();
 
-        for (CreateImportOrderRequest.LineItem line : request.getLines()) {
+        for (CreateImportOrderRequest.LineItem line : requestLines) {
             ImportOrderDetail detail = buildDetailFromLine(line);
             details.add(detail);
             goodsTotal = goodsTotal.add(detail.getLineTotal() != null ? detail.getLineTotal() : BigDecimal.ZERO);
         }
+
+        List<ImportReturnDetail> returnLines = importReturnService.requirePendingLinesForSupplier(
+                supplier != null ? supplier.getId() : null,
+                returnLineIds,
+                order.getId());
 
         BigDecimal discount = request.getDiscountAmount() != null
                 ? request.getDiscountAmount()
@@ -169,12 +202,12 @@ public class ImportOrderService {
             throw new AppException(ErrorCode.INVALID_IMPORT_DISCOUNT);
         }
 
-        BigDecimal amountDue = goodsTotal.subtract(discount);
+        MoneySplit money = splitMoney(goodsTotal, discount, importReturnService.returnDeductionOf(returnLines));
 
         BigDecimal paidAmount = request.getPaidAmount() != null
                 ? request.getPaidAmount()
                 : BigDecimal.ZERO;
-        if (paidAmount.compareTo(BigDecimal.ZERO) < 0 || paidAmount.compareTo(amountDue) > 0) {
+        if (paidAmount.compareTo(BigDecimal.ZERO) < 0 || paidAmount.compareTo(money.amountDue()) > 0) {
             throw new AppException(ErrorCode.INVALID_IMPORT_PAID_AMOUNT);
         }
 
@@ -183,7 +216,9 @@ public class ImportOrderService {
 
         order.setSupplier(supplier);
         order.setDiscountAmount(discount);
-        order.setTotalCost(amountDue);
+        order.setReturnDeductionAmount(money.returnDeduction());
+        order.setSupplierRefundAmount(money.refund());
+        order.setTotalCost(money.amountDue());
         order.setOrderStatus(orderStatus);
         order.setNote(blankToNull(request.getNote()));
         order.setInvoiceImage(blankToNull(request.getInvoiceImage()));
@@ -194,7 +229,11 @@ public class ImportOrderService {
         for (ImportOrderDetail detail : details) {
             detail.setImportOrder(saved);
         }
-        importOrderDetailRepository.saveAll(details);
+        if (!details.isEmpty()) {
+            importOrderDetailRepository.saveAll(details);
+        }
+
+        importReturnService.syncSettledLines(saved, returnLines, isImported);
 
         BigDecimal recordedPaid = BigDecimal.ZERO;
         if (isImported) {
@@ -208,7 +247,7 @@ public class ImportOrderService {
         }
 
         log.info("Updated import order {} -> status={} lines={} amountDue={} paid={}",
-                saved.getOrderCode(), orderStatus, details.size(), amountDue, recordedPaid);
+                saved.getOrderCode(), orderStatus, details.size(), money.amountDue(), recordedPaid);
 
         return toListItemResponse(saved, supplier, orderStatus, recordedPaid);
     }
@@ -226,6 +265,7 @@ public class ImportOrderService {
             throw new AppException(ErrorCode.IMPORT_ORDER_NOT_DELETABLE);
         }
 
+        importReturnService.releaseSettledLines(order.getId());
         order.setIsRemoved(true);
         importOrderRepository.save(order);
         log.info("Cancelled draft import order id={} code={}", orderId, order.getOrderCode());
@@ -261,6 +301,11 @@ public class ImportOrderService {
                     .toList();
         }
         return toPagedResponse(orders, page, size, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ImportOrderReturnLineResponse> getPendingSupplierReturns(Integer supplierId, Integer importOrderId) {
+        return importReturnService.listPendingForSupplier(supplierId, importOrderId);
     }
 
     /**
@@ -395,12 +440,19 @@ public class ImportOrderService {
                 .status(paymentStatus)
                 .goodsTotal(goodsTotal)
                 .discountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO)
+                .returnDeductionAmount(order.getReturnDeductionAmount() != null
+                        ? order.getReturnDeductionAmount()
+                        : BigDecimal.ZERO)
+                .supplierRefundAmount(order.getSupplierRefundAmount() != null
+                        ? order.getSupplierRefundAmount()
+                        : BigDecimal.ZERO)
                 .totalCost(totalCost)
                 .paidAmount(safePaid)
                 .remainingDebt(isImported ? totalCost.subtract(safePaid).max(BigDecimal.ZERO) : BigDecimal.ZERO)
                 .note(order.getNote())
                 .invoiceImage(order.getInvoiceImage())
                 .items(items)
+                .returnLines(importReturnService.listSettledForImportOrder(order.getId()))
                 .build();
     }
 
@@ -558,6 +610,17 @@ public class ImportOrderService {
                 .build();
     }
 
+    private Supplier resolveSupplier(Integer supplierId, boolean required) {
+        if (supplierId == null || supplierId <= 0) {
+            if (required) {
+                throw new AppException(ErrorCode.SUPPLIER_REQUIRED_FOR_IMPORT);
+            }
+            return null;
+        }
+        return supplierRepository.findByIdAndIsRemovedFalse(supplierId)
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
+    }
+
     private String normalizeCreateOrderStatus(String orderStatus) {
         if (orderStatus == null || orderStatus.isBlank()) {
             throw new AppException(ErrorCode.INVALID_IMPORT_ORDER_STATUS);
@@ -570,9 +633,23 @@ public class ImportOrderService {
         return normalized;
     }
 
+    private record MoneySplit(BigDecimal returnDeduction, BigDecimal amountDue, BigDecimal refund) {
+    }
+
+    private MoneySplit splitMoney(BigDecimal goodsTotal, BigDecimal discount, BigDecimal returnDeduction) {
+        BigDecimal safeGoods = goodsTotal != null ? goodsTotal : BigDecimal.ZERO;
+        BigDecimal safeDiscount = discount != null ? discount : BigDecimal.ZERO;
+        BigDecimal safeReturn = returnDeduction != null ? returnDeduction : BigDecimal.ZERO;
+        BigDecimal net = safeGoods.subtract(safeDiscount).subtract(safeReturn);
+        if (net.compareTo(BigDecimal.ZERO) >= 0) {
+            return new MoneySplit(safeReturn, net, BigDecimal.ZERO);
+        }
+        return new MoneySplit(safeReturn, BigDecimal.ZERO, net.negate());
+    }
+
     /**
      * Map dòng request → detail.
-     * Hàng KM (isPromotion): lineTotal = 0 (không tính nợ), vẫn giữ costPerUnit tham chiếu, vẫn nhập kho.
+     * Hàng KM (isPromotion): lineTotal = 0 (không tính nợ lúc nhập), vẫn giữ costPerUnit, vẫn nhập kho.
      */
     private ImportOrderDetail buildDetailFromLine(CreateImportOrderRequest.LineItem line) {
         Product product = productRepository.findById(line.getProductId())
@@ -714,6 +791,11 @@ public class ImportOrderService {
 
     private void createInitialPayment(
             ImportOrder order, Supplier supplier, BigDecimal amount, String paymentMethod) {
+        createInitialPayment(order, supplier, amount, paymentMethod, null);
+    }
+
+    private void createInitialPayment(
+            ImportOrder order, Supplier supplier, BigDecimal amount, String paymentMethod, String note) {
         SupplierPayment payment = new SupplierPayment();
         payment.setPaymentCode(generatePaymentCode());
         payment.setSupplier(supplier);
@@ -721,6 +803,7 @@ public class ImportOrderService {
         payment.setAmount(amount);
         payment.setPaymentMethod(paymentMethod == null || paymentMethod.isBlank() ? "CASH" : paymentMethod.trim());
         payment.setPaymentDate(LocalDateTime.now());
+        payment.setNote(blankToNull(note));
         payment.setIsRemoved(false);
         supplierPaymentRepository.save(payment);
     }

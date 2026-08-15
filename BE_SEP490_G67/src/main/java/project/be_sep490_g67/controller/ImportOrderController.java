@@ -14,12 +14,14 @@ import project.be_sep490_g67.dto.request.CreateImportOrderRequest;
 import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.ImportOrderDetailResponse;
 import project.be_sep490_g67.dto.response.ImportOrderListItemResponse;
+import project.be_sep490_g67.dto.response.ImportOrderReturnLineResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.dto.response.SupplierPaymentResponse;
 import project.be_sep490_g67.service.ImportOrderService;
 import project.be_sep490_g67.service.SupplierPaymentService;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -55,6 +57,17 @@ public class ImportOrderController {
         return ApiResponse.<PageResponse<ImportOrderListItemResponse>>builder()
                 .result(importOrderService.getImportOrderList(search, orderStatus, fromDate, toDate, page, size))
                 .message("Lấy danh sách đơn nhập hàng thành công")
+                .build();
+    }
+
+    @GetMapping("/pending-returns")
+    public ApiResponse<List<ImportOrderReturnLineResponse>> getPendingSupplierReturns(
+            @RequestParam Integer supplierId,
+            @RequestParam(required = false) Integer importOrderId
+    ) {
+        return ApiResponse.<List<ImportOrderReturnLineResponse>>builder()
+                .result(importOrderService.getPendingSupplierReturns(supplierId, importOrderId))
+                .message("Lấy sản phẩm đổi/trả đang chờ của nhà cung cấp thành công")
                 .build();
     }
 
