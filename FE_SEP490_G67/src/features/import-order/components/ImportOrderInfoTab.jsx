@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { ExternalLink, ImageIcon } from 'lucide-react';
 import { ORDER_STATUS_LABEL } from '../constants';
 import { formatDate, formatProductAttributes } from '../utils/importOrderUtils';
+import { mapPendingReturnLine } from '../utils/importReturnAttachUtils';
+import ImportOrderReturnSection from './ImportOrderReturnSection';
 
 function formatMoneyPlain(value) {
     const amount = Number(value) || 0;
@@ -10,8 +12,11 @@ function formatMoneyPlain(value) {
 
 export default function ImportOrderInfoTab({ order, hideSupplierLink = false }) {
     const items = order.items || [];
+    const returnLines = (order.returnLines || []).map(mapPendingReturnLine);
     const goodsTotal = Number(order.goodsTotal) || 0;
     const discountAmount = Number(order.discountAmount) || 0;
+    const returnDeductionAmount = Number(order.returnDeductionAmount) || 0;
+    const supplierRefundAmount = Number(order.supplierRefundAmount) || 0;
     const totalCost = Number(order.totalCost) || 0;
     const paidAmount = Number(order.paidAmount) || 0;
     const totalQty = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
@@ -180,6 +185,16 @@ export default function ImportOrderInfoTab({ order, hideSupplierLink = false }) 
                 </table>
             </div>
 
+            {returnLines.length > 0 ? (
+                <div className="import-order-expand__returns">
+                    <ImportOrderReturnSection
+                        lines={returnLines}
+                        selectedLineKeys={returnLines.map((line) => line.key)}
+                        readOnly
+                    />
+                </div>
+            ) : null}
+
             <div className="import-order-expand__footer">
                 <div className="import-order-expand__note-box">
                     <div className="import-order-expand__note-text">
@@ -200,8 +215,20 @@ export default function ImportOrderInfoTab({ order, hideSupplierLink = false }) 
                         <span>Giảm giá</span>
                         <strong>{formatMoneyPlain(discountAmount)}</strong>
                     </div>
+                    {returnDeductionAmount > 0 ? (
+                        <div className="import-order-expand__summary-row">
+                            <span>Trừ hàng trả NCC</span>
+                            <strong>−{formatMoneyPlain(returnDeductionAmount)}</strong>
+                        </div>
+                    ) : null}
+                    {supplierRefundAmount > 0 ? (
+                        <div className="import-order-expand__summary-row">
+                            <span>NCC trả lại</span>
+                            <strong>{formatMoneyPlain(supplierRefundAmount)}</strong>
+                        </div>
+                    ) : null}
                     <div className="import-order-expand__summary-row import-order-expand__summary-row--grand">
-                        <span>Tổng cộng</span>
+                        <span>{supplierRefundAmount > 0 ? 'Cần trả NCC' : 'Tổng cộng'}</span>
                         <strong>{formatMoneyPlain(totalCost)}</strong>
                     </div>
                     <div className="import-order-expand__summary-row">

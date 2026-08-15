@@ -6,17 +6,6 @@ import { formatCurrency, formatMoneyInput, parseMoneyInput } from '../utils/impo
 const SEARCH_DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
 
-function productDisplayName(product) {
-    return product.parentName || product.name || '';
-}
-
-function productAttributeLabel(product) {
-    return (product.attributes || [])
-        .filter((item) => item?.name && item?.value)
-        .map((item) => `${item.name} ${item.value}`)
-        .join(' · ');
-}
-
 function mapSupplierOption(item) {
     return {
         id: item.id,
@@ -59,11 +48,7 @@ export default function ImportOrderCreateSidebar({
     const [supplierKeyword, setSupplierKeyword] = useState('');
     const [supplierOpen, setSupplierOpen] = useState(false);
     const [nameMatches, setNameMatches] = useState([]);
-    const [products, setProducts] = useState([]);
     const [searchLoading, setSearchLoading] = useState(false);
-    const [selectedSearchProduct, setSelectedSearchProduct] = useState(null);
-    const [productSuppliers, setProductSuppliers] = useState([]);
-    const [productSuppliersLoading, setProductSuppliersLoading] = useState(false);
     const supplierRef = useRef(null);
     const requestIdRef = useRef(0);
 
@@ -81,31 +66,25 @@ export default function ImportOrderCreateSidebar({
         const trimmed = supplierKeyword.trim();
         if (trimmed.length < MIN_QUERY_LENGTH) {
             setNameMatches([]);
-            setProducts([]);
-            setSelectedSearchProduct(null);
-            setProductSuppliers([]);
             setSearchLoading(false);
             return undefined;
         }
 
         const currentRequestId = ++requestIdRef.current;
         setSearchLoading(true);
-        setSelectedSearchProduct(null);
-        setProductSuppliers([]);
 
         const timer = setTimeout(async () => {
             try {
-                const [supplierPage, productResults] = await Promise.all([
-                    suppliersApi.getSuppliers({ search: trimmed, page: 0, size: 5 }),
-                    suppliersApi.searchProducts(trimmed),
-                ]);
+                const supplierPage = await suppliersApi.getSuppliers({
+                    search: trimmed,
+                    page: 0,
+                    size: 8,
+                });
                 if (currentRequestId !== requestIdRef.current) return;
                 setNameMatches((supplierPage?.content || []).map(mapSupplierOption));
-                setProducts(Array.isArray(productResults) ? productResults.slice(0, 5) : []);
             } catch {
                 if (currentRequestId !== requestIdRef.current) return;
                 setNameMatches([]);
-                setProducts([]);
             } finally {
                 if (currentRequestId === requestIdRef.current) {
                     setSearchLoading(false);
@@ -119,31 +98,7 @@ export default function ImportOrderCreateSidebar({
     const handleSelectSupplier = (item) => {
         onSelectSupplier(item);
         setSupplierKeyword('');
-        setSelectedSearchProduct(null);
-        setProductSuppliers([]);
         setSupplierOpen(false);
-    };
-
-    const handleSelectProduct = async (product) => {
-        const name = productDisplayName(product);
-        const attrs = productAttributeLabel(product);
-        setSelectedSearchProduct({
-            id: product.id,
-            name: attrs ? `${name} (${attrs})` : name,
-        });
-        setProductSuppliersLoading(true);
-        try {
-            const page = await suppliersApi.getSuppliers({
-                productId: product.id,
-                page: 0,
-                size: 20,
-            });
-            setProductSuppliers((page?.content || []).map(mapSupplierOption));
-        } catch {
-            setProductSuppliers([]);
-        } finally {
-            setProductSuppliersLoading(false);
-        }
     };
 
     const idleResults = useMemo(() => suppliers.slice(0, 5), [suppliers]);
@@ -175,7 +130,7 @@ export default function ImportOrderCreateSidebar({
                             <Search size={16} className="ioc-sidebar__search-icon" />
                             <input
                                 type="text"
-                                placeholder="Tìm NCC hoặc sản phẩm..."
+                                placeholder="Tìm nhà cung cấp..."
                                 value={supplierKeyword}
                                 onChange={(event) => {
                                     setSupplierKeyword(event.target.value);
@@ -185,100 +140,28 @@ export default function ImportOrderCreateSidebar({
                             />
                             {showDropdown && (
                                 <div className="ioc-sidebar__dropdown">
-                                    {selectedSearchProduct ? (
-                                        <>
-                                            <div className="ioc-sidebar__section-label">
-                                                NCC từng nhập {selectedSearchProduct.name}
-                                            </div>
-                                            {productSuppliersLoading ? (
-                                                <div className="ioc-sidebar__empty">Đang tải NCC...</div>
-                                            ) : productSuppliers.length === 0 ? (
-                                                <div className="ioc-sidebar__empty">
-                                                    Chưa có nhà cung cấp từng nhập sản phẩm này
-                                                </div>
-                                            ) : (
-                                                productSuppliers.map((item) => (
-                                                    <button
-                                                        key={item.id}
-                                                        type="button"
-                                                        className="ioc-sidebar__option"
-                                                        onMouseDown={(event) => {
-                                                            event.preventDefault();
-                                                            handleSelectSupplier(item);
-                                                        }}
-                                                    >
-                                                        <strong>{item.name}</strong>
-                                                        <span>{item.supplierCode}</span>
-                                                        {item.notes ? (
-                                                            <span className="ioc-sidebar__option-note">
-                                                                {item.notes}
-                                                            </span>
-                                                        ) : null}
-                                                    </button>
-                                                ))
-                                            )}
-                                        </>
-                                    ) : isQuerying ? (
+                                    {isQuerying ? (
                                         searchLoading ? (
                                             <div className="ioc-sidebar__empty">Đang tìm...</div>
-                                        ) : nameMatches.length === 0 && products.length === 0 ? (
+                                        ) : nameMatches.length === 0 ? (
                                             <div className="ioc-sidebar__empty">
-                                                Không tìm thấy NCC hoặc sản phẩm
+                                                Không tìm thấy nhà cung cấp
                                             </div>
                                         ) : (
-                                            <>
-                                                {nameMatches.length > 0 ? (
-                                                    <>
-                                                        <div className="ioc-sidebar__section-label">
-                                                            Nhà cung cấp
-                                                        </div>
-                                                        {nameMatches.map((item) => (
-                                                            <button
-                                                                key={item.id}
-                                                                type="button"
-                                                                className="ioc-sidebar__option"
-                                                                onMouseDown={(event) => {
-                                                                    event.preventDefault();
-                                                                    handleSelectSupplier(item);
-                                                                }}
-                                                            >
-                                                                <strong>{item.name}</strong>
-                                                                <span>{item.supplierCode}</span>
-                                                            </button>
-                                                        ))}
-                                                    </>
-                                                ) : null}
-                                                {products.length > 0 ? (
-                                                    <>
-                                                        <div className="ioc-sidebar__section-label">
-                                                            Theo sản phẩm
-                                                        </div>
-                                                        {products.map((product) => {
-                                                            const name = productDisplayName(product);
-                                                            const attrs = productAttributeLabel(product);
-                                                            return (
-                                                                <button
-                                                                    key={product.id}
-                                                                    type="button"
-                                                                    className="ioc-sidebar__option"
-                                                                    onMouseDown={(event) => {
-                                                                        event.preventDefault();
-                                                                        handleSelectProduct(product);
-                                                                    }}
-                                                                >
-                                                                    <strong>{name}</strong>
-                                                                    <span>
-                                                                        {attrs ||
-                                                                            product.sku ||
-                                                                            product.barcode ||
-                                                                            ''}
-                                                                    </span>
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </>
-                                                ) : null}
-                                            </>
+                                            nameMatches.map((item) => (
+                                                <button
+                                                    key={item.id}
+                                                    type="button"
+                                                    className="ioc-sidebar__option"
+                                                    onMouseDown={(event) => {
+                                                        event.preventDefault();
+                                                        handleSelectSupplier(item);
+                                                    }}
+                                                >
+                                                    <strong>{item.name}</strong>
+                                                    <span>{item.supplierCode}</span>
+                                                </button>
+                                            ))
                                         )
                                     ) : suppliersLoading ? (
                                         <div className="ioc-sidebar__empty">Đang tải NCC...</div>
