@@ -599,15 +599,6 @@ export function suggestLocationsForBatch(batch, locations, options = {}) {
         const isEmpty = contents.length === 0;
         const hasSameBatch = contents.some(isSameBatch);
 
-        if (
-            isWarehouse &&
-            occupiedProductIds.length > 0 &&
-            productId != null &&
-            !occupiedProductIds.includes(productId)
-        ) {
-            continue;
-        }
-
         let score = 0;
         let reason = '';
 
@@ -617,21 +608,15 @@ export function suggestLocationsForBatch(batch, locations, options = {}) {
         } else if (productId != null && occupiedProductIds.includes(productId)) {
             score = 100;
             reason = 'cùng SP';
-        } else if (
-            categoryId != null &&
-            occupiedCategoryIds.includes(categoryId) &&
-            (!isWarehouse || isEmpty)
-        ) {
+        } else if (categoryId != null && occupiedCategoryIds.includes(categoryId)) {
             score = 70;
             reason = 'cùng danh mục';
         } else if (isEmpty) {
             score = 50;
             reason = 'ô trống';
-        } else if (!isWarehouse) {
-            score = 20;
-            reason = 'khu bán';
         } else {
-            continue;
+            score = 20;
+            reason = isWarehouse ? 'khu kho' : 'khu bán';
         }
 
         if (preferredZone && location.zone === preferredZone) {

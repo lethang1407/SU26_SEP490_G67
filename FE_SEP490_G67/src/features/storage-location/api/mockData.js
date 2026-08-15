@@ -1,6 +1,6 @@
 /**
  * Mock vị trí kho.
- * Khu kho: mỗi ô 1 loại SP (có thể nhiều lô).
+ * Khu kho / khu bán: 1 ô có thể nhiều SP / nhiều lô.
  * Khu bán: 1 ô nhiều SP; cùng 1 lô được tách nhiều ô; mỗi SP chỉ 1 mã lô trên khu bán.
  */
 export const MOCK_STORAGE_LOCATIONS = [

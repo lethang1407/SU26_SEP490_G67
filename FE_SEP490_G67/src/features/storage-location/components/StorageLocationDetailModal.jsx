@@ -68,12 +68,6 @@ export default function StorageLocationDetailModal({
                                 </div>
                                 <h3>Ô kệ này đang trống</h3>
                                 <p>Chưa có lô hàng nào được gán vào vị trí này.</p>
-                                {!isSales ? (
-                                    <p className="storage-location-detail-modal__rule-note">
-                                        Khu kho: mỗi ô chỉ lưu một loại sản phẩm; có thể có nhiều lô
-                                        cùng SP.
-                                    </p>
-                                ) : null}
                             </div>
                         ) : (
                             <div className="storage-location-detail-modal__product">

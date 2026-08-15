@@ -1638,11 +1638,42 @@
     margin: 0;
     flex: 1;
     min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
-.storage-adjust-modal__move-all-btn {
+.storage-adjust-modal__full-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #ffedd5;
+    color: #c2410c;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.storage-adjust-modal__header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.storage-adjust-modal__move-all-btn,
+.storage-adjust-modal__full-btn {
     flex-shrink: 0;
     white-space: nowrap;
+}
+
+.storage-adjust-modal__full-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .storage-adjust-modal__helper {

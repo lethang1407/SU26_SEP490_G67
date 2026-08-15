@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Modal } from 'react-bootstrap';
-import { ChevronDown, GripVertical, Package, Search } from 'lucide-react';
+import { ChevronDown, CircleDot, GripVertical, Package, Search } from 'lucide-react';
 import {
     assignBatchToLocation,
     fetchStorageLocations,
     fetchUnplacedBatches,
     moveAllBatchesFromLocation,
     moveBatchLocation,
+    setStorageLocationFull,
     unassignBatchFromLocation,
 } from '../api';
 import {
@@ -35,7 +36,6 @@ const PICK_MODE = {
 };
 
 const SALES_ZONE_ALERT_CODES = new Set([1057, 1058]);
-const PRODUCT_MISMATCH_ALERT_CODE = 1035;
 const UNPLACED_PAGE_SIZE_OPTIONS = [10, 20, 50];
 
 function isSalesZoneAlertError(error) {
@@ -47,18 +47,6 @@ function isSalesZoneAlertError(error) {
     return (
         message.includes('khu bán') &&
         (message.includes('1 lô') || message.includes('tách cùng một lô'))
-    );
-}
-
-function isProductMismatchAlertError(error) {
-    const code = Number(error?.response?.data?.code);
-    if (code === PRODUCT_MISMATCH_ALERT_CODE) {
-        return true;
-    }
-    const message = String(error?.response?.data?.message ?? '');
-    return (
-        message.includes('Mỗi ô khu kho chỉ chứa một loại sản phẩm') ||
-        message.includes('Ô khu kho đang chứa sản phẩm khác')
     );
 }
 
@@ -328,13 +316,6 @@ export default function AdjustStorageLocationModal({
 
     const reportApiError = (error, fallback) => {
         const text = getApiErrorMessage(error, fallback);
-        if (isProductMismatchAlertError(error)) {
-            setAlertNotice({
-                title: 'Không thể chuyển kệ',
-                message: 'Không thể chuyển kệ.',
-            });
-            return;
-        }
         if (isSalesZoneAlertError(error)) {
             setAlertNotice({
                 title: 'Không thể xếp vào khu bán',
@@ -793,6 +774,47 @@ export default function AdjustStorageLocationModal({
         });
     };
 
+    const handleToggleFull = async () => {
+        if (!selectedLocation || isSaving) {
+            return;
+        }
+        const nextFull = !selectedLocation.isFull;
+        if (nextFull && !(selectedLocation.contents ?? []).length) {
+            setMessage({
+                type: 'error',
+                text: 'Ô đang trống, không thể đánh dấu đầy.',
+            });
+            return;
+        }
+        setIsSaving(true);
+        setMessage(null);
+        try {
+            const updated = await setStorageLocationFull(selectedLocation.id, nextFull);
+            setDraftLocations((prev) =>
+                prev.map((item) =>
+                    item.id === updated.id
+                        ? {
+                              ...item,
+                              ...updated,
+                              contents: updated.contents ?? item.contents,
+                          }
+                        : item,
+                ),
+            );
+            setHasChanges(true);
+            setMessage({
+                type: 'success',
+                text: nextFull
+                    ? `Đã đánh dấu đầy ô ${selectedLocation.label}.`
+                    : `Đã bỏ đánh dấu đầy ô ${selectedLocation.label}.`,
+            });
+        } catch (error) {
+            reportApiError(error, 'Không thể cập nhật trạng thái đầy. Vui lòng thử lại.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     const startMoveOne = (item) => {
         if (!selectedLocation || !item) {
             return;
@@ -917,17 +939,42 @@ export default function AdjustStorageLocationModal({
                             <div className="storage-adjust-modal__content-header">
                                 <h3 className="storage-adjust-modal__section-title">
                                     {selectedLocation?.label || 'Chọn vị trí'}
+                                    {selectedLocation?.isFull ? (
+                                        <span className="storage-adjust-modal__full-badge">
+                                            Đầy
+                                        </span>
+                                    ) : null}
                                 </h3>
                                 {selectedLocation &&
-                                (selectedLocation.contents ?? []).length > 0 ? (
-                                    <button
-                                        type="button"
-                                        className="inventory-btn inventory-btn--secondary storage-adjust-modal__move-all-btn"
-                                        disabled={isSaving || Boolean(pickMode)}
-                                        onClick={startMoveAll}
-                                    >
-                                        Chuyển tất cả
-                                    </button>
+                                ((selectedLocation.contents ?? []).length > 0 ||
+                                    selectedLocation.isFull) ? (
+                                    <div className="storage-adjust-modal__header-actions">
+                                        <button
+                                            type="button"
+                                            className={`inventory-btn storage-adjust-modal__full-btn ${
+                                                selectedLocation.isFull
+                                                    ? 'inventory-btn--secondary'
+                                                    : 'inventory-btn--primary'
+                                            }`}
+                                            disabled={isSaving || Boolean(pickMode)}
+                                            onClick={handleToggleFull}
+                                        >
+                                            <CircleDot size={16} />
+                                            {selectedLocation.isFull
+                                                ? 'Bỏ đánh dấu đầy'
+                                                : 'Đánh dấu đầy'}
+                                        </button>
+                                        {(selectedLocation.contents ?? []).length > 0 ? (
+                                            <button
+                                                type="button"
+                                                className="inventory-btn inventory-btn--secondary storage-adjust-modal__move-all-btn"
+                                                disabled={isSaving || Boolean(pickMode)}
+                                                onClick={startMoveAll}
+                                            >
+                                                Chuyển tất cả
+                                            </button>
+                                        ) : null}
+                                    </div>
                                 ) : null}
                             </div>
                             {pickMode ? (
