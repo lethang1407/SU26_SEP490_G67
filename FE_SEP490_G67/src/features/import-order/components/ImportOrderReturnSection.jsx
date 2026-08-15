@@ -11,6 +11,7 @@ export default function ImportOrderReturnSection({
     readOnly = false,
     onToggleLine,
     onToggleAll,
+    onChangeMethod,
 }) {
     const selectedSet = new Set(selectedLineKeys.map(String));
     const allSelected = lines.length > 0 && lines.every((line) => selectedSet.has(String(line.key)));
@@ -115,15 +116,38 @@ export default function ImportOrderReturnSection({
                                                 ) : null}
                                             </td>
                                             <td>
-                                                <span
-                                                    className={`ioc-return-method ${
-                                                        isExchange
-                                                            ? 'ioc-return-method--exchange'
-                                                            : 'ioc-return-method--return'
-                                                    }`}
-                                                >
-                                                    {formatMethod(line.method)}
-                                                </span>
+                                                {readOnly || !onChangeMethod ? (
+                                                    <span
+                                                        className={`ioc-return-method ${
+                                                            isExchange
+                                                                ? 'ioc-return-method--exchange'
+                                                                : 'ioc-return-method--return'
+                                                        }`}
+                                                    >
+                                                        {formatMethod(line.method)}
+                                                    </span>
+                                                ) : (
+                                                    <select
+                                                        className={`ioc-return-method ioc-return-method-select ${
+                                                            isExchange
+                                                                ? 'ioc-return-method--exchange'
+                                                                : 'ioc-return-method--return'
+                                                        }`}
+                                                        value={
+                                                            line.method === RETURN_METHOD.EXCHANGE
+                                                                ? RETURN_METHOD.EXCHANGE
+                                                                : RETURN_METHOD.RETURN
+                                                        }
+                                                        onClick={(event) => event.stopPropagation()}
+                                                        onChange={(event) =>
+                                                            onChangeMethod(line.key, event.target.value)
+                                                        }
+                                                        aria-label={`Loại đổi/trả của ${line.productName}`}
+                                                    >
+                                                        <option value={RETURN_METHOD.RETURN}>Trả</option>
+                                                        <option value={RETURN_METHOD.EXCHANGE}>Đổi</option>
+                                                    </select>
+                                                )}
                                             </td>
                                             <td>{line.quantity}</td>
                                             <td>{formatCurrency(line.returnPrice)}</td>

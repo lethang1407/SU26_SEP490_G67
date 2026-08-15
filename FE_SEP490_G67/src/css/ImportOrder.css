@@ -274,6 +274,15 @@
     padding: 20px 14px !important;
 }
 
+.import-order-expand__returns {
+    margin-top: 16px;
+}
+
+.import-order-expand__returns .ioc-section--return {
+    border: 1px solid #eaedf3;
+    box-shadow: none;
+}
+
 .import-order-expand__footer {
     display: grid;
     grid-template-columns: minmax(0, 1.2fr) minmax(240px, 0.8fr);
@@ -2129,6 +2138,14 @@ a.supplier-btn {
 .ioc-return-method--exchange {
     background: #cffafe;
     color: #0e7490;
+}
+
+.ioc-return-method-select {
+    border: none;
+    cursor: pointer;
+    appearance: auto;
+    padding: 3px 8px;
+    font-weight: 600;
 }
 
 .ioc-section--promo .ioc-lines-card {
