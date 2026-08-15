@@ -247,11 +247,12 @@ function ProductInlineDetailPanel({
                 Nhóm hàng: <b style={{ color: '#334155' }}>{categoryName}</b>
               </div>
 
-              {seasonTag && seasonTag !== '—' && (
+              {/* Temporarily hidden season tag per user request */}
+              {/* {seasonTag && seasonTag !== '—' && (
                 <div className="vd-badges" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 0 }}>
                   <span className="vd-badge-pill ok">Mùa vụ: {seasonTag}</span>
                 </div>
-              )}
+              )} */}
             </div>
           </div>
 
