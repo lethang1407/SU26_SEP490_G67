@@ -281,56 +281,94 @@ CREATE TABLE `import_orders` (
 --
 
 DROP TABLE IF EXISTS `import_return_details`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+DROP TABLE IF EXISTS `import_returns`;
+DROP TABLE IF EXISTS `inventory_check_details`;
+DROP TABLE IF EXISTS `inventory_checks`;
+
+CREATE TABLE `inventory_checks` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `check_code` varchar(40) NOT NULL,
+  `check_date` datetime(6) DEFAULT NULL,
+  `status` varchar(30) NOT NULL,
+  `warehouse` varchar(100) DEFAULT NULL,
+  `note` varchar(1000) DEFAULT NULL,
+  `is_removed` bit(1) DEFAULT b'0',
+  `created_at` datetime(6) DEFAULT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  `updated_by` int DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `inventory_check_details` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `inventory_check_id` int NOT NULL,
+  `product_id` int NOT NULL,
+  `stock_batch_id` int DEFAULT NULL,
+  `system_qty` int NOT NULL,
+  `actual_qty` int DEFAULT NULL,
+  `note` varchar(500) DEFAULT NULL,
+  `is_removed` bit(1) DEFAULT b'0',
+  `created_at` datetime(6) DEFAULT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  `updated_by` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FK_icd_check` (`inventory_check_id`),
+  KEY `FK_icd_product` (`product_id`),
+  CONSTRAINT `FK_icd_check` FOREIGN KEY (`inventory_check_id`) REFERENCES `inventory_checks` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `FK_icd_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `import_returns` (
+  `created_by` int DEFAULT NULL,
+  `id` int NOT NULL AUTO_INCREMENT,
+  `import_order_id` int DEFAULT NULL,
+  `supplier_id` int DEFAULT NULL,
+  `inventory_check_id` int DEFAULT NULL,
+  `return_code` varchar(30) DEFAULT NULL,
+  `status` varchar(20) DEFAULT 'COMPLETED',
+  `source` varchar(30) NOT NULL DEFAULT 'MANUAL',
+  `total_refund` decimal(15,2) DEFAULT '0.00',
+  `note` tinytext,
+  `is_removed` bit(1) DEFAULT b'0',
+  `updated_by` int DEFAULT NULL,
+  `created_at` datetime(6) DEFAULT NULL,
+  `updated_at` datetime(6) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `FKkw5n4klftugkwax9g9ps1p4y4` (`import_order_id`),
+  KEY `FK_import_returns_supplier` (`supplier_id`),
+  KEY `FK_import_returns_inventory_check` (`inventory_check_id`),
+  CONSTRAINT `FKkw5n4klftugkwax9g9ps1p4y4` FOREIGN KEY (`import_order_id`) REFERENCES `import_orders` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `FK_import_returns_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `suppliers` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `FK_import_returns_inventory_check` FOREIGN KEY (`inventory_check_id`) REFERENCES `inventory_checks` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE `import_return_details` (
   `created_by` int DEFAULT NULL,
   `id` int NOT NULL AUTO_INCREMENT,
   `import_return_id` int NOT NULL,
-  `is_removed` bit(1) DEFAULT b'0',
   `product_id` int NOT NULL,
+  `stock_batch_id` int DEFAULT NULL,
+  `supplier_id` int DEFAULT NULL,
+  `import_order_id` int DEFAULT NULL,
+  `exchange_batch_id` int DEFAULT NULL,
   `quantity` int DEFAULT NULL,
   `return_price` decimal(15,2) DEFAULT NULL,
+  `return_reason` varchar(255) DEFAULT NULL,
+  `method` varchar(20) NOT NULL DEFAULT 'RETURN',
+  `line_status` varchar(30) NOT NULL DEFAULT 'WAITING_SUPPLIER',
+  `note` varchar(500) DEFAULT NULL,
+  `stock_reserved` bit(1) NOT NULL DEFAULT b'0',
+  `is_removed` bit(1) DEFAULT b'0',
   `updated_by` int DEFAULT NULL,
   `created_at` datetime(6) DEFAULT NULL,
   `updated_at` datetime(6) DEFAULT NULL,
-  `return_reason` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `FKhi2w488xwhj7bylhww1ebpvxu` (`import_return_id`),
   KEY `FKhtgbodm2urm3meg1l77oircg1` (`product_id`),
   CONSTRAINT `FKhi2w488xwhj7bylhww1ebpvxu` FOREIGN KEY (`import_return_id`) REFERENCES `import_returns` (`id`) ON DELETE CASCADE,
   CONSTRAINT `FKhtgbodm2urm3meg1l77oircg1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `import_return_details`
---
-
-/*!40000 ALTER TABLE `import_return_details` DISABLE KEYS */;
-/*!40000 ALTER TABLE `import_return_details` ENABLE KEYS */;
-
---
--- Table structure for table `import_returns`
---
-
-DROP TABLE IF EXISTS `import_returns`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `import_returns` (
-  `created_by` int DEFAULT NULL,
-  `id` int NOT NULL AUTO_INCREMENT,
-  `import_order_id` int NOT NULL,
-  `is_removed` bit(1) DEFAULT b'0',
-  `total_refund` decimal(15,2) DEFAULT '0.00',
-  `updated_by` int DEFAULT NULL,
-  `created_at` datetime(6) DEFAULT NULL,
-  `updated_at` datetime(6) DEFAULT NULL,
-  `return_code` varchar(30) DEFAULT NULL,
-  `note` tinytext,
-  PRIMARY KEY (`id`),
-  KEY `FKkw5n4klftugkwax9g9ps1p4y4` (`import_order_id`),
-  CONSTRAINT `FKkw5n4klftugkwax9g9ps1p4y4` FOREIGN KEY (`import_order_id`) REFERENCES `import_orders` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
