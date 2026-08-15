@@ -83,11 +83,7 @@ export const menus = [
                 path: "/admin/warehouse/import",
                 permission: "IMPORT:VIEW"
             },
-            {
-                title: "Lịch sử nhập hàng",
-                path: "/admin/warehouse/import-history",
-                permission: "IMPORT:VIEW"
-            },
+            
             {
                 title: "Trả hàng",
                 path: "/admin/warehouse/return",
