@@ -81,7 +81,6 @@ const adminRoutes = [
     {
         path: '/admin/warehouse/check',
         element: <ProtectedRoute requiredPermission="WAREHOUSE:CHECK_VIEW"><InventoryCheckListPage /></ProtectedRoute>,
-        element: <CreateInventoryCheckPage />,
     },
     {
         path: '/admin/warehouse/check/history',

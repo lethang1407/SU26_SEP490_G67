@@ -22,6 +22,26 @@ public class ExchangeOrderDetailResponse {
     CustomerInfo customer;
     List<OrderItemInfo> items;
 
+    // ---- Trạng thái công nợ & hạn đổi trả (nhóm quyết định F) ----
+    // Màn đổi trả cần biết những thứ này TRƯỚC khi thu ngân bấm gửi. Thiếu chúng thì
+    // giao diện chỉ còn cách gửi lên rồi đọc mã lỗi trả về, tức là để khách đứng chờ
+    // rồi mới báo "đơn này quá hạn".
+
+    /** Hóa đơn gốc là đơn bán nợ. */
+    Boolean isDebt;
+    /** Hạn trả nợ của hóa đơn gốc, null với đơn thường. */
+    Instant dueDate;
+    /** Tiền khách đã trả ngay lúc mua. */
+    BigDecimal paidAmount;
+    /** Nợ còn lại theo công thức chung {@code DebtCalculator.remaining}. 0 với đơn thường. */
+    BigDecimal debtRemaining;
+    /** Đơn nợ đã quá hạn mà chưa trả hết — cấm đổi/trả (quyết định F3). */
+    Boolean debtOverdue;
+    /** Hết hạn đổi trả (mặc định 4 ngày, quyết định A1) — cấm đổi/trả. */
+    Boolean returnWindowExpired;
+    /** Thời điểm hết hạn đổi trả, để hiện "còn trả được tới ...". */
+    Instant returnDeadline;
+
     @Data
     @Builder
     @NoArgsConstructor
