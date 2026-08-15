@@ -103,15 +103,6 @@ class InvoiceDocument {
         return rows.join('');
     }
 
-    /**
-     * Với hóa đơn bán nợ, netAmount (hàng trả − hàng lấy) KHÔNG phải số tiền đổi chủ:
-     * trả 350k lấy 50k trên đơn còn nợ 350k cho netAmount = +300k nhưng khách không nhận
-     * đồng nào — 350k bị cấn hết vào nợ. In "TIỀN HOÀN CHO KHÁCH: 300.000" ở đây là đưa
-     * cho khách một tờ giấy nói cửa hàng đã chi tiền trong khi két không hề động.
-     *
-     * Các số cấn trừ lấy từ phiếu đã lưu (debt_offset_amount / cash_refund_amount), không
-     * tính lại — in lại phiếu cũ sau vài lần thu nợ vẫn phải ra đúng số của lúc lập phiếu.
-     */
     exchangeTotals() {
         const {
             returnSubtotal = 0, exchangeSubtotal = 0, netAmount = 0,
@@ -236,13 +227,37 @@ export function printInvoice(data) {
 
     const html = buildInvoiceHtml(data);
 
-    const win = window.open('', '_blank', 'width=800,height=600');
-    if (!win) {
-        alert('Trình duyệt đã chặn cửa sổ bật lên. Vui lòng cho phép pop-up rồi thử lại.');
-        return;
-    }
-    win.document.write(html);
-    win.document.close();
-    win.onload = () => win.print();
-    if (win.document.readyState === 'complete') win.print();
+    const frame = document.createElement('iframe');
+    frame.setAttribute('aria-hidden', 'true');
+    frame.style.position = 'fixed';
+    frame.style.right = '0';
+    frame.style.bottom = '0';
+    frame.style.width = '0';
+    frame.style.height = '0';
+    frame.style.border = '0';
+    document.body.appendChild(frame);
+
+    const cleanup = () => {
+        setTimeout(() => frame.remove(), 1000);
+    };
+    let printed = false;
+    const printOnce = () => {
+        if (printed) return;
+        printed = true;
+        try {
+            frame.contentWindow.focus();
+            frame.contentWindow.print();
+        } finally {
+            cleanup();
+        }
+    };
+
+    frame.onload = printOnce;
+
+    const doc = frame.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    if (doc.readyState === 'complete') printOnce();
 }

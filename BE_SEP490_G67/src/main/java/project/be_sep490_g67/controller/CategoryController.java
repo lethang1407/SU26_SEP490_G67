@@ -19,6 +19,7 @@ import project.be_sep490_g67.service.CategoryService;
 public class CategoryController {
     CategoryService categoryService;
 
+    //@PreAuthorize("hasAuthority('PRODUCT:VIEW')")
     @GetMapping
     public ApiResponse<PageResponse<CategoryResponse>> getCategory(
             @RequestParam(name = "page", defaultValue = "0") int page,

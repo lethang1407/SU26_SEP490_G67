@@ -19,10 +19,33 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
     @Query("SELECT o.createdBy FROM SalesOrder o WHERE o.id = :id AND o.isRemoved = false")
     Optional<Integer> findCreatedById(@Param("id") Integer id);
 
+    /**
+     * Đơn đổi (hóa đơn bán hàng lấy mới) sinh ra từ một hóa đơn gốc. Lịch sử đơn hàng
+     * không liệt kê chúng thành dòng riêng mà gom vào dòng của hóa đơn gốc.
+     */
+    @Query("""
+            SELECT o FROM SalesOrder o
+            WHERE o.originalSalesOrderId IN :originalIds
+              AND o.isRemoved = false
+            ORDER BY o.createdAt ASC, o.id ASC
+            """)
+    List<SalesOrder> findByOriginalSalesOrderIds(@Param("originalIds") List<Integer> originalIds);
+
+    @Query("""
+            SELECT o FROM SalesOrder o
+            LEFT JOIN FETCH o.salesOrderDetails d
+            LEFT JOIN FETCH d.product
+            WHERE o.originalSalesOrderId = :originalId
+              AND o.isRemoved = false
+            ORDER BY o.createdAt ASC, o.id ASC
+            """)
+    List<SalesOrder> findByOriginalSalesOrderIdWithDetails(@Param("originalId") Integer originalId);
+
     @Query("""
             SELECT o FROM SalesOrder o
             LEFT JOIN o.customer c
             WHERE o.isRemoved = false
+              AND o.originalSalesOrderId IS NULL
               AND (:createdBy IS NULL OR o.createdBy = :createdBy)
               AND (:search IS NULL
                     OR LOWER(o.orderCode) LIKE :search
@@ -44,6 +67,7 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
               AND (:orderStatus IS NULL OR o.orderStatus = :orderStatus)
               AND (:paymentMethod IS NULL OR o.paymentMethod = :paymentMethod)
               AND (:isDebt IS NULL OR o.isDebt = :isDebt)
+            ORDER BY o.createdAt DESC, o.id DESC
             """)
     Page<SalesOrder> findHistory(@Param("createdBy") Integer createdBy,
                                  @Param("search") String search,
@@ -166,7 +190,7 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
     boolean existsDebtOrderByCustomerId(@Param("customerId") Integer customerId);
 
     /**
-     * Đơn nợ đã quá hạn của một khách. Chỉ lọc theo dueDate — phần "còn nợ bao
+     * Đơn nợ đã quá hạn của một khách. Lọc theo dueDate — phần "còn nợ bao
      * nhiêu" để service tính bằng DebtCalculator.
      */
     @Query("""

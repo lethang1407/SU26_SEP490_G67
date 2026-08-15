@@ -3,7 +3,8 @@ import useInvoiceExport from '../hooks/useInvoiceExport';
 import { printInvoice } from '../utils/printInvoice';
 import { formatVnd } from '../utils/money';
 
-export default function ReceiptModal({ receipt, onClose }) {
+
+export default function ReceiptModal({ receipt, invoice = null, onClose }) {
     const { invoiceData, isLoading, error, fetchInvoice, clearInvoice } = useInvoiceExport();
 
     const items = receipt?.items ?? [];
@@ -11,10 +12,11 @@ export default function ReceiptModal({ receipt, onClose }) {
 
     // Print button handler
     const handlePrint = async () => {
-        if (receipt?.id == null || isLoading) return;
+        if (isLoading) return;
 
-        let data = invoiceData;
+        let data = invoice ?? invoiceData;
         if (!data) {
+            if (receipt?.id == null) return;
             data = await fetchInvoice(receipt.id);
         }
         if (data) {
@@ -47,20 +49,13 @@ export default function ReceiptModal({ receipt, onClose }) {
                 {/*  Meta  */}
                 <div className="receipt-meta">
                     <span>
-                        Ngày:{' '}
+                        Thời gian:{' '}
                         {receipt.createdAt
                             ? new Date(receipt.createdAt).toLocaleString('vi-VN', {
                                 timeZone: 'Asia/Ho_Chi_Minh',
                             })
                             : '—'}
                     </span>
-                    {receipt.customer ? (
-                        <span>
-                            Khách: {receipt.customer.fullName} - {receipt.customer.phoneNumber}
-                        </span>
-                    ) : (
-                        <span className="receipt-debt-badge">Bán nợ / Khách lẻ</span>
-                    )}
                 </div>
 
                 {/*  Items  */}
@@ -120,15 +115,15 @@ export default function ReceiptModal({ receipt, onClose }) {
                         id="btn-print-invoice"
                         className="btn-checkout"
                         onClick={handlePrint}
-                        disabled={isLoading || receipt?.id == null}
-                        title={receipt?.id == null ? 'Đang tải đơn hàng...' : 'In hóa đơn'}
+                        disabled={isLoading || (!invoice && receipt?.id == null)}
+                        title="In hóa đơn"
                     >
                         <Printer size={18} style={{ marginRight: 8 }} />
-                        {isLoading ? 'Đang tải...' : 'In hóa đơn'}
+                        {isLoading ? 'Đang tải...' : 'In'}
                     </button>
 
                     <button className="receipt-close-btn" onClick={handleClose}>
-                        Đóng
+                        Hủy
                     </button>
                 </div>
             </div>

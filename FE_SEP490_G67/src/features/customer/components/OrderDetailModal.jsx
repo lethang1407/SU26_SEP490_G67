@@ -160,7 +160,30 @@ export default function OrderDetailModal({ show, onHide, orderId }) {
                                         <h6>Phiếu #{rIndex + 1}: {returnOrder.returnCode}</h6>
                                         <p>Lý do: {returnOrder.returnReason}</p>
                                         <p>Ngày tạo: {formatDateTime(returnOrder.createdAt)}</p>
-                                        <p>Tổng hoàn tiền: {formatCurrency(returnOrder.refundAmount)}</p>
+                                        <p>Giá trị hàng trả: {formatCurrency(returnOrder.refundAmount)}</p>
+
+                                        {/*
+                                            Với đơn nợ, giá trị hàng trả KHÔNG phải tiền đã hoàn — phần lớn
+                                            thường bị cấn thẳng vào công nợ. Hiện một dòng "Tổng hoàn tiền"
+                                            duy nhất sẽ báo là đã chi tiền trong khi két không hề động.
+
+                                            Hai số này đọc thẳng từ DB (debt_offset_amount / cash_refund_amount),
+                                            KHÔNG tính lại: công nợ đã đổi sau các lần thu nợ tiếp theo, suy
+                                            ngược từ số nợ hôm nay sẽ ra con số của hôm nay chứ không phải của
+                                            lúc lập phiếu.
+
+                                            null = phiếu lập trước migration V30, chưa tách hai phần — lúc đó
+                                            không nói gì còn hơn nói một con số bịa.
+                                        */}
+                                        {returnOrder.cashRefundAmount != null && (
+                                            <>
+                                                {returnOrder.debtOffsetAmount > 0 && (
+                                                    <p>Cấn trừ công nợ: {formatCurrency(returnOrder.debtOffsetAmount)}</p>
+                                                )}
+                                                <p>Hoàn tiền mặt: {formatCurrency(returnOrder.cashRefundAmount)}</p>
+                                            </>
+                                        )}
+
                                         {returnOrder.note && <p>Ghi chú phiếu: {returnOrder.note}</p>}
 
                                         <Table striped bordered hover responsive size="sm" className="mt-3">
