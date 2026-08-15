@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import project.be_sep490_g67.dto.request.CustomerRequest;
+import project.be_sep490_g67.dto.request.UpdateCustomerUnstableDebtRequest;
 import project.be_sep490_g67.dto.response.CustomerResponse;
 import project.be_sep490_g67.dto.response.DebtOrderResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
@@ -391,6 +392,24 @@ public class CustomerService {
                 .totalDebt(updatedCustomer.getTotalDebt())
                 .isCheckDebtUnstable(isCheckDebtUnstable(updatedCustomer))
                 .build();
+    }
+
+    @Transactional
+    public CustomerResponse updateCustomerUnstableDebt(Integer id, UpdateCustomerUnstableDebtRequest request) {
+        Customer customer = customerRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
+
+        customer.setIsCheckUnstableDebt(request.getIsCheckUnstableDebt());
+        Customer updatedCustomer = customerRepository.save(customer);
+        log.info("Update customer unstable debt check by id {}", updatedCustomer.getId());
+
+        Instant now = Instant.now();
+        boolean hasOverdue = updatedCustomer.getSalesOrders().stream().anyMatch(so ->
+                Boolean.TRUE.equals(so.getIsDebt()) &&
+                        so.getDueDate() != null && so.getDueDate().isBefore(now) &&
+                        isOrderUnpaid(so));
+
+        return buildCustomerResponse(updatedCustomer, hasOverdue, now);
     }
 
     @Transactional(readOnly = true)

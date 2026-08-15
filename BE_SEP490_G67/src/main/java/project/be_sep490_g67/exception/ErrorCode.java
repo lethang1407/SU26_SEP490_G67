@@ -174,6 +174,8 @@ public enum ErrorCode {
     DEBT_DUE_DATE_IN_PAST(4106, "Hạn trả nợ phải sau thời điểm tạo đơn", HttpStatus.BAD_REQUEST),
     DEBT_PAYMENT_EXCEEDS_REMAINING(4107, "Số tiền khách trả thêm vượt quá số nợ còn lại sau khi đã cấn trừ hàng trả", HttpStatus.BAD_REQUEST),
     DEBT_ORDER_ALREADY_SETTLED(4108, "Đơn hàng này đã trả hết nợ", HttpStatus.BAD_REQUEST),
+    DEBT_PAYMENT_ORDER_LIST_REQUIRED(4109, "Danh sách đơn nợ cần thanh toán không được để trống", HttpStatus.BAD_REQUEST),
+    DEBT_PAYMENT_ORDERS_DIFFERENT_CUSTOMERS(4110, "Chỉ được thanh toán nhiều đơn nợ của cùng một khách hàng", HttpStatus.BAD_REQUEST),
 
     // Notification errors (42xx)
     NOTIFICATION_NOT_FOUND(4201, "Không tìm thấy thông báo", HttpStatus.NOT_FOUND),

@@ -104,9 +104,9 @@ export default function CustomerPaymentHistory({ customerId, refreshKey }) {
             historyData.content.map((item) => (
               <tr key={item.id}>
                 <td>{formatDateTime(item.paymentDate)}</td>
-                <td>PT-{item.id}</td>
+                <td>{item.paymentCode}</td>
                 <td>
-                  <a href="#">{item.orderCode}</a>
+                  {item.orderCode}
                 </td>
                 <td className="text-success fw-bold">
                   {formatCurrency(item.amountPaid)}

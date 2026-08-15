@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Modal, Table, Spinner, Pagination, Alert } from 'react-bootstrap';
+import { Modal, Table, Spinner, Pagination, Alert, Button } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
+import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 import { getTodayDebtPayments } from '../api';
 
 const formatCurrency = (value) => {
@@ -36,6 +37,7 @@ export default function TodayPaymentsModal({ show, onHide }) {
     const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [expandedGroups, setExpandedGroups] = useState([]);
 
     useEffect(() => {
         if (!show) return;
@@ -55,6 +57,7 @@ export default function TodayPaymentsModal({ show, onHide }) {
         };
 
         fetchPayments();
+        setExpandedGroups([]); // Reset khi mở lại modal
     }, [show, page]);
 
     const handlePageChange = (newPage) => {
@@ -67,6 +70,14 @@ export default function TodayPaymentsModal({ show, onHide }) {
         navigate(`/admin/customer/${customerId}`);
         onHide(); // Đóng modal sau khi điều hướng
     };
+
+    const toggleGroup = (customerId) => {
+        setExpandedGroups(prev =>
+            prev.includes(customerId)
+                ? prev.filter(id => id !== customerId)
+                : [...prev, customerId]
+        );
+    }
 
     const renderPagination = () => {
         if (data.totalPages <= 1) return null;
@@ -119,28 +130,20 @@ export default function TodayPaymentsModal({ show, onHide }) {
                         ) : (
                             (() => {
                                 let globalIndex = 0;
-                                return data.content.map((customerGroup) =>
-                                    customerGroup.debtPaymentDetails.map((payment, paymentIndex) => {
+                                return data.content.map((customerGroup) => {
+                                    const isExpanded = expandedGroups.includes(customerGroup.customerId);
+                                    const hasMultipleItems = customerGroup.debtPaymentDetails.length > 1;
+                                    const itemsToShow = isExpanded ? customerGroup.debtPaymentDetails : customerGroup.debtPaymentDetails.slice(0, 1);
+
+                                    const rows = itemsToShow.map((payment, paymentIndex) => {
                                         globalIndex++;
                                         const isFirstItemInGroup = paymentIndex === 0;
                                         return (
                                             <tr key={payment.id}>
                                                 <td>{(page - 1) * 10 + globalIndex}</td>
-                                                {isFirstItemInGroup && (
-                                                    <td
-                                                        rowSpan={customerGroup.debtPaymentDetails.length}
-                                                        onClick={() => handleCustomerClick(customerGroup.customerId)}
-                                                        className="fw-medium"
-                                                        style={{
-                                                            cursor: 'pointer',
-                                                            color: '#0d6efd',
-                                                            verticalAlign: 'top',
-                                                        }}
-                                                        title={`Xem chi tiết khách hàng ${customerGroup.customerName}`}
-                                                    >
-                                                        {customerGroup.customerName}
-                                                    </td>
-                                                )}
+                                                {isFirstItemInGroup && <td rowSpan={itemsToShow.length} onClick={() => handleCustomerClick(customerGroup.customerId)} className="fw-medium" style={{ cursor: 'pointer', color: '#0d6efd', verticalAlign: 'top' }} title={`Xem chi tiết khách hàng ${customerGroup.customerName}`}>
+                                                    {customerGroup.customerName}
+                                                </td>}
                                                 <td className="text-end">{formatCurrency(payment.amountPaid)}</td>
                                                 <td>{getPaymentMethodLabel(payment.paymentMethod)}</td>
                                                 <td>{payment.orderCode}</td>
@@ -148,8 +151,31 @@ export default function TodayPaymentsModal({ show, onHide }) {
                                                 <td>{payment.staffName}</td>
                                             </tr>
                                         );
-                                    })
-                                );
+                                    });
+
+                                    if (hasMultipleItems) {
+                                        rows.push(
+                                            <tr key={`expand-button-${customerGroup.customerId}`}>
+                                                <td colSpan="7" className="text-center p-1" style={{ borderTop: 'none' }}>
+                                                    <Button
+                                                        variant="link"
+                                                        size="sm"
+                                                        onClick={() => toggleGroup(customerGroup.customerId)}
+                                                        className="d-flex align-items-center justify-content-center w-100"
+                                                    >
+                                                        {isExpanded ? (
+                                                            <><FiChevronUp className="me-1" /> Thu gọn</>
+                                                        ) : (
+                                                            <><FiChevronDown className="me-1" /> Xem thêm {customerGroup.debtPaymentDetails.length - 1} phiếu thu khác</>
+                                                        )}
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    }
+
+                                    return rows;
+                                });
                             })()
                         )}
                     </tbody>

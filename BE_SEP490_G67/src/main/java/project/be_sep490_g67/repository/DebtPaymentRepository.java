@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface DebtPaymentRepository extends JpaRepository<DebtPayment, Integer> {
@@ -97,4 +98,12 @@ public interface DebtPaymentRepository extends JpaRepository<DebtPayment, Intege
             @Param("start") Instant start,
             @Param("end") Instant end
     );
+
+    @Query(value = """
+            SELECT dp.payment_code FROM debt_payments dp
+            WHERE dp.payment_code LIKE CONCAT(:prefix, '%')
+            ORDER BY dp.payment_code DESC
+            LIMIT 1
+            """, nativeQuery = true)
+    Optional<String> findLatestPaymentCodeByPrefix(@Param("prefix") String prefix);
 }
