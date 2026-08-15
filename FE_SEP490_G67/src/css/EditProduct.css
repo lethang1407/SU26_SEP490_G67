@@ -64,10 +64,10 @@
 
 .edit-product-unit-row {
   display: grid;
-  grid-template-columns: 24px minmax(88px, 1fr) 20px 72px minmax(88px, 1fr) minmax(140px, 1.2fr) 36px;
+  grid-template-columns: 34px 18px minmax(110px, 1fr) 16px minmax(80px, 0.8fr) minmax(95px, 1fr) minmax(130px, 1.2fr) 34px;
   gap: 8px;
-  align-items: end;
-  padding: 12px;
+  align-items: center;
+  padding: 10px 12px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: #fff;
@@ -77,7 +77,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 44px;
+  height: 38px;
   font-size: 14px;
   font-weight: 600;
   color: #64748b;
@@ -86,22 +86,31 @@
 .edit-product-unit-row__price {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  min-width: 0;
+  gap: 2px;
+  min-width: 120px;
+}
+
+.edit-product-unit-row__price .add-product-field__label {
+  white-space: nowrap;
+  font-size: 12px;
+  margin: 0;
+  color: #475569;
+  font-weight: 500;
 }
 
 .edit-product-unit-row__remove {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 44px;
+  width: 34px;
+  height: 38px;
   border: none;
   background: transparent;
   color: #94a3b8;
   border-radius: 8px;
   cursor: pointer;
   transition: color 0.2s ease, background 0.2s ease;
+  flex-shrink: 0;
 }
 
 .edit-product-unit-row__remove:hover {

@@ -79,13 +79,8 @@ export const menus = [
                 permission: "WAREHOUSE:CHECK_VIEW"
             },
             {
-                title: "Đơn nhập hàng",
+                title: "Nhập hàng",
                 path: "/admin/warehouse/import",
-                permission: "IMPORT:VIEW"
-            },
-            {
-                title: "Lịch sử nhập hàng",
-                path: "/admin/warehouse/import-history",
                 permission: "IMPORT:VIEW"
             },
             {
