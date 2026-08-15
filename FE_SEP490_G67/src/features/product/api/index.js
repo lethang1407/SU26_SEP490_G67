@@ -1,7 +1,7 @@
 import { api } from '@/lib/api-clien';
 
 export const productsApi = {
-  getProducts: async ({ facet = 'hot', categoryId, keyword, page = 0, size = 10 } = {}) => {
+  getProducts: async ({ facet = 'all', categoryId, keyword, page = 0, size = 10 } = {}) => {
     const response = await api.get('/import/suggestions', {
       params: {
         status: facet,
@@ -32,9 +32,7 @@ export const productsApi = {
   uploadImage: async (id, file) => {
     const form = new FormData();
     form.append('file', file);
-    const response = await api.post(`/products/${id}/images`, form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const response = await api.post(`/products/${id}/images`, form);
     return response.result;
   },
 
@@ -65,9 +63,7 @@ export const productsApi = {
   importExcel: async (file) => {
     const form = new FormData();
     form.append('file', file);
-    const response = await api.post('/products/import-excel', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const response = await api.post('/products/import-excel', form);
     return response.result;
   },
 
@@ -236,5 +232,6 @@ export function buildUpdatePayload(formData) {
         businessStatus: formData.businessStatus,
         baseUnit: formData.baseUnit,
         conversionUnits: formData.conversionUnits,
+        attributes: formData.attributes || [],
     };
 }

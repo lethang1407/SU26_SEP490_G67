@@ -14,6 +14,6 @@ public final class ProductConstants {
         if (id == null) {
             return "";
         }
-        return "SP" + String.format("%03d", id);
+        return "SP" + String.format("%06d", id);
     }
 }

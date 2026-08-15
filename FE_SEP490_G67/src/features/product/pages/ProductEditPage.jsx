@@ -33,6 +33,7 @@ function mapDetailToForm(detail) {
         ...img,
         preview: img.preview || img.url,
       })),
+      attributes: detail.attributes || [],
     };
   }
 
@@ -53,7 +54,7 @@ function mapDetailToForm(detail) {
   return {
     id: detail.id,
     name: detail.name || '',
-    sku: detail.sku || '',
+    sku: detail.sku || detail.code || '',
     barcode: detail.barcode || '',
     categoryId: detail.categoryId != null ? String(detail.categoryId) : '',
     brand: detail.brand || '',
@@ -72,6 +73,7 @@ function mapDetailToForm(detail) {
       publicId: img.publicId,
       isMain: img.isMain,
     })),
+    attributes: detail.attributes || [],
   };
 }
 
@@ -114,7 +116,7 @@ function toUpsertPayload(formData) {
     sellingPrice: formData.sellingPrice,
     vatPercent: formData.vatPercent ?? 10,
     units,
-    attributes: [],
+    attributes: formData.attributes || [],
   };
 }
 

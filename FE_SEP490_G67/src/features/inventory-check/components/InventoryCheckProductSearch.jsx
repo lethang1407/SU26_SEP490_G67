@@ -12,7 +12,7 @@ function mapProduct(product) {
     return {
         id: product.id,
         name: product.name,
-        code: product.barcode || `SP${String(product.id).padStart(5, '0')}`,
+        code: product.code || product.sku || product.barcode || `SP${String(product.id).padStart(6, '0')}`,
         barcode: product.barcode || '',
         unit: baseUnit?.name || 'Cái',
     };

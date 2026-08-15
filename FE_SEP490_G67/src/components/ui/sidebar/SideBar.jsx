@@ -23,10 +23,24 @@ export default function SideBar() {
         return hasPermission(menu.permission);
     });
 
+    const isSubActive = (subPath, currentPath, siblingPaths = []) => {
+        if (currentPath === subPath) return true;
+        const matches = siblingPaths.filter(p => currentPath === p || currentPath.startsWith(p + '/'));
+        if (matches.length > 0) {
+            const longest = matches.reduce((a, b) => (a.length > b.length ? a : b));
+            return longest === subPath;
+        }
+        return currentPath.startsWith(subPath + '/');
+    };
+
     useEffect(() => {
-        const activeMenu = filteredMenus.find(menu => 
-            menu.children?.some(child => location.pathname.startsWith(child.path)) || (menu.path && location.pathname.startsWith(menu.path))
-        );
+        const activeMenu = filteredMenus.find(menu => {
+            if (menu.children) {
+                const siblingPaths = menu.children.map(c => c.path);
+                return menu.children.some(child => isSubActive(child.path, location.pathname, siblingPaths));
+            }
+            return menu.path && (location.pathname === menu.path || location.pathname.startsWith(menu.path + '/'));
+        });
         if (activeMenu) {
             setExpanded(activeMenu.id);
         }
@@ -37,7 +51,11 @@ export default function SideBar() {
     };
 
     const isMenuActive = (menu) => {
-        return menu.children?.some(child => location.pathname.startsWith(child.path)) || (menu.path && location.pathname.startsWith(menu.path));
+        if (menu.children) {
+            const siblingPaths = menu.children.map(c => c.path);
+            return menu.children.some(child => isSubActive(child.path, location.pathname, siblingPaths));
+        }
+        return menu.path && (location.pathname === menu.path || location.pathname.startsWith(menu.path + '/'));
     };
     return (
 
@@ -66,6 +84,7 @@ export default function SideBar() {
                         const isActive = isMenuActive(menu);
                         if (menu.children) {
                             const allowedChildren = menu.children.filter(child => hasPermission(child.permission));
+                            const siblingPaths = allowedChildren.map(c => c.path);
                             return (
                                 <div
                                     key={menu.id}
@@ -96,15 +115,18 @@ export default function SideBar() {
                                         expanded === menu.id &&
                                         <div className="submenu">
                                             {
-                                                allowedChildren.map((sub) => (
-                                                    <NavLink
-                                                        key={sub.path}
-                                                        to={sub.path}
-                                                        className={({ isActive }) => `submenu-item ${isActive ? "active-sub" : ""}` }
-                                                    >
-                                                        {sub.title}
-                                                    </NavLink>
-                                                ))
+                                                allowedChildren.map((sub) => {
+                                                    const subActive = isSubActive(sub.path, location.pathname, siblingPaths);
+                                                    return (
+                                                        <NavLink
+                                                            key={sub.path}
+                                                            to={sub.path}
+                                                            className={`submenu-item ${subActive ? "active-sub" : ""}`}
+                                                        >
+                                                            {sub.title}
+                                                        </NavLink>
+                                                    );
+                                                })
                                             }
                                         </div>
                                     }

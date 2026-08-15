@@ -44,6 +44,11 @@ public class ProductCommandService {
         applyScalarFields(product, request, category);
         product = productRepository.save(product);
 
+        if (product.getSku() == null || product.getSku().isBlank()) {
+            product.setSku("SP" + String.format("%06d", product.getId()));
+            product = productRepository.save(product);
+        }
+
         replaceUnits(product, request.getUnits());
         replaceAttributes(product, request.getAttributes());
 

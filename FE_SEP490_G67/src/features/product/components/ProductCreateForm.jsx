@@ -1,5 +1,6 @@
-import { useId, useState } from 'react';
-import { Barcode, GripVertical, ImagePlus, Trash2 } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Barcode, GripVertical, ImagePlus, Plus, Trash2, TrendingUp } from 'lucide-react';
+import { PRODUCT_UNIT_OPTIONS } from '../constants';
 
 const EMPTY_FORM = {
   name: '',
@@ -9,20 +10,50 @@ const EMPTY_FORM = {
   brand: '',
   description: '',
   isActive: true,
+  baseUnit: 'Chai',
+  baseSellPrice: '0',
   costPrice: '0',
   sellingPrice: '0',
-  vatPercent: '10',
+  vatPercent: '0',
+  conversionUnits: [],
 };
 
-const createAttribute = () => ({
-  id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-  name: '',
-  values: [],
-  inputValue: '',
-});
+function createConversionUnit(ofUnit = 'Chai') {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    unitName: '',
+    qty: '1',
+    ofUnit,
+    sellPrice: '0',
+  };
+}
+
+function createAttribute() {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name: '',
+    values: [],
+    inputValue: '',
+  };
+}
+
+function parseMoney(value) {
+  const n = Number(String(value ?? '').replace(/[^\d.-]/g, ''));
+  return Number.isFinite(n) ? n : 0;
+}
+
+function formatInputMoney(value) {
+  const n = parseMoney(value);
+  return n.toLocaleString('vi-VN');
+}
+
+function calcMargin(cost, sell) {
+  if (!sell || sell <= 0) return null;
+  return Math.round(((sell - cost) / sell) * 1000) / 10;
+}
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/jpg'];
+const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
 
 export default function ProductCreateForm({
   formId,
@@ -30,7 +61,7 @@ export default function ProductCreateForm({
   onSubmit,
   onCancel,
 }) {
-  const fileInputId = useId();
+  const fileInputRef = useRef(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [attributes, setAttributes] = useState([createAttribute()]);
   const [imagePreview, setImagePreview] = useState(null);
@@ -40,14 +71,58 @@ export default function ProductCreateForm({
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
+  const costNum = parseMoney(form.costPrice);
+  const sellNum = parseMoney(form.sellingPrice);
+  const margin = calcMargin(costNum, sellNum);
+
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === 'baseUnit') {
+        next.conversionUnits = prev.conversionUnits.map((u, idx) =>
+          idx === 0 ? { ...u, ofUnit: value } : u,
+        );
+      }
+      return next;
+    });
     setErrors((prev) => ({ ...prev, [name]: null }));
+  };
+
+  const handleMoneyChange = (name, raw) => {
+    const digits = String(raw).replace(/[^\d]/g, '');
+    handleChange({ target: { name, value: digits || '0' } });
   };
 
   const handleToggleActive = () => {
     setForm((prev) => ({ ...prev, isActive: !prev.isActive }));
+  };
+
+  const handleAddUnit = () => {
+    const lastUnit =
+      form.conversionUnits.length > 0
+        ? form.conversionUnits[form.conversionUnits.length - 1].unitName || form.baseUnit
+        : form.baseUnit;
+    setForm((prev) => ({
+      ...prev,
+      conversionUnits: [...prev.conversionUnits, createConversionUnit(lastUnit || prev.baseUnit)],
+    }));
+  };
+
+  const handleUnitChange = (id, field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      conversionUnits: prev.conversionUnits.map((u) =>
+        u.id === id ? { ...u, [field]: value } : u,
+      ),
+    }));
+  };
+
+  const handleRemoveUnit = (id) => {
+    setForm((prev) => ({
+      ...prev,
+      conversionUnits: prev.conversionUnits.filter((u) => u.id !== id),
+    }));
   };
 
   const handleAttributeChange = (id, field, value) => {
@@ -77,7 +152,7 @@ export default function ProductCreateForm({
     setAttributes((prev) =>
       prev.map((attr) => {
         if (attr.id === id) {
-          return { ...attr, values: attr.values.filter(v => v !== valueToRemove) };
+          return { ...attr, values: attr.values.filter((v) => v !== valueToRemove) };
         }
         return attr;
       })
@@ -107,10 +182,13 @@ export default function ProductCreateForm({
   const applyImageFile = (file) => {
     if (!file) return;
 
-    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+    const ext = (file.name || '').split('.').pop()?.toLowerCase();
+    const isValidType = ACCEPTED_IMAGE_TYPES.includes(file.type) || ['jpg', 'jpeg', 'png', 'webp'].includes(ext);
+
+    if (!isValidType) {
       setErrors((prev) => ({
         ...prev,
-        image: 'Chỉ hỗ trợ ảnh JPG hoặc PNG.',
+        image: 'Chỉ hỗ trợ định dạng ảnh JPG, PNG hoặc WEBP.',
       }));
       return;
     }
@@ -118,39 +196,52 @@ export default function ProductCreateForm({
     if (file.size > MAX_IMAGE_BYTES) {
       setErrors((prev) => ({
         ...prev,
-        image: 'Ảnh tối đa 5MB.',
+        image: 'Dung lượng ảnh tối đa 5MB.',
       }));
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setImagePreview(typeof reader.result === 'string' ? reader.result : null);
-      setImageName(file.name);
+    try {
+      if (imagePreview && typeof imagePreview === 'string' && imagePreview.startsWith('blob:')) {
+        URL.revokeObjectURL(imagePreview);
+      }
+      const objectUrl = URL.createObjectURL(file);
+      setImagePreview(objectUrl);
+      setImageName(file.name || 'image.png');
       setImageFile(file);
       setErrors((prev) => ({ ...prev, image: null }));
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Lỗi khi tạo xem trước ảnh:', err);
+    }
   };
 
   const handleFileChange = (event) => {
     const file = event.target.files?.[0];
-    applyImageFile(file);
-    event.target.value = '';
+    if (file) {
+      applyImageFile(file);
+    }
   };
 
   const handleDrop = (event) => {
     event.preventDefault();
     setDragOver(false);
     const file = event.dataTransfer.files?.[0];
-    applyImageFile(file);
+    if (file) {
+      applyImageFile(file);
+    }
   };
 
   const clearImage = () => {
+    if (imagePreview && typeof imagePreview === 'string' && imagePreview.startsWith('blob:')) {
+      URL.revokeObjectURL(imagePreview);
+    }
     setImagePreview(null);
     setImageName('');
     setImageFile(null);
     setErrors((prev) => ({ ...prev, image: null }));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const validateForm = () => {
@@ -162,10 +253,8 @@ export default function ProductCreateForm({
     if (!form.categoryId) {
       nextErrors.categoryId = 'Vui lòng chọn danh mục.';
     }
-
-    const vat = Number(form.vatPercent);
-    if (Number.isNaN(vat) || vat < 0 || vat > 100) {
-      nextErrors.vatPercent = 'VAT phải từ 0 đến 100.';
+    if (!form.baseUnit.trim()) {
+      nextErrors.baseUnit = 'Vui lòng chọn đơn vị tính cơ bản.';
     }
 
     setErrors(nextErrors);
@@ -191,7 +280,14 @@ export default function ProductCreateForm({
         ...form,
         costPrice: 0,
         sellingPrice: 0,
-        vatPercent: Number(form.vatPercent) || 0,
+        baseSellPrice: 0,
+        vatPercent: 0,
+        conversionUnits: form.conversionUnits
+          .filter((u) => u.unitName.trim())
+          .map((u) => ({
+            ...u,
+            sellPrice: 0,
+          })),
         attributes: flatAttributes,
         imageFile,
         imageName: imageName || null,
@@ -279,38 +375,21 @@ export default function ProductCreateForm({
                 {errors.name ? <p className="add-product-field__error">{errors.name}</p> : null}
               </div>
 
-              <div className="add-product-fields add-product-fields--two-col">
-                <div className="add-product-field">
-                  <label className="add-product-field__label" htmlFor="product-sku">
-                    Mã SKU
-                  </label>
+              <div className="add-product-field">
+                <label className="add-product-field__label" htmlFor="product-barcode">
+                  Mã vạch
+                </label>
+                <div className="add-product-field__with-icon">
                   <input
-                    id="product-sku"
-                    name="sku"
+                    id="product-barcode"
+                    name="barcode"
                     type="text"
                     className="add-product-field__input"
-                    placeholder="Ví dụ: SP-001"
-                    value={form.sku}
+                    placeholder="Quét hoặc nhập mã vạch"
+                    value={form.barcode}
                     onChange={handleChange}
                   />
-                </div>
-
-                <div className="add-product-field">
-                  <label className="add-product-field__label" htmlFor="product-barcode">
-                    Mã vạch
-                  </label>
-                  <div className="add-product-field__with-icon">
-                    <input
-                      id="product-barcode"
-                      name="barcode"
-                      type="text"
-                      className="add-product-field__input"
-                      placeholder="Quét hoặc nhập mã vạch"
-                      value={form.barcode}
-                      onChange={handleChange}
-                    />
-                    <Barcode size={18} className="add-product-field__icon" aria-hidden="true" />
-                  </div>
+                  <Barcode size={18} className="add-product-field__icon" aria-hidden="true" />
                 </div>
               </div>
 
@@ -378,6 +457,113 @@ export default function ProductCreateForm({
 
           <section className="add-product-card">
             <header className="add-product-card__header add-product-card__header--row">
+              <h2 className="add-product-card__title">Quản lý đơn vị tính</h2>
+              <button type="button" className="add-product-link-btn" onClick={handleAddUnit}>
+                <Plus size={14} /> Thêm đơn vị quy đổi
+              </button>
+            </header>
+
+            <div className="edit-product-units">
+              <div className="edit-product-unit-base">
+                <div className="edit-product-unit-base__grid">
+                  <div className="add-product-field">
+                    <label className="add-product-field__label" htmlFor="create-base-unit">
+                      Đơn vị cơ bản <span className="add-product-field__required">*</span>
+                    </label>
+                    <select
+                      id="create-base-unit"
+                      name="baseUnit"
+                      className="add-product-field__select"
+                      value={form.baseUnit}
+                      onChange={handleChange}
+                    >
+                      {PRODUCT_UNIT_OPTIONS.map((unit) => (
+                        <option key={unit} value={unit}>
+                          {unit}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <p className="edit-product-unit-base__hint">
+                  Đơn vị nhỏ nhất dùng để tính tồn kho và bán lẻ.
+                </p>
+              </div>
+
+              {form.conversionUnits.map((unit, index) => {
+                const prevUnitName =
+                  index === 0
+                    ? form.baseUnit
+                    : form.conversionUnits[index - 1].unitName || form.baseUnit;
+                return (
+                  <div key={unit.id} className="edit-product-unit-row">
+                    <span className="edit-product-unit-row__eq">1</span>
+                    <select
+                      className="add-product-field__select"
+                      value={unit.unitName}
+                      onChange={(e) => handleUnitChange(unit.id, 'unitName', e.target.value)}
+                      aria-label="Tên đơn vị quy đổi"
+                    >
+                      <option value="">Chọn đơn vị</option>
+                      {PRODUCT_UNIT_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="edit-product-unit-row__eq">=</span>
+                    <input
+                      type="number"
+                      min="1"
+                      className="add-product-field__input"
+                      value={unit.qty}
+                      onChange={(e) => handleUnitChange(unit.id, 'qty', e.target.value)}
+                      aria-label="Số lượng quy đổi"
+                    />
+                    <select
+                      className="add-product-field__select"
+                      value={unit.ofUnit || prevUnitName}
+                      onChange={(e) => handleUnitChange(unit.id, 'ofUnit', e.target.value)}
+                      aria-label="Đơn vị tham chiếu"
+                    >
+                      {PRODUCT_UNIT_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="edit-product-unit-row__price">
+                      <label className="add-product-field__label">Giá bán lẻ (VNĐ)</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        className="add-product-field__input"
+                        value={formatInputMoney(unit.sellPrice)}
+                        onChange={(e) =>
+                          handleUnitChange(
+                            unit.id,
+                            'sellPrice',
+                            String(e.target.value).replace(/[^\d]/g, '') || '0',
+                          )
+                        }
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="edit-product-unit-row__remove"
+                      aria-label="Xóa đơn vị quy đổi"
+                      onClick={() => handleRemoveUnit(unit.id)}
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="add-product-card">
+            <header className="add-product-card__header add-product-card__header--row">
               <h2 className="add-product-card__title">Thuộc tính sản phẩm</h2>
               <button
                 type="button"
@@ -388,14 +574,19 @@ export default function ProductCreateForm({
               </button>
             </header>
 
-            <div className="add-product-attrs">
-              {attributes.map((attr) => (
-                <div key={attr.id} className="add-product-attr-row">
-                  <span className="add-product-attr-row__handle" aria-hidden="true">
-                    <GripVertical size={18} />
-                  </span>
-                  <div className="add-product-field">
-                    <label className="add-product-field__label">Tên thuộc tính</label>
+            {attributes.length > 0 ? (
+              <div className="add-product-attrs">
+                <div className="add-product-attr-header">
+                  <span></span>
+                  <span>Tên thuộc tính</span>
+                  <span>Giá trị thuộc tính</span>
+                  <span></span>
+                </div>
+                {attributes.map((attr) => (
+                  <div key={attr.id} className="add-product-attr-row">
+                    <span className="add-product-attr-row__handle" aria-hidden="true">
+                      <GripVertical size={18} />
+                    </span>
                     <input
                       type="text"
                       className="add-product-field__input"
@@ -403,55 +594,54 @@ export default function ProductCreateForm({
                       value={attr.name}
                       onChange={(e) => handleAttributeChange(attr.id, 'name', e.target.value)}
                     />
-                  </div>
-                  <div className="add-product-field">
-                    <label className="add-product-field__label">Giá trị thuộc tính</label>
-                    <div className="add-product-attr-values">
-                      <div className="add-product-attr-values__list" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: attr.values.length > 0 ? '8px' : '0' }}>
-                        {attr.values.map((val) => (
-                          <span key={val} className="add-product-attr-tag" style={{ display: 'inline-flex', alignItems: 'center', background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px', fontSize: '13px' }}>
-                            {val}
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveAttributeValue(attr.id, val)}
-                              style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: '4px', color: '#64748b' }}
-                            >
-                              &times;
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <input
-                          type="text"
-                          className="add-product-field__input"
-                          placeholder="Nhập giá trị và nhấn Enter hoặc Thêm"
-                          value={attr.inputValue}
-                          onChange={(e) => handleAttributeChange(attr.id, 'inputValue', e.target.value)}
-                          onKeyDown={(e) => handleAttributeKeyDown(attr.id, e)}
-                        />
+                    <div className="add-product-attr-value-box">
+                      {attr.values.map((val) => (
+                        <span key={val} className="add-product-attr-tag">
+                          {val}
+                          <button
+                            type="button"
+                            className="add-product-attr-tag__close"
+                            onClick={() => handleRemoveAttributeValue(attr.id, val)}
+                            aria-label="Xóa giá trị"
+                          >
+                            &times;
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        type="text"
+                        className="add-product-attr-inline-input"
+                        placeholder={attr.values.length === 0 ? "Nhập giá trị và nhấn Enter hoặc Thêm" : "Nhập thêm giá trị..."}
+                        value={attr.inputValue}
+                        onChange={(e) => handleAttributeChange(attr.id, 'inputValue', e.target.value)}
+                        onKeyDown={(e) => handleAttributeKeyDown(attr.id, e)}
+                      />
+                      {attr.inputValue.trim() ? (
                         <button
                           type="button"
-                          className="add-product-btn add-product-btn--outline"
+                          className="add-product-attr-inline-btn"
                           onClick={() => handleAddAttributeValue(attr.id)}
-                          style={{ padding: '0 12px', whiteSpace: 'nowrap' }}
                         >
                           Thêm
                         </button>
-                      </div>
+                      ) : null}
                     </div>
+                    <button
+                      type="button"
+                      className="add-product-attr-row__remove"
+                      aria-label="Xóa thuộc tính"
+                      onClick={() => handleRemoveAttribute(attr.id)}
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="add-product-attr-row__remove"
-                    aria-label="Xóa thuộc tính"
-                    onClick={() => handleRemoveAttribute(attr.id)}
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="add-product-attr-empty">
+                Sản phẩm chưa có thuộc tính nào. Nhấn "+ Thêm thuộc tính sản phẩm" để thêm mới.
+              </div>
+            )}
           </section>
 
           <section className="add-product-card">
@@ -470,29 +660,37 @@ export default function ProductCreateForm({
                 </div>
               </div>
             ) : (
-              <label
-                htmlFor={fileInputId}
+              <div
                 className={`add-product-dropzone${dragOver ? ' add-product-dropzone--active' : ''}`}
+                onClick={() => fileInputRef.current?.click()}
                 onDragOver={(e) => {
                   e.preventDefault();
                   setDragOver(true);
                 }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={handleDrop}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    fileInputRef.current?.click();
+                  }
+                }}
               >
                 <ImagePlus size={36} strokeWidth={1.5} />
                 <span className="add-product-dropzone__title">
                   Kéo thả ảnh vào đây hoặc nhấp để tải lên
                 </span>
-                <span className="add-product-dropzone__hint">Hỗ trợ JPG, PNG (Tối đa 5MB)</span>
-              </label>
+                <span className="add-product-dropzone__hint">Hỗ trợ JPG, PNG, WEBP (Tối đa 5MB)</span>
+              </div>
             )}
 
             <input
-              id={fileInputId}
+              ref={fileInputRef}
               type="file"
-              accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-              className="add-product-file-input"
+              accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+              style={{ display: 'none' }}
               onChange={handleFileChange}
             />
             {errors.image ? <p className="add-product-field__error">{errors.image}</p> : null}
@@ -517,34 +715,6 @@ export default function ProductCreateForm({
               >
                 <span className="add-product-toggle__knob" />
               </button>
-            </div>
-          </section>
-
-          <section className="add-product-card">
-            <header className="add-product-card__header">
-              <h2 className="add-product-card__title">Giá cả</h2>
-            </header>
-
-            <div className="add-product-fields">
-              <div className="add-product-field">
-                <label className="add-product-field__label" htmlFor="product-vat">
-                  Thuế VAT (%)
-                </label>
-                <input
-                  id="product-vat"
-                  name="vatPercent"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="1"
-                  className={`add-product-field__input${errors.vatPercent ? ' add-product-field__input--error' : ''}`}
-                  value={form.vatPercent}
-                  onChange={handleChange}
-                />
-                {errors.vatPercent ? (
-                  <p className="add-product-field__error">{errors.vatPercent}</p>
-                ) : null}
-              </div>
             </div>
           </section>
         </aside>

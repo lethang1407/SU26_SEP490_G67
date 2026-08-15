@@ -9,6 +9,25 @@ import '../../../css/AdminDashboard.css';
 import '../../../css/AddProduct.css';
 
 function toUpsertPayload(formData) {
+  const costPrice = Number(formData.costPrice || 0);
+  const sellingPrice = Number(formData.sellingPrice || 0);
+  const baseUnitName = formData.baseUnit?.trim() || 'Chai';
+
+  const units = [
+    {
+      name: baseUnitName,
+      unitBase: 1,
+      sellingPrice: sellingPrice,
+      isBase: true,
+    },
+    ...(formData.conversionUnits || []).map((u) => ({
+      name: u.unitName?.trim() || 'Đơn vị',
+      unitBase: Number(u.qty) || 1,
+      sellingPrice: Number(u.sellPrice) || 0,
+      isBase: false,
+    })),
+  ];
+
   return {
     name: formData.name,
     sku: formData.sku || null,
@@ -17,17 +36,10 @@ function toUpsertPayload(formData) {
     brand: formData.brand || null,
     description: formData.description || null,
     status: formData.isActive ? 'active' : 'inactive',
-    costPrice: formData.costPrice,
-    sellingPrice: formData.sellingPrice,
-    vatPercent: formData.vatPercent,
-    units: [
-      {
-        name: 'sp',
-        unitBase: 1,
-        sellingPrice: formData.sellingPrice,
-        isBase: true,
-      },
-    ],
+    costPrice: costPrice,
+    sellingPrice: sellingPrice,
+    vatPercent: Number(formData.vatPercent) || 0,
+    units,
     attributes: (formData.attributes || [])
       .filter((a) => a.name?.trim() && a.value?.trim())
       .map((a) => ({ name: a.name.trim(), value: a.value.trim() })),
@@ -55,8 +67,8 @@ export default function ProductCreatePage() {
       try {
         await productsApi.uploadImage(created.id, formData.imageFile);
       } catch (err) {
-        console.error(err);
-        alert('Đã tạo sản phẩm nhưng tải ảnh thất bại. Có thể thêm ảnh khi chỉnh sửa.');
+        console.error('Lỗi tải ảnh Cloudinary:', err);
+        alert('Sản phẩm đã được tạo thành công! Tuy nhiên việc tải ảnh lên Cloudinary gặp sự cố. Bạn có thể cập nhật lại ảnh trong phần chỉnh sửa sản phẩm.');
       }
     }
     navigate(PRODUCT_ROUTES.list);
