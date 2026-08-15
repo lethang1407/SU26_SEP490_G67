@@ -222,10 +222,18 @@
 .cart-actions {
     display: flex;
     flex-shrink: 0;
-    gap: 8px;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
     padding: 10px 16px;
     border-top: 1px solid #e5e7eb;
     background-color: #f9fafb;
+}
+
+.cart-actions-buttons {
+    display: flex;
+    flex-shrink: 0;
+    gap: 8px;
 }
 
 .cart-action-btn {
@@ -1635,6 +1643,44 @@
     font-size: 12px;
     font-weight: 500;
     color: #b45309;
+}
+
+/*  Ghi chú đơn hàng  */
+.order-note {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 460px;
+}
+
+.order-note-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #4b5563;
+}
+
+.order-note-input {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    color: #111827;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.order-note-input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.order-note-input::placeholder {
+    color: #9ca3af;
 }
 
 .debt-form {

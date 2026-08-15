@@ -32,17 +32,12 @@ export function useCheckout() {
                 setInvoiceType('not_found');
             }
             return found;
-        } catch (err) {
+        } catch {
             setError('Lỗi tra cứu khách hàng. Vui lòng thử lại.');
             return null;
         }
     }, []);
 
-    /**
-     * Gắn khách vào đơn. Xóa luôn ô tìm kiếm: khách đã chọn được hiển thị ở
-     * thẻ tình trạng công nợ bên dưới rồi, để lại số điện thoại trong ô đang
-     * bị khóa chỉ làm thu ngân tưởng còn gõ tiếp được.
-     */
     const attachCustomer = useCallback((customerObj) => {
         setCustomer(customerObj);
         setInvoiceType('found');
@@ -56,12 +51,7 @@ export function useCheckout() {
         setError(null);
     }, []);
 
-    /**
-     * @param {object} [debtInfo] - chỉ dùng khi paymentMethod === 'debt'
-     * @param {number} debtInfo.paidAmount - tiền trả trước, 0 = nợ toàn bộ
-     * @param {string} debtInfo.dueDate - hạn trả, dạng yyyy-MM-dd từ input date
-     */
-    const submitCheckout = useCallback(async (cartItems, paymentMethod, debtInfo) => {
+    const submitCheckout = useCallback(async (cartItems, paymentMethod, debtInfo, note) => {
         if (!cartItems || cartItems.length === 0) {
             setError('Giỏ hàng trống. Vui lòng thêm sản phẩm.');
             return { ok: false };
@@ -97,6 +87,7 @@ export function useCheckout() {
             const payload = {
                 paymentMethod: paymentMethod.toUpperCase(),
                 discountAmount,
+                note: note?.trim() ? note.trim() : null,
                 items: cartItems.map((item) => ({
                     productId: item.productId,
                     // Lô-tại-ô thu ngân đã tick là một phần của đơn: BE không

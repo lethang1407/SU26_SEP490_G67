@@ -402,15 +402,6 @@
     margin-top: 12px;
 }
 
-.exch-no-money-note {
-    padding: 12px;
-    border-radius: 6px;
-    background-color: #f9fafb;
-    border: 1px solid var(--pos-line);
-    font-size: 13px;
-    color: #6b7280;
-}
-
 .refund-method-error {
     color: var(--pos-out);
     font-size: 12px;

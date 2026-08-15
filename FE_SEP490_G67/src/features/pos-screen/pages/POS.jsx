@@ -69,6 +69,7 @@ function createTab(id = 1) {
         cartItems: [],
         qtyInputs: {},
         paymentMethod: 'cash',
+        note: '',
     };
 }
 
@@ -124,6 +125,13 @@ const POSScreen = () => {
     const setPaymentMethod = useCallback((value) => {
         setTabs(prev => prev.map(t =>
             t.id === activeTabId ? { ...t, paymentMethod: value } : t
+        ));
+    }, [activeTabId]);
+
+    const note = activeTab.note ?? '';
+    const setNote = useCallback((value) => {
+        setTabs(prev => prev.map(t =>
+            t.id === activeTabId ? { ...t, note: value } : t
         ));
     }, [activeTabId]);
 
@@ -459,6 +467,7 @@ const POSScreen = () => {
         setDiscountEditing(false);
         setCashGivenInput('');
         setPaymentMethod('cash');
+        setNote('');
         setPrepaidInput('');
         setDueDate(defaultDueDate());
     };
@@ -467,7 +476,7 @@ const POSScreen = () => {
         const result = await submitCheckout(cartItems, paymentMethod, {
             paidAmount: prepaid,
             dueDate,
-        });
+        }, note);
         if (!result.ok) return;
         const orderId = result.order?.id ?? result.invoice?.orderId ?? null;
         let invoice = result.invoice;
@@ -720,32 +729,45 @@ const POSScreen = () => {
                         </table>
                     </div>
 
-                    {/* Thanh tác vụ đơn hàng, luôn nằm đáy cột giỏ */}
                     <div className="cart-actions">
-                        <button
-                            className="cart-action-btn"
-                            onClick={() => setHistoryOpen('exchange')}
-                            title="Chọn hóa đơn cũ để trả hoặc đổi hàng"
-                        >
-                            <RotateCcw size={18} />
-                            Trả/Đổi hàng
-                        </button>
-                        <button
-                            className="cart-action-btn"
-                            onClick={() => setHistoryOpen('history')}
-                            title="Xem các hóa đơn đã bán"
-                        >
-                            <History size={18} />
-                            Lịch sử đơn hàng
-                        </button>
-                        <button
-                            className="cart-action-btn"
-                            onClick={() => navigate('/admin/orders')}
-                            title="Mở trang đơn hàng"
-                        >
-                            <ClipboardList size={18} />
-                            Xem báo cáo
-                        </button>
+                        <div className="order-note">
+                            <textarea
+                                id="pos-order-note"
+                                className="order-note-input"
+                                rows={2}
+                                maxLength={500}
+                                placeholder="Ghi chú cho đơn này (không bắt buộc)"
+                                value={note}
+                                onChange={(e) => setNote(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="cart-actions-buttons">
+                            <button
+                                className="cart-action-btn"
+                                onClick={() => setHistoryOpen('exchange')}
+                                title="Chọn hóa đơn cũ để trả hoặc đổi hàng"
+                            >
+                                <RotateCcw size={18} />
+                                Đổi/Trả hàng
+                            </button>
+                            <button
+                                className="cart-action-btn"
+                                onClick={() => setHistoryOpen('history')}
+                                title="Xem các hóa đơn đã bán"
+                            >
+                                <History size={18} />
+                                Lịch sử đơn hàng
+                            </button>
+                            <button
+                                className="cart-action-btn"
+                                onClick={() => navigate('/admin/orders')}
+                                title="Mở trang đơn hàng"
+                            >
+                                <ClipboardList size={18} />
+                                Xem báo cáo
+                            </button>
+                        </div>
                     </div>
 
                 </div>
@@ -754,7 +776,7 @@ const POSScreen = () => {
                 <div className="pos-payment-section">
                     <div className="payment-content">
 
-                        {/* ── Tìm khách hàng ── */}
+                        {/* Tìm khách hàng */}
                         <div className="customer-search">
                             <div className="search-wrapper">
                                 <Search className="search-icon" size={18} />

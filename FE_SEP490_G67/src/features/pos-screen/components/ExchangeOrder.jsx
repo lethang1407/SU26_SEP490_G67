@@ -49,7 +49,7 @@ const ExchTableHead = () => (
             <tr>
                 <th className="exch-col-check">TRẢ</th>
                 <th className="col-stt">STT</th>
-                <th>MÃ SKU</th>
+                <th>MÃ SẢN PHẨM</th>
                 <th>TÊN SẢN PHẨM</th>
                 <th>ĐVT</th>
                 <th className="text-center">SL MUA</th>
@@ -77,6 +77,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
     const [searchLoading, setSearchLoading] = useState(false);
     const [hideUnchanged, setHideUnchanged] = useState(false);
     const [refundMethod, setRefundMethod] = useState('cash');
+    const [returnNote, setReturnNote] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState(null);
 
@@ -153,9 +154,10 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
     });
     useEffect(() => {
         const dirty = returnItems.some(item => item.selected)
-            || exchangeItems.length > 0;
+            || exchangeItems.length > 0
+            || returnNote.trim().length > 0;
         onDirtyChangeRef.current?.(dirty);
-    }, [returnItems, exchangeItems]);
+    }, [returnItems, exchangeItems, returnNote]);
 
     const handleToggleReturn = useCallback((salesOrderDetailId) => {
         setReturnItems(prev => prev.map(item => {
@@ -347,10 +349,6 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
         try {
             setSubmitting(true);
             setSubmitError(null);
-            const composedNote = selectedItems
-                .filter(item => item.note.trim())
-                .map(item => `${item.productName}: ${item.note.trim()}`)
-                .join('; ');
 
             const payload = {
                 originalOrderId: parseInt(orderId),
@@ -370,7 +368,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                     unitPrice: item.price,
                     discountAmount: 0
                 })),
-                returnNote: composedNote || null,
+                returnNote: returnNote.trim() || null,
                 refundMethod: refundMethod.toUpperCase(),
                 returnDiscount: 0,
                 exchangeDiscount: 0,
@@ -833,19 +831,33 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                             </div>
                         </section>
 
+                        <section className="pos-panel-group">
+                            <div className="order-note">
+                                <label className="order-note-label" htmlFor="exch-return-note">
+                                    Ghi chú phiếu đổi/trả
+                                </label>
+                                <textarea
+                                    id="exch-return-note"
+                                    className="order-note-input"
+                                    rows={2}
+                                    maxLength={500}
+                                    placeholder="Lý do đổi trả sản phẩm"
+                                    value={returnNote}
+                                    onChange={(e) => setReturnNote(e.target.value)}
+                                    disabled={!!blockedReason}
+                                />
+                            </div>
+                        </section>
+
                         {/* Thanh toán  */}
                         <section className="pos-panel-group pos-panel-group--last">
                             {/* <h3 className="pos-panel-group-title">
                                 {direction === 'collect' ? 'Khách thanh toán' : 'Hoàn tiền cho khách'}
                             </h3> */}
 
-                            {!settlement.hasCashMovement ? (
-                                <div className="exch-no-money-note">
-                                    {isDebtOrder
-                                        ? 'Toàn bộ giá trị hàng trả được cấn vào công nợ - không thu, không hoàn tiền mặt.'
-                                        : 'Hàng trả và hàng lấy đi bằng tiền nhau - không thu, không hoàn.'}
-                                </div>
-                            ) : (
+                            {/* Không phát sinh tiền thì không hiện gì cả — dòng tiền ở
+                                exch-net-row bên trên đã nói đúng điều đó rồi. */}
+                            {settlement.hasCashMovement && (
                                 <>
                                     <span className="payment-methods-title">
                                         {direction === 'collect' ? 'Hình thức thanh toán' : 'Hình thức hoàn tiền'}
