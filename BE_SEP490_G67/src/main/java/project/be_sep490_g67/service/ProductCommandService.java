@@ -14,10 +14,8 @@ import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.*;
 
 import java.math.BigDecimal;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -51,6 +49,8 @@ public class ProductCommandService {
 
         replaceUnits(product, request.getUnits());
         replaceAttributes(product, request.getAttributes());
+
+        createChildVariantsIfAny(product, request, category);
 
         return toDetail(product.getId());
     }
@@ -395,5 +395,99 @@ public class ProductCommandService {
 
     private BigDecimal nullToZero(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
+    }
+
+    private void createChildVariantsIfAny(Product parentProduct, UpsertProductRequest request, Category category) {
+        if (request.getAttributes() == null || request.getAttributes().isEmpty()) {
+            return;
+        }
+
+        Map<String, List<String>> groupedMap = new LinkedHashMap<>();
+        for (UpsertProductRequest.AttributeRequest attr : request.getAttributes()) {
+            if (attr.getName() != null && !attr.getName().isBlank()
+                    && attr.getValue() != null && !attr.getValue().isBlank()) {
+                String name = attr.getName().trim();
+                String val = attr.getValue().trim();
+                groupedMap.computeIfAbsent(name, k -> new ArrayList<>());
+                if (!groupedMap.get(name).contains(val)) {
+                    groupedMap.get(name).add(val);
+                }
+            }
+        }
+
+        if (groupedMap.isEmpty()) {
+            return;
+        }
+
+        long totalCombinations = 1;
+        for (List<String> values : groupedMap.values()) {
+            totalCombinations *= values.size();
+        }
+
+        if (totalCombinations <= 1) {
+            return;
+        }
+
+        List<List<UpsertProductRequest.AttributeRequest>> combinations = generateCombinations(groupedMap);
+
+        for (List<UpsertProductRequest.AttributeRequest> combo : combinations) {
+            Product child = new Product();
+            child.setParent(parentProduct);
+            child.setCategory(category);
+            child.setCostPrice(parentProduct.getCostPrice());
+            child.setSellingPrice(parentProduct.getSellingPrice());
+            child.setDescription(parentProduct.getDescription());
+            child.setSeasonTag(parentProduct.getSeasonTag());
+            child.setStatus(parentProduct.getStatus());
+            child.setIsRemoved(false);
+
+            String variantSuffix = combo.stream()
+                    .map(UpsertProductRequest.AttributeRequest::getValue)
+                    .collect(Collectors.joining(" - "));
+
+            String childName = parentProduct.getName() + " - " + variantSuffix;
+            child.setName(childName);
+
+            String skuClean = combo.stream()
+                    .map(UpsertProductRequest.AttributeRequest::getValue)
+                    .collect(Collectors.joining("-"))
+                    .replaceAll("[^a-zA-Z0-9-]", "")
+                    .toUpperCase();
+
+            String parentSku = parentProduct.getSku() != null ? parentProduct.getSku() : "SP" + parentProduct.getId();
+            String childSku = parentSku + "-" + skuClean;
+            child.setSku(childSku);
+            child.setBarcode(null);
+
+            child = productRepository.save(child);
+
+            replaceUnits(child, request.getUnits());
+            replaceAttributes(child, combo);
+        }
+    }
+
+    private List<List<UpsertProductRequest.AttributeRequest>> generateCombinations(Map<String, List<String>> groupedMap) {
+        List<List<UpsertProductRequest.AttributeRequest>> result = new ArrayList<>();
+        result.add(new ArrayList<>());
+
+        for (Map.Entry<String, List<String>> entry : groupedMap.entrySet()) {
+            String attrName = entry.getKey();
+            List<String> attrValues = entry.getValue();
+
+            List<List<UpsertProductRequest.AttributeRequest>> temp = new ArrayList<>();
+            for (List<UpsertProductRequest.AttributeRequest> currentCombo : result) {
+                for (String val : attrValues) {
+                    List<UpsertProductRequest.AttributeRequest> newCombo = new ArrayList<>(currentCombo);
+                    UpsertProductRequest.AttributeRequest attrReq = new UpsertProductRequest.AttributeRequest();
+                    attrReq.setName(attrName);
+                    attrReq.setValue(val);
+                    newCombo.add(attrReq);
+                    temp.add(newCombo);
+                }
+            }
+            result = temp;
+        }
+
+        return result;
     }
 }

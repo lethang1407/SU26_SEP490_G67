@@ -54,8 +54,8 @@ public class ApiPermissionSeeder implements CommandLineRunner {
             initialSeed.add(new ApiEndpointPermission(null, "POST", "/api/sales-orders/**", "POS:SALE", "Tạo đơn hàng POS", true));
             initialSeed.add(new ApiEndpointPermission(null, "GET", "/api/sales-orders/**", "SALES_ORDER:VIEW_ALL", "Xem tất cả đơn hàng", true));
 
-            // Audit
-            initialSeed.add(new ApiEndpointPermission(null, "GET", "/api/audit-anomalies/**", "AUDIT:VIEW", "Xem kiểm toán bất thường", true));
+            // Reconciliation & Audit
+            initialSeed.add(new ApiEndpointPermission(null, "GET", "/api/reconciliations/**", "AUDIT:VIEW", "Xem đối soát két", true));
 
             // Suppliers & Warehouse
             initialSeed.add(new ApiEndpointPermission(null, "GET", "/api/suppliers/**", "SUPPLIER:VIEW", "Xem nhà cung cấp", true));

@@ -44,9 +44,9 @@ function mapDetailToForm(detail) {
   const conversions = units
     .filter((u) => !isBaseUnit(u))
     .map((u) => {
-      const uBase = Number(u.unitBase ?? 1);
-      const isRev = uBase > 0 && uBase < 1;
-      const displayQty = isRev ? String(Math.round((1 / uBase) * 1000000) / 1000000) : String(uBase);
+      const uBase = Number(u.unitBase ?? u.ratio ?? 1);
+      const isRev = uBase >= 1;
+      const displayQty = isRev ? String(uBase) : String(Math.round((1 / uBase) * 1000000) / 1000000);
       return {
         id: String(u.id),
         unitName: u.name,
