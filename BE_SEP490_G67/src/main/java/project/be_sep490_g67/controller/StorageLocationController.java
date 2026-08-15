@@ -34,7 +34,7 @@ public class StorageLocationController {
 
     StorageLocationService storageLocationService;
 
-    @PreAuthorize("hasAuthority('WAREHOUSE:VIEW')")
+   // @PreAuthorize("hasAuthority('WAREHOUSE:VIEW')")
     @GetMapping
     public ApiResponse<List<StorageLocationResponse>> getLocations() {
         return ApiResponse.<List<StorageLocationResponse>>builder()
@@ -43,7 +43,7 @@ public class StorageLocationController {
                 .build();
     }
 
-    @PreAuthorize("hasAuthority('WAREHOUSE:VIEW')")
+    //@PreAuthorize("hasAuthority('WAREHOUSE:VIEW')")
     @GetMapping("/unplaced-batches")
     public ApiResponse<List<UnplacedBatchResponse>> getUnplacedBatches() {
         return ApiResponse.<List<UnplacedBatchResponse>>builder()
@@ -52,7 +52,7 @@ public class StorageLocationController {
                 .build();
     }
 
-    @PreAuthorize("hasAuthority('WAREHOUSE:VIEW')")
+    //@PreAuthorize("hasAuthority('WAREHOUSE:VIEW')")
     @GetMapping("/{locationId}")
     public ApiResponse<StorageLocationResponse> getLocationById(@PathVariable("locationId") Integer locationId) {
         return ApiResponse.<StorageLocationResponse>builder()
@@ -61,7 +61,7 @@ public class StorageLocationController {
                 .build();
     }
 
-    @PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
+   // @PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
     @PostMapping
     public ApiResponse<StorageLocationResponse> createLocation(
             @Valid @RequestBody CreateStorageLocationRequest request) {
@@ -71,7 +71,7 @@ public class StorageLocationController {
                 .build();
     }
 
-    @PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
+    //@PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
     @PostMapping("/assign-batch")
     public ApiResponse<StorageLocationResponse> assignBatch(
             @Valid @RequestBody AssignBatchRequest request) {
@@ -81,7 +81,7 @@ public class StorageLocationController {
                 .build();
     }
 
-    @PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
+   // @PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
     @PostMapping("/move-batch")
     public ApiResponse<StorageLocationResponse> moveBatch(
             @Valid @RequestBody MoveBatchRequest request) {
@@ -91,7 +91,7 @@ public class StorageLocationController {
                 .build();
     }
 
-    @PostMapping("/move-all")
+  //  @PostMapping("/move-all")
     public ApiResponse<StorageLocationResponse> moveAllBatches(
             @Valid @RequestBody MoveAllBatchesRequest request) {
         return ApiResponse.<StorageLocationResponse>builder()
@@ -100,7 +100,7 @@ public class StorageLocationController {
                 .build();
     }
 
-    @PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
+   // @PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
     @PostMapping("/unassign-batch")
     public ApiResponse<Void> unassignBatch(@Valid @RequestBody UnassignBatchRequest request) {
         storageLocationService.unassignBatch(request);
@@ -109,7 +109,7 @@ public class StorageLocationController {
                 .build();
     }
 
-    @PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
+   // @PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
     @PostMapping("/{locationId}/full")
     public ApiResponse<StorageLocationResponse> setLocationFull(
             @PathVariable("locationId") Integer locationId,

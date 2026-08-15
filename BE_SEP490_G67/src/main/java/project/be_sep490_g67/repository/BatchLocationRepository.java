@@ -59,8 +59,11 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
             SELECT sb.product.id, COALESCE(SUM(bl.quantity), 0)
             FROM BatchLocation bl
             JOIN bl.batch sb
+            JOIN bl.location loc
+            JOIN loc.storageZone sz
             WHERE sb.product.id IN :productIds
               AND bl.isRemoved = false
+              AND sz.zoneType <> 'RETURN_HOLD'
             GROUP BY sb.product.id
             """)
     List<Object[]> sumQuantityByProductIds(@Param("productIds") Collection<Integer> productIds);
@@ -70,24 +73,30 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
             JOIN FETCH bl.batch b
             JOIN FETCH b.product p
             JOIN FETCH bl.location loc
+            JOIN FETCH loc.storageZone sz
             WHERE bl.isRemoved = false
               AND bl.quantity > 0
               AND loc.isRemoved = false
+              AND sz.zoneType <> 'RETURN_HOLD'
               AND (:locationLabel IS NULL OR :locationLabel = '' OR :locationLabel = 'all'
                    OR loc.label = :locationLabel)
             ORDER BY loc.label ASC, b.id ASC
             """)
     List<BatchLocation> findActiveAvailableLines(@Param("locationLabel") String locationLabel);
+
+    /** khu RT bị loại để không bán nhầm. */
     @Query(
             """
                     SELECT bl from BatchLocation bl
                     JOIN fetch bl.batch sb
                     JOIN FETCH bl.location ls
+                    JOIN FETCH ls.storageZone sz
                     WHERE sb.product.id = :productId AND bl.quantity > 0
                     AND bl.isRemoved = false
-                    AND  sb.isRemoved = false 
-                    AND ls.isRemoved = false 
-                    ORDER BY sb.expiryDate ASC, sb.receivedDate ASC 
+                    AND  sb.isRemoved = false
+                    AND ls.isRemoved = false
+                    AND sz.zoneType <> 'RETURN_HOLD'
+                    ORDER BY sb.expiryDate ASC, sb.receivedDate ASC
                     """
     )
     List<BatchLocation> findAvailableByProductId(@Param("productId") Integer productId);
@@ -95,9 +104,12 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
         SELECT COALESCE(SUM(bl.quantity), 0)
         FROM BatchLocation bl
         JOIN bl.batch b
+        JOIN bl.location loc
+        JOIN loc.storageZone sz
         WHERE b.product.id = :productId
           AND (bl.isRemoved = false OR bl.isRemoved IS NULL)
           AND (b.isRemoved = false OR b.isRemoved IS NULL)
+          AND sz.zoneType <> 'RETURN_HOLD'
         """)
     Long sumOnHandByProductId(@Param("productId") Integer productId);
 
@@ -119,10 +131,17 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
             """)
     List<BatchLocation> findActiveOnSalesZonesByProductId(@Param("productId") Integer productId);
 
+    /**
+     * Ô đang giữ nhiều hàng nhất của lô — dùng khi nhập hàng trả bán lại được về kho.
+     * Loại khu RT để hàng RESELLABLE không bị nhập ngược vào chỗ chứa hàng hỏng.
+     */
     @Query("""
             SELECT bl FROM BatchLocation bl
+            JOIN bl.location loc
+            JOIN loc.storageZone sz
             WHERE bl.batch.id = :batchId
               AND bl.isRemoved = false
+              AND sz.zoneType <> 'RETURN_HOLD'
             ORDER BY bl.quantity DESC, bl.id ASC
             LIMIT 1
             """)
@@ -144,6 +163,7 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
               AND sb.isRemoved = false
               AND loc.isRemoved = false
               AND (sz.isRemoved = false OR sz.isRemoved IS NULL)
+              AND sz.zoneType <> 'RETURN_HOLD'
             ORDER BY CASE WHEN sz.zoneType = 'SALES' THEN 0 ELSE 1 END ASC,
                      CASE WHEN sb.receivedDate IS NULL THEN 1 ELSE 0 END ASC,
                      sb.receivedDate ASC,
@@ -159,12 +179,14 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
             SELECT bl FROM BatchLocation bl
             JOIN FETCH bl.batch sb
             JOIN FETCH bl.location loc
+            JOIN FETCH loc.storageZone sz
             WHERE sb.product.id = :productId
               AND loc.id = :locationId
               AND bl.quantity > 0
               AND bl.isRemoved = false
               AND sb.isRemoved = false
               AND loc.isRemoved = false
+              AND sz.zoneType <> 'RETURN_HOLD'
             ORDER BY CASE WHEN sb.receivedDate IS NULL THEN 1 ELSE 0 END ASC,
                      sb.receivedDate ASC,
                      sb.id ASC

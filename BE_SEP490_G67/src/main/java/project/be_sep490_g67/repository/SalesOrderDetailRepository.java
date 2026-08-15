@@ -50,4 +50,22 @@ public interface SalesOrderDetailRepository extends JpaRepository<SalesOrderDeta
             @Param("productId") Integer productId,
             @Param("status") String status,
             @Param("keyword") String keyword);
+
+    /**
+     * Sản lượng bán của từng SP kể từ {@code since} — dùng để nâng cảnh báo hết hàng từ
+     * cam lên đỏ khi SP đó bán chạy (hết hàng của SP bán chạy thiệt hại nặng hơn nhiều
+     * so với SP nằm im). Mỗi phần tử: [productId, số lượng đã bán].
+     */
+    @Query("""
+            SELECT sod.product.id, COALESCE(SUM(sod.quantity), 0)
+            FROM SalesOrderDetail sod
+            WHERE sod.product.id IN :productIds
+              AND sod.isRemoved = false
+              AND sod.salesOrder.isRemoved = false
+              AND sod.salesOrder.createdAt >= :since
+            GROUP BY sod.product.id
+            """)
+    List<Object[]> sumSoldQuantityByProductsSince(
+            @Param("productIds") List<Integer> productIds,
+            @Param("since") Instant since);
 }

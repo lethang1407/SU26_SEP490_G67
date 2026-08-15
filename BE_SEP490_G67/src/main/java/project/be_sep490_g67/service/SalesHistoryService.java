@@ -5,6 +5,7 @@ import lombok.experimental.FieldDefaults;
 import lombok.AccessLevel;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import project.be_sep490_g67.dto.response.HourlyRevenueDTO;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.dto.response.SalesHistoryRowDTO;
 import project.be_sep490_g67.dto.response.SalesHistorySummaryDTO;
@@ -63,6 +64,52 @@ public class SalesHistoryService {
                 .toList();
 
         return paginate(mapped, page, size);
+    }
+
+    /**
+     * Doanh thu bán hàng của một ngày, chia theo 24 khung giờ.
+     *
+     * <p>Trả về đủ 24 khung kể cả khung không bán được gì, để biểu đồ đường không
+     * bị đứt đoạn và trục hoành luôn cố định.
+     *
+     * <p>Tính doanh thu tại thời điểm bán — cộng {@code lineTotal} của mọi đơn chưa
+     * huỷ, không phân biệt hình thức thanh toán, nên đơn nợ vào ngay lúc lập đơn.
+     */
+    @Transactional(readOnly = true)
+    public List<HourlyRevenueDTO> hourlyRevenue(LocalDate date) {
+        LocalDate target = date != null ? date : LocalDate.now(ZONE);
+        Instant from = target.atStartOfDay(ZONE).toInstant();
+        Instant to = target.plusDays(1).atStartOfDay(ZONE).toInstant();
+
+        List<SalesOrderDetail> rows = salesOrderDetailRepository.findHistoryRows(from, to, null, null, null)
+                .stream()
+                .filter(d -> !isCancelled(d.getSalesOrder().getOrderStatus()))
+                .toList();
+
+        Map<Integer, BigDecimal> revenueByHour = new HashMap<>();
+        Map<Integer, Set<Integer>> orderIdsByHour = new HashMap<>();
+
+        for (SalesOrderDetail d : rows) {
+            Instant createdAt = d.getSalesOrder().getCreatedAt();
+            if (createdAt == null) {
+                continue;
+            }
+            int hour = createdAt.atZone(ZONE).getHour();
+            BigDecimal lineTotal = d.getLineTotal() == null ? BigDecimal.ZERO : d.getLineTotal();
+            revenueByHour.merge(hour, lineTotal, BigDecimal::add);
+            orderIdsByHour.computeIfAbsent(hour, k -> new HashSet<>()).add(d.getSalesOrder().getId());
+        }
+
+        List<HourlyRevenueDTO> result = new ArrayList<>(24);
+        for (int hour = 0; hour < 24; hour++) {
+            result.add(HourlyRevenueDTO.builder()
+                    .hour(hour)
+                    .label(String.format("%02dh", hour))
+                    .revenue(revenueByHour.getOrDefault(hour, BigDecimal.ZERO))
+                    .orderCount(orderIdsByHour.getOrDefault(hour, Set.of()).size())
+                    .build());
+        }
+        return result;
     }
 
     @Transactional(readOnly = true)

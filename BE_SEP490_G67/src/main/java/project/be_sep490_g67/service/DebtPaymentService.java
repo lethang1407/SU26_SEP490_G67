@@ -13,6 +13,7 @@ import project.be_sep490_g67.dto.request.DebtPaymentRequest;
 import project.be_sep490_g67.dto.response.CustomerDebtOverviewResponse;
 import project.be_sep490_g67.dto.response.CustomerDebtSummaryResponse;
 import project.be_sep490_g67.dto.response.DebtPaymentHistoryResponse;
+import project.be_sep490_g67.dto.response.NewDebtCustomerAlertResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.entity.Customer;
 import project.be_sep490_g67.entity.DebtPayment;
@@ -86,18 +87,46 @@ public class DebtPaymentService {
                 .totalDebtSalesCount(todaysDebtSales.size())
                 .uniqueCustomersInDebtCount(uniqueCustomersInDebtCount)
                 .totalDebtAmountIncurredToday(totalDebtAmountIncurredToday)
+                .newDebtCustomerAlert(buildNewDebtCustomerAlert())
                 .build();
     }
 
     /**
-     * Số tiền hoá đơn còn nợ, tính từ collection {@code debtPayments} đã nạp sẵn trên
-     * entity thay vì bắn thêm một query như {@link DebtPolicy#remainingOf}. Công thức
-     * vẫn là công thức chung ở {@link DebtCalculator} — chỉ khác nguồn lấy tổng đã trả.
-     *
-     * <p>Phiếu {@code RETURN_OFFSET} (cấn trừ hàng trả) cũng nằm trong collection này và
-     * cố ý được đếm: về mặt công nợ nó giảm nợ y hệt một lần khách trả tiền, chỉ khác là
-     * không có tiền vào két. Đừng thêm bộ lọc theo {@code paymentMethod} ở đây.
+     * Khách nợ do nhân viên thêm. Chỉ khách do nhân viên tạo mới lên thẻ này — khách do
+     * quản lý tự thêm coi như đã duyệt nên không cần rà soát.
      */
+    private NewDebtCustomerAlertResponse buildNewDebtCustomerAlert() {
+        List<Customer> newDebtCustomers = customerRepository.findStaffCreatedDebtCustomers();
+
+        if (newDebtCustomers.isEmpty()) {
+            return NewDebtCustomerAlertResponse.builder().count(0).build();
+        }
+
+        // Query đã ORDER BY createdAt DESC nên phần tử đầu là khách mới nhất.
+        Customer latest = newDebtCustomers.get(0);
+
+        return NewDebtCustomerAlertResponse.builder()
+                .count(newDebtCustomers.size())
+                .latestCustomerId(latest.getId())
+                .latestCustomerName(latest.getFullName())
+                .latestCustomerDebt(latest.getTotalDebt())
+                .latestCreatedByName(resolveUserFullName(latest.getCreatedBy()))
+                .build();
+    }
+
+    /**
+     * Tên nhân viên chỉ để hiển thị trên thẻ: thiếu người tạo (dữ liệu cũ, job nền) thì
+     * trả "Không rõ" chứ không để cả tổng quan công nợ đổ.
+     */
+    private String resolveUserFullName(Integer userId) {
+        if (userId == null) {
+            return "Không rõ";
+        }
+        return userRepository.findById(userId)
+                .map(User::getFullName)
+                .orElse("Không rõ");
+    }
+
     private BigDecimal calculateRemainingDebtAmount(SalesOrder salesOrder) {
         return DebtCalculator.remaining(
                 salesOrder.getTotalAmount(),

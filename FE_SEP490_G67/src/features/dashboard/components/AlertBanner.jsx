@@ -1,29 +1,5 @@
 import { useState } from 'react';
-import { X, AlertTriangle, Package, CreditCard, Clock } from 'lucide-react';
-
-const alerts = [
-    {
-        id: 'expired',
-        icon: <AlertTriangle size={14} />,
-        label: '3 sản phẩm ĐÃ HẾT HẠN',
-        variant: 'critical',
-        link: '/admin/warehouse/locations',
-    },
-    {
-        id: 'low-stock',
-        icon: <Package size={14} />,
-        label: '5 sản phẩm SẮP HẾT HÀNG',
-        variant: 'warning',
-        link: '/admin/warehouse/import',
-    },
-    {
-        id: 'expiring-soon',
-        icon: <Clock size={14} />,
-        label: '7 sản phẩm SẮP HẾT HẠN',
-        variant: 'caution',
-        link: '/admin/warehouse/check',
-    },
-];
+import { AlertTriangle, ArrowRight } from 'lucide-react';
 
 export default function AlertBanner() {
     const [dismissed, setDismissed] = useState(false);
@@ -31,29 +7,23 @@ export default function AlertBanner() {
     if (dismissed) return null;
 
     return (
-        <div className="alert-banner" role="alert">
-            <div className="alert-banner__pills">
-                {alerts.map((alert) => (
-                    <button
-                        key={alert.id}
-                        className={`alert-pill alert-pill--${alert.variant}`}
-                        onClick={() => {
-                            // In production: navigate(alert.link)
-                            console.log('Navigate to:', alert.link);
-                        }}
-                        title={`Xem chi tiết: ${alert.label}`}
-                    >
-                        {alert.icon}
-                        {alert.label}
-                    </button>
-                ))}
+        <div className="alert-banner-v2" role="alert">
+            <div className="alert-banner-v2_left">
+                <AlertTriangle size={18} className="alert-banner-v2_icon" />
+                <div>
+                    <div className="alert-banner-v2_title">
+                        3 sản phẩm đã hết hạn vẫn còn tồn kho
+                    </div>
+                    <div className="alert-banner-v2_desc">
+                        Các sản phẩm hết hạn cần được kiểm tra và xử lý trước khi tiếp tục bán.
+                    </div>
+                </div>
             </div>
             <button
-                className="alert-banner__dismiss"
+                className="alert-banner-v2_cta"
                 onClick={() => setDismissed(true)}
-                aria-label="Đóng thông báo"
             >
-                <X size={16} />
+                Xử lý ngay <ArrowRight size={14} />
             </button>
         </div>
     );

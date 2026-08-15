@@ -286,7 +286,7 @@ const POSScreen = () => {
                     ...item,
                     productUnitId: selectedUnit.id,
                     unit: selectedUnit.name,
-                    price: selectedUnit.sellingPrice ?? item.price,
+                    price: selectedUnit.sellingPrice ?? 0,
                 };
             })
         );
