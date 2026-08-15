@@ -83,4 +83,18 @@ public interface DebtPaymentRepository extends JpaRepository<DebtPayment, Intege
     );
 
     List<DebtPayment> findAllByCreatedAtBetween(Instant start, Instant end);
+
+    @Query("""
+            SELECT dp FROM DebtPayment dp
+            JOIN FETCH dp.salesOrder so
+            JOIN FETCH so.customer c
+            WHERE dp.isRemoved = false
+              AND dp.createdAt >= :start
+              AND dp.createdAt < :end
+            ORDER BY dp.createdAt DESC
+            """)
+    List<DebtPayment> findActiveTodayPaymentsWithOrderAndCustomer(
+            @Param("start") Instant start,
+            @Param("end") Instant end
+    );
 }

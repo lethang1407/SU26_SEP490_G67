@@ -14,6 +14,7 @@ import project.be_sep490_g67.service.CustomerService;
 import project.be_sep490_g67.service.DebtPaymentService;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping(ApiPath.CUSTOMERS)
@@ -99,9 +100,9 @@ public class CustomerController {
     }
 
     @GetMapping("/today-debt-summary")
-    public ApiResponse<TodaysDebtSalesSummaryResponse> getTodaysDebtSalesSummary() {
-        TodaysDebtSalesSummaryResponse result = customerService.getTodaysDebtSalesSummary();
-        return ApiResponse.<TodaysDebtSalesSummaryResponse>builder()
+    public ApiResponse<List<TodaysDebtSalesSummaryResponse>> getTodaysDebtSalesSummary() {
+        List<TodaysDebtSalesSummaryResponse> result = customerService.getTodaysDebtSalesSummary();
+        return ApiResponse.<List<TodaysDebtSalesSummaryResponse>>builder()
                 .result(result)
                 .message("Lấy tổng hợp bán nợ trong ngày thành công")
                 .build();

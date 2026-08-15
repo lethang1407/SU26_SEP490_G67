@@ -17,6 +17,19 @@ const formatVnDateTime = (isoString) => {
     });
 };
 
+const getPaymentMethodLabel = (method) => {
+    switch (method) {
+        case 'CASH':
+            return 'Tiền mặt';
+        case 'BANK':
+            return 'Chuyển khoản';
+        case 'RETURN_OFFSET':
+            return 'Đổi trả hàng';
+        default:
+            return method || '—';
+    }
+};
+
 export default function TodayPaymentsModal({ show, onHide }) {
     const navigate = useNavigate();
     const [data, setData] = useState({ content: [], totalPages: 0, totalElements: 0 });
@@ -92,6 +105,7 @@ export default function TodayPaymentsModal({ show, onHide }) {
                             <th>#</th>
                             <th>Khách hàng</th>
                             <th>Số tiền thu</th>
+                            <th>Phương thức</th>
                             <th>Hóa đơn</th>
                             <th>Thời gian</th>
                             <th>Người thu</th>
@@ -99,27 +113,44 @@ export default function TodayPaymentsModal({ show, onHide }) {
                     </thead>
                     <tbody>
                         {loading ? (
-                            <tr><td colSpan="6" className="text-center py-5"><Spinner animation="border" size="sm" /> Đang tải...</td></tr>
+                            <tr><td colSpan="7" className="text-center py-5"><Spinner animation="border" size="sm" /> Đang tải...</td></tr>
                         ) : data.content.length === 0 ? (
-                            <tr><td colSpan="6" className="text-center py-4 text-muted">Không có phiếu thu nào trong hôm nay.</td></tr>
+                            <tr><td colSpan="7" className="text-center py-4 text-muted">Không có phiếu thu nào trong hôm nay.</td></tr>
                         ) : (
-                            data.content.map((payment, index) => (
-                                <tr key={payment.id}>
-                                    <td>{(page - 1) * 10 + index + 1}</td>
-                                    <td
-                                        onClick={() => handleCustomerClick(payment.customerId)}
-                                        className="fw-medium"
-                                        style={{ cursor: 'pointer', color: '#0d6efd' }}
-                                        title={`Xem chi tiết khách hàng ${payment.customerName}`}
-                                    >
-                                        {payment.customerName}
-                                    </td>
-                                    <td className="text-end">{formatCurrency(payment.amountPaid)}</td>
-                                    <td>{payment.orderCode}</td>
-                                    <td>{formatVnDateTime(payment.paymentDate)}</td>
-                                    <td>{payment.staffName}</td>
-                                </tr>
-                            ))
+                            (() => {
+                                let globalIndex = 0;
+                                return data.content.map((customerGroup) =>
+                                    customerGroup.debtPaymentDetails.map((payment, paymentIndex) => {
+                                        globalIndex++;
+                                        const isFirstItemInGroup = paymentIndex === 0;
+                                        return (
+                                            <tr key={payment.id}>
+                                                <td>{(page - 1) * 10 + globalIndex}</td>
+                                                {isFirstItemInGroup && (
+                                                    <td
+                                                        rowSpan={customerGroup.debtPaymentDetails.length}
+                                                        onClick={() => handleCustomerClick(customerGroup.customerId)}
+                                                        className="fw-medium"
+                                                        style={{
+                                                            cursor: 'pointer',
+                                                            color: '#0d6efd',
+                                                            verticalAlign: 'top',
+                                                        }}
+                                                        title={`Xem chi tiết khách hàng ${customerGroup.customerName}`}
+                                                    >
+                                                        {customerGroup.customerName}
+                                                    </td>
+                                                )}
+                                                <td className="text-end">{formatCurrency(payment.amountPaid)}</td>
+                                                <td>{getPaymentMethodLabel(payment.paymentMethod)}</td>
+                                                <td>{payment.orderCode}</td>
+                                                <td>{formatVnDateTime(payment.paymentDate)}</td>
+                                                <td>{payment.staffName}</td>
+                                            </tr>
+                                        );
+                                    })
+                                );
+                            })()
                         )}
                     </tbody>
                 </Table>

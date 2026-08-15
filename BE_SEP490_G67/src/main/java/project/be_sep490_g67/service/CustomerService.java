@@ -36,8 +36,11 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -62,6 +65,7 @@ public class CustomerService {
                         .fullName(c.getFullName())
                         .phoneNumber(c.getPhoneNumber())
                         .totalDebt(c.getTotalDebt())
+                        .isCheckDebtUnstable(isCheckDebtUnstable(c))
                         .build());
     }
 
@@ -107,6 +111,7 @@ public class CustomerService {
                 .allowDebt(customer.getAllowDebt())
                 .totalDebt(customer.getTotalDebt())
                 .note(customer.getNote())
+                .isCheckDebtUnstable(isCheckDebtUnstable(customer))
                 .build();
     }
 
@@ -242,6 +247,7 @@ public class CustomerService {
                 .latestDebtDate(latestDebtDate)
                 .note(customer.getNote())
                 .isOverdue(hasOverdue)
+                .isCheckDebtUnstable(isCheckDebtUnstable(customer))
                 .totalOrdersInDebt(totalOrdersInDebt)
                 .totalOverdueOrders(totalOverdueOrders)
                 .build();
@@ -255,6 +261,10 @@ public class CustomerService {
     }
 
     private int calculatePriorityScore(CustomerResponse c) {
+        if (Boolean.TRUE.equals(c.getIsCheckDebtUnstable())) {
+            return 7;
+        }
+
         boolean isInDebt = c.getTotalDebt().compareTo(BigDecimal.ZERO) > 0;
 
         if (isInDebt) {
@@ -379,11 +389,12 @@ public class CustomerService {
                 .note(updatedCustomer.getNote())
                 .allowDebt(updatedCustomer.getAllowDebt())
                 .totalDebt(updatedCustomer.getTotalDebt())
+                .isCheckDebtUnstable(isCheckDebtUnstable(updatedCustomer))
                 .build();
     }
 
     @Transactional(readOnly = true)
-    public TodaysDebtSalesSummaryResponse getTodaysDebtSalesSummary() {
+    public List<TodaysDebtSalesSummaryResponse> getTodaysDebtSalesSummary() {
         ZoneId zoneId = ZoneId.of("Asia/Ho_Chi_Minh");
         LocalDate today = LocalDate.now(zoneId);
         Instant startOfDay = today.atStartOfDay(zoneId).toInstant();
@@ -391,7 +402,11 @@ public class CustomerService {
 
         List<SalesOrder> todaysDebtSales = salesOrderRepository.findActiveDebtSalesCreatedBetween(startOfDay, endOfDay);
 
-        List<DebtOrderResponse> debtOrderDetails = todaysDebtSales.stream().map(so -> {
+        Map<Integer, TodaysDebtSalesSummaryResponse> groupedByCustomer = new LinkedHashMap<>();
+
+        todaysDebtSales.stream()
+                .sorted(Comparator.comparing((SalesOrder so) -> isCheckDebtUnstable(so.getCustomer())).reversed())
+                .forEach(so -> {
             BigDecimal initialPaidAmount = so.getPaidAmount() != null ? so.getPaidAmount() : BigDecimal.ZERO;
             BigDecimal subsequentPayments = so.getDebtPayments().stream()
                     .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
@@ -409,24 +424,36 @@ public class CustomerService {
 
             Customer orderCustomer = so.getCustomer();
 
-            return DebtOrderResponse.builder()
+            Integer customerId = orderCustomer != null ? orderCustomer.getId() : null;
+            TodaysDebtSalesSummaryResponse customerGroup = groupedByCustomer.computeIfAbsent(
+                    customerId,
+                    id -> TodaysDebtSalesSummaryResponse.builder()
+                            .customerId(id)
+                            .customerName(orderCustomer != null ? orderCustomer.getFullName() : null)
+                            .isCheckDebtUnstable(isCheckDebtUnstable(orderCustomer))
+                            .debtSalesDetails(new ArrayList<>())
+                            .build()
+            );
+
+            customerGroup.getDebtSalesDetails().add(DebtOrderResponse.builder()
                     .id(so.getId())
-                    .customerId(so.getCustomer().getId())
-                    .customerName(so.getCustomer().getFullName())
+                    .orderId(so.getId())
                     .orderCode(so.getOrderCode())
                     .orderDate(so.getCreatedAt())
                     .dueDate(so.getDueDate())
                     .totalAmount(totalAmount)
                     .amountPaid(totalPaid)
                     .amountRemaining(amountRemaining)
-                    .isCheckDebtUnstable(orderCustomer.getIsCheckUnstableDebt())
+                    .isCheckDebtUnstable(isCheckDebtUnstable(orderCustomer))
                     .status(amountRemaining.compareTo(BigDecimal.ZERO) <= 0 ? DebtOrderStatus.PAID : DebtOrderStatus.IN_DEBT)
                     .createdBy(createdByName)
-                    .build();
-        }).collect(Collectors.toList());
+                    .build());
+        });
 
-        return TodaysDebtSalesSummaryResponse.builder()
-                .debtSalesDetails(debtOrderDetails)
-                .build();
+        return new ArrayList<>(groupedByCustomer.values());
+    }
+
+    private boolean isCheckDebtUnstable(Customer customer) {
+        return customer != null && Boolean.TRUE.equals(customer.getIsCheckUnstableDebt());
     }
 }

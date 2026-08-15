@@ -14,6 +14,7 @@ import project.be_sep490_g67.dto.response.CustomerDebtOverviewResponse;
 import project.be_sep490_g67.dto.response.CustomerDebtSummaryResponse;
 import project.be_sep490_g67.dto.response.DebtPaymentHistoryResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
+import project.be_sep490_g67.dto.response.TodaysDebtPaymentSummaryResponse;
 import project.be_sep490_g67.entity.Customer;
 import project.be_sep490_g67.entity.DebtPayment;
 import project.be_sep490_g67.entity.SalesOrder;
@@ -31,7 +32,10 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -236,8 +240,73 @@ public class DebtPaymentService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<DebtPaymentHistoryResponse> getTodaysDebtPayments(int page, int size) {
-        LocalDate today = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
-        return getDebtPaymentHistory(today, today, null, null, null, page, size);
+    public PageResponse<TodaysDebtPaymentSummaryResponse> getTodaysDebtPayments(int page, int size) {
+        ZoneId zoneId = ZoneId.of("Asia/Ho_Chi_Minh");
+        LocalDate today = LocalDate.now(zoneId);
+        Instant startOfDay = today.atStartOfDay(zoneId).toInstant();
+        Instant endOfDay = today.plusDays(1).atStartOfDay(zoneId).toInstant();
+
+        List<DebtPayment> todaysDebtPayments = debtPaymentRepository.findActiveTodayPaymentsWithOrderAndCustomer(
+                startOfDay,
+                endOfDay
+        );
+
+        Map<Integer, TodaysDebtPaymentSummaryResponse> groupedByCustomer = new LinkedHashMap<>();
+
+        todaysDebtPayments.forEach(dp -> {
+            SalesOrder salesOrder = dp.getSalesOrder();
+            Customer customer = salesOrder != null ? salesOrder.getCustomer() : null;
+            Integer customerId = customer != null ? customer.getId() : null;
+
+            TodaysDebtPaymentSummaryResponse customerGroup = groupedByCustomer.computeIfAbsent(
+                    customerId,
+                    id -> TodaysDebtPaymentSummaryResponse.builder()
+                            .customerId(id)
+                            .customerName(customer != null ? customer.getFullName() : null)
+                            .debtPaymentDetails(new ArrayList<>())
+                            .build()
+            );
+
+            customerGroup.getDebtPaymentDetails().add(buildDebtPaymentHistoryResponse(dp));
+        });
+
+        List<TodaysDebtPaymentSummaryResponse> groupedResponses = new ArrayList<>(groupedByCustomer.values());
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.max(size, 1);
+        int fromIndex = Math.min((safePage - 1) * safeSize, groupedResponses.size());
+        int toIndex = Math.min(fromIndex + safeSize, groupedResponses.size());
+
+        return PageResponse.<TodaysDebtPaymentSummaryResponse>builder()
+                .content(groupedResponses.subList(fromIndex, toIndex))
+                .page(safePage)
+                .size(safeSize)
+                .totalElements(groupedResponses.size())
+                .totalPages((int) Math.ceil((double) groupedResponses.size() / safeSize))
+                .build();
+    }
+
+    private DebtPaymentHistoryResponse buildDebtPaymentHistoryResponse(DebtPayment dp) {
+        SalesOrder salesOrder = dp.getSalesOrder();
+        Customer customer = salesOrder != null ? salesOrder.getCustomer() : null;
+
+        String staffName = "N/A";
+        if (dp.getCreatedBy() != null) {
+            staffName = userRepository.findById(dp.getCreatedBy())
+                    .map(User::getFullName)
+                    .orElse("KhÃ´ng rÃµ");
+        }
+
+        return DebtPaymentHistoryResponse.builder()
+                .id(dp.getId())
+                .paymentDate(dp.getCreatedAt())
+                .amountPaid(dp.getAmountPaid())
+                .note(dp.getNotes())
+                .customerName(customer != null ? customer.getFullName() : null)
+                .customerId(customer != null ? customer.getId() : null)
+                .orderCode(salesOrder != null ? salesOrder.getOrderCode() : null)
+                .paymentMethod(dp.getPaymentMethod())
+                .orderId(salesOrder != null ? salesOrder.getId() : null)
+                .staffName(staffName)
+                .build();
     }
 }

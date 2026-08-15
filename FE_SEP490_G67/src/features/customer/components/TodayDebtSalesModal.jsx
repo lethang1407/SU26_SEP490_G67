@@ -24,7 +24,7 @@ const formatDate = (dateString) => {
 
 export default function TodayDebtSalesModal({ show, onHide }) {
   const navigate = useNavigate();
-  const [data, setData] = useState(null);
+  const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -47,31 +47,22 @@ export default function TodayDebtSalesModal({ show, onHide }) {
     }
   }, [show]);
 
-  const handleRowClick = (customerId, orderId) => {
+  const handleOrderClick = (customerId, orderId) => {
     if (!customerId || !orderId) return;
     // Điều hướng đến trang chi tiết khách hàng và truyền ID đơn hàng cần mở qua URL
     navigate(`/admin/customer/${customerId}?openOrder=${orderId}`);
-    // Đóng modal sau khi điều hướng
     onHide();
   };
 
+  const handleCustomerClick = (customerId) => {
+    if (!customerId) return;
+    navigate(`/admin/customer/${customerId}`);
+    onHide();
+  }
+
   const renderContent = () => {
-    if (isLoading) {
-      return (
-        <div className="text-center p-5">
-          <Spinner animation="border" />
-        </div>
-      );
-    }
     if (error) {
       return <Alert variant="danger">{error}</Alert>;
-    }
-    if (!data || !data.debtSalesDetails || data.debtSalesDetails.length === 0) {
-      return (
-        <p className="text-muted text-center p-4">
-          Không có đơn bán nợ nào phát sinh trong hôm nay.
-        </p>
-      );
     }
 
     return (
@@ -86,39 +77,64 @@ export default function TodayDebtSalesModal({ show, onHide }) {
             <th>Còn nợ</th>
             <th>Thời gian</th>
             <th>Người bán</th>
-            {/* <th>Hành động</th> */}
           </tr>
         </thead>
         <tbody>
-          {data.debtSalesDetails.map((item, index) => (
-            <tr
-              key={item.id}
-              onClick={() => handleRowClick(item.customerId, item.id)}
-              className={item.isCheckDebtUnstable ? "debt-unstable-row" : ""}
-              style={{ cursor: "pointer" }}
-              title={
-                item.isCheckDebtUnstable
-                  ? "Đơn nợ của khách hàng mới, cần kiểm tra lại"
-                  : `Xem chi tiết đơn ${item.orderCode}`
-              }
-            >
-              <td>{index + 1}</td>
-              <td className="text-primary fw-medium">{item.orderCode}</td>
-              <td>{item.customerName}</td>
-              <td className="text-end fw-bold">
-                {formatCurrency(item.totalAmount)}
+          {isLoading ? (
+            <tr>
+              <td colSpan={8} className="text-center p-5">
+                <Spinner animation="border" />
               </td>
-              <td className="text-end fw-bold text-success">
-                {formatCurrency(item.amountPaid)}
-              </td>
-              <td className="text-end fw-bold text-danger">
-                {formatCurrency(item.amountRemaining)}
-              </td>
-              <td>{formatDate(item.orderDate)}</td>
-              <td>{item.createdBy}</td>
-              {/* <td>-</td> */}
             </tr>
-          ))}
+          ) : !data || data.length === 0 ? (
+            <tr>
+              <td colSpan={8} className="text-center text-muted p-4">
+                Không có đơn bán nợ nào phát sinh trong hôm nay.
+              </td>
+            </tr>
+          ) : (() => {
+              let globalIndex = 0;
+              return data.map((customerGroup) =>
+                customerGroup.debtSalesDetails.map((item, itemIndex) => {
+                  globalIndex++;
+                  const isFirstItemInGroup = itemIndex === 0;
+                  return (
+                    <tr
+                      key={item.id}
+                      className={customerGroup.isCheckDebtUnstable ? "debt-unstable-row" : ""}
+                    >
+                      <td>{globalIndex}</td>
+                      <td
+                        className="text-primary fw-medium"
+                        style={{ cursor: "pointer" }}
+                        onClick={() => handleOrderClick(customerGroup.customerId, item.id)}
+                        title={`Xem chi tiết đơn ${item.orderCode}`}
+                      >
+                        {item.orderCode}
+                      </td>
+                      {isFirstItemInGroup && (
+                        <td
+                          style={{
+                            verticalAlign: 'top',
+                            cursor: 'pointer',
+                          }}
+                          rowSpan={customerGroup.debtSalesDetails.length}
+                          onClick={() => handleCustomerClick(customerGroup.customerId)}
+                          title={`Xem chi tiết khách hàng ${customerGroup.customerName}`}
+                        >
+                          {customerGroup.customerName}
+                        </td>
+                      )}
+                      <td className="text-end fw-bold">{formatCurrency(item.totalAmount)}</td>
+                      <td className="text-end fw-bold text-success">{formatCurrency(item.amountPaid)}</td>
+                      <td className="text-end fw-bold text-danger">{formatCurrency(item.amountRemaining)}</td>
+                      <td>{formatDate(item.orderDate)}</td>
+                      <td>{item.createdBy}</td>
+                    </tr>
+                  );
+                }),
+              );
+            })()}
         </tbody>
       </Table>
     );

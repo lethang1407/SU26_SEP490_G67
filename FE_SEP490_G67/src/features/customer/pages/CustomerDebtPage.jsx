@@ -388,6 +388,10 @@ export default function CustomerDebtPage() {
                 highlightClasses.push("customer-row--in-debt");
               }
 
+              if (item.isCheckDebtUnstable) {
+                highlightClasses.push("debt-unstable-row");
+              }
+
               const overdueAllowedClass =
                 item.isOverdue && item.allowDebt ? "overdue-allowed-field" : "";
               const notAllowedFieldClass = !item.allowDebt

@@ -11,9 +11,8 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class TodaysDebtSalesSummaryResponse {
+public class TodaysDebtPaymentSummaryResponse {
     private Integer customerId;
     private String customerName;
-    private Boolean isCheckDebtUnstable;
-    private List<DebtOrderResponse> debtSalesDetails;
+    private List<DebtPaymentHistoryResponse> debtPaymentDetails;
 }

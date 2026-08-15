@@ -11,6 +11,7 @@ import project.be_sep490_g67.dto.request.DebtPaymentRequest;
 import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.DebtPaymentHistoryResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
+import project.be_sep490_g67.dto.response.TodaysDebtPaymentSummaryResponse;
 import project.be_sep490_g67.service.DebtPaymentService;
 
 import java.time.LocalDate;
@@ -52,12 +53,12 @@ public class DebtPaymentController {
     }
 
     @GetMapping("/today")
-    public ApiResponse<PageResponse<DebtPaymentHistoryResponse>> getTodaysDebtPayments(
+    public ApiResponse<PageResponse<TodaysDebtPaymentSummaryResponse>> getTodaysDebtPayments(
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer size
     ) {
-        PageResponse<DebtPaymentHistoryResponse> result = debtPaymentService.getTodaysDebtPayments(page, size);
-        return ApiResponse.<PageResponse<DebtPaymentHistoryResponse>>builder()
+        PageResponse<TodaysDebtPaymentSummaryResponse> result = debtPaymentService.getTodaysDebtPayments(page, size);
+        return ApiResponse.<PageResponse<TodaysDebtPaymentSummaryResponse>>builder()
                 .result(result)
                 .message("Lấy danh sách thu nợ trong ngày thành công")
                 .build();
