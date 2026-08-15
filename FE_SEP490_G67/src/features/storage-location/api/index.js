@@ -38,6 +38,14 @@ export async function moveBatchLocation({ batchLocationId, toLocationId, quantit
     return response.result;
 }
 
+export async function moveAllBatchesFromLocation({ fromLocationId, toLocationId }) {
+    const response = await api.post('/storage-locations/move-all', {
+        fromLocationId,
+        toLocationId,
+    });
+    return response.result;
+}
+
 export async function unassignBatchFromLocation({ batchLocationId }) {
     const response = await api.post('/storage-locations/unassign-batch', {
         batchLocationId,

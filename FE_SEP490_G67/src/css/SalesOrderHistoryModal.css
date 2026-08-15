@@ -101,62 +101,27 @@
     color: #111;
 }
 
-/* ── Toolbar ── */
-/* ── Body: cột tìm kiếm (3) + cột kết quả (7) ── */
-.hist-body {
-    flex: 1;
-    display: grid;
-    grid-template-columns: 3fr 7fr;
-    min-height: 0;
-}
-
-.hist-search-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    padding: 18px 20px;
-    border-right: 1px solid #e5e7eb;
-    background: #fafafa;
-    overflow-y: auto;
-}
-
-.hist-panel-title {
+/* ── Toolbar: 1 ô tìm kiếm + lọc thời gian, nằm ngang trên bảng ── */
+.hist-toolbar {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: #6b7280;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px 24px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fafafa;
 }
 
-.hist-field {
+/* Ngày tùy chỉnh xuống dòng riêng, không đẩy ô tìm kiếm co lại */
+.hist-toolbar .hist-custom-dates {
+    flex-basis: 100%;
+    margin-top: 0;
+}
+
+.hist-body {
+    flex: 1;
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.hist-field-label {
-    font-size: 13px;
-    font-weight: 600;
-    color: #374151;
-}
-
-.hist-field-input {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    font-size: 13px;
-    outline: none;
-    background: #fff;
-    color: #1f2937;
-    transition: border-color 0.15s;
-}
-
-.hist-field-input:focus {
-    border-color: #2563eb;
+    min-height: 0;
 }
 
 .hist-reset-btn {
@@ -164,7 +129,7 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    margin-top: auto;
+    flex-shrink: 0;
     padding: 8px 12px;
     border: 1px solid #d1d5db;
     border-radius: 6px;
@@ -183,6 +148,7 @@
 .hist-result-panel {
     display: flex;
     flex-direction: column;
+    flex: 1;
     min-width: 0;
     min-height: 0;
 }
@@ -190,7 +156,7 @@
 .hist-search-wrap {
     position: relative;
     flex: 1;
-    min-width: 220px;
+    min-width: 280px;
 }
 
 .hist-search-icon {
@@ -221,6 +187,7 @@
 .hist-date-pills {
     display: flex;
     flex-wrap: wrap;
+    flex-shrink: 0;
     gap: 6px;
 }
 
@@ -302,6 +269,13 @@
     z-index: 1;
 }
 
+/* `.hist-table th` (0,1,1) thắng `.text-right` (0,1,0) nên header không tự canh
+   phải được — phải nêu đích danh, nếu không tiêu đề "Tổng tiền" lệch với số bên dưới. */
+.hist-table th.text-right,
+.hist-table td.text-right {
+    text-align: right;
+}
+
 .hist-table td {
     padding: 12px 12px;
     border-bottom: 1px solid #f3f4f6;
@@ -311,6 +285,16 @@
 
 .hist-row:hover td {
     background: #f9fafb;
+}
+
+/* Cột nút "Chọn": chỉ rộng đúng bằng nút, dồn về mép phải */
+.hist-col-action {
+    width: 1%;
+}
+
+.hist-table td:last-child:not(.hist-empty) {
+    text-align: right;
+    white-space: nowrap;
 }
 
 .hist-order-code {
@@ -406,6 +390,7 @@
     display: flex;
     gap: 6px;
     align-items: center;
+    justify-content: flex-end;
 }
 
 .hist-action-btn {

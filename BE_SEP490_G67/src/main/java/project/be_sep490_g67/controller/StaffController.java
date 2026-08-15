@@ -4,7 +4,6 @@ import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
@@ -24,7 +23,6 @@ import java.util.List;
 public class StaffController {
     StaffService staffService;
 
-    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     ApiResponse<List<StaffListResponse>> getStaffList(
             @RequestParam(required = false) String keyword,
@@ -35,7 +33,6 @@ public class StaffController {
                 .build();
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/{staffId}")
     ApiResponse<StaffDetailResponse> getStaffById(@PathVariable Integer staffId) {
         return ApiResponse.<StaffDetailResponse>builder()
@@ -43,7 +40,6 @@ public class StaffController {
                 .build();
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     ApiResponse<StaffDetailResponse> createStaff(@Valid @RequestBody CreateStaffRequest request) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -53,7 +49,6 @@ public class StaffController {
                 .build();
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{staffId}")
     ApiResponse<StaffDetailResponse> updateStaff(
             @PathVariable Integer staffId,

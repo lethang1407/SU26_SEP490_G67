@@ -1,19 +1,20 @@
 import ProfilePage from '../../features/profile/pages/ProfilePage';
 import EditProfilePage from '../../features/profile/pages/EditProfilePage';
 import ChangePasswordPage from '../../features/profile/pages/ChangePasswordPage';
+import ProtectedRoute from './ProtectedRoute';
 
 const profileRoutes = [
 	{
 		path: '/profile',
-		element: <ProfilePage />,
+		element: <ProtectedRoute><ProfilePage /></ProtectedRoute>,
 	},
 	{
 		path: '/profile/edit',
-		element: <EditProfilePage />,
+		element: <ProtectedRoute><EditProfilePage /></ProtectedRoute>,
 	},
 	{
 		path: '/profile/change-password',
-		element: <ChangePasswordPage />,
+		element: <ProtectedRoute><ChangePasswordPage /></ProtectedRoute>,
 	},
 ];
 

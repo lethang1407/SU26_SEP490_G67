@@ -38,7 +38,7 @@ function ZoneSection({ group, onOpenZone }) {
                 <div className="storage-location-zone__toggle-main">
                     <div className="storage-location-zone__heading">
                         <div className="storage-location-zone__title-row">
-                            <h2 className="storage-location-zone__title">KHU {group.zone}</h2>
+                            <h2 className="storage-location-zone__title">KỆ {group.zone}</h2>
                             <span
                                 className={[
                                     'storage-location-zone__type-badge',

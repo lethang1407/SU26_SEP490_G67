@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.request.AssignBatchRequest;
 import project.be_sep490_g67.dto.request.CreateStorageLocationRequest;
+import project.be_sep490_g67.dto.request.MoveAllBatchesRequest;
 import project.be_sep490_g67.dto.request.MoveBatchRequest;
 import project.be_sep490_g67.dto.request.SetLocationFullRequest;
 import project.be_sep490_g67.dto.request.UnassignBatchRequest;
@@ -23,6 +24,8 @@ import project.be_sep490_g67.service.StorageLocationService;
 
 import java.util.List;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
 @RequestMapping(ApiPath.STORAGE_LOCATIONS)
 @RequiredArgsConstructor
@@ -31,6 +34,7 @@ public class StorageLocationController {
 
     StorageLocationService storageLocationService;
 
+    @PreAuthorize("hasAuthority('WAREHOUSE:VIEW')")
     @GetMapping
     public ApiResponse<List<StorageLocationResponse>> getLocations() {
         return ApiResponse.<List<StorageLocationResponse>>builder()
@@ -39,6 +43,7 @@ public class StorageLocationController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('WAREHOUSE:VIEW')")
     @GetMapping("/unplaced-batches")
     public ApiResponse<List<UnplacedBatchResponse>> getUnplacedBatches() {
         return ApiResponse.<List<UnplacedBatchResponse>>builder()
@@ -47,6 +52,7 @@ public class StorageLocationController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('WAREHOUSE:VIEW')")
     @GetMapping("/{locationId}")
     public ApiResponse<StorageLocationResponse> getLocationById(@PathVariable("locationId") Integer locationId) {
         return ApiResponse.<StorageLocationResponse>builder()
@@ -55,6 +61,7 @@ public class StorageLocationController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
     @PostMapping
     public ApiResponse<StorageLocationResponse> createLocation(
             @Valid @RequestBody CreateStorageLocationRequest request) {
@@ -64,6 +71,7 @@ public class StorageLocationController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
     @PostMapping("/assign-batch")
     public ApiResponse<StorageLocationResponse> assignBatch(
             @Valid @RequestBody AssignBatchRequest request) {
@@ -73,6 +81,7 @@ public class StorageLocationController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
     @PostMapping("/move-batch")
     public ApiResponse<StorageLocationResponse> moveBatch(
             @Valid @RequestBody MoveBatchRequest request) {
@@ -82,6 +91,16 @@ public class StorageLocationController {
                 .build();
     }
 
+    @PostMapping("/move-all")
+    public ApiResponse<StorageLocationResponse> moveAllBatches(
+            @Valid @RequestBody MoveAllBatchesRequest request) {
+        return ApiResponse.<StorageLocationResponse>builder()
+                .result(storageLocationService.moveAllBatches(request))
+                .message("Đã chuyển toàn bộ hàng sang kệ đích")
+                .build();
+    }
+
+    @PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
     @PostMapping("/unassign-batch")
     public ApiResponse<Void> unassignBatch(@Valid @RequestBody UnassignBatchRequest request) {
         storageLocationService.unassignBatch(request);
@@ -90,6 +109,7 @@ public class StorageLocationController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
     @PostMapping("/{locationId}/full")
     public ApiResponse<StorageLocationResponse> setLocationFull(
             @PathVariable("locationId") Integer locationId,

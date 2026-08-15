@@ -5,7 +5,7 @@ public enum DocumentType {
     SALE_INVOICE("HD"),
     CREDIT_NOTE("HDT"),
     EXCHANGE_INVOICE("HDD"),
-    RECONSTRUCTED_INVOICE("HDR");
+        RECONSTRUCTED_INVOICE("HDR");
 
     private final String prefix;
 

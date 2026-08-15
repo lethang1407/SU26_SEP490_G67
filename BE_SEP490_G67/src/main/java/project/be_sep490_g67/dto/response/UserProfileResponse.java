@@ -17,6 +17,7 @@ public class UserProfileResponse {
     String username;
     String phoneNumber;
     Set<String> roles;
+    Set<String> permissions;
     String status;
     Instant createdAt;
 }

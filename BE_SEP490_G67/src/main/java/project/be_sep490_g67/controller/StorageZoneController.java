@@ -18,6 +18,8 @@ import project.be_sep490_g67.service.StorageZoneService;
 
 import java.util.List;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
 @RequestMapping(ApiPath.STORAGE_ZONES)
 @RequiredArgsConstructor
@@ -26,6 +28,7 @@ public class StorageZoneController {
 
     StorageZoneService storageZoneService;
 
+    @PreAuthorize("hasAuthority('WAREHOUSE:VIEW')")
     @GetMapping
     public ApiResponse<List<StorageZoneResponse>> getZones() {
         return ApiResponse.<List<StorageZoneResponse>>builder()
@@ -34,6 +37,7 @@ public class StorageZoneController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
     @PutMapping("/{code}")
     public ApiResponse<StorageZoneResponse> updateZone(
             @PathVariable("code") String code,

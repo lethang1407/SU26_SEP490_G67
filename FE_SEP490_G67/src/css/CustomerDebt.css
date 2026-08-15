@@ -126,3 +126,7 @@ tr.priority-1, tr.priority-2, tr.priority-3, tr.priority-4, tr.priority-5, tr.pr
     font-weight: 500;
     animation: fadeInOut 4s ease-in-out;
 }
+
+.debt-unstable-row > td {
+    background-color: #fff3cd !important;
+}

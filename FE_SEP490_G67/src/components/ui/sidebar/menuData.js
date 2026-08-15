@@ -7,6 +7,7 @@ import {
     ShoppingCart,
     FileText,
     User,
+    ShieldCheck,
 } from "lucide-react";
 
 export const menus = [
@@ -23,15 +24,18 @@ export const menus = [
         children: [
             {
                 title: "Báo cáo Doanh thu",
-                path: "/admin/reports/revenue"
+                path: "/admin/reports/revenue",
+                permission: "AUDIT:VIEW"
             },
             {
                 title: "Báo cáo Kho hàng",
-                path: "/admin/reports/warehouse"
+                path: "/admin/reports/warehouse",
+                permission: "WAREHOUSE:VIEW"
             },
             {
                 title: "Báo cáo Bán hàng",
-                path: "/admin/reports/sales"
+                path: "/admin/reports/sales",
+                permission: "SALES_ORDER:VIEW_ALL"
             }
         ]
     },
@@ -39,7 +43,8 @@ export const menus = [
         id: "orders",
         title: "Đơn hàng",
         icon: ShoppingCart,
-        path: "/admin/orders"
+        path: "/admin/orders/reconciliation",
+        permission: "AUDIT:VIEW"
     },
     {
         id: "products",
@@ -48,11 +53,13 @@ export const menus = [
         children: [
             {
                 title: "Danh sách sản phẩm",
-                path: "/admin/products"
+                path: "/admin/products",
+                permission: "PRODUCT:VIEW"
             },
             {
                 title: "Danh mục",
-                path: "/admin/products/categories"
+                path: "/admin/products/categories",
+                permission: "PRODUCT:VIEW"
             }
         ]
     },
@@ -63,23 +70,33 @@ export const menus = [
         children: [
             {
                 title: "Vị trí hàng hóa",
-                path: "/admin/warehouse/locations"
+                path: "/admin/warehouse/locations",
+                permission: "WAREHOUSE:VIEW"
             },
             {
                 title: "Kiểm kho",
-                path: "/admin/warehouse/check"
+                path: "/admin/warehouse/check",
+                permission: "WAREHOUSE:CHECK_VIEW"
             },
             {
-                title: "Nhập hàng",
-                path: "/admin/warehouse/import"
+                title: "Đơn nhập hàng",
+                path: "/admin/warehouse/import",
+                permission: "IMPORT:VIEW"
+            },
+            {
+                title: "Lịch sử nhập hàng",
+                path: "/admin/warehouse/import-history",
+                permission: "IMPORT:VIEW"
             },
             {
                 title: "Trả hàng",
-                path: "/admin/warehouse/return"
+                path: "/admin/warehouse/return",
+                permission: "IMPORT:VIEW"
             },
             {
                 title: "Nhà cung cấp",
-                path: "/admin/warehouse/supplier"
+                path: "/admin/warehouse/supplier",
+                permission: "SUPPLIER:VIEW"
             }
         ]
     },
@@ -87,24 +104,35 @@ export const menus = [
         id: "customer",
         title: "Khách hàng",
         icon: Users,
-        path: "/admin/customer"
+        path: "/admin/customer",
+        permission: "CUSTOMER:VIEW"
     },
     {
         id: "pos",
         title: "Bán hàng (POS)",
         icon: ShoppingCart,
-        path: "/admin/pos"
+        path: "/admin/pos",
+        permission: "POS:SALE"
     },
     {
         id: "accounting",
         title: "Thuế & Kế Toán",
         icon: FileText,
-        path: "/admin/accounting"
+        path: "/admin/accounting",
+        permission: ["AUDIT:VIEW", "CUSTOMER:DEBT_VIEW", "SUPPLIER:PAYMENT"]
     },
     {
         id: "staff",
         title: "Nhân viên",
         icon: User,
-        path: "/admin/staff"
+        path: "/admin/staff",
+        permission: "STAFF:VIEW"
+    },
+    {
+        id: "api-permissions",
+        title: "Phân quyền API",
+        icon: ShieldCheck,
+        path: "/admin/api-permissions",
+        permission: "STAFF:VIEW"
     }
 ];

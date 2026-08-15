@@ -38,8 +38,8 @@ public class InventoryCheckController {
     public ApiResponse<PageResponse<InventoryCheckListItemResponse>> getChecks(
             @RequestParam(required = false) String search,
             @RequestParam(required = false, defaultValue = "all") String status,
-            @RequestParam(required = false, defaultValue = "0") int page,
-            @RequestParam(required = false, defaultValue = "10") int size) {
+            @RequestParam(name = "page", required = false, defaultValue = "0") int page,
+            @RequestParam(name = "size", required = false, defaultValue = "10") int size) {
         return ApiResponse.<PageResponse<InventoryCheckListItemResponse>>builder()
                 .result(inventoryCheckService.getChecks(search, status, page, size))
                 .message("Lấy danh sách phiếu kiểm kho thành công")
@@ -53,10 +53,10 @@ public class InventoryCheckController {
                 .message("Lấy danh sách cần kiểm ngay thành công")
                 .build();
     }
-
+   
     @GetMapping("/product-preview/{productId}")
     public ApiResponse<InventoryCheckProductPreviewResponse> getProductPreview(
-            @PathVariable Integer productId) {
+            @PathVariable("productId") Integer productId) {
         return ApiResponse.<InventoryCheckProductPreviewResponse>builder()
                 .result(inventoryCheckService.getProductPreview(productId))
                 .message("Lấy thông tin sản phẩm kiểm kho thành công")
@@ -64,7 +64,7 @@ public class InventoryCheckController {
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<InventoryCheckDetailResponse> getCheckDetail(@PathVariable Integer id) {
+    public ApiResponse<InventoryCheckDetailResponse> getCheckDetail(@PathVariable("id") Integer id) {
         return ApiResponse.<InventoryCheckDetailResponse>builder()
                 .result(inventoryCheckService.getCheckDetail(id))
                 .message("Lấy chi tiết phiếu kiểm kho thành công")

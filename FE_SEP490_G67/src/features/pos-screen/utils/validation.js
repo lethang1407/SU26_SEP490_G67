@@ -13,6 +13,14 @@ export const isQtyInvalid = (raw) => {
 
     return raw === '' || !Number.isFinite(value) || value <= 0;
 };
+/**
+ * SĐT di động VN, khớp đúng regex BE dùng khi tạo khách
+ * (CustomerRequest.phoneNumber) để POS không gửi lên số chắc chắn bị từ chối.
+ */
+const VN_PHONE = /^(03[2-9]|05[689]|07[06789]|08[1-689]|09[0-46-9])\d{7}$/;
+
+export const isVnPhone = (raw) => VN_PHONE.test((raw ?? '').trim());
+
 export const parseQty = (raw) => {
     const value = Number(raw);
 

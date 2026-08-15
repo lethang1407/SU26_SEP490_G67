@@ -9,6 +9,8 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -91,6 +93,10 @@ public class CustomerService {
 
         customer.setStatus(DebtStatus.NO_DEBT.name());
 
+        // Tạo cờ check khách nợ mới, nếu role = admin thì cờ = false, nếu staff thì
+        // cờ = true và trả notify cho admin
+        customer.setIsCheckUnstableDebt(!isCurrentUserAdmin());
+
         customer = customerRepository.save(customer);
         log.info("Create new customer by id {}",customer.getId());
 
@@ -102,6 +108,21 @@ public class CustomerService {
                 .totalDebt(customer.getTotalDebt())
                 .note(customer.getNote())
                 .build();
+    }
+
+    /**
+     * check user là admin hay không để không bị lọt khách hàng nợ chưa
+     * duyệt thành đã duyệt.
+     */
+    private boolean isCurrentUserAdmin() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null) {
+            return false;
+        }
+        return userRepository.findActiveByUsernameWithRole(authentication.getName())
+                .map(user -> user.getRoles().stream()
+                        .anyMatch(role -> "ADMIN".equalsIgnoreCase(role.getName())))
+                .orElse(false);
     }
 
     // View customer list
@@ -227,12 +248,10 @@ public class CustomerService {
     }
     
     private Comparator<CustomerResponse> getPriorityComparator() {
-        return (c1, c2) -> {
-            int score1 = calculatePriorityScore(c1);
-            int score2 = calculatePriorityScore(c2);
-            // Higher score comes first
-            return Integer.compare(score2, score1);
-        };
+        // Primary sort: by priority score (descending)
+        // Secondary sort: by total debt (descending)
+        return Comparator.comparingInt(this::calculatePriorityScore).reversed()
+                .thenComparing(CustomerResponse::getTotalDebt, Comparator.reverseOrder());
     }
 
     private int calculatePriorityScore(CustomerResponse c) {
@@ -306,6 +325,7 @@ public class CustomerService {
                     .id(so.getId())
                     .customerId(customerId)
                     .customerName(so.getCustomer().getFullName())
+                    .orderId(so.getId())
                     .orderCode(so.getOrderCode())
                     .orderDate(so.getCreatedAt())
                     .dueDate(so.getDueDate())
@@ -369,7 +389,7 @@ public class CustomerService {
         Instant startOfDay = today.atStartOfDay(zoneId).toInstant();
         Instant endOfDay = today.plusDays(1).atStartOfDay(zoneId).toInstant();
 
-        List<SalesOrder> todaysDebtSales = salesOrderRepository.findAllByIsDebtTrueAndCreatedAtBetween(startOfDay, endOfDay);
+        List<SalesOrder> todaysDebtSales = salesOrderRepository.findActiveDebtSalesCreatedBetween(startOfDay, endOfDay);
 
         List<DebtOrderResponse> debtOrderDetails = todaysDebtSales.stream().map(so -> {
             BigDecimal initialPaidAmount = so.getPaidAmount() != null ? so.getPaidAmount() : BigDecimal.ZERO;
@@ -377,7 +397,8 @@ public class CustomerService {
                     .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal totalPaid = initialPaidAmount.add(subsequentPayments);
-            BigDecimal amountRemaining = so.getTotalAmount().subtract(totalPaid);
+            BigDecimal totalAmount = so.getTotalAmount() != null ? so.getTotalAmount() : BigDecimal.ZERO;
+            BigDecimal amountRemaining = totalAmount.subtract(totalPaid);
 
             String createdByName = "N/A";
             if (so.getCreatedBy() != null) {
@@ -386,6 +407,8 @@ public class CustomerService {
                         .orElse("Không rõ");
             }
 
+            Customer orderCustomer = so.getCustomer();
+
             return DebtOrderResponse.builder()
                     .id(so.getId())
                     .customerId(so.getCustomer().getId())
@@ -393,29 +416,16 @@ public class CustomerService {
                     .orderCode(so.getOrderCode())
                     .orderDate(so.getCreatedAt())
                     .dueDate(so.getDueDate())
-                    .totalAmount(so.getTotalAmount())
+                    .totalAmount(totalAmount)
                     .amountPaid(totalPaid)
                     .amountRemaining(amountRemaining)
+                    .isCheckDebtUnstable(orderCustomer.getIsCheckUnstableDebt())
                     .status(amountRemaining.compareTo(BigDecimal.ZERO) <= 0 ? DebtOrderStatus.PAID : DebtOrderStatus.IN_DEBT)
                     .createdBy(createdByName)
                     .build();
         }).collect(Collectors.toList());
 
-        BigDecimal totalDebtAmountIncurred = debtOrderDetails.stream()
-                .map(DebtOrderResponse::getAmountRemaining)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        long uniqueCustomersCount = todaysDebtSales.stream()
-                .map(SalesOrder::getCustomer)
-                .filter(Objects::nonNull)
-                .map(Customer::getId)
-                .distinct()
-                .count();
-
         return TodaysDebtSalesSummaryResponse.builder()
-                .totalDebtSalesCount(todaysDebtSales.size())
-                .uniqueCustomersInDebtCount(uniqueCustomersCount)
-                .totalDebtAmountIncurredToday(totalDebtAmountIncurred)
                 .debtSalesDetails(debtOrderDetails)
                 .build();
     }

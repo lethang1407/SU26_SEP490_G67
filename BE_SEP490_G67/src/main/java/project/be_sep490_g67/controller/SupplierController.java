@@ -1,5 +1,6 @@
 package project.be_sep490_g67.controller;
 
+import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -22,6 +23,8 @@ import project.be_sep490_g67.service.SupplierService;
 
 import java.time.LocalDate;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @Slf4j
 @RestController
 @RequestMapping(ApiPath.SUPPLIER)
@@ -33,10 +36,11 @@ public class SupplierController {
     ImportOrderService importOrderService;
     SupplierPaymentService supplierPaymentService;
 
+    @PreAuthorize("hasAuthority('SUPPLIER:VIEW')")
     @GetMapping
     public ApiResponse<SupplierListPageResponse> getSuppliers(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Integer categoryId,
             @RequestParam(required = false) Integer productId
@@ -49,6 +53,7 @@ public class SupplierController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('SUPPLIER:VIEW')")
     @GetMapping("/{id}")
     public ApiResponse<SupplierDetailResponse> getSupplierDetail(@PathVariable Integer id) {
         return ApiResponse.<SupplierDetailResponse>builder()
@@ -57,10 +62,11 @@ public class SupplierController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('SUPPLIER:UPDATE')")
     @PutMapping("/{id}")
     public ApiResponse<SupplierDetailResponse> updateSupplier(
             @PathVariable Integer id,
-            @RequestBody AddNewSupplierRequest request
+            @Valid @RequestBody AddNewSupplierRequest request
     ) {
         return ApiResponse.<SupplierDetailResponse>builder()
                 .result(supplierService.updateSupplier(id, request))
@@ -68,6 +74,7 @@ public class SupplierController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('SUPPLIER:DELETE')")
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteSupplier(@PathVariable Integer id) {
         supplierService.deleteSupplier(id);
@@ -76,11 +83,12 @@ public class SupplierController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('SUPPLIER:VIEW')")
     @GetMapping("/{id}/import-orders")
     public ApiResponse<PageResponse<ImportOrderListItemResponse>> getImportHistory(
             @PathVariable Integer id,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "5") int size,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "5") int size,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "ALL") String status
     ) {
@@ -90,6 +98,7 @@ public class SupplierController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('SUPPLIER:PAYMENT')")
     @PostMapping("/{id}/payments")
     public ApiResponse<SupplierPaymentResponse> createPayment(
             @PathVariable Integer id,
@@ -101,11 +110,12 @@ public class SupplierController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('SUPPLIER:VIEW')")
     @GetMapping("/{id}/payments")
     public ApiResponse<PageResponse<SupplierPaymentResponse>> getPaymentHistory(
             @PathVariable Integer id,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "5") int size,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "5") int size,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate
@@ -116,8 +126,9 @@ public class SupplierController {
                 .build();
     }
 
+    @PreAuthorize("hasAuthority('SUPPLIER:CREATE')")
     @PostMapping
-    public ApiResponse<AddNewSupplierResponse> addNewSupplier(@RequestBody AddNewSupplierRequest request) {
+    public ApiResponse<AddNewSupplierResponse> addNewSupplier(@Valid @RequestBody AddNewSupplierRequest request) {
         log.info("Api in controller was called with request: {}", request);
         return ApiResponse.<AddNewSupplierResponse>builder()
                 .result(supplierService.addNewSupplier(request))

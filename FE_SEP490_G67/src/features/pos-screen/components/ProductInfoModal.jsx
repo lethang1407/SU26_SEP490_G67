@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { X, AlertCircle, MapPin } from 'lucide-react';
 import { getProductPosInfo } from '../api';
 import { getApiErrorMessage } from '../../../utils/api-utils';
+import { formatVnd } from '../utils/money';
 
 /** Ngày dạng ISO (yyyy-MM-dd) từ BE -> dd/MM/yyyy, rỗng thì gạch ngang. */
 const formatVnDate = (isoDate) =>
@@ -71,7 +72,7 @@ export default function ProductInfoModal({ productId, onClose }) {
 
                             <dt>Giá bán</dt>
                             <dd className="product-info-price">
-                                {Number(info.sellingPrice ?? 0).toLocaleString('vi-VN')} đ
+                                {formatVnd(info.sellingPrice)}
                             </dd>
 
                             <dt>Tồn kho</dt>

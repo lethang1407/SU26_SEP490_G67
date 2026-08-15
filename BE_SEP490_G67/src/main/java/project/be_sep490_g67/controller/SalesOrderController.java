@@ -7,7 +7,6 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
@@ -44,27 +43,21 @@ public class SalesOrderController {
      * GET /api/sales-orders
      */
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
     ApiResponse<SalesOrderListResponse> getOrderHistory(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String orderCode,
             @RequestParam(required = false) String customer,
             @RequestParam(required = false) String product,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+            @RequestParam(required = false) String orderStatus,
+            @RequestParam(required = false) String paymentMethod,
+            @RequestParam(required = false) Boolean isDebt
     ) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User currentUser = userRepository.findActiveByUsernameWithRole(username)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
-
-        boolean isPrivileged = currentUser.getRoles().stream()
-                .anyMatch(r -> {
-                    String name = r.getName().toUpperCase();
-                    return name.equals("ADMIN") || name.equals("ACCOUNTANT");
-                });
-
+        User currentUser = resolveCurrentUser();
+        boolean isPrivileged = isPrivileged(currentUser);
         Integer createdByFilter = isPrivileged ? null : currentUser.getId();
 
         ZoneId vnZone = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -72,9 +65,25 @@ public class SalesOrderController {
         Instant to = dateTo != null ? dateTo.plusDays(1).atStartOfDay(vnZone).toInstant() : null;
 
         SalesOrderListResponse result = salesOrderService.getOrderHistory(
-                createdByFilter, search, orderCode, customer, product, from, to, page, size);
+                createdByFilter, search, orderCode, customer, product, from, to,
+                orderStatus, paymentMethod, isDebt, page, size);
 
         return ApiResponse.<SalesOrderListResponse>builder().result(result).build();
+    }
+
+    /**
+     * GET /api/sales-orders/{id}
+     * Admin order detail. IDOR: ADMIN/ACCOUNTANT any order; CASHIER only own.
+     */
+    @GetMapping("/{id}")
+    ApiResponse<SalesOrderResponse> getOrderDetail(@PathVariable Integer id) {
+        User currentUser = resolveCurrentUser();
+        SalesOrderResponse result = salesOrderService.getOrderDetail(
+                id, currentUser.getId(), isPrivileged(currentUser));
+        return ApiResponse.<SalesOrderResponse>builder()
+                .result(result)
+                .message("Lấy chi tiết đơn hàng thành công")
+                .build();
     }
 
     /**
@@ -102,6 +111,18 @@ public class SalesOrderController {
     }
 
     /**
+     * GET /api/sales-orders/{id}/detail
+     */
+    @GetMapping("/{id}/detail")
+    ApiResponse<SalesOrderDetailResponse> getOrderDetailWithReturns(@PathVariable Integer id) {
+        SalesOrderDetailResponse result = salesOrderService.getOrderDetailWithReturns(id);
+        return ApiResponse.<SalesOrderDetailResponse>builder()
+                .result(result)
+                .message("Lấy chi tiết đơn hàng thành công")
+                .build();
+    }
+
+    /**
      * GET /api/sales-orders/{id}/receipt
      */
     @GetMapping("/{id}/receipt")
@@ -116,19 +137,9 @@ public class SalesOrderController {
      * GET /api/sales-orders/{id}/invoice
      */
     @GetMapping("/{id}/invoice")
-    @PreAuthorize("isAuthenticated()")
     ApiResponse<InvoiceResponse> getInvoice(@PathVariable Integer id) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User currentUser = userRepository.findActiveByUsernameWithRole(username)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
-
-        boolean isPrivileged = currentUser.getRoles().stream()
-                .anyMatch(r -> {
-                    String name = r.getName().toUpperCase();
-                    return name.equals("ADMIN") || name.equals("ACCOUNTANT");
-                });
-
-        InvoiceResponse result = invoiceService.getInvoice(id, currentUser.getId(), isPrivileged);
+        User currentUser = resolveCurrentUser();
+        InvoiceResponse result = invoiceService.getInvoice(id, currentUser.getId(), isPrivileged(currentUser));
         return ApiResponse.<InvoiceResponse>builder()
                 .result(result)
                 .message("Lấy dữ liệu hóa đơn thành công")
@@ -139,7 +150,6 @@ public class SalesOrderController {
      * GET /api/sales-orders/search-for-return
      */
     @GetMapping("/search-for-return")
-    @PreAuthorize("isAuthenticated()")
     ApiResponse<ReturnLookupResponse> searchForReturn(
             @RequestParam(required = false) String orderCode,
             @RequestParam(required = false) String customerPhone,
@@ -150,8 +160,8 @@ public class SalesOrderController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) BigDecimal amount,
             @RequestParam(required = false) BigDecimal amountTolerance,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size
     ) {
         ZoneId vnZone = ZoneId.of("Asia/Ho_Chi_Minh");
         Instant fromInstant = from != null ? from.atStartOfDay(vnZone).toInstant() : null;
@@ -173,7 +183,6 @@ public class SalesOrderController {
      * Get order details for exchange order page
      */
     @GetMapping("/{id}/exchange")
-    @PreAuthorize("isAuthenticated()")
     ApiResponse<ExchangeOrderDetailResponse> getOrderForExchange(@PathVariable Integer id) {
         ExchangeOrderDetailResponse result = exchangeOrderService.getOrderForExchange(id);
         return ApiResponse.<ExchangeOrderDetailResponse>builder()
@@ -187,7 +196,6 @@ public class SalesOrderController {
      * Process exchange order
      */
     @PostMapping("/exchange")
-    @PreAuthorize("isAuthenticated()")
     ApiResponse<ExchangeOrderResponse> processExchangeOrder(@Valid @RequestBody CreateExchangeOrderRequest request) {
         Integer staffId = resolveStaffId();
         ExchangeOrderResponse result = exchangeOrderService.processExchangeOrder(request, staffId);
@@ -202,5 +210,19 @@ public class SalesOrderController {
         return userRepository.findByUsername(username)
                 .map(User::getId)
                 .orElse(null);
+    }
+
+    private User resolveCurrentUser() {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findActiveByUsernameWithRole(username)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+    }
+
+    private boolean isPrivileged(User user) {
+        return user.getRoles().stream()
+                .anyMatch(r -> {
+                    String name = r.getName().toUpperCase();
+                    return name.equals("ADMIN") || name.equals("ACCOUNTANT");
+                });
     }
 }

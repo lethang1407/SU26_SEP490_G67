@@ -22,6 +22,7 @@ import project.be_sep490_g67.repository.ImportOrderRepository;
 import project.be_sep490_g67.repository.SupplierPaymentRepository;
 import project.be_sep490_g67.repository.SupplierRepository;
 import project.be_sep490_g67.repository.UserRepository;
+import project.be_sep490_g67.utils.PhoneNumberUtil;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -220,23 +221,21 @@ public class SupplierService {
         Supplier supplier = supplierRepository.findByIdAndIsRemovedFalse(id)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
 
-        String newCode = request.getSupplierCode() == null ? "" : request.getSupplierCode().trim();
-        if (supplierRepository.existsBySupplierCodeAndIdNot(newCode, id)) {
-            throw new AppException(ErrorCode.EXISTED_SUPPLIER);
-        }
+        String name = trimToNull(request.getName());
+        String phoneNumber = normalizeOptionalPhone(request.getPhoneNumber());
 
-        supplier.setName(request.getName());
-        supplier.setContactPerson(request.getContactPerson());
-        supplier.setSupplierCode(newCode);
-        supplier.setAddress(request.getAddress());
-        supplier.setPhoneNumber(request.getPhoneNumber());
-        supplier.setNotes(request.getNotes());
+        // Mã nhà cung cấp không cho phép đổi sau khi tạo
+        supplier.setName(name);
+        supplier.setContactPerson(trimToNull(request.getContactPerson()));
+        supplier.setAddress(trimToNull(request.getAddress()));
+        supplier.setPhoneNumber(phoneNumber);
+        supplier.setNotes(trimToNull(request.getNotes()));
         supplier.setCategories(request.getCategories() != null
                 ? request.getCategories()
                 : new HashSet<>());
 
         supplierRepository.save(supplier);
-        log.info("Updated supplier id={} code={}", id, newCode);
+        log.info("Updated supplier id={} code={}", id, supplier.getSupplierCode());
 
         return getSupplierDetail(id);
     }
@@ -258,21 +257,21 @@ public class SupplierService {
 
     @Transactional
     public AddNewSupplierResponse addNewSupplier(AddNewSupplierRequest request) {
-        if (supplierRepository.existsSuppliersBySupplierCode(request.getSupplierCode())) {
-            throw new AppException(ErrorCode.EXISTED_SUPPLIER);
-        }
+        String name = trimToNull(request.getName());
+        String phoneNumber = normalizeOptionalPhone(request.getPhoneNumber());
+        String supplierCode = generateNextSupplierCode();
 
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
         Supplier supplier = new Supplier();
-        supplier.setName(request.getName());
-        supplier.setContactPerson(request.getContactPerson());
-        supplier.setSupplierCode(request.getSupplierCode());
-        supplier.setAddress(request.getAddress());
-        supplier.setPhoneNumber(request.getPhoneNumber());
-        supplier.setNotes(request.getNotes());
+        supplier.setName(name);
+        supplier.setContactPerson(trimToNull(request.getContactPerson()));
+        supplier.setSupplierCode(supplierCode);
+        supplier.setAddress(trimToNull(request.getAddress()));
+        supplier.setPhoneNumber(phoneNumber);
+        supplier.setNotes(trimToNull(request.getNotes()));
         supplier.setCategories(request.getCategories());
         supplier.setIsRemoved(false);
 
@@ -290,5 +289,42 @@ public class SupplierService {
                 .createdAt(savedSupplier.getCreatedAt())
                 .createdBy(user)
                 .build();
+    }
+
+    private String generateNextSupplierCode() {
+        Long maxSequence = supplierRepository.findMaxNccSequence();
+        long next = (maxSequence == null ? 0L : maxSequence) + 1;
+        String code = String.format("NCC%05d", next);
+
+        // Phòng trường hợp race / mã đã tồn tại ngoài pattern — thử tăng tiếp
+        int attempts = 0;
+        while (supplierRepository.existsSuppliersBySupplierCode(code) && attempts < 20) {
+            next++;
+            code = String.format("NCC%05d", next);
+            attempts++;
+        }
+        if (supplierRepository.existsSuppliersBySupplierCode(code)) {
+            throw new AppException(ErrorCode.EXISTED_SUPPLIER);
+        }
+        return code;
+    }
+
+    private String normalizeOptionalPhone(String phoneNumber) {
+        String raw = phoneNumber == null ? "" : phoneNumber.trim();
+        if (raw.isEmpty()) {
+            return null;
+        }
+        if (!PhoneNumberUtil.isValid(raw)) {
+            throw new AppException(ErrorCode.INVALID_PHONE_NUMBER);
+        }
+        return PhoneNumberUtil.normalize(raw);
+    }
+
+    private static String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

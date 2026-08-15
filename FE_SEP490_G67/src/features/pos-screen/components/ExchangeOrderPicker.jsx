@@ -4,6 +4,7 @@ import { Search, ChevronLeft, ChevronRight, Home, ClipboardList } from 'lucide-r
 import { useSalesOrderHistory } from '../hooks/useSalesOrderHistory';
 import OrderStatusBadge from './OrderStatusBadge';
 import { formatVnDateTime, formatCustomerLabel } from '../utils/orderDisplay';
+import { formatVnd } from '../utils/money';
 import '../../../css/POS.css';
 import '../../../css/SalesOrderHistoryModal.css';
 import '../../../css/ExchangeOrder.css';
@@ -14,6 +15,13 @@ const DATE_FILTERS = [
     { key: '7days', label: '7 ngày qua' },
     { key: 'custom', label: 'Tùy chỉnh' },
 ];
+
+/**
+ * Đơn nợ quá hạn không được đổi/trả (quyết định F3). Chặn ngay từ bước chọn hóa đơn
+ * thay vì để thu ngân nhập xong cả phiếu rồi mới nhận lỗi từ server — backend vẫn
+ * kiểm lại, đây chỉ là để khách khỏi đứng chờ vô ích.
+ */
+const isOverdueDebt = (order) => order.debtStatus === 'OVERDUE';
 
 /** Bước chọn hóa đơn cần đổi/trả */
 export default function ExchangeOrderPicker() {
@@ -119,6 +127,7 @@ export default function ExchangeOrderPicker() {
                                     <th>Thời gian</th>
                                     <th>Khách hàng</th>
                                     <th className="text-right">Tổng tiền</th>
+                                    <th className="text-right">Còn nợ</th>
                                     <th>Trạng thái</th>
                                     <th>Thao tác</th>
                                 </tr>
@@ -126,42 +135,71 @@ export default function ExchangeOrderPicker() {
                             <tbody>
                                 {loading && (
                                     <tr>
-                                        <td colSpan={6} className="hist-empty">Đang tải...</td>
+                                        <td colSpan={7} className="hist-empty">Đang tải...</td>
                                     </tr>
                                 )}
                                 {!loading && orders.length === 0 && (
                                     <tr>
-                                        <td colSpan={6} className="hist-empty">Không có đơn hàng nào</td>
+                                        <td colSpan={7} className="hist-empty">Không có đơn hàng nào</td>
                                     </tr>
                                 )}
-                                {!loading && orders.map((order) => (
-                                    <tr
-                                        key={order.id}
-                                        className="hist-row exchange-picker-row"
-                                        onClick={() => navigate(`/admin/exchange-order/${order.id}`)}
-                                    >
-                                        <td>
-                                            <span className="hist-order-code">
-                                                {order.orderCode ?? `#${order.id}`}
-                                            </span>
-                                        </td>
-                                        <td className="hist-time">{formatVnDateTime(order.createdAt)}</td>
-                                        <td>{formatCustomerLabel(order)}</td>
-                                        <td className="text-right hist-amount">
-                                            {Number(order.totalAmount ?? 0).toLocaleString('vi-VN')}đ
-                                        </td>
-                                        <td>
-                                            <OrderStatusBadge status={order.orderStatus} />
-                                        </td>
-                                        <td>
-                                            <div className="hist-actions">
-                                                <button className="hist-action-btn" title="Đổi/trả hóa đơn này">
-                                                    <ChevronRight size={16} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {!loading && orders.map((order) => {
+                                    const overdue = isOverdueDebt(order);
+                                    return (
+                                        <tr
+                                            key={order.id}
+                                            className={`hist-row exchange-picker-row${overdue ? ' exchange-picker-row--blocked' : ''}`}
+                                            title={overdue
+                                                ? 'Đơn nợ đã quá hạn trả — không thể đổi/trả'
+                                                : undefined}
+                                            onClick={overdue
+                                                ? undefined
+                                                : () => navigate(`/admin/exchange-order/${order.id}`)}
+                                        >
+                                            <td>
+                                                <span className="hist-order-code">
+                                                    {order.orderCode ?? `#${order.id}`}
+                                                </span>
+                                            </td>
+                                            <td className="hist-time">{formatVnDateTime(order.createdAt)}</td>
+                                            <td>{formatCustomerLabel(order)}</td>
+                                            <td className="text-right hist-amount">
+                                                {formatVnd(order.totalAmount)}
+                                            </td>
+                                            <td className="text-right hist-amount">
+                                                {order.isDebt ? (
+                                                    <>
+                                                        {formatVnd(order.remainingDebt)}
+                                                        {order.dueDate && (
+                                                            <div className={`exchange-picker-due${overdue ? ' is-overdue' : ''}`}>
+                                                                {overdue ? 'Quá hạn ' : 'Hạn '}
+                                                                {formatVnDateTime(order.dueDate)}
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <span className="exchange-picker-nodebt">—</span>
+                                                )}
+                                            </td>
+                                            <td>
+                                                <OrderStatusBadge status={order.orderStatus} />
+                                            </td>
+                                            <td>
+                                                <div className="hist-actions">
+                                                    <button
+                                                        className="hist-action-btn"
+                                                        disabled={overdue}
+                                                        title={overdue
+                                                            ? 'Đơn nợ quá hạn — không thể đổi/trả'
+                                                            : 'Đổi/trả hóa đơn này'}
+                                                    >
+                                                        <ChevronRight size={16} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

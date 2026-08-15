@@ -51,7 +51,7 @@ export default function StorageLocationCell({ location, isSelected, onSelect }) 
                         {location.bin ? ` · Ô ${location.bin}` : ''}
                     </span>
                 ) : (
-                    <span className="storage-location-cell__address">Khu {location.zone}</span>
+                    <span className="storage-location-cell__address">Kệ {location.zone}</span>
                 )}
             </span>
 
@@ -78,7 +78,7 @@ export default function StorageLocationCell({ location, isSelected, onSelect }) 
                     Sắp HSD
                 </span>
             )}
-            {location.isFull ? (
+            {status === LOCATION_STATUS.FULL ? (
                 <span className="storage-location-cell__badge storage-location-cell__badge--full">
                     Đầy
                 </span>

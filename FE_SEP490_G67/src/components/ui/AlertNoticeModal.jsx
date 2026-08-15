@@ -5,11 +5,16 @@ export default function AlertNoticeModal({
     title = 'Cảnh báo',
     message,
     onClose,
+    overlayClassName = '',
 }) {
     if (!open || !message) return null;
 
     return (
-        <div className="supplier-modal-overlay" onClick={onClose} role="presentation">
+        <div
+            className={['supplier-modal-overlay', overlayClassName].filter(Boolean).join(' ')}
+            onClick={onClose}
+            role="presentation"
+        >
             <div
                 className="supplier-modal supplier-modal--confirm alert-notice-modal"
                 onClick={(event) => event.stopPropagation()}

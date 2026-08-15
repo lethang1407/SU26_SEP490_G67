@@ -22,7 +22,12 @@ public class SalesOrderResponse {
     BigDecimal discountAmount;
     BigDecimal totalAmount;
     BigDecimal paidAmount;
+    BigDecimal remainingDebt;
     Instant createdAt;
+    Instant dueDate;
+    String note;
+    Integer createdBy;
+    String cashierName;
     CustomerInfo customer;
     List<SalesOrderDetailInfo> items;
 
@@ -43,7 +48,6 @@ public class SalesOrderResponse {
     public static class SalesOrderDetailInfo {
         Integer productId;
         String name;
-        /** Snapshot of the unit name chosen by the cashier at sale time (UC-40/41). */
         String unitName;
         Integer quantity;
         BigDecimal unitPrice;

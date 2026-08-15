@@ -6,9 +6,10 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import project.be_sep490_g67.dto.request.CategoryRequest;
+import project.be_sep490_g67.dto.request.UpsertCategoryRequest;
 import project.be_sep490_g67.dto.response.CategoryResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.entity.Category;
@@ -16,6 +17,11 @@ import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.mapper.CategoryMapper;
 import project.be_sep490_g67.repository.CategoryRepository;
+import project.be_sep490_g67.repository.UserRepository;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -24,27 +30,18 @@ import project.be_sep490_g67.repository.CategoryRepository;
 public class CategoryService {
 
     CategoryRepository categoryRepository;
+    UserRepository userRepository;
     CategoryMapper categoryMapper;
 
     // View all category
     @Transactional(readOnly = true)
-    public PageResponse<CategoryResponse> findAllCategory(
-            String search,
-            int page,
-            int size) {
-
-        Page<Category> result =
-                categoryRepository.findAllCategory(
-                        search,
-                        PageRequest.of(page, size));
+    public PageResponse<CategoryResponse> findAllCategory(String search, int page, int size) {
+        Page<Category> result = categoryRepository.findAllCategory(
+                search, PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "name")));
+        Map<Integer, Long> counts = loadProductCounts(result.getContent());
 
         return PageResponse.<CategoryResponse>builder()
-                .content(
-                        result.getContent()
-                                .stream()
-                                .map(categoryMapper::toCategoryResponse)
-                                .toList()
-                )
+                .content(result.getContent().stream().map(c -> toResponse(c, counts)).toList())
                 .page(result.getNumber())
                 .size(result.getSize())
                 .totalElements(result.getTotalElements())
@@ -52,44 +49,73 @@ public class CategoryService {
                 .build();
     }
 
-    // Create new category
     @Transactional
-    public CategoryResponse createCategory(CategoryRequest request){
-        Category category = new Category();
-        category.setName(request.getName().trim());
-        category.setDescription(request.getDescription());
+    public CategoryResponse createCategory(UpsertCategoryRequest request) {
+        String name = requireName(request.getName());
+        if (categoryRepository.existsByNameIgnoreCaseAndIsRemovedFalse(name)) {
+            throw new AppException(ErrorCode.CATEGORY_NAME_EXISTED);
+        }
 
-        Category newCategory = categoryRepository.save(category);
-        log.info("Created category with id {}", category.getId());
-        return categoryMapper.toCategoryResponse(newCategory);
+        Category category = new Category();
+        category.setName(name);
+        category.setDescription(blankToNull(request.getDescription()));
+        category.setCoverDays(7);
+        category.setIsRemoved(false);
+        category = categoryRepository.save(category);
+        return toResponse(category, Map.of());
     }
 
-    // Update category
     @Transactional
-    public CategoryResponse updateCategory(
-            CategoryRequest request,
-            Integer categoryId) {
+    public CategoryResponse updateCategory(Integer id, UpsertCategoryRequest request) {
+        Category category = categoryRepository.findByIdAndIsRemovedFalse(id)
+                .orElseThrow(() -> new AppException(ErrorCode.CATEGORY_NOT_FOUND));
 
-        Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(() ->
-                        new AppException(ErrorCode.NOT_FOUND_CATEGORY));
-
-        String name = request.getName().trim();
-
-        if (categoryRepository.existsByNameIgnoreCaseAndIdNot(name, categoryId)) {
-            throw new AppException(ErrorCode.CATEGORY_ALREADY_EXISTS);
+        String name = requireName(request.getName());
+        if (categoryRepository.existsByNameIgnoreCaseAndIdNotAndIsRemovedFalse(name, id)) {
+            throw new AppException(ErrorCode.CATEGORY_NAME_EXISTED);
         }
 
         category.setName(name);
-        category.setDescription(
-                request.getDescription() == null
-                        ? null
-                        : request.getDescription()
-        );
+        category.setDescription(blankToNull(request.getDescription()));
+        category = categoryRepository.save(category);
 
-        categoryRepository.save(category);
-        log.info("Updated category with id {}", categoryId);
+        Map<Integer, Long> counts = loadProductCounts(List.of(category));
+        return toResponse(category, counts);
+    }
 
-        return categoryMapper.toCategoryResponse(category);
+    private Map<Integer, Long> loadProductCounts(List<Category> categories) {
+        Map<Integer, Long> counts = new HashMap<>();
+        if (categories == null || categories.isEmpty()) {
+            return counts;
+        }
+        List<Integer> ids = categories.stream().map(Category::getId).toList();
+        for (Object[] row : categoryRepository.countProductsByCategoryIds(ids)) {
+            counts.put((Integer) row[0], (Long) row[1]);
+        }
+        return counts;
+    }
+
+    private CategoryResponse toResponse(Category category, Map<Integer, Long> counts) {
+        return CategoryResponse.builder()
+                .id(category.getId())
+                .name(category.getName())
+                .description(category.getDescription())
+                .productCount(counts.getOrDefault(category.getId(), 0L))
+                .updatedAt(category.getUpdatedAt())
+                .build();
+    }
+
+    private String requireName(String name) {
+        if (name == null || name.isBlank()) {
+            throw new AppException(ErrorCode.CATEGORY_NAME_REQUIRED);
+        }
+        return name.trim();
+    }
+
+    private String blankToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 }

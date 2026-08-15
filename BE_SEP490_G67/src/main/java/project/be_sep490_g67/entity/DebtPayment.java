@@ -28,9 +28,6 @@ public class DebtPayment extends BaseEntity {
     @JoinColumn(name = "sales_order_id")
     private SalesOrder salesOrder;
 
-    @Column(name = "processed_by")
-    private Integer processedBy;
-
     @Column(name = "amount_paid", precision = 15, scale = 2)
     private BigDecimal amountPaid;
 

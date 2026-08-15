@@ -14,7 +14,7 @@ import java.time.LocalDate;
         name = "document_sequences",
         uniqueConstraints = @UniqueConstraint(
                 name = "UK_document_sequences_slot",
-                columnNames = {"store_id", "doc_type", "seq_date"}
+                columnNames = {"doc_type", "seq_date"}
         )
 )
 public class DocumentSequence extends BaseEntity {
@@ -23,9 +23,6 @@ public class DocumentSequence extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Integer id;
-
-    @Column(name = "store_id", nullable = false)
-    private Integer storeId;
 
     @Column(name = "doc_type", length = 30, nullable = false)
     private String docType;
