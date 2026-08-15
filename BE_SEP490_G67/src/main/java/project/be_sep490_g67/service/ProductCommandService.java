@@ -139,8 +139,8 @@ public class ProductCommandService {
             Product parent = productRepository.findById(request.getParentId()).orElse(null);
             if (parent != null) {
                 product.setParent(parent);
-                // Format child name as ParentName-Attr1-Attr2(Unit) if not already formatted with parentheses
-                if (name.isBlank() || !name.contains("(") || !name.contains("-")) {
+                // Format child name as ParentName-Attr1-Attr2 without appending unit of measure
+                if (name.isBlank() || !name.contains("-")) {
                     String cleanParent = parent.getName().replaceAll("(?i)\\s*\\([^)]*\\)", "").trim();
                     StringBuilder sb = new StringBuilder(cleanParent);
 
@@ -151,16 +151,6 @@ public class ProductCommandService {
                             }
                         }
                     }
-
-                    String baseUnit = "đôi";
-                    if (request.getUnits() != null && !request.getUnits().isEmpty()) {
-                        baseUnit = request.getUnits().stream()
-                                .filter(u -> Boolean.TRUE.equals(u.getIsBase()) || (u.getUnitBase() != null && BigDecimal.ONE.compareTo(u.getUnitBase()) == 0))
-                                .map(UpsertProductRequest.UnitRequest::getName)
-                                .findFirst()
-                                .orElse(request.getUnits().get(0).getName());
-                    }
-                    sb.append("(").append(baseUnit).append(")");
                     name = sb.toString();
                 }
             }

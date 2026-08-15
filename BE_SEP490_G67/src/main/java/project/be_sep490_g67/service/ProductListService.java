@@ -263,5 +263,4 @@ public class ProductListService {
     boolean matchesFacet(ProductListItemDTO dto, String facet) {
         return facet.equals(dto.getFacetStatus());
     }
-
 }

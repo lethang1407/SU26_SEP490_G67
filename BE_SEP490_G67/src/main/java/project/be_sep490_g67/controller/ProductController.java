@@ -5,7 +5,6 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import project.be_sep490_g67.constants.ApiPath;
@@ -24,8 +23,6 @@ import project.be_sep490_g67.dto.response.ProductSearchResponse;
 import project.be_sep490_g67.dto.response.PriceHistoryResponse;
 import project.be_sep490_g67.service.ProductService;
 
-import org.springframework.security.access.prepost.PreAuthorize;
-
 import java.util.List;
 
 @RestController
@@ -38,7 +35,6 @@ public class ProductController {
     ProductListService productListService;
     ProductCommandService productCommandService;
 
-    @PreAuthorize("hasAuthority('PRODUCT:VIEW')")
     @GetMapping
     ApiResponse<PageResponse<ProductListResponse>> getProductList(
             @RequestParam(required = false) String keyword,
@@ -55,7 +51,6 @@ public class ProductController {
      * GET /api/products/barcode/{barcode}
      * find product by its barcode. Returns product info + units + available stock batches.
      */
-    @PreAuthorize("hasAuthority('PRODUCT:VIEW')")
     @GetMapping("/barcode/{barcode}")
     ApiResponse<ProductBarcodeResponse> getByBarcode(@PathVariable String barcode) {
         ProductBarcodeResponse result = productService.getProductByBarcode(barcode);
@@ -79,7 +74,6 @@ public class ProductController {
     /**
      * GET /api/products/search?q={query}
      */
-    @PreAuthorize("hasAuthority('PRODUCT:VIEW')")
     @GetMapping("/search")
     ApiResponse<List<ProductSearchResponse>> searchByName(@RequestParam("q") String query) {
         List<ProductSearchResponse> results = productService.searchByNameAndBarcode(query);
@@ -88,7 +82,6 @@ public class ProductController {
                 .build();
     }
 
-    @PreAuthorize("hasAuthority('PRODUCT:VIEW')")
     @GetMapping("/list")
     public ApiResponse<PageResponse<ProductListItemDTO>> getProducts(
             @RequestParam(defaultValue = "hot") String facet,
@@ -105,7 +98,6 @@ public class ProductController {
                 .build();
     }
 
-   @PreAuthorize("hasAuthority('PRODUCT:VIEW')")
    @GetMapping("/{id}")
    public ApiResponse<ProductDetailDTO> getProduct(@PathVariable Integer id) {
        return ApiResponse.<ProductDetailDTO>builder()
@@ -114,7 +106,6 @@ public class ProductController {
                .build();
    }
 
-    @PreAuthorize("hasAuthority('PRODUCT:CREATE')")
     @PostMapping
     public ApiResponse<ProductDetailDTO> createProduct(@Valid @RequestBody UpsertProductRequest request) {
         return ApiResponse.<ProductDetailDTO>builder()
@@ -123,7 +114,6 @@ public class ProductController {
                 .build();
     }
 
-    @PreAuthorize("hasAuthority('PRODUCT:UPDATE')")
     @PutMapping("/{id}")
     public ApiResponse<ProductDetailDTO> updateProduct(
             @PathVariable Integer id,
@@ -135,7 +125,6 @@ public class ProductController {
                 .build();
     }
 
-    @PreAuthorize("hasAuthority('PRODUCT:UPDATE')")
     @PostMapping(value = "/{id}/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<ProductDetailDTO.ImageDTO> uploadImage(
             @PathVariable Integer id,
@@ -147,7 +136,6 @@ public class ProductController {
                 .build();
     }
 
-    @PreAuthorize("hasAuthority('PRODUCT:DELETE')")
     @DeleteMapping("/{id}/images/{imageId}")
     public ApiResponse<Void> deleteImage(@PathVariable Integer id, @PathVariable Integer imageId) {
         productCommandService.deleteImage(id, imageId);
@@ -156,7 +144,6 @@ public class ProductController {
                 .build();
     }
 
-    @PreAuthorize("hasAuthority('PRODUCT:VIEW')")
     @GetMapping("/{productId}/legacy-detail")
     ApiResponse<ProductDetailResponse> getProductById(@PathVariable Integer productId) {
         return ApiResponse.<ProductDetailResponse>builder()
@@ -164,7 +151,6 @@ public class ProductController {
                 .build();
     }
 
-    @PreAuthorize("hasAuthority('PRODUCT:VIEW')")
     @GetMapping("/{id}/price-history")
     public ApiResponse<List<PriceHistoryResponse>> getPriceHistory(@PathVariable Integer id) {
         return ApiResponse.<List<PriceHistoryResponse>>builder()

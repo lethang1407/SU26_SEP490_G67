@@ -22,7 +22,7 @@ import {
   FiTrendingUp,
 } from "react-icons/fi";
 import Header from "../../../components/ui/header-footer/Header";
-import { getOverviewCustomer, getCustomerDebts, getCustomerDetail } from "../api";
+import { getOverviewCustomer, getCustomerDebts, getTodayDebtSummary, getCustomerDetail } from "../api";
 import CreateCustomerDebtModal from "../components/CreateCustomerDebtModal";
 import TodayPaymentsModal from "../components/TodayPaymentsModal";
 import TodayDebtSalesModal from "../components/TodayDebtSalesModal";
