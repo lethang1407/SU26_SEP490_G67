@@ -40,8 +40,8 @@ public class ProductController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String status,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size) {
         return ApiResponse.<PageResponse<ProductListResponse>>builder()
                 .result(productService.getProductList(keyword, category, status, page, size))
                 .build();
@@ -87,8 +87,8 @@ public class ProductController {
             @RequestParam(defaultValue = "hot") String facet,
             @RequestParam(required = false) Integer categoryId,
             @RequestParam(required = false) String keyword,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size
     ) {
         PageResponse<ProductListItemDTO> result =
                 productListService.getProductPage(facet, categoryId, keyword, page, size);

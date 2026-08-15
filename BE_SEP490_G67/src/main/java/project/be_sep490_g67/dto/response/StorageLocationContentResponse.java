@@ -29,4 +29,6 @@ public class StorageLocationContentResponse {
     Integer quantity;
     BigDecimal importPrice;
     String expiryDate;
+    /** Thời điểm hàng được đưa vào vị trí (ISO-8601), dùng cho khu đổi trả. */
+    String placedAt;
 }

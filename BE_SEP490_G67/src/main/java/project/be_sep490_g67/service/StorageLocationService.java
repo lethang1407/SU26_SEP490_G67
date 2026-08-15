@@ -91,6 +91,9 @@ public class StorageLocationService {
         }
 
         StorageZone zoneEntity = storageZoneService.ensureZoneExists(zone);
+        if (storageZoneService.isReturnHoldZone(zoneEntity)) {
+            throw new AppException(ErrorCode.STORAGE_RETURN_HOLD_LOCKED);
+        }
 
         StorageLocation location = new StorageLocation();
         location.setStorageZone(zoneEntity);
@@ -331,7 +334,8 @@ public class StorageLocationService {
      * Khu bán: bỏ ràng buộc này — 1 ô được nhiều mặt hàng / nhiều lô.
      */
     private void assertWarehouseSingleProduct(StorageLocation location, Integer productId) {
-        if (storageZoneService.isSalesZone(location.getStorageZone())) {
+        if (storageZoneService.isSalesZone(location.getStorageZone())
+                || storageZoneService.isReturnHoldZone(location.getStorageZone())) {
             return;
         }
 
@@ -409,7 +413,18 @@ public class StorageLocationService {
                 .quantity(batchLocation.getQuantity())
                 .importPrice(batch.getCostPerUnit() != null ? batch.getCostPerUnit() : product.getCostPrice())
                 .expiryDate(batch.getExpiryDate() != null ? batch.getExpiryDate().toString() : null)
+                .placedAt(resolvePlacedAt(batchLocation))
                 .build();
+    }
+
+    private String resolvePlacedAt(BatchLocation batchLocation) {
+        if (batchLocation.getUpdatedAt() != null) {
+            return batchLocation.getUpdatedAt().toString();
+        }
+        if (batchLocation.getCreatedAt() != null) {
+            return batchLocation.getCreatedAt().toString();
+        }
+        return null;
     }
 
     private UnplacedBatchResponse toUnplacedResponse(StockBatch batch) {

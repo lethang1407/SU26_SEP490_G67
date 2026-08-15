@@ -1,5 +1,5 @@
 -- ------------------------------------------------------------
--- V32: Add parent_id to products, is_primary to attributes, and create price_history table
+-- V38: Add parent_id to products, is_primary to attributes, and create price_history table
 -- ------------------------------------------------------------
 
 -- 1) parent_id in products

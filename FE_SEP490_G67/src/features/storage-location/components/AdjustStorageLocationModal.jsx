@@ -35,6 +35,8 @@ const PICK_MODE = {
 };
 
 const SALES_ZONE_ALERT_CODES = new Set([1057, 1058]);
+const PRODUCT_MISMATCH_ALERT_CODE = 1035;
+const UNPLACED_PAGE_SIZE_OPTIONS = [10, 20, 50];
 
 function isSalesZoneAlertError(error) {
     const code = error?.response?.data?.code;
@@ -45,6 +47,18 @@ function isSalesZoneAlertError(error) {
     return (
         message.includes('khu bán') &&
         (message.includes('1 lô') || message.includes('tách cùng một lô'))
+    );
+}
+
+function isProductMismatchAlertError(error) {
+    const code = Number(error?.response?.data?.code);
+    if (code === PRODUCT_MISMATCH_ALERT_CODE) {
+        return true;
+    }
+    const message = String(error?.response?.data?.message ?? '');
+    return (
+        message.includes('Mỗi ô khu kho chỉ chứa một loại sản phẩm') ||
+        message.includes('Ô khu kho đang chứa sản phẩm khác')
     );
 }
 
@@ -292,11 +306,14 @@ export default function AdjustStorageLocationModal({
     locations,
     onSaved,
     initialLocationId = null,
+    initialUnplacedBatchId = null,
 }) {
     const [draftLocations, setDraftLocations] = useState([]);
     const [unplacedBatches, setUnplacedBatches] = useState([]);
     const [selectedLocationId, setSelectedLocationId] = useState(null);
     const [unplacedKeyword, setUnplacedKeyword] = useState('');
+    const [unplacedPage, setUnplacedPage] = useState(1);
+    const [unplacedPageSize, setUnplacedPageSize] = useState(10);
     const [message, setMessage] = useState(null);
     const [dragOverTarget, setDragOverTarget] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -307,12 +324,22 @@ export default function AdjustStorageLocationModal({
     const [focusBatch, setFocusBatch] = useState(null);
     const [pickMode, setPickMode] = useState(PICK_MODE.none);
     const [pendingMoveItem, setPendingMoveItem] = useState(null);
-    const [alertMessage, setAlertMessage] = useState(null);
+    const [alertNotice, setAlertNotice] = useState(null);
 
     const reportApiError = (error, fallback) => {
         const text = getApiErrorMessage(error, fallback);
+        if (isProductMismatchAlertError(error)) {
+            setAlertNotice({
+                title: 'Không thể chuyển kệ',
+                message: 'Không thể chuyển kệ.',
+            });
+            return;
+        }
         if (isSalesZoneAlertError(error)) {
-            setAlertMessage(text);
+            setAlertNotice({
+                title: 'Không thể xếp vào khu bán',
+                message: text,
+            });
             return;
         }
         setMessage({ type: 'error', text });
@@ -324,8 +351,9 @@ export default function AdjustStorageLocationModal({
             fetchUnplacedBatches(),
         ]);
         const cloned = cloneLocations(nextLocations);
+        const unplaced = nextUnplaced ?? [];
         setDraftLocations(cloned);
-        setUnplacedBatches(nextUnplaced ?? []);
+        setUnplacedBatches(unplaced);
         setSelectedLocationId((prev) => {
             const preferred = preferredId ?? prev;
             if (preferred && cloned.some((location) => location.id === preferred)) {
@@ -333,7 +361,7 @@ export default function AdjustStorageLocationModal({
             }
             return null;
         });
-        return cloned;
+        return { locations: cloned, unplaced };
     };
 
     useEffect(() => {
@@ -349,15 +377,49 @@ export default function AdjustStorageLocationModal({
             setMessage(null);
             setDragOverTarget(null);
             setUnplacedKeyword('');
+            setUnplacedPage(1);
             setHasChanges(false);
             setPlaceQtyRequest(null);
             setFocusBatch(null);
             setPickMode(PICK_MODE.none);
             setPendingMoveItem(null);
-            setAlertMessage(null);
+            setAlertNotice(null);
 
             try {
-                await reloadData(locations, initialLocationId);
+                const { unplaced } = await reloadData(locations, initialLocationId);
+                if (!cancelled && initialUnplacedBatchId != null) {
+                    const batch = unplaced.find(
+                        (item) =>
+                            item.id === initialUnplacedBatchId ||
+                            String(item.id) === String(initialUnplacedBatchId),
+                    );
+                    if (batch) {
+                        const batchIndex = unplaced.findIndex(
+                            (item) =>
+                                item.id === batch.id ||
+                                String(item.id) === String(batch.id),
+                        );
+                        if (batchIndex >= 0) {
+                            setUnplacedPage(
+                                Math.floor(batchIndex / unplacedPageSize) + 1,
+                            );
+                        }
+                        setFocusBatch({
+                            ...batch,
+                            _sourceLocationId: null,
+                        });
+                        setPickMode(PICK_MODE.moveOne);
+                        setPendingMoveItem({
+                            ...batch,
+                            locationId: null,
+                            placeMode: 'assign',
+                        });
+                        setMessage({
+                            type: 'info',
+                            text: `Chọn ô đích để xếp lô ${batch.batchCode}.`,
+                        });
+                    }
+                }
             } catch (error) {
                 if (!cancelled) {
                     const cloned = cloneLocations(locations);
@@ -373,7 +435,7 @@ export default function AdjustStorageLocationModal({
                         type: 'error',
                         text: getApiErrorMessage(
                             error,
-                            'Không tải được danh sách lô chưa xếp. Đang dùng dữ liệu vị trí hiện có.',
+                            'Không tải được danh sách hàng hóa chưa sắp xếp. Đang dùng dữ liệu vị trí hiện có.',
                         ),
                     });
                 }
@@ -411,6 +473,35 @@ export default function AdjustStorageLocationModal({
                 batch.categoryName?.toLowerCase().includes(keyword),
         );
     }, [unplacedBatches, unplacedKeyword]);
+
+    const unplacedTotalItems = filteredUnplaced.length;
+    const unplacedTotalPages = Math.max(
+        1,
+        Math.ceil(unplacedTotalItems / unplacedPageSize) || 1,
+    );
+    const safeUnplacedPage = Math.min(unplacedPage, unplacedTotalPages);
+
+    const pagedUnplaced = useMemo(() => {
+        const start = (safeUnplacedPage - 1) * unplacedPageSize;
+        return filteredUnplaced.slice(start, start + unplacedPageSize);
+    }, [filteredUnplaced, safeUnplacedPage, unplacedPageSize]);
+
+    const unplacedStartIndex =
+        unplacedTotalItems === 0 ? 0 : (safeUnplacedPage - 1) * unplacedPageSize + 1;
+    const unplacedEndIndex = Math.min(
+        safeUnplacedPage * unplacedPageSize,
+        unplacedTotalItems,
+    );
+
+    useEffect(() => {
+        setUnplacedPage(1);
+    }, [unplacedKeyword, unplacedPageSize]);
+
+    useEffect(() => {
+        if (unplacedPage > unplacedTotalPages) {
+            setUnplacedPage(unplacedTotalPages);
+        }
+    }, [unplacedPage, unplacedTotalPages]);
 
     const suggestions = useMemo(() => {
         // Chỉ gợi ý khi đang ở chế độ chuyển 1 lô (bấm nút Chuyển)
@@ -493,7 +584,7 @@ export default function AdjustStorageLocationModal({
             if (maxQty < 1) {
                 setMessage({
                     type: 'error',
-                    text: 'Lô không còn số lượng chưa xếp.',
+                    text: 'Hàng hóa không còn số lượng chưa sắp xếp.',
                 });
                 return;
             }
@@ -600,7 +691,7 @@ export default function AdjustStorageLocationModal({
             setHasChanges(true);
             setMessage({
                 type: 'success',
-                text: 'Đã gỡ lô khỏi kệ — trả về danh sách chưa xếp.',
+                text: 'Đã gỡ lô khỏi kệ — trả về danh sách hàng hóa chưa sắp xếp.',
             });
         } catch (error) {
             setMessage({
@@ -759,6 +850,8 @@ export default function AdjustStorageLocationModal({
         <Modal
             show={show}
             onHide={handleClose}
+            className="storage-modal--stacked"
+            backdropClassName="storage-modal-backdrop--stacked"
             dialogClassName="storage-adjust-modal"
             centered
             enforceFocus={!placeQtyRequest}
@@ -1006,7 +1099,9 @@ export default function AdjustStorageLocationModal({
                             }}
                             onDrop={handleDropOnUnplaced}
                         >
-                            <h3 className="storage-adjust-modal__section-title">Lô chưa xếp kệ</h3>
+                            <h3 className="storage-adjust-modal__section-title">
+                                Hàng hóa chưa sắp xếp
+                            </h3>
                             <p className="storage-adjust-modal__helper storage-adjust-modal__helper--tight">
                                 Kéo thả hoặc bấm Chuyển để xếp vào ô kệ.
                             </p>
@@ -1023,12 +1118,12 @@ export default function AdjustStorageLocationModal({
                             </div>
 
                             <div className="storage-adjust-modal__unplaced-count">
-                                {filteredUnplaced.length} lô chờ xếp
+                                {unplacedTotalItems} hàng hóa chờ xếp
                             </div>
 
                             <div className="storage-adjust-modal__unplaced-list">
-                                {filteredUnplaced.length > 0 ? (
-                                    filteredUnplaced.map((batch) => (
+                                {pagedUnplaced.length > 0 ? (
+                                    pagedUnplaced.map((batch) => (
                                         <div
                                             key={batch.id}
                                             className={[
@@ -1091,11 +1186,63 @@ export default function AdjustStorageLocationModal({
                                 ) : (
                                     <div className="storage-adjust-modal__empty">
                                         {unplacedBatches.length === 0
-                                            ? 'Không còn lô chưa xếp kệ.'
-                                            : 'Không tìm thấy lô phù hợp.'}
+                                            ? 'Không còn hàng hóa chưa sắp xếp.'
+                                            : 'Không tìm thấy hàng hóa phù hợp.'}
                                     </div>
                                 )}
                             </div>
+
+                            {unplacedTotalItems > 0 ? (
+                                <div className="storage-adjust-modal__unplaced-pagination">
+                                    <div className="storage-adjust-modal__unplaced-pagination-info">
+                                        {unplacedStartIndex}–{unplacedEndIndex} / {unplacedTotalItems}
+                                    </div>
+                                    <div className="storage-adjust-modal__unplaced-pagination-controls">
+                                        <label className="storage-adjust-modal__page-size">
+                                            <span>Số bản ghi</span>
+                                            <select
+                                                value={unplacedPageSize}
+                                                onChange={(event) =>
+                                                    setUnplacedPageSize(Number(event.target.value))
+                                                }
+                                            >
+                                                {UNPLACED_PAGE_SIZE_OPTIONS.map((size) => (
+                                                    <option key={size} value={size}>
+                                                        {size}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </label>
+                                        <button
+                                            type="button"
+                                            className="storage-adjust-modal__page-btn"
+                                            disabled={safeUnplacedPage <= 1}
+                                            onClick={() =>
+                                                setUnplacedPage((prev) => Math.max(1, prev - 1))
+                                            }
+                                            aria-label="Trang trước"
+                                        >
+                                            ‹
+                                        </button>
+                                        <span className="storage-adjust-modal__page-label">
+                                            {safeUnplacedPage}/{unplacedTotalPages}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            className="storage-adjust-modal__page-btn"
+                                            disabled={safeUnplacedPage >= unplacedTotalPages}
+                                            onClick={() =>
+                                                setUnplacedPage((prev) =>
+                                                    Math.min(unplacedTotalPages, prev + 1),
+                                                )
+                                            }
+                                            aria-label="Trang sau"
+                                        >
+                                            ›
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : null}
                         </aside>
                     </>
                 )}
@@ -1116,11 +1263,11 @@ export default function AdjustStorageLocationModal({
                 onConfirm={handleConfirmPlaceQuantity}
             />
             <AlertNoticeModal
-                open={Boolean(alertMessage)}
-                title="Không thể xếp vào khu bán"
-                message={alertMessage}
+                open={Boolean(alertNotice?.message)}
+                title={alertNotice?.title ?? 'Cảnh báo'}
+                message={alertNotice?.message}
                 overlayClassName="storage-adjust-alert-overlay"
-                onClose={() => setAlertMessage(null)}
+                onClose={() => setAlertNotice(null)}
             />
         </>
     );

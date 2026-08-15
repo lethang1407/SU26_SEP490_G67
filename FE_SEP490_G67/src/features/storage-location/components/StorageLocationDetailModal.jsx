@@ -29,6 +29,8 @@ export default function StorageLocationDetailModal({
         <Modal
             show={show}
             onHide={onClose}
+            className="storage-modal--stacked"
+            backdropClassName="storage-modal-backdrop--stacked"
             dialogClassName="storage-location-detail-modal"
             contentClassName="storage-location-detail-modal__content"
             centered

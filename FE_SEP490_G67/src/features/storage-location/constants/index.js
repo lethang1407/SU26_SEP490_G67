@@ -72,11 +72,13 @@ export const SHELF_CAPACITY = {
 export const ZONE_TYPE = {
     SALES: 'SALES',
     WAREHOUSE: 'WAREHOUSE',
+    RETURN_HOLD: 'RETURN_HOLD',
 };
 
 export const ZONE_TYPE_LABEL = {
     [ZONE_TYPE.SALES]: 'Bán',
     [ZONE_TYPE.WAREHOUSE]: 'Kho',
+    [ZONE_TYPE.RETURN_HOLD]: 'Đổi trả',
 };
 
 export const ZONE_TYPE_OPTIONS = [
@@ -84,7 +86,16 @@ export const ZONE_TYPE_OPTIONS = [
     { value: ZONE_TYPE.WAREHOUSE, label: 'Khu kho' },
 ];
 
+export const RETURN_HOLD_ZONE_CODE = 'RT';
+export const RETURN_HOLD_LOCATION_LABEL = 'RT-HOLD';
+
 export function normalizeZoneType(raw) {
     const value = String(raw ?? '').trim().toUpperCase();
-    return value === ZONE_TYPE.SALES ? ZONE_TYPE.SALES : ZONE_TYPE.WAREHOUSE;
+    if (value === ZONE_TYPE.SALES) return ZONE_TYPE.SALES;
+    if (value === ZONE_TYPE.RETURN_HOLD) return ZONE_TYPE.RETURN_HOLD;
+    return ZONE_TYPE.WAREHOUSE;
+}
+
+export function isReturnHoldLocation(location) {
+    return normalizeZoneType(location?.zoneType) === ZONE_TYPE.RETURN_HOLD;
 }

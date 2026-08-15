@@ -10,12 +10,15 @@ import StorageLocationDetailModal from '../components/StorageLocationDetailModal
 import StorageLocationGrid from '../components/StorageLocationGrid';
 import StorageLocationTable from '../components/StorageLocationTable';
 import StorageLocationToolbar from '../components/StorageLocationToolbar';
+import ReturnHoldPanel from '../components/ReturnHoldPanel';
 import UnplacedBatchesPanel from '../components/UnplacedBatchesPanel';
 import ZoneDetailModal from '../components/ZoneDetailModal';
 import { LOCATION_STATUS, VIEW_MODE } from '../constants';
 import {
     filterStorageLocations,
     getFloorOptions,
+    getReturnHoldLocation,
+    getShelfLocations,
     getZoneOptions,
     groupLocationsByZone,
 } from '../utils/storageLocationUtils';
@@ -49,6 +52,7 @@ export default function StorageLocationListPage() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showAdjustModal, setShowAdjustModal] = useState(false);
     const [adjustInitialLocationId, setAdjustInitialLocationId] = useState(null);
+    const [adjustInitialBatchId, setAdjustInitialBatchId] = useState(null);
     const [selectedZoneGroup, setSelectedZoneGroup] = useState(null);
     const [reloadKey, setReloadKey] = useState(0);
     const [draftLocations, setDraftLocations] = useState(null);
@@ -98,16 +102,24 @@ export default function StorageLocationListPage() {
     }, [reloadKey]);
 
     const locationsData = draftLocations ?? allLocations;
+    const shelfLocations = useMemo(
+        () => getShelfLocations(locationsData),
+        [locationsData],
+    );
+    const returnHoldLocation = useMemo(
+        () => getReturnHoldLocation(locationsData),
+        [locationsData],
+    );
 
-    const zoneOptions = useMemo(() => getZoneOptions(locationsData), [locationsData]);
+    const zoneOptions = useMemo(() => getZoneOptions(shelfLocations), [shelfLocations]);
     const aisleOptions = useMemo(
-        () => getFloorOptions(locationsData, appliedFilters.zoneFilter),
-        [locationsData, appliedFilters.zoneFilter],
+        () => getFloorOptions(shelfLocations, appliedFilters.zoneFilter),
+        [shelfLocations, appliedFilters.zoneFilter],
     );
 
     const filteredLocations = useMemo(
-        () => filterStorageLocations(locationsData, appliedFilters),
-        [locationsData, appliedFilters],
+        () => filterStorageLocations(shelfLocations, appliedFilters),
+        [shelfLocations, appliedFilters],
     );
 
     const zoneGroups = useMemo(
@@ -129,8 +141,12 @@ export default function StorageLocationListPage() {
     }, [zoneGroups, selectedZoneGroup]);
 
     const existingZones = useMemo(
-        () => [...new Set(locationsData.map((location) => location.zone).filter(Boolean))],
-        [locationsData],
+        () => [
+            ...new Set(
+                shelfLocations.map((location) => location.zone).filter(Boolean),
+            ),
+        ],
+        [shelfLocations],
     );
 
     const handleLocationCreated = (createdLocation) => {
@@ -168,12 +184,14 @@ export default function StorageLocationListPage() {
 
     const handleAdjustLocation = (location) => {
         setAdjustInitialLocationId(location?.id ?? null);
+        setAdjustInitialBatchId(null);
         setSelectedLocation(null);
         setShowAdjustModal(true);
     };
 
-    const openAdjustModal = () => {
+    const openAdjustModal = (batch = null) => {
         setAdjustInitialLocationId(null);
+        setAdjustInitialBatchId(batch?.id ?? null);
         setShowAdjustModal(true);
     };
 
@@ -234,7 +252,7 @@ export default function StorageLocationListPage() {
                                 <button
                                     type="button"
                                     className="inventory-btn inventory-btn--secondary"
-                                    onClick={openAdjustModal}
+                                    onClick={() => openAdjustModal()}
                                 >
                                     <Settings2 size={18} />
                                     Điều chỉnh
@@ -290,10 +308,15 @@ export default function StorageLocationListPage() {
                                     />
                                 )}
 
+                                <ReturnHoldPanel
+                                    location={returnHoldLocation}
+                                    loading={isLoading}
+                                />
+
                                 <UnplacedBatchesPanel
                                     batches={unplacedBatches}
                                     loading={unplacedLoading}
-                                    onPlaceBatch={() => openAdjustModal()}
+                                    onPlaceBatch={(batch) => openAdjustModal(batch)}
                                 />
                             </>
                         )}
@@ -312,10 +335,12 @@ export default function StorageLocationListPage() {
                 onHide={() => {
                     setShowAdjustModal(false);
                     setAdjustInitialLocationId(null);
+                    setAdjustInitialBatchId(null);
                 }}
                 locations={locationsData}
                 onSaved={handleAdjustSaved}
                 initialLocationId={adjustInitialLocationId}
+                initialUnplacedBatchId={adjustInitialBatchId}
             />
 
             <ZoneDetailModal

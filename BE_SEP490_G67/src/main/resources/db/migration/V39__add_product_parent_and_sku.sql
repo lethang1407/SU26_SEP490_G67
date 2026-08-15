@@ -1,5 +1,5 @@
 -- ============================================================
--- V33: products.parent_id (biến thể / SP con) + products.sku
+-- V39: products.parent_id (biến thể / SP con) + products.sku
 -- Guarded: tránh lỗi nếu cột đã tồn tại.
 -- ============================================================
 

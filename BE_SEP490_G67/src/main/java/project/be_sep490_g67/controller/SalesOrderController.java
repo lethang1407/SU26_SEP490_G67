@@ -44,8 +44,8 @@ public class SalesOrderController {
      */
     @GetMapping
     ApiResponse<SalesOrderListResponse> getOrderHistory(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String orderCode,
             @RequestParam(required = false) String customer,
@@ -160,8 +160,8 @@ public class SalesOrderController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) BigDecimal amount,
             @RequestParam(required = false) BigDecimal amountTolerance,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size
     ) {
         ZoneId vnZone = ZoneId.of("Asia/Ho_Chi_Minh");
         Instant fromInstant = from != null ? from.atStartOfDay(vnZone).toInstant() : null;
