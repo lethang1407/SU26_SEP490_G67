@@ -122,12 +122,12 @@ export const menus = [
         icon: User,
         path: "/admin/staff",
         permission: "STAFF:VIEW"
-    },
-    {
-        id: "api-permissions",
-        title: "Phân quyền API",
-        icon: ShieldCheck,
-        path: "/admin/api-permissions",
-        permission: "STAFF:VIEW"
     }
+    // {
+    //     id: "api-permissions",
+    //     title: "Phân quyền API",
+    //     icon: ShieldCheck,
+    //     path: "/admin/api-permissions",
+    //     permission: "STAFF:VIEW"
+    // }
 ];
