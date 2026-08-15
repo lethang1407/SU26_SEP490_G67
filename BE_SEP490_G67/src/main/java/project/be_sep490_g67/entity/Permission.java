@@ -7,6 +7,8 @@ import lombok.Setter;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 @Getter
 @Setter
 @Entity
@@ -29,6 +31,7 @@ public class Permission extends BaseEntity {
     @Column(name = "description")
     private String description;
 
+    @JsonIgnore
     @ManyToMany(mappedBy = "permissions")
     private Set<Role> roles = new LinkedHashSet<>();
 

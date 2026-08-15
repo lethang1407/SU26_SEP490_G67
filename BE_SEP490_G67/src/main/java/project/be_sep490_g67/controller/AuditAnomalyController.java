@@ -12,8 +12,6 @@ import project.be_sep490_g67.service.AuditAnomalyService;
 import java.time.LocalDate;
 import java.util.List;
 
-import org.springframework.security.access.prepost.PreAuthorize;
-
 @RestController
 @RequestMapping("/api/audit/anomalies")
 @RequiredArgsConstructor
@@ -22,7 +20,6 @@ public class AuditAnomalyController {
 
     private final AuditAnomalyService auditAnomalyService;
 
-    @PreAuthorize("hasAuthority('AUDIT:VIEW')")
     @GetMapping
     public ResponseEntity<List<AuditAnomalyDTO>> getAnomalies(
             @RequestParam(value = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -33,7 +30,6 @@ public class AuditAnomalyController {
         return ResponseEntity.ok(auditAnomalyService.getAnomalies(startDate, endDate));
     }
 
-    @PreAuthorize("hasAuthority('AUDIT:RESOLVE')")
     @PostMapping("/resolve")
     public ResponseEntity<AuditResolution> resolveAnomaly(@RequestBody ResolveAnomalyDTO dto) {
         return ResponseEntity.ok(auditAnomalyService.resolveAnomaly(dto));

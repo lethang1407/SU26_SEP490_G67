@@ -43,18 +43,8 @@ export const menus = [
         id: "orders",
         title: "Đơn hàng",
         icon: ShoppingCart,
-        children: [
-            {
-                title: "Danh sách đơn hàng",
-                path: "/admin/orders",
-                permission: ["SALES_ORDER:VIEW_ALL", "SALES_ORDER:VIEW_OWN"]
-            },
-            {
-                title: "Đối soát & Hậu kiểm",
-                path: "/admin/orders/reconciliation",
-                permission: "AUDIT:VIEW"
-            }
-        ]
+        path: "/admin/orders/reconciliation",
+        permission: "AUDIT:VIEW"
     },
     {
         id: "products",

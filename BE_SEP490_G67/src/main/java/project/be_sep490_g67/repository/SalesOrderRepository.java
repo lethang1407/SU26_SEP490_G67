@@ -188,4 +188,24 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
             ORDER BY so.createdAt DESC
             """)
     List<SalesOrder> findActiveDebtSalesCreatedBetween(@Param("start") Instant start, @Param("end") Instant end);
+
+    @Query("""
+            SELECT COALESCE(SUM(so.paidAmount), 0)
+            FROM SalesOrder so
+            WHERE so.isRemoved = false
+              AND so.orderStatus <> 'CANCELLED'
+              AND (so.paymentMethod = 'CASH' OR so.paymentMethod IS NULL)
+              AND so.createdAt >= :start AND so.createdAt < :end
+            """)
+    BigDecimal sumCashSalesBetween(@Param("start") Instant start, @Param("end") Instant end);
+
+    @Query("""
+            SELECT COALESCE(SUM(so.paidAmount), 0)
+            FROM SalesOrder so
+            WHERE so.isRemoved = false
+              AND so.orderStatus <> 'CANCELLED'
+              AND (so.paymentMethod = 'BANK' OR so.paymentMethod = 'BANK_TRANSFER' OR so.paymentMethod = 'TRANSFER')
+              AND so.createdAt >= :start AND so.createdAt < :end
+            """)
+    BigDecimal sumBankSalesBetween(@Param("start") Instant start, @Param("end") Instant end);
 }

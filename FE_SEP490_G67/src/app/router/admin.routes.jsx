@@ -24,10 +24,10 @@ import ExchangeOrder from '../../features/pos-screen/components/ExchangeOrder';
 import ExchangeOrderRedirect from '../../features/pos-screen/components/ExchangeOrderRedirect';
 import CustomerDebtPage from '../../features/customer/pages/CustomerDebtPage';
 import CustomerDetailPage from '../../features/customer/pages/CustomerDetailPage';
-import SalesOrderListPage from '../../features/sales-order/pages/SalesOrderListPage';
 import SalesOrderDetailPage from '../../features/sales-order/pages/SalesOrderDetailPage';
 import OrderReconciliationPage from '../../features/sales-order/pages/OrderReconciliationPage';
 import ApiPermissionsPage from '../../features/permission/pages/ApiPermissionsPage';
+import ProtectedRoute from './ProtectedRoute';
 
 const adminRoutes = [
     {
@@ -36,39 +36,39 @@ const adminRoutes = [
     },
     {
         path: '/admin/api-permissions',
-        element: <ProtectedRoute requiredRole={['MANAGER', 'ADMIN']}><ApiPermissionsPage /></ProtectedRoute>,
+        element: <ProtectedRoute><ApiPermissionsPage /></ProtectedRoute>,
     },
     {
         path: '/admin/staff/create',
-        element: <ProtectedRoute requiredPermission="STAFF:CREATE"><AddStaffPage /></ProtectedRoute>,
+        element: <ProtectedRoute><AddStaffPage /></ProtectedRoute>,
     },
     {
         path: '/admin/staff/:staffId',
-        element: <ProtectedRoute requiredPermission="STAFF:VIEW"><StaffInfoPage /></ProtectedRoute>,
+        element: <ProtectedRoute><StaffInfoPage /></ProtectedRoute>,
     },
     {
         path: '/admin/staff',
-        element: <ProtectedRoute requiredPermission="STAFF:VIEW"><StaffManagementPage /></ProtectedRoute>,
+        element: <ProtectedRoute><StaffManagementPage /></ProtectedRoute>,
     },
     {
         path: '/admin/products/create',
-        element: <ProtectedRoute requiredPermission="PRODUCT:CREATE"><ProductCreatePage /></ProtectedRoute>,
+        element: <ProtectedRoute><ProductCreatePage /></ProtectedRoute>,
     },
     {
         path: '/admin/products/categories',
-        element: <ProtectedRoute requiredPermission="PRODUCT:VIEW"><CategoryListPage /></ProtectedRoute>,
+        element: <ProtectedRoute><CategoryListPage /></ProtectedRoute>,
     },
     {
         path: '/admin/products/:productId/edit',
-        element: <ProtectedRoute requiredPermission="PRODUCT:UPDATE"><ProductEditPage /></ProtectedRoute>,
+        element: <ProtectedRoute><ProductEditPage /></ProtectedRoute>,
     },
     {
         path: '/admin/products/:productId',
-        element: <ProtectedRoute requiredPermission="PRODUCT:VIEW"><ProductDetailPage /></ProtectedRoute>,
+        element: <ProtectedRoute><ProductDetailPage /></ProtectedRoute>,
     },
     {
         path: '/admin/products',
-        element: <ProtectedRoute requiredPermission="PRODUCT:VIEW"><ProductImportPage /></ProtectedRoute>,
+        element: <ProtectedRoute><ProductImportPage /></ProtectedRoute>,
     },
     {
         path: '/admin',
@@ -76,100 +76,94 @@ const adminRoutes = [
     },
     {
         path: '/admin/store',
-        element: <ProtectedRoute requiredPermission="STORE:VIEW"><StoreInfor /></ProtectedRoute>,
+        element: <ProtectedRoute><StoreInfor /></ProtectedRoute>,
     },
     {
         path: '/admin/warehouse/locations',
-        element: <ProtectedRoute requiredPermission="WAREHOUSE:VIEW"><StorageLocationListPage /></ProtectedRoute>,
+        element: <ProtectedRoute><StorageLocationListPage /></ProtectedRoute>,
     },
     {
         path: '/admin/warehouse/check',
-        element: <ProtectedRoute requiredPermission="WAREHOUSE:CHECK_VIEW"><InventoryCheckListPage /></ProtectedRoute>,
-        element: <CreateInventoryCheckPage />,
+        element: <ProtectedRoute><InventoryCheckListPage /></ProtectedRoute>,
     },
     {
         path: '/admin/warehouse/check/history',
-        element: <InventoryCheckListPage />,
+        element: <ProtectedRoute><InventoryCheckListPage /></ProtectedRoute>,
     },
     {
         path: '/admin/warehouse/check/create',
-        element: <ProtectedRoute requiredPermission="WAREHOUSE:CHECK_CREATE"><CreateInventoryCheckPage /></ProtectedRoute>,
+        element: <ProtectedRoute><CreateInventoryCheckPage /></ProtectedRoute>,
     },
     {
         path: '/admin/warehouse/check/:checkId',
-        element: <ProtectedRoute requiredPermission="WAREHOUSE:CHECK_VIEW"><InventoryCheckDetailPage /></ProtectedRoute>,
+        element: <ProtectedRoute><InventoryCheckDetailPage /></ProtectedRoute>,
     },
     {
         path: '/admin/warehouse/import/create',
-        element: <ProtectedRoute requiredPermission="IMPORT:CREATE"><CreateImportOrderPage /></ProtectedRoute>,
+        element: <ProtectedRoute><CreateImportOrderPage /></ProtectedRoute>,
     },
     {
         path: '/admin/warehouse/import/:id/edit',
-        element: <ProtectedRoute requiredPermission="IMPORT:UPDATE"><CreateImportOrderPage /></ProtectedRoute>,
+        element: <ProtectedRoute><CreateImportOrderPage /></ProtectedRoute>,
     },
     {
         path: '/admin/warehouse/product-import',
-        element: <ProtectedRoute requiredPermission="IMPORT:CREATE"><ProductImportPage /></ProtectedRoute>,
+        element: <ProtectedRoute><ProductImportPage /></ProtectedRoute>,
     },
     {
         path: '/admin/warehouse/import-history',
-        element: <ProtectedRoute requiredPermission="IMPORT:VIEW"><ImportHistoryPage /></ProtectedRoute>,
+        element: <ProtectedRoute><ImportHistoryPage /></ProtectedRoute>,
     },
     {
         path: '/admin/warehouse/import',
-        element: <ProtectedRoute requiredPermission="IMPORT:VIEW"><ImportOrderListPage /></ProtectedRoute>,
+        element: <ProtectedRoute><ImportOrderListPage /></ProtectedRoute>,
     },
     {
         path: '/admin/warehouse/import/:orderId',
-        element: <ProtectedRoute requiredPermission="IMPORT:VIEW"><ImportOrderDetailPage /></ProtectedRoute>,
+        element: <ProtectedRoute><ImportOrderDetailPage /></ProtectedRoute>,
     },
     {
         path: '/admin/warehouse/return',
-        element: <ProtectedRoute requiredPermission="IMPORT:VIEW"><ImportReturnPage /></ProtectedRoute>,
+        element: <ProtectedRoute><ImportReturnPage /></ProtectedRoute>,
     },
     {
         path: '/admin/warehouse/supplier',
-        element: <ProtectedRoute requiredPermission="SUPPLIER:VIEW"><SupplierListPage /></ProtectedRoute>,
+        element: <ProtectedRoute><SupplierListPage /></ProtectedRoute>,
     },
     {
         path: '/admin/warehouse/supplier/:id',
-        element: <ProtectedRoute requiredPermission="SUPPLIER:VIEW"><SupplierDetailPage /></ProtectedRoute>,
-    },
-    {
-        path: '/admin/pos',
-        element: <ProtectedRoute requiredPermission="POS:SALE"><POSScreen /></ProtectedRoute>,
+        element: <ProtectedRoute><SupplierDetailPage /></ProtectedRoute>,
     },
     {
         path: '/admin/orders/:orderId',
-        element: <ProtectedRoute requiredPermission={["SALES_ORDER:VIEW_ALL", "SALES_ORDER:VIEW_OWN"]}><SalesOrderDetailPage /></ProtectedRoute>,
-    },
-    {
-        path: '/admin/orders',
-        element: <ProtectedRoute requiredPermission={["SALES_ORDER:VIEW_ALL", "SALES_ORDER:VIEW_OWN"]}><SalesOrderListPage /></ProtectedRoute>,
+        element: <ProtectedRoute><SalesOrderDetailPage /></ProtectedRoute>,
     },
     {
         path: '/admin/orders/reconciliation',
-        element: <ProtectedRoute requiredPermission="AUDIT:VIEW"><OrderReconciliationPage /></ProtectedRoute>,
-    },
-    {
-        path: '/admin/exchange-order/:orderId',
-        element: <ProtectedRoute requiredPermission="POS:EXCHANGE"><ExchangeOrder /></ProtectedRoute>,
-    },
-    {
-        path: '/admin/exchange-order',
-        element: <ExchangeOrder />,
-    },
-    {
-        path: '/admin/exchange-order/:orderId',
-        element: <ExchangeOrderRedirect />,
+        element: <ProtectedRoute><OrderReconciliationPage /></ProtectedRoute>,
     },
     {
         path: '/admin/customer/:customerId',
-        element: <ProtectedRoute requiredPermission="CUSTOMER:VIEW"><CustomerDetailPage /></ProtectedRoute>,
+        element: <ProtectedRoute><CustomerDetailPage /></ProtectedRoute>,
     },
     {
         path: '/admin/customer',
-        element: <ProtectedRoute requiredPermission="CUSTOMER:VIEW"><CustomerDebtPage /></ProtectedRoute>,
+        element: <ProtectedRoute><CustomerDebtPage /></ProtectedRoute>,
+    },
+];
+
+export const posRoutes = [
+    {
+        path: '/admin/pos',
+        element: <ProtectedRoute><POSScreen /></ProtectedRoute>,
+    },
+    {
+        path: '/admin/exchange-order/:orderId',
+        element: <ProtectedRoute><ExchangeOrderRedirect /></ProtectedRoute>,
+    },
+    {
+        path: '/admin/exchange-order',
+        element: <ProtectedRoute><ExchangeOrder /></ProtectedRoute>,
     },
 ];
 

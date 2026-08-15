@@ -1,6 +1,5 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Printer, ClipboardList } from 'lucide-react';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import SalesOrderStatusBadge from '../components/SalesOrderStatusBadge';
 import SalesOrderPaymentSummary from '../components/SalesOrderPaymentSummary';
@@ -30,11 +29,9 @@ export default function SalesOrderDetailPage() {
     const isCancelled = String(order?.orderStatus || '').toUpperCase() === 'CANCELLED';
 
     return (
-        <div className="admin-layout">
-            <SideBar />
-            <div className="admin-content">
-                <AdminHeader />
-                <main className="admin-main">
+        <div className="admin-content">
+            <AdminHeader />
+            <main className="admin-main">
                     <div className="dashboard-container supplier-page sales-order-page">
                         <button
                             type="button"
@@ -140,6 +137,5 @@ export default function SalesOrderDetailPage() {
                     </div>
                 </main>
             </div>
-        </div>
     );
 }

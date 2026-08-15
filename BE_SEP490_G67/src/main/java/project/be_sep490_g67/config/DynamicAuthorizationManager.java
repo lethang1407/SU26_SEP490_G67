@@ -42,35 +42,43 @@ public class DynamicAuthorizationManager implements AuthorizationManager<Request
         }
     }
 
+    @Override
+    @SuppressWarnings("unchecked")
+    public AuthorizationResult authorize(Supplier<? extends Authentication> authentication, RequestAuthorizationContext object) {
+        return check((Supplier<Authentication>) authentication, object);
+    }
+
     public AuthorizationDecision check(Supplier<Authentication> authenticationSupplier, RequestAuthorizationContext context) {
         HttpServletRequest request = context.getRequest();
         String requestURI = request.getRequestURI();
         String httpMethod = request.getMethod();
 
-        String requiredPermission = findRequiredPermission(requestURI, httpMethod);
-
         Authentication authentication = authenticationSupplier.get();
 
-        // If no specific permission is mapped for this endpoint, require basic authentication
-        if (requiredPermission == null) {
-            boolean isAuthenticated = authentication != null 
-                    && authentication.isAuthenticated() 
-                    && !"anonymousUser".equals(authentication.getPrincipal());
-            return new AuthorizationDecision(isAuthenticated);
-        }
-
+        // 1. Check if user is authenticated
         if (authentication == null 
                 || !authentication.isAuthenticated() 
                 || "anonymousUser".equals(authentication.getPrincipal())) {
             return new AuthorizationDecision(false);
         }
 
-        // Check if user has ADMIN/MANAGER role or has the exact required permission
+        // 2. Find required permission for the current URI and HTTP Method
+        String requiredPermission = findRequiredPermission(requestURI, httpMethod);
+
+        // 3. If no specific permission mapped in DB for this endpoint, require authenticated user
+        if (requiredPermission == null) {
+            return new AuthorizationDecision(true);
+        }
+
+        // 4. Check if user has ADMIN/MANAGER role or possesses the required permission code
         boolean hasAccess = authentication.getAuthorities().stream().anyMatch(authority -> {
             String authName = authority.getAuthority();
-            return "ROLE_ADMIN".equals(authName) 
-                    || "ROLE_MANAGER".equals(authName) 
-                    || requiredPermission.equals(authName);
+            if (authName == null) return false;
+            return "ROLE_ADMIN".equalsIgnoreCase(authName) 
+                    || "ADMIN".equalsIgnoreCase(authName)
+                    || "ROLE_MANAGER".equalsIgnoreCase(authName) 
+                    || "MANAGER".equalsIgnoreCase(authName)
+                    || requiredPermission.equalsIgnoreCase(authName);
         });
 
         return new AuthorizationDecision(hasAccess);
@@ -88,8 +96,4 @@ public class DynamicAuthorizationManager implements AuthorizationManager<Request
         return null;
     }
 
-    @Override
-    public @Nullable AuthorizationResult authorize(Supplier<? extends @Nullable Authentication> authentication, RequestAuthorizationContext object) {
-        return null;
-    }
 }

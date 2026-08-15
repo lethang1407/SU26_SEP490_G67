@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import SideBar from '../../../components/ui/sidebar/SideBar';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import ImportHistoryOverviewSummary from '../components/ImportHistoryOverviewSummary';
 import ImportHistoryProductFocus from '../components/ImportHistoryProductFocus';
@@ -199,11 +198,9 @@ export default function ImportHistoryPage() {
   };
 
   return (
-    <div className="admin-layout">
-      <SideBar />
-      <div className="admin-content">
-        <AdminHeader />
-        <main className="admin-main">
+    <div className="admin-content">
+      <AdminHeader />
+      <main className="admin-main">
           <div className="dashboard-container ih-page">
             <nav className="ih-breadcrumb" aria-label="Breadcrumb">
               <span>Quản lý kho</span>
@@ -268,6 +265,5 @@ export default function ImportHistoryPage() {
           </div>
         </main>
       </div>
-    </div>
   );
 }
