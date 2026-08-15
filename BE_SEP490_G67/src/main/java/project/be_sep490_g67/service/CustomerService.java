@@ -93,9 +93,9 @@ public class CustomerService {
 
         customer.setStatus(DebtStatus.NO_DEBT.name());
 
-        // Khách do quản lý tự thêm coi như đã được duyệt ngay từ đầu; khách do nhân
-        // viên thêm nhanh ở quầy thì chưa, quản lý còn phải rà lại hồ sơ.
-        customer.setIsCheckUnstableDebt(isCurrentUserAdmin());
+        // Tạo cờ check khách nợ mới, nếu role = admin thì cờ = false, nếu staff thì
+        // cờ = true và trả notify cho admin
+        customer.setIsCheckUnstableDebt(!isCurrentUserAdmin());
 
         customer = customerRepository.save(customer);
         log.info("Create new customer by id {}",customer.getId());
@@ -111,10 +111,8 @@ public class CustomerService {
     }
 
     /**
-     * Người đang đăng nhập có vai trò ADMIN không.
-     *
-     * <p>Không có authentication (job nền, test) thì coi như không phải admin — mặc
-     * định an toàn hơn là để lọt một khách chưa ai duyệt vào diện đã duyệt.
+     * check user là admin hay không để không bị lọt khách hàng nợ chưa
+     * duyệt thành đã duyệt.
      */
     private boolean isCurrentUserAdmin() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

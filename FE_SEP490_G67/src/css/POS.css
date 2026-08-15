@@ -1,4 +1,4 @@
-:root {
+﻿:root {
     --pos-out: #dc2626;
     --pos-in: #16a34a;
     --pos-accent: #2563eb;
@@ -6,7 +6,7 @@
     --pos-line: #e5e7eb;
 }
 
-/* Layout tổng thể */
+/* Layout tá»•ng thá»ƒ */
 .pos-container {
     display: flex;
     flex-direction: column;
@@ -198,7 +198,7 @@
     cursor: pointer;
 }
 
-/* Phần nội dung chính */
+/* Pháº§n ná»™i dung chÃ­nh */
 .pos-main {
     display: flex;
     flex: 1;
@@ -206,7 +206,7 @@
     overflow: hidden;
 }
 
-/* Cột trái: Giỏ hàng */
+/* Cá»™t trÃ¡i: Giá» hÃ ng */
 .pos-cart-section {
     flex: 1;
     display: flex;
@@ -352,14 +352,14 @@
     border-color: #2563eb;
 }
 
-/* Tồn kho hiển thị ngay dưới tên hàng */
+/* Tá»“n kho hiá»ƒn thá»‹ ngay dÆ°á»›i tÃªn hÃ ng */
 .cart-stock-line {
     margin-top: 2px;
     font-size: 12px;
     color: #6b7280;
 }
 
-/*Chọn ô lấy hàng (tick được nhiều ô) */
+/*Chá»n Ã´ láº¥y hÃ ng (tick Ä‘Æ°á»£c nhiá»u Ã´) */
 .loc-picker {
     position: relative;
     /* max-width: 220px; */
@@ -542,7 +542,7 @@
     font-size: 16px;
 }
 
-/* Dòng tổng tiền hàng */
+/* DÃ²ng tá»•ng tiá»n hÃ ng */
 .summary-row--total {
     margin-bottom: 20px;
 }
@@ -670,7 +670,7 @@
     background-color: #eff6ff;
 }
 
-/* Nút thanh toán */
+/* NÃºt thanh toÃ¡n */
 .payment-footer {
     padding: 16px;
     background-color: white;
@@ -695,7 +695,7 @@
     transition: background-color 0.2s;
 }
 
-/* Bị khóa vì khách nợ quá hạn*/
+/* Bá»‹ khÃ³a vÃ¬ khÃ¡ch ná»£ quÃ¡ háº¡n*/
 .btn-checkout:disabled {
     cursor: not-allowed;
     opacity: 0.6;
@@ -705,7 +705,7 @@
     background-color: #1d4ed8;
 }
 
-/* Lô hàng column */
+/* LÃ´ hÃ ng column */
 .batch-cell {
     color: black;
     background-color: #f5f3ff;
@@ -1215,7 +1215,7 @@
     text-overflow: ellipsis;
 }
 
-/* Trạng thái công nợ khách hàng: đỏ / vàng / xanh  */
+/* Tráº¡ng thÃ¡i cÃ´ng ná»£ khÃ¡ch hÃ ng: Ä‘á» / vÃ ng / xanh  */
 .debt-dot {
     flex-shrink: 0;
     width: 9px;
@@ -1235,7 +1235,7 @@
     background-color: #dc2626;
 }
 
-/* Khách không được ghi nợ: vẫn thấy được nhưng không chọn được khi bán nợ */
+/* KhÃ¡ch khÃ´ng Ä‘Æ°á»£c ghi ná»£: váº«n tháº¥y Ä‘Æ°á»£c nhÆ°ng khÃ´ng chá»n Ä‘Æ°á»£c khi bÃ¡n ná»£ */
 .psd-item--blocked {
     cursor: not-allowed;
     opacity: 0.55;
@@ -1355,7 +1355,7 @@
     cursor: not-allowed;
 }
 
-/*  Popup thêm nhanh khách hàng  */
+/*  Popup thÃªm nhanh khÃ¡ch hÃ ng  */
 .quick-add-overlay {
     position: fixed;
     inset: 0;
@@ -1452,6 +1452,11 @@
 
 .quick-add-input:disabled {
     background-color: #f9fafb;
+    color: #9ca3af;
+}
+
+.quick-add-optional {
+    font-weight: 400;
     color: #9ca3af;
 }
 
@@ -1602,7 +1607,7 @@
     color: #111827;
 }
 
-/* Khách đang nợ quá hạn: khóa cho tới khi thu nợ xong */
+/* KhÃ¡ch Ä‘ang ná»£ quÃ¡ háº¡n: khÃ³a cho tá»›i khi thu ná»£ xong */
 .cdc-lock {
     flex-shrink: 0;
     color: #b91c1c;
@@ -1633,7 +1638,7 @@
     color: #b91c1c;
 }
 
-/* Nợ quá hạn: cảnh báo cho thu ngân, không chặn ghi nợ -> màu cam chứ không đỏ */
+/* Ná»£ quÃ¡ háº¡n: cáº£nh bÃ¡o cho thu ngÃ¢n, khÃ´ng cháº·n ghi ná»£ -> mÃ u cam chá»© khÃ´ng Ä‘á» */
 .cdc-warn {
     display: flex;
     align-items: center;
@@ -1642,96 +1647,6 @@
     font-size: 12px;
     font-weight: 500;
     color: #b45309;
-}
-
-/*  Hộp xác nhận ghi nợ thêm — giữa màn hình, thay cho window.confirm  */
-.debt-confirm-overlay {
-    position: fixed;
-    inset: 0;
-    background-color: rgba(0, 0, 0, 0.45);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 2300;
-}
-
-.debt-confirm-modal {
-    width: 380px;
-    max-width: 92vw;
-    padding: 16px 18px 18px;
-    border-radius: 8px;
-    background: #fff;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
-    animation: fadeInDown 0.15s ease;
-}
-
-.debt-confirm-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 4px;
-}
-
-.debt-confirm-head-icon {
-    flex-shrink: 0;
-    color: #b45309;
-}
-
-.debt-confirm-title {
-    font-size: 15px;
-    font-weight: 700;
-    color: #111827;
-}
-
-/* Thẻ khách hàng trong hộp thoại: bỏ margin của bản nằm ở cột thanh toán */
-.debt-confirm-modal .customer-debt-card {
-    margin: 10px 0 0;
-}
-
-.debt-confirm-question {
-    margin-top: 12px;
-    font-size: 13.5px;
-    font-weight: 600;
-    color: #374151;
-}
-
-.debt-confirm-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 16px;
-}
-
-.debt-confirm-btn {
-    min-width: 88px;
-    padding: 8px 16px;
-    border-radius: 6px;
-    font-family: inherit;
-    font-size: 13.5px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.15s, border-color 0.15s;
-}
-
-.debt-confirm-btn--ghost {
-    border: 1px solid #d1d5db;
-    background: #fff;
-    color: #374151;
-}
-
-.debt-confirm-btn--ghost:hover {
-    background: #f3f4f6;
-}
-
-.debt-confirm-btn--primary {
-    border: 1px solid #ca8a04;
-    background: #eab308;
-    color: #422006;
-}
-
-.debt-confirm-btn--primary:hover {
-    background: #ca8a04;
-    border-color: #a16207;
 }
 
 .debt-form {

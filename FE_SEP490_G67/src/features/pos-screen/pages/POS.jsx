@@ -30,7 +30,6 @@ import LocationPicker from '../components/LocationPicker';
 import CustomerSearchDropdown from '../components/CustomerSearchDropdown';
 import QuickAddCustomerModal from '../components/QuickAddCustomerModal';
 import SalesOrderHistoryModal from '../components/SalesOrderHistoryModal';
-import DebtConfirmModal from '../components/DebtConfirmModal';
 import ExchangeOrder from '../components/ExchangeOrder';
 import { saveActiveCart, loadActiveCart } from '../utils/cartStorage';
 import { printInvoice } from '../utils/printInvoice';
@@ -201,8 +200,6 @@ const POSScreen = () => {
     // cảnh báo in lại chứ không phải lỗi thanh toán.
     const [printError, setPrintError] = useState(null);
 
-    // Hộp xác nhận ghi nợ thêm cho khách đang còn nợ.
-    const [debtConfirmOpen, setDebtConfirmOpen] = useState(false);
 
     const addProductToCart = useCallback((product, posInfo) => {
         const units = product.productUnits ?? [];
@@ -495,18 +492,7 @@ const POSScreen = () => {
         handleNewOrder();
     };
 
-    const handleCheckout = () => {
-        if (isDebtMode && customerMeta?.cls === 'debt-dot--yellow') {
-            setDebtConfirmOpen(true);
-            return;
-        }
-        runCheckout();
-    };
-
-    const handleDebtConfirm = () => {
-        setDebtConfirmOpen(false);
-        runCheckout();
-    };
+    const handleCheckout = runCheckout;
 
     // Discount editing
     const handleDiscountEditToggle = () => {
@@ -1071,19 +1057,6 @@ const POSScreen = () => {
                     error={quickAddError}
                     onSubmit={handleQuickAddSubmit}
                     onClose={handleQuickAddClose}
-                />
-            )}
-
-            {/* XÁC NHẬN GHI NỢ THÊM — khách đang còn nợ */}
-            {debtConfirmOpen && customer && customerMeta && (
-                <DebtConfirmModal
-                    customer={customer}
-                    meta={customerMeta}
-                    summary={customerSummary}
-                    overdue={customerOverdue}
-                    warning={overdueWarning}
-                    onConfirm={handleDebtConfirm}
-                    onCancel={() => setDebtConfirmOpen(false)}
                 />
             )}
 

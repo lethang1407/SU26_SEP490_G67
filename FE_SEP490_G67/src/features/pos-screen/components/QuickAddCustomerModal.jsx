@@ -33,17 +33,23 @@ export default function QuickAddCustomerModal({
     const trimmedName = name.trim();
     const trimmedPhone = phone.trim();
     const nameError = !trimmedName ? 'Vui lòng nhập họ tên khách hàng.' : null;
-    const phoneError = !trimmedPhone
-        ? 'Vui lòng nhập số điện thoại.'
-        : !isVnPhone(trimmedPhone)
-            ? 'Số điện thoại không hợp lệ.'
-            : null;
+    // Số điện thoại để trống được — khách vãng lai không phải ai cũng cho số. Nhưng
+    // đã nhập thì phải đúng định dạng, vì BE chặn bằng đúng regex này.
+    const phoneError = trimmedPhone && !isVnPhone(trimmedPhone)
+        ? 'Số điện thoại không hợp lệ.'
+        : null;
     const canSubmit = !nameError && !phoneError && !loading;
 
     const handleSubmit = () => {
         setTouched(true);
         if (!canSubmit) return;
-        onSubmit({ fullName: trimmedName, phoneNumber: trimmedPhone });
+        onSubmit({
+            fullName: trimmedName,
+            // null chứ KHÔNG phải chuỗi rỗng: cột customers.phone_number có unique
+            // index, nên khách thứ hai không có SĐT sẽ đâm lỗi trùng khóa. MySQL cho
+            // phép nhiều NULL trong unique index, còn '' thì chỉ được một.
+            phoneNumber: trimmedPhone || null,
+        });
     };
 
     const handleKeyDown = (e) => {
@@ -94,7 +100,9 @@ export default function QuickAddCustomerModal({
                     </label>
 
                     <label className="quick-add-field">
-                        <span className="quick-add-label">Số điện thoại</span>
+                        <span className="quick-add-label">
+                            Số điện thoại <span className="quick-add-optional">(không bắt buộc)</span>
+                        </span>
                         <input
                             ref={phoneRef}
                             type="tel"
