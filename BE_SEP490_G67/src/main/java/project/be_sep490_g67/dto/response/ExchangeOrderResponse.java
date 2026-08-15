@@ -17,7 +17,16 @@ public class ExchangeOrderResponse {
     String returnCode;
     Integer originalOrderId;
     String originalOrderCode;
-    
+
+    /**
+     * Đơn bán mới sinh ra cho hàng đổi ra, null khi phiếu chỉ trả hàng không đổi.
+     * FE cần id này để mở thẳng đơn đó khi {@link #newDebtOnExchange} &gt; 0 — khoản nợ
+     * mới nằm trên đơn ĐÓ chứ không phải trên hóa đơn gốc.
+     */
+    Integer exchangeOrderId;
+    String exchangeOrderCode;
+
+
     BigDecimal originalTotalAmount;
     BigDecimal returnSubtotal;
     BigDecimal returnDiscount;

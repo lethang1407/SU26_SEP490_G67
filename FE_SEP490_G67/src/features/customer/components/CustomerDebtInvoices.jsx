@@ -1,9 +1,5 @@
-<<<<<<< HEAD
 import { useState, useEffect, useRef } from "react";
-=======
-import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
->>>>>>> dev
 import {
   Row,
   Col,

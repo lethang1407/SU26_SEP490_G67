@@ -67,7 +67,8 @@ public class SalesOrderController {
         Instant to = dateTo != null ? dateTo.plusDays(1).atStartOfDay(vnZone).toInstant() : null;
 
         SalesOrderListResponse result = salesOrderService.getOrderHistory(
-                createdByFilter, search, orderCode, customer, product, from, to, page, size);
+                createdByFilter, search, orderCode, customer, product, from, to,
+                orderStatus, paymentMethod, isDebt, page, size);
 
         return ApiResponse.<SalesOrderListResponse>builder().result(result).build();
     }
@@ -123,7 +124,7 @@ public class SalesOrderController {
         SalesOrderDetailResponse result = salesOrderService.getOrderDetailWithReturns(id);
         return ApiResponse.<SalesOrderDetailResponse>builder()
                 .result(result)
-                .message("Láº¥y chi tiáº¿t Ä‘Æ¡n hÃ ng thÃ nh cÃ´ng")
+                .message("Lấy chi tiết đơn hàng thành công")
                 .build();
     }
 

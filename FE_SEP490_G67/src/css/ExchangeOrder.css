@@ -440,3 +440,145 @@
         min-height: 36px;
     }
 }
+
+.exchange-picker-row--blocked {
+    cursor: not-allowed;
+    opacity: 0.55;
+    background: repeating-linear-gradient(45deg,
+            transparent, transparent 8px,
+            rgba(220, 38, 38, 0.05) 8px, rgba(220, 38, 38, 0.05) 16px);
+}
+
+.exchange-picker-row--blocked:hover {
+    background-color: transparent;
+}
+
+.exchange-picker-due {
+    font-size: 11px;
+    color: #6b7280;
+    font-weight: 400;
+    margin-top: 2px;
+}
+
+.exchange-picker-due.is-overdue {
+    color: var(--pos-out);
+    font-weight: 600;
+}
+
+.exchange-picker-nodebt {
+    color: #9ca3af;
+}
+
+/* Màn đổi/trả: khối quyết toán công nợ */
+
+.exch-debt-panel {
+    border: 1px solid #fcd34d;
+    background-color: #fffbeb;
+    border-radius: 6px;
+    padding: 10px 12px;
+}
+
+.exch-debt-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--pos-warn);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.exch-debt-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    padding: 3px 0;
+}
+
+.exch-debt-row .exch-debt-value {
+    font-weight: 600;
+}
+
+/* Cấn trừ làm GIẢM nợ, hiển thị cùng màu với tiền ra khỏi cửa hàng */
+.exch-debt-row--offset .exch-debt-value {
+    color: var(--pos-in);
+}
+
+.exch-debt-row--new-debt .exch-debt-value {
+    color: var(--pos-out);
+}
+
+.exch-debt-row--total {
+    border-top: 1px dashed #fcd34d;
+    margin-top: 6px;
+    padding-top: 8px;
+    font-weight: 700;
+}
+
+.exch-debt-hint {
+    font-size: 11px;
+    color: #92400e;
+    line-height: 1.4;
+    margin-top: 6px;
+}
+
+.exch-debt-payment {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #fcd34d;
+}
+
+.exch-debt-payment-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.exch-debt-payment-input {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--pos-line);
+    border-radius: 4px;
+    font-size: 14px;
+    text-align: right;
+}
+
+.exch-debt-payment-input:focus {
+    outline: none;
+    border-color: var(--pos-accent);
+}
+
+.exch-debt-payment-input.is-invalid {
+    border-color: var(--pos-out);
+    background-color: #fef2f2;
+}
+
+.exch-debt-payment-error {
+    color: var(--pos-out);
+    font-size: 11px;
+    margin-top: 4px;
+}
+
+/* Chặn cứng: quá hạn đổi trả hoặc quá hạn nợ  */
+
+.exch-blocked-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 6px;
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    color: var(--pos-out);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.exch-blocked-banner strong {
+    display: block;
+    margin-bottom: 2px;
+}
