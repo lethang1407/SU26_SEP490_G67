@@ -7,12 +7,14 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.response.ApiResponse;
+import project.be_sep490_g67.dto.response.HourlyRevenueDTO;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.dto.response.SalesHistoryRowDTO;
 import project.be_sep490_g67.dto.response.SalesHistorySummaryDTO;
 import project.be_sep490_g67.service.SalesHistoryService;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping(ApiPath.SALES_HISTORY)
@@ -35,6 +37,16 @@ public class SalesHistoryController {
         return ApiResponse.<PageResponse<SalesHistoryRowDTO>>builder()
                 .result(salesHistoryService.list(from, to, keyword, productId, status, page, size))
                 .message("Lấy lịch sử bán hàng thành công")
+                .build();
+    }
+
+    @GetMapping("/hourly")
+    public ApiResponse<List<HourlyRevenueDTO>> hourly(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
+    ) {
+        return ApiResponse.<List<HourlyRevenueDTO>>builder()
+                .result(salesHistoryService.hourlyRevenue(date))
+                .message("Lấy doanh thu theo giờ thành công")
                 .build();
     }
 

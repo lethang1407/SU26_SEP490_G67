@@ -47,6 +47,24 @@ public interface CustomerRepository extends JpaRepository<Customer, Integer> {
 
     boolean existsByPhoneNumberAndIsRemovedFalse(String phoneNumber);
 
+    /**
+     * Khách nợ do nhân viên thêm — nguồn của thẻ "Khách hàng & Công nợ" trên dashboard.
+     * Bộ lọc {@code isCheckUnstableDebt = true} chính là "do nhân viên (không phải quản
+     * lý) tạo": cờ được đặt một lần lúc tạo khách theo vai trò người tạo (xem
+     * {@code CustomerService#createCustomer}), nên không cần soi lại role ở đây.
+     *
+     * <p>Cố ý chỉ lọc theo mỗi cờ này: không giới hạn ngày tạo, cũng không đòi
+     * {@code totalDebt > 0}. Sắp xếp mới nhất trước để người gọi lấy thẳng phần tử đầu.
+     */
+    @Query("""
+            SELECT c
+            FROM Customer c
+            WHERE c.isRemoved = false
+              AND c.isCheckUnstableDebt = true
+            ORDER BY c.createdAt DESC
+            """)
+    List<Customer> findStaffCreatedDebtCustomers();
+
     @Query(value = """
     SELECT c
     FROM Customer c

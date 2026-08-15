@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     ResponsiveContainer,
     LineChart,
@@ -8,147 +8,117 @@ import {
     CartesianGrid,
     Tooltip,
 } from 'recharts';
+import { dashboardApi } from '@/features/dashboard/api/dashboardApi';
 
-const data7days = [
-    { day: 'T2', revenue: 1800000, import: 600000 },
-    { day: 'T3', revenue: 2100000, import: 450000 },
-    { day: 'T4', revenue: 2800000, import: 1200000 },
-    { day: 'T5', revenue: 2400000, import: 300000 },
-    { day: 'T6', revenue: 3200000, import: 850000 },
-    { day: 'T7', revenue: 3800000, import: 700000 },
-    { day: 'CN', revenue: 2350000, import: 0 },
-];
-
-const dataMonth = [
-    { day: 'Tuần 1', revenue: 12000000, import: 4500000 },
-    { day: 'Tuần 2', revenue: 15000000, import: 5200000 },
-    { day: 'Tuần 3', revenue: 13500000, import: 3800000 },
-    { day: 'Tuần 4', revenue: 16200000, import: 6100000 },
-];
-
-const dataQuarter = [
-    { day: 'Quý 1', revenue: 15000000, import: 5000000 },
-    { day: 'Quý 2', revenue: 22000000, import: 8000000 },
-    { day: 'Quý 3', revenue: 28000000, import: 6000000 },
-    { day: 'Quý 4', revenue: 31000000, import: 11000000 },
-];
-const datasets = {
-    '7days': data7days,
-    'month': dataMonth,
-    'quarter': dataQuarter,
+/** YYYY-MM-DD theo giờ máy — API nhận LocalDate, không phải Instant. */
+const toIsoDate = (d) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
-const periods = [
-    { key: '7days', label: 'Tuần' },
-    { key: 'month', label: 'Tháng' },
-    { key: 'quarter', label: 'Quý' },
-];
+/** Khung giờ rỗng để trục hoành không nhảy khi dữ liệu chưa về. */
+const EMPTY_HOURS = Array.from({ length: 24 }, (_, hour) => ({
+    hour: `${String(hour).padStart(2, '0')}h`,
+    revenue: 0,
+}));
 
 function formatVND(value) {
-    if (value >= 1000000) return `${(value / 1000000).toFixed(1)} tr`;
+    if (value >= 1000000) return `${(value / 1000000).toFixed(0)}M`;
     if (value >= 1000) return `${(value / 1000).toFixed(0)}k`;
     return value;
 }
 
 const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-        return (
-            <div className="chart-tooltip">
-                <p className="chart-tooltip__label">{label}</p>
-                {payload.map((entry, i) => (
-                    <div key={i} className="chart-tooltip__row">
-                        <span
-                            className="chart-tooltip__dot"
-                            style={{ background: entry.color }}
-                        />
-                        <p className={`chart-tooltip__value ${entry.dataKey === 'revenue' ? 'chart-tooltip__value--blue' : 'chart-tooltip__value--orange'}`}>
-                            {new Intl.NumberFormat('vi-VN').format(entry.value)}đ
-                        </p>
-                    </div>
-                ))}
+    if (!active || !payload?.length) return null;
+
+    const orderCount = payload[0].payload?.orderCount;
+
+    return (
+        <div className="chart-tooltip">
+            <p className="chart-tooltip_label">{label}</p>
+            <div className="chart-tooltip_row">
+                <span className="chart-tooltip_dot" style={{ background: '#2563eb' }} />
+                <p className="chart-tooltip_value">
+                    {new Intl.NumberFormat('vi-VN').format(payload[0].value)}đ
+                    {orderCount ? ` · ${orderCount} hóa đơn` : ''}
+                </p>
             </div>
-        );
-    }
-    return null;
+        </div>
+    );
 };
 
 export default function RevenueTrendChart() {
-    const [period, setPeriod] = useState('7days');
-    const chartData = datasets[period];
+    const [salesByHour, setSalesByHour] = useState(EMPTY_HOURS);
+
+    useEffect(() => {
+        let cancelled = false;
+        const today = toIsoDate(new Date());
+        (async () => {
+            try {
+                const rows = await dashboardApi.getHourlyRevenue({ date: today });
+                if (cancelled || !rows?.length) return;
+                setSalesByHour(
+                    rows.map((row) => ({
+                        hour: row.label,
+                        revenue: Number(row.revenue ?? 0),
+                        orderCount: row.orderCount ?? 0,
+                    })),
+                );
+            } catch {
+                // Biểu đồ chỉ là chỉ số hiển thị: lỗi tải thì giữ đường 0, không chặn dashboard.
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     return (
-        <div className="dashboard-card chart-card">
-            <div className="dashboard-card__header">
-                <h3 className="dashboard-card__title">
-                    Xu Hướng Doanh Thu
-                </h3>
-                <div className="chart-card__controls">
-                    <div className="chart-period-toggle">
-                        {periods.map((p) => (
-                            <button
-                                key={p.key}
-                                className={`chart-period-btn ${period === p.key ? 'chart-period-btn--active' : ''}`}
-                                onClick={() => setPeriod(p.key)}
-                            >
-                                {p.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+        <section className="dashboard-card dashboard-card--compact chart-card sales-chart-card">
+            <div className="dashboard-card_header">
+                <h3 className="dashboard-card_title">Diễn biến bán hàng hôm nay</h3>
             </div>
 
-            {/* Legend */}
-            <div className="chart-legend">
-                <div className="chart-legend__item">
-                    <span className="chart-legend__dot" style={{ background: '#3B82F6' }} />
-                    Doanh thu
-                </div>
-                <div className="chart-legend__item">
-                    <span className="chart-legend__dot" style={{ background: '#F59E0B' }} />
-                    Tiền nhập hàng
-                </div>
-            </div>
-
-            <div className="chart-card__body">
-                <ResponsiveContainer width="100%" height={220}>
-                    <LineChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+            <div className="chart-card_body sales-chart-card_body">
+                <ResponsiveContainer width="100%" height={180}>
+                    <LineChart data={salesByHour} margin={{ top: 10, right: 12, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                         <XAxis
-                            dataKey="day"
+                            dataKey="hour"
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: '#9ca3af', fontSize: 13 }}
-                            dy={8}
+                            tick={{ fill: '#94a3b8', fontSize: 10 }}
+                            dy={6}
+                            // 24 khung giờ mà nhãn nào cũng vẽ thì chồng chữ, chỉ ghi 3 giờ một lần.
+                            interval={2}
                         />
                         <YAxis
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: '#9ca3af', fontSize: 12 }}
+                            tick={{ fill: '#94a3b8', fontSize: 10 }}
                             tickFormatter={formatVND}
+                            // Trục tự co theo dữ liệu. Trần cứng 500k sẽ cắt mất đỉnh
+                            // của những giờ bán chạy, biểu đồ trông như đang đi ngang.
+                            domain={[0, 'auto']}
                         />
-                        <Tooltip content={<CustomTooltip />} />
+                        <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#bfdbfe' }} />
                         <Line
                             type="monotone"
                             dataKey="revenue"
-                            name="Doanh thu"
-                            stroke="#3B82F6"
-                            strokeWidth={2.5}
-                            dot={{ r: 6, fill: '#3B82F6', stroke: '#fff', strokeWidth: 2 }}
-                            activeDot={{ r: 6, fill: '#3B82F6', stroke: '#fff', strokeWidth: 2.5 }}
-                        />
-                        <Line
-                            type="monotone"
-                            dataKey="import"
-                            name="Tiền nhập hàng"
-                            stroke="#F59E0B"
+                            stroke="#2563eb"
                             strokeWidth={2}
-                            strokeDasharray="6 3"
-                            dot={{ r: 6, fill: '#F59E0B', stroke: '#fff', strokeWidth: 2 }}
-                            activeDot={{ r: 6, fill: '#F59E0B', stroke: '#fff', strokeWidth: 2.5 }}
+                            dot={false}
+                            name="Doanh thu theo giờ"
                         />
                     </LineChart>
                 </ResponsiveContainer>
             </div>
-        </div>
+            <div className="chart-legend chart-legend--center">
+                <div className="chart-legend_item">
+                    <span className="chart-legend_dot" style={{ background: '#2563eb' }} />
+                    Doanh thu theo giờ
+                </div>
+            </div>
+        </section>
     );
 }
