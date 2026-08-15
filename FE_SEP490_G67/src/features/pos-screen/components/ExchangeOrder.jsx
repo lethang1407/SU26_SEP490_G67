@@ -8,8 +8,7 @@ import {
     Printer,
     CornerUpLeft,
     ShoppingCart,
-    Ban,
-    Wallet
+    Ban
 } from "lucide-react";
 import "../../../css/POS.css";
 import "../../../css/ExchangeOrder.css";
@@ -80,9 +79,6 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
     const [refundMethod, setRefundMethod] = useState('cash');
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState(null);
-    // Giữ dạng chuỗi để ô nhập trống được (''), khác hẳn với 0 — nhập 0 là "khách không
-    // trả thêm", còn trống là "chưa nhập gì".
-    const [debtPaymentInput, setDebtPaymentInput] = useState('');
 
     const [validationErrors, setValidationErrors] = useState({});
     const [submitResult, setSubmitResult] = useState(null);
@@ -279,11 +275,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
     const returnSubtotal = returnItems.reduce((sum, item) => sum + item.total, 0);
     const exchangeSubtotal = exchangeItems.reduce((sum, item) => sum + item.total, 0);
     const netAmount = returnSubtotal - exchangeSubtotal;
-
     const isExchange = exchangeItems.length > 0;
-
-    // ---- Quyết toán công nợ (nhóm quyết định F) ----
-
     const isDebtOrder = !!originalOrder?.isDebt;
 
     const settlement = useMemo(() => previewSettlement({
@@ -292,21 +284,12 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
         debtRemaining: originalOrder?.debtRemaining ?? 0,
         isDebt: isDebtOrder,
         dueDate: originalOrder?.dueDate ?? null,
-        debtPayment: Number(debtPaymentInput) || 0,
-    }), [returnSubtotal, exchangeSubtotal, originalOrder, isDebtOrder, debtPaymentInput]);
+        debtPayment: 0,
+    }), [returnSubtotal, exchangeSubtotal, originalOrder, isDebtOrder]);
 
-    // Với đơn nợ, hướng tiền KHÔNG còn suy được từ netAmount: trả 350k đổi 50k trên đơn
-    // còn nợ 350k thì netAmount = +300k nhưng khách không nhận đồng nào — 300k đó bị cấn
-    // hết vào nợ. Đơn thường vẫn giữ nguyên cách cũ vì settlement cho ra đúng số đó.
     const direction = settlement.cashRefund > 0 ? 'refund'
         : settlement.totalCashIn > 0 ? 'collect'
             : 'even';
-
-    const debtPaymentValue = Number(debtPaymentInput) || 0;
-    const debtPaymentTooLarge = debtPaymentValue > settlement.maxDebtPayment;
-
-    // Hai lối chặn cứng, backend kiểm lại cả hai (A1 và F3). FE chặn trước để thu ngân
-    // không nhập xong cả phiếu rồi mới biết.
     const blockedReason = originalOrder?.returnWindowExpired
         ? {
             title: 'Hóa đơn đã hết hạn đổi trả',
@@ -352,10 +335,6 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                 : 'Vui lòng chọn hình thức hoàn tiền';
         }
 
-        if (debtPaymentTooLarge) {
-            errors.debtPayment = `Tối đa ${formatVnd(settlement.maxDebtPayment)} — đây là phần nợ còn lại sau khi đã cấn trừ hàng trả`;
-        }
-
         setValidationErrors(errors);
         return Object.keys(errors).length === 0;
     };
@@ -395,7 +374,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                 refundMethod: refundMethod.toUpperCase(),
                 returnDiscount: 0,
                 exchangeDiscount: 0,
-                debtPaymentAmount: debtPaymentValue > 0 ? debtPaymentValue : null
+                debtPaymentAmount: null
             };
 
             const result = await processExchangeOrder(payload);
@@ -480,8 +459,6 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                 returnSubtotal: submitResult.returnSubtotal,
                 exchangeSubtotal: submitResult.exchangeSubtotal,
                 netAmount: submitResult.netAmount,
-                // Với đơn nợ, netAmount không nói lên tiền đổi chủ — phiếu phải in phần
-                // cấn trừ và phần tiền mặt riêng, lấy từ response chứ không tính lại.
                 isDebtOrder: submitResult.isDebtOrder,
                 debtOffsetAmount: submitResult.debtOffsetAmount,
                 cashRefundAmount: submitResult.cashRefundAmount,
@@ -844,112 +821,17 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                                         ? settlement.cashRefund
                                         : settlement.totalCashIn)}
                                 </span>
-                            </div>
-                        </section>
 
-                        {/* Quyết toán công nợ — chỉ hiện với hóa đơn bán nợ */}
-                        {isDebtOrder && (
-                            <section className="pos-panel-group">
-                                <div className="exch-debt-panel">
-                                    <div className="exch-debt-title">
-                                        <Wallet size={14} /> Công nợ hóa đơn gốc
-                                    </div>
-
-                                    <div className="exch-debt-row">
-                                        <span>Nợ hiện tại</span>
-                                        <span className="exch-debt-value">
-                                            {formatVnd(settlement.debtRemainingBefore)}
-                                        </span>
-                                    </div>
-
-                                    {originalOrder?.dueDate && (
-                                        <div className="exch-debt-row">
-                                            <span>Hạn trả</span>
-                                            <span>{formatVnDate(originalOrder.dueDate)}</span>
-                                        </div>
-                                    )}
-
-                                    {settlement.debtOffset > 0 && (
-                                        <div className="exch-debt-row exch-debt-row--offset">
-                                            <span>Cấn trừ công nợ</span>
-                                            <span className="exch-debt-value">
-                                                −{formatVnd(settlement.debtOffset)}
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {settlement.exchangeCredit > 0 && (
-                                        <div className="exch-debt-row">
-                                            <span>Trừ vào hàng lấy mới</span>
-                                            <span className="exch-debt-value">
-                                                {formatVnd(settlement.exchangeCredit)}
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {settlement.newDebtOnExchange > 0 && (
-                                        <div className="exch-debt-row exch-debt-row--new-debt">
-                                            <span>Ghi nợ trên đơn đổi</span>
-                                            <span className="exch-debt-value">
-                                                +{formatVnd(settlement.newDebtOnExchange)}
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {/* F2 — khách chủ động trả thêm cho nợ cũ ngay tại đây.
-                                        Ẩn khi hàng trả đã xóa sạch nợ: không còn gì để trả. */}
-                                    {settlement.maxDebtPayment > 0 && (
-                                        <div className="exch-debt-payment">
-                                            <label
-                                                className="exch-debt-payment-label"
-                                                htmlFor="exch-debt-payment"
-                                            >
-                                                Khách trả thêm nợ cũ
-                                            </label>
-                                            <input
-                                                id="exch-debt-payment"
-                                                type="number"
-                                                min="0"
-                                                max={settlement.maxDebtPayment}
-                                                step="1000"
-                                                placeholder="0"
-                                                className={`exch-debt-payment-input${debtPaymentTooLarge ? ' is-invalid' : ''}`}
-                                                value={debtPaymentInput}
-                                                onChange={(e) => {
-                                                    setDebtPaymentInput(e.target.value);
-                                                    setValidationErrors(prev => ({ ...prev, debtPayment: null }));
-                                                }}
-                                            />
-                                            {validationErrors.debtPayment ? (
-                                                <div className="exch-debt-payment-error">
-                                                    {validationErrors.debtPayment}
-                                                </div>
-                                            ) : (
-                                                <div className="exch-debt-hint">
-                                                    Tối đa {formatVnd(settlement.maxDebtPayment)} — phần nợ
-                                                    còn lại sau khi đã cấn trừ hàng trả. Để trống nếu khách
-                                                    không trả thêm.
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    <div className="exch-debt-row exch-debt-row--total">
-                                        <span>Nợ còn lại sau phiếu này</span>
-                                        <span className="exch-debt-value">
+                                {settlement.debtRemainingBefore > 0 && (
+                                    <span className="exch-net-debt">
+                                        <span>Nợ còn lại của hóa đơn gốc</span>
+                                        <span className="exch-net-debt-value">
                                             {formatVnd(settlement.debtRemainingAfter)}
                                         </span>
-                                    </div>
-
-                                    {settlement.newDebtOnExchange > 0 && (
-                                        <div className="exch-debt-hint">
-                                            Hàng lấy mới đắt hơn hàng trả {formatVnd(settlement.newDebtOnExchange)}.
-                                            Phần chênh này được ghi nợ trên đơn đổi mới, cùng hạn trả với hóa đơn gốc.
-                                        </div>
-                                    )}
-                                </div>
-                            </section>
-                        )}
+                                    </span>
+                                )}
+                            </div>
+                        </section>
 
                         {/* Thanh toán  */}
                         <section className="pos-panel-group pos-panel-group--last">
@@ -960,7 +842,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                             {!settlement.hasCashMovement ? (
                                 <div className="exch-no-money-note">
                                     {isDebtOrder
-                                        ? 'Toàn bộ giá trị hàng trả được cấn vào công nợ — không thu, không hoàn tiền mặt.'
+                                        ? 'Toàn bộ giá trị hàng trả được cấn vào công nợ - không thu, không hoàn tiền mặt.'
                                         : 'Hàng trả và hàng lấy đi bằng tiền nhau - không thu, không hoàn.'}
                                 </div>
                             ) : (
@@ -1048,15 +930,13 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                                 </span>
                             </div>
 
-                            {/* Với đơn nợ, con số hoàn/thu ở trên không kể hết câu chuyện:
-                                phần lớn giá trị hàng trả thường đi vào công nợ chứ không ra két. */}
                             {submitResult.isDebtOrder && (
                                 <div className="exch-debt-panel">
                                     {submitResult.debtOffsetAmount > 0 && (
                                         <div className="exch-debt-row exch-debt-row--offset">
                                             <span>Đã cấn trừ công nợ</span>
                                             <span className="exch-debt-value">
-                                                −{formatVnd(submitResult.debtOffsetAmount)}
+                                                {formatVnd(submitResult.debtOffsetAmount)}
                                             </span>
                                         </div>
                                     )}
@@ -1064,7 +944,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                                         <div className="exch-debt-row exch-debt-row--offset">
                                             <span>Khách trả thêm nợ cũ</span>
                                             <span className="exch-debt-value">
-                                                −{formatVnd(submitResult.debtPaymentCollected)}
+                                                {formatVnd(submitResult.debtPaymentCollected)}
                                             </span>
                                         </div>
                                     )}
@@ -1077,7 +957,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                                                     : ''}
                                             </span>
                                             <span className="exch-debt-value">
-                                                +{formatVnd(submitResult.newDebtOnExchange)}
+                                                {formatVnd(submitResult.newDebtOnExchange)}
                                             </span>
                                         </div>
                                     )}

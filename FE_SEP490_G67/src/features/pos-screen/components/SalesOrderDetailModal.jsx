@@ -80,6 +80,7 @@ export default function SalesOrderDetailModal({ orderId, onClose }) {
     }, [onClose]);
 
     const isExchange = data?.kind === 'EXCHANGE';
+    const relatedDocuments = data?.relatedDocuments ?? [];
     const methodLabel = isExchange
         ? PAYMENT_LABELS[data?.refundMethod] ?? data?.refundMethod
         : PAYMENT_LABELS[data?.paymentMethod] ?? data?.paymentMethod;
@@ -131,7 +132,7 @@ export default function SalesOrderDetailModal({ orderId, onClose }) {
                                     <dt>{isExchange ? 'Hình thức hoàn tiền' : 'Thanh toán'}</dt>
                                     <dd>{methodLabel ?? '—'}</dd>
                                 </div>
-                                {isExchange && (
+                                {(isExchange || data.originalOrderCode) && (
                                     <div>
                                         <dt>Hóa đơn gốc</dt>
                                         <dd>{data.originalOrderCode ?? '—'}</dd>
@@ -148,6 +149,33 @@ export default function SalesOrderDetailModal({ orderId, onClose }) {
                                 </>
                             ) : (
                                 <ItemTable items={data.items} />
+                            )}
+
+                            {/* Vết đổi/trả của hóa đơn này: lịch sử không còn liệt kê chúng
+                                thành dòng riêng nên chi tiết hóa đơn gốc phải kể đủ. */}
+                            {relatedDocuments.length > 0 && (
+                                <div className="sod-related">
+                                    <div className="sod-group-title">
+                                        Chứng từ đổi/trả ({relatedDocuments.length})
+                                    </div>
+                                    {relatedDocuments.map((doc) => (
+                                        <div key={`${doc.type}-${doc.id}`} className="sod-related-doc">
+                                            <div className="sod-related-head">
+                                                <span className="sod-related-kind">
+                                                    {doc.type === 'EXCHANGE' ? 'Đơn đổi' : 'Phiếu trả'}
+                                                </span>
+                                                <span className="sod-code">{doc.code ?? `#${doc.id}`}</span>
+                                                <span className="sod-related-time">{doc.createdAtVn ?? ''}</span>
+                                                <span className="sod-related-amount">
+                                                    {doc.type === 'EXCHANGE' ? 'Hàng lấy mới' : 'Hàng trả lại'}
+                                                    {': '}
+                                                    {formatVnd(doc.amount)}
+                                                </span>
+                                            </div>
+                                            <ItemTable items={doc.items} />
+                                        </div>
+                                    ))}
+                                </div>
                             )}
 
                             <div className="sod-totals">

@@ -42,6 +42,29 @@ public class InvoiceResponse {
 
     List<InvoiceLineItem> items;
 
+    /** Mã hóa đơn gốc, chỉ có giá trị khi đây là một đơn đổi. */
+    String originalOrderCode;
+
+    /**
+     * Phiếu trả và đơn đổi phát sinh từ hóa đơn này, kèm dòng hàng của từng chứng từ
+     */
+    List<RelatedDocument> relatedDocuments;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RelatedDocument {
+        Integer id;
+        String code;
+        /** RETURN = phiếu trả hàng, EXCHANGE = hóa đơn hàng lấy mới. */
+        String type;
+        String createdAtVn;
+        /** Tiền hàng trả về (RETURN) hoặc tiền hàng lấy mới (EXCHANGE). */
+        BigDecimal amount;
+        List<InvoiceLineItem> items;
+    }
+
     @Data
     @Builder
     @NoArgsConstructor

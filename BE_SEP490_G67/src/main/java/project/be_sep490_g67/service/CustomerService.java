@@ -9,6 +9,8 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -91,6 +93,10 @@ public class CustomerService {
 
         customer.setStatus(DebtStatus.NO_DEBT.name());
 
+        // Khách do quản lý tự thêm coi như đã được duyệt ngay từ đầu; khách do nhân
+        // viên thêm nhanh ở quầy thì chưa, quản lý còn phải rà lại hồ sơ.
+        customer.setIsCheckUnstableDebt(isCurrentUserAdmin());
+
         customer = customerRepository.save(customer);
         log.info("Create new customer by id {}",customer.getId());
 
@@ -102,6 +108,23 @@ public class CustomerService {
                 .totalDebt(customer.getTotalDebt())
                 .note(customer.getNote())
                 .build();
+    }
+
+    /**
+     * Người đang đăng nhập có vai trò ADMIN không.
+     *
+     * <p>Không có authentication (job nền, test) thì coi như không phải admin — mặc
+     * định an toàn hơn là để lọt một khách chưa ai duyệt vào diện đã duyệt.
+     */
+    private boolean isCurrentUserAdmin() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null) {
+            return false;
+        }
+        return userRepository.findActiveByUsernameWithRole(authentication.getName())
+                .map(user -> user.getRoles().stream()
+                        .anyMatch(role -> "ADMIN".equalsIgnoreCase(role.getName())))
+                .orElse(false);
     }
 
     // View customer list

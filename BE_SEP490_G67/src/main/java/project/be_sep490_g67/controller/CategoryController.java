@@ -32,7 +32,7 @@ public class CategoryController {
                 .message("Lấy danh sách danh mục hàng hóa thành công")
                 .build();
     }
-    @PreAuthorize("hasAuthority('PRODUCT:CREATE')")
+
     @PostMapping
     public ApiResponse<CategoryResponse> addCategory(@Valid @RequestBody UpsertCategoryRequest request){
         CategoryResponse newCategory = categoryService.createCategory(request);

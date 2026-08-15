@@ -292,7 +292,7 @@
     width: 1%;
 }
 
-.hist-table td:last-child {
+.hist-table td:last-child:not(.hist-empty) {
     text-align: right;
     white-space: nowrap;
 }
@@ -378,12 +378,6 @@
 .badge-paid {
     background: #e0f2fe;
     color: #0369a1;
-}
-
-.badge-pending-approval {
-    background: #f3f4f6;
-    color: #4b5563;
-    border: 1px dashed #9ca3af;
 }
 
 .badge-default {

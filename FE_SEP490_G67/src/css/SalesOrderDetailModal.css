@@ -141,6 +141,49 @@
     color: #374151;
 }
 
+/* ── Chứng từ đổi/trả gắn với hóa đơn gốc ── */
+.sod-related {
+    margin-top: 18px;
+    padding-top: 4px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.sod-related-doc {
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+}
+
+.sod-related-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: #4b5563;
+}
+
+.sod-related-kind {
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #e0e7ff;
+    color: #3730a3;
+    font-weight: 700;
+}
+
+.sod-related-time {
+    color: #9ca3af;
+}
+
+.sod-related-amount {
+    margin-left: auto;
+    font-weight: 700;
+    color: #111827;
+}
+
 /* ── Bảng dòng hàng ── */
 .sod-items {
     width: 100%;

@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import { getCustomerByPhone, createInvoice, createDebtInvoice, getInvoiceData } from '../api';
-import { printInvoice } from '../utils/printInvoice';
 import { hasLocationProblem, toStockPicks } from '../utils/cartLocation';
 import { debtBlockReason } from '../utils/debtStatus';
 
@@ -125,9 +124,16 @@ export function useCheckout() {
                 invoice = await createInvoice(payload);
             }
 
-            const invoiceData = await getInvoiceData(invoice.id);
-            if (invoiceData) printInvoice(invoiceData);
-            return { ok: true, order: invoice, customer };
+            // Không in thẳng nữa: POS mở màn xem trước hóa đơn, thu ngân tự quyết
+            // in hay hủy. Vẫn nạp sẵn dữ liệu ở đây để nút "In" không phải chờ.
+            let invoiceData = null;
+            try {
+                invoiceData = await getInvoiceData(invoice.id);
+            } catch {
+                // Đơn đã lưu xong rồi — không lấy được bản in thì vẫn coi là thành công,
+                // màn hóa đơn sẽ tự tải lại khi bấm In.
+            }
+            return { ok: true, order: invoice, invoice: invoiceData, customer };
         } catch (err) {
             const message = err.response?.data?.message || 'Thanh toán thất bại. Vui lòng thử lại.';
             setError(message);

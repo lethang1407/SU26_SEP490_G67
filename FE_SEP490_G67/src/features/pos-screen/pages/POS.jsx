@@ -8,17 +8,13 @@ import {
     RotateCcw,
     ClipboardList,
     Trash2,
-    User,
-    UserPlus,
     Pencil,
     Plus,
     AlertCircle,
-    Loader,
-    CheckCircle,
     Lock,
 } from "lucide-react";
 import "../../../css/POS.css";
-import { isValidQtyInput, isValidQtyValue, isQtyInvalid, parseQty, isVnPhone } from '../utils/validation';
+import { isValidQtyInput, isValidQtyValue, isQtyInvalid, parseQty } from '../utils/validation';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { useCheckout } from '../hooks/useCheckout';
 import { useProductSearch } from '../hooks/useProductSearch';
@@ -26,16 +22,19 @@ import { useCustomerSearch } from '../hooks/useCustomerSearch';
 import { pickKey, hasLocationProblem } from '../utils/cartLocation';
 import {
     debtLevelMeta, canSellOnDebt, debtSummaryText, debtBlockReason, formatMoney,
-    isOverdueCustomer,
+    isOverdueCustomer, debtOverdueWarning,
 } from '../utils/debtStatus';
 import { formatVnd } from '../utils/money';
 import ProductSearchDropdown from '../components/ProductSearchDropdown';
 import LocationPicker from '../components/LocationPicker';
 import CustomerSearchDropdown from '../components/CustomerSearchDropdown';
+import QuickAddCustomerModal from '../components/QuickAddCustomerModal';
 import SalesOrderHistoryModal from '../components/SalesOrderHistoryModal';
+import DebtConfirmModal from '../components/DebtConfirmModal';
 import ExchangeOrder from '../components/ExchangeOrder';
 import { saveActiveCart, loadActiveCart } from '../utils/cartStorage';
-import { createQuickCustomer, getProductPosInfo } from '../api';
+import { printInvoice } from '../utils/printInvoice';
+import { createQuickCustomer, getProductPosInfo, getInvoiceData } from '../api';
 
 const MAX_TABS = 10;
 
@@ -192,12 +191,18 @@ const POSScreen = () => {
     const [dueDate, setDueDate] = useState(defaultDueDate);
 
     const [showQuickAdd, setShowQuickAdd] = useState(false);
-    const [quickAddName, setQuickAddName] = useState('');
     const [quickAddLoading, setQuickAddLoading] = useState(false);
     const [quickAddError, setQuickAddError] = useState(null);
 
     const [discountEditing, setDiscountEditing] = useState(false);
     const discountInputRef = useRef(null);
+
+    // Thanh toán xong nhưng không lấy được bản in. Đơn vẫn đã lưu, nên đây là
+    // cảnh báo in lại chứ không phải lỗi thanh toán.
+    const [printError, setPrintError] = useState(null);
+
+    // Hộp xác nhận ghi nợ thêm cho khách đang còn nợ.
+    const [debtConfirmOpen, setDebtConfirmOpen] = useState(false);
 
     const addProductToCart = useCallback((product, posInfo) => {
         const units = product.productUnits ?? [];
@@ -333,42 +338,46 @@ const POSScreen = () => {
         clearCustomerResults();
     }, [detachCustomer, clearCustomerResults]);
 
-    const canQuickAdd = !customer && isVnPhone(phone);
+    // Chỉ cần chưa chọn khách là thêm mới được. Trước đây còn đòi ô tìm kiếm phải
+    // chứa số điện thoại hợp lệ, nên tìm theo TÊN không ra kết quả thì nút "+" bị
+    // khóa cứng — đúng lúc cần thêm khách nhất thì lại không thêm được.
+    const canQuickAdd = !customer;
 
-    //  Mở form thêm khách hàng mới
+    // Ô tìm kiếm nhận cả tên lẫn số, nên đoán xem thu ngân vừa gõ gì để điền sẵn
+    // đúng ô trong popup, khỏi phải gõ lại.
+    const quickAddPrefill = useMemo(() => {
+        const raw = phone.trim();
+        return /^\d+$/.test(raw)
+            ? { name: '', phone: raw }
+            : { name: raw, phone: '' };
+    }, [phone]);
+
     const handleUserPlus = useCallback(() => {
-        if (customer || !isVnPhone(phone)) return;
-        setShowQuickAdd(true);
-        setQuickAddName('');
+        if (customer) return;
         setQuickAddError(null);
-        setTimeout(() => {
-            document.getElementById('quick-add-name-input')?.focus();
-        }, 50);
-    }, [customer, phone]);
+        setShowQuickAdd(true);
+    }, [customer]);
 
-    // Quick-add submit 
-    const handleQuickAddSubmit = useCallback(async () => {
-        const name = quickAddName.trim();
-        if (!name) {
-            setQuickAddError('Vui lòng nhập họ tên khách hàng.');
-            return;
-        }
+    const handleQuickAddSubmit = useCallback(async ({ fullName, phoneNumber }) => {
         setQuickAddLoading(true);
         setQuickAddError(null);
         try {
-            const newCustomer = await createQuickCustomer({
-                fullName: name,
-                phoneNumber: phone.trim(),
-            });
+            const newCustomer = await createQuickCustomer({ fullName, phoneNumber });
             attachCustomer(newCustomer);
             setShowQuickAdd(false);
+            clearCustomerResults();
         } catch (err) {
             const msg = err.response?.data?.message ?? 'Không thể thêm khách hàng. Vui lòng thử lại.';
             setQuickAddError(msg);
         } finally {
             setQuickAddLoading(false);
         }
-    }, [quickAddName, phone, attachCustomer]);
+    }, [attachCustomer, clearCustomerResults]);
+
+    const handleQuickAddClose = useCallback(() => {
+        setShowQuickAdd(false);
+        setQuickAddError(null);
+    }, []);
 
     // Qty editing handlers
     const handleQtyChange = (id, raw) => {
@@ -431,6 +440,8 @@ const POSScreen = () => {
     const customerMeta = debtLevelMeta(customer);
     const customerSummary = debtSummaryText(customer);
     const customerOverdue = isOverdueCustomer(customer);
+    // Quá hạn chỉ cảnh báo, không chặn ghi nợ nữa.
+    const overdueWarning = isDebtMode ? debtOverdueWarning(customer) : null;
 
     useEffect(() => {
         if (isReturnTab) return;
@@ -447,7 +458,6 @@ const POSScreen = () => {
         clearScanError();
         clearCustomerResults();
         setShowQuickAdd(false);
-        setQuickAddName('');
         setQuickAddError(null);
         setDiscountEditing(false);
         setCashGivenInput('');
@@ -456,22 +466,46 @@ const POSScreen = () => {
         setDueDate(defaultDueDate());
     };
 
-    const handleCheckout = async () => {
-        if (isDebtMode && customerMeta?.cls === 'debt-dot--yellow'
-            && !window.confirm(
-                `${customer.fullName} ${customerSummary ?? 'đang còn nợ'}.\nVẫn ghi nợ thêm đơn này?`)) {
-            return;
-        }
-
+    const runCheckout = async () => {
         const result = await submitCheckout(cartItems, paymentMethod, {
             paidAmount: prepaid,
             dueDate,
         });
         if (!result.ok) return;
+        const orderId = result.order?.id ?? result.invoice?.orderId ?? null;
+        let invoice = result.invoice;
+        if (!invoice && orderId != null) {
+            try {
+                invoice = await getInvoiceData(orderId);
+            } catch {
+                // Báo cho thu ngân ở dưới, đơn vẫn đã lưu thành công.
+            }
+        }
 
-        // Khách nợ mới không còn kéo thu ngân rời quầy sang trang hồ sơ khách hàng:
-        // BE tự bắn thông báo cho admin xử lý, POS chỉ việc mở đơn kế tiếp.
+        if (invoice) {
+            printInvoice(invoice);
+            setPrintError(null);
+        } else {
+            const code = result.order?.orderCode ?? orderId ?? '';
+            setPrintError(
+                `Đơn ${code} đã lưu thành công nhưng không tải được bản in. `
+                + 'Vào "Lịch sử đơn hàng" để in lại.'
+            );
+        }
         handleNewOrder();
+    };
+
+    const handleCheckout = () => {
+        if (isDebtMode && customerMeta?.cls === 'debt-dot--yellow') {
+            setDebtConfirmOpen(true);
+            return;
+        }
+        runCheckout();
+    };
+
+    const handleDebtConfirm = () => {
+        setDebtConfirmOpen(false);
+        runCheckout();
     };
 
     // Discount editing
@@ -511,7 +545,7 @@ const POSScreen = () => {
                         )}
                     </div>
 
-                    {/* ── Order Tabs ── */}
+                    {/*  Order Tabs  */}
                     <div className="pos-header-tabs-area">
                         <div className="pos-header-tabs">
                             {tabs.map((tab) => (
@@ -580,6 +614,19 @@ const POSScreen = () => {
                         {posInfoError}
                     </span>
                     <button onClick={() => setPosInfoError(null)} title="Đóng">
+                        <X size={16} />
+                    </button>
+                </div>
+            )}
+
+            {/* KHÔNG IN ĐƯỢC — đơn vẫn đã lưu */}
+            {printError && (
+                <div className="scan-error-banner">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <AlertCircle size={16} />
+                        {printError}
+                    </span>
+                    <button onClick={() => setPrintError(null)} title="Đóng">
                         <X size={16} />
                     </button>
                 </div>
@@ -749,7 +796,6 @@ const POSScreen = () => {
                                         onAddNew={handleUserPlus}
                                         onClose={clearCustomerResults}
                                         debtMode={isDebtMode}
-                                        canAddNew={canQuickAdd}
                                     />
                                 )}
                             </div>
@@ -766,9 +812,7 @@ const POSScreen = () => {
                             ) : (
                                 <button
                                     className="btn-add-customer"
-                                    title={canQuickAdd
-                                        ? 'Thêm khách hàng mới'
-                                        : 'Nhập đúng số điện thoại để thêm khách mới'}
+                                    title="Thêm khách hàng mới"
                                     onClick={handleUserPlus}
                                     disabled={!canQuickAdd || quickAddLoading}
                                 >
@@ -776,61 +820,6 @@ const POSScreen = () => {
                                 </button>
                             )}
                         </div>
-
-                        {/* Quick-add inline form */}
-                        {showQuickAdd && !customer && (
-                            <div className="quick-add-form">
-                                <div className="quick-add-title">
-                                    <UserPlus size={14} />
-                                    Thêm khách hàng mới
-                                </div>
-                                <div className="quick-add-row">
-                                    <input
-                                        id="quick-add-name-input"
-                                        type="text"
-                                        className="customer-input"
-                                        placeholder="Họ và tên khách hàng"
-                                        value={quickAddName}
-                                        onChange={(e) => setQuickAddName(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') handleQuickAddSubmit();
-                                            if (e.key === 'Escape') {
-                                                setShowQuickAdd(false);
-                                                setQuickAddError(null);
-                                            }
-                                        }}
-                                        disabled={quickAddLoading}
-                                    />
-                                    <button
-                                        className="btn-add-customer btn-add-customer--found"
-                                        onClick={handleQuickAddSubmit}
-                                        disabled={quickAddLoading || !quickAddName.trim()}
-                                        title="Lưu khách hàng"
-                                    >
-                                        {quickAddLoading
-                                            ? <Loader size={16} className="spin-icon" />
-                                            : <CheckCircle size={16} />
-                                        }
-                                    </button>
-                                    <button
-                                        className="btn-add-customer"
-                                        onClick={() => { setShowQuickAdd(false); setQuickAddError(null); }}
-                                        title="Hủy"
-                                        disabled={quickAddLoading}
-                                    >
-                                        <X size={16} />
-                                    </button>
-                                </div>
-                                {quickAddError && (
-                                    <div className="quick-add-error">
-                                        <AlertCircle size={13} /> {quickAddError}
-                                    </div>
-                                )}
-                                <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
-                                    SĐT: {phone.trim()}
-                                </div>
-                            </div>
-                        )}
 
                         {/* Khách đã chọn: tên + tình trạng công nợ */}
                         {customer && (
@@ -849,8 +838,14 @@ const POSScreen = () => {
                                 )}
                                 {debtBlockedReason && (
                                     <div className="cdc-block">
-                                        {customerOverdue ? <Lock size={13} /> : <AlertCircle size={13} />}
+                                        <AlertCircle size={13} />
                                         {debtBlockedReason}
+                                    </div>
+                                )}
+                                {!debtBlockedReason && overdueWarning && (
+                                    <div className="cdc-warn">
+                                        <AlertCircle size={13} />
+                                        {overdueWarning}
                                     </div>
                                 )}
                             </div>
@@ -1066,6 +1061,31 @@ const POSScreen = () => {
                     />
                 </div>
             ))}
+
+            {/* THÊM NHANH KHÁCH HÀNG */}
+            {showQuickAdd && !customer && (
+                <QuickAddCustomerModal
+                    initialName={quickAddPrefill.name}
+                    initialPhone={quickAddPrefill.phone}
+                    loading={quickAddLoading}
+                    error={quickAddError}
+                    onSubmit={handleQuickAddSubmit}
+                    onClose={handleQuickAddClose}
+                />
+            )}
+
+            {/* XÁC NHẬN GHI NỢ THÊM — khách đang còn nợ */}
+            {debtConfirmOpen && customer && customerMeta && (
+                <DebtConfirmModal
+                    customer={customer}
+                    meta={customerMeta}
+                    summary={customerSummary}
+                    overdue={customerOverdue}
+                    warning={overdueWarning}
+                    onConfirm={handleDebtConfirm}
+                    onCancel={() => setDebtConfirmOpen(false)}
+                />
+            )}
 
             {/* HISTORY MODAL */}
             {historyOpen && (
