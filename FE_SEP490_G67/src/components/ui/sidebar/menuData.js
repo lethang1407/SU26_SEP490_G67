@@ -89,12 +89,19 @@ export const menus = [
                 path: "/admin/warehouse/return",
                 permission: "IMPORT:VIEW"
             },
-            {
-                title: "Nhà cung cấp",
-                path: "/admin/warehouse/supplier",
-                permission: "SUPPLIER:VIEW"
-            }
+            // {
+            //     title: "Nhà cung cấp",
+            //     path: "/admin/warehouse/supplier",
+            //     permission: "SUPPLIER:VIEW"
+            // }
         ]
+    },
+    {
+        id:"supplier",
+        title: "Nhà cung cấp",
+        icon: Users,
+        path: "/admin/warehouse/supplier",
+        permission: "SUPPLIER:VIEW"
     },
     {
         id: "customer",
