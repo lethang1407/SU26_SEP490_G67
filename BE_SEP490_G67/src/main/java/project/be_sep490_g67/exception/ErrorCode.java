@@ -57,6 +57,7 @@ public enum ErrorCode {
     STORAGE_ZONE_NOT_FOUND(1055, "Không tìm thấy khu", HttpStatus.NOT_FOUND),
     INVALID_STORAGE_ZONE_TYPE(1056, "Loại khu không hợp lệ (SALES, WAREHOUSE)", HttpStatus.BAD_REQUEST),
     STORAGE_RETURN_HOLD_LOCKED(1081, "Không thể thay đổi hoặc tạo thêm vị trí trong khu chứa hàng đổi trả", HttpStatus.BAD_REQUEST),
+    RETURN_HOLD_LOCATION_NOT_FOUND(1082, "Chưa có khu chứa hàng đổi trả trong kho", HttpStatus.INTERNAL_SERVER_ERROR),
     SALES_ZONE_PRODUCT_BATCH_EXISTS(1057, "Sản phẩm đã có một lô trên khu bán. Mỗi SP chỉ được 1 lô trên toàn khu bán", HttpStatus.BAD_REQUEST),
     SALES_ZONE_BATCH_SPLIT(1058, "Không thể tách cùng một lô sang nhiều ô trên khu bán", HttpStatus.BAD_REQUEST),
     STOCK_BATCH_NOT_FOUND(1033, "Không tìm thấy lô hàng", HttpStatus.NOT_FOUND),
@@ -152,6 +153,7 @@ public enum ErrorCode {
     // không định nghĩa bản 3107 song song.
     NO_AVAILABLE_STOCK_BATCH(3108, "Không tìm thấy lô hàng khả dụng cho sản phẩm", HttpStatus.BAD_REQUEST),
     INVALID_UNIT_CONVERSION(3109, "Quy đổi đơn vị của sản phẩm không hợp lệ", HttpStatus.UNPROCESSABLE_ENTITY),
+    PRODUCT_PRICE_MISSING(3113, "Sản phẩm chưa được đặt giá bán", HttpStatus.UNPROCESSABLE_ENTITY),
 
     // Document code errors (32xx)
     DOCUMENT_CODE_GENERATION_FAILED(3201, "Không thể cấp mã chứng từ, vui lòng thử lại", HttpStatus.INTERNAL_SERVER_ERROR),

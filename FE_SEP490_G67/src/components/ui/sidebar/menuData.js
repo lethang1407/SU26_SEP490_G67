@@ -79,11 +79,10 @@ export const menus = [
                 permission: "WAREHOUSE:CHECK_VIEW"
             },
             {
-                title: "Đơn nhập hàng",
+                title: "Nhập hàng",
                 path: "/admin/warehouse/import",
                 permission: "IMPORT:VIEW"
             },
-            
             {
                 title: "Trả hàng",
                 path: "/admin/warehouse/return",
@@ -130,12 +129,12 @@ export const menus = [
         icon: User,
         path: "/admin/staff",
         permission: "STAFF:VIEW"
-    },
-    {
-        id: "api-permissions",
-        title: "Phân quyền API",
-        icon: ShieldCheck,
-        path: "/admin/api-permissions",
-        permission: "STAFF:VIEW"
     }
+    // {
+    //     id: "api-permissions",
+    //     title: "Phân quyền API",
+    //     icon: ShieldCheck,
+    //     path: "/admin/api-permissions",
+    //     permission: "STAFF:VIEW"
+    // }
 ];

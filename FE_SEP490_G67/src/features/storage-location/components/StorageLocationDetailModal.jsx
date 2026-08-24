@@ -2,7 +2,6 @@ import { Modal } from 'react-bootstrap';
 import { Package, Settings2, CircleDot } from 'lucide-react';
 import { LOCATION_STATUS, ZONE_TYPE } from '../constants';
 import {
-    formatCurrency,
     formatDate,
     formatLocationAddress,
     getLocationMetrics,
@@ -99,12 +98,12 @@ export default function StorageLocationDetailModal({
                                         className="storage-location-detail-modal__batch"
                                     >
                                         <div className="storage-location-detail-modal__batch-code">
-                                            {item.batchCode}
-                                            {metrics?.productCount > 1 ? (
-                                                <span className="storage-location-detail-modal__batch-product">
-                                                    {item.productName}
-                                                </span>
-                                            ) : null}
+                                            <span className="storage-location-detail-modal__batch-product">
+                                                {item.productName || '—'}
+                                            </span>
+                                            <span className="storage-location-detail-modal__batch-code-text">
+                                                {item.batchCode || '—'}
+                                            </span>
                                         </div>
                                         <dl className="storage-location-detail-modal__batch-details">
                                             <div>
@@ -124,10 +123,6 @@ export default function StorageLocationDetailModal({
                                                 >
                                                     {formatDate(item.expiryDate)}
                                                 </dd>
-                                            </div>
-                                            <div>
-                                                <dt>Giá nhập</dt>
-                                                <dd>{formatCurrency(item.importPrice)}</dd>
                                             </div>
                                         </dl>
                                     </div>

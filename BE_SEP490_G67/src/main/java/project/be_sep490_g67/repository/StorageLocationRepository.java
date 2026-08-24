@@ -13,6 +13,22 @@ public interface StorageLocationRepository extends JpaRepository<StorageLocation
 
     Optional<StorageLocation> findFirstByIsRemovedFalseAndIsActiveTrueOrderByIdAsc();
 
+    /**
+     * Vị trí duy nhất của khu chứa hàng đổi trả (RT-HOLD, seed ở V41). Khu này bị khoá
+     * không cho tạo thêm vị trí nên chỉ có một dòng; lấy theo zoneType thay vì theo
+     * label để không phụ thuộc vào việc ai đó đổi tên nhãn.
+     */
+    @Query("""
+            SELECT sl FROM StorageLocation sl
+            JOIN FETCH sl.storageZone sz
+            WHERE sz.zoneType = 'RETURN_HOLD'
+              AND sl.isRemoved = false
+              AND (sz.isRemoved = false OR sz.isRemoved IS NULL)
+            ORDER BY sl.id ASC
+            LIMIT 1
+            """)
+    Optional<StorageLocation> findReturnHoldLocation();
+
     @Query("""
             SELECT DISTINCT sl
             FROM StorageLocation sl

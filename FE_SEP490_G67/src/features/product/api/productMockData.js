@@ -1,7 +1,8 @@
 const BASE_PRODUCTS = [
     {
         id: 1,
-        code: 'SP001',
+        code: 'SP000001',
+        sku: 'SP000001',
         name: 'Nước mắm Nam Ngư 500ml',
         barcode: '8934567890123',
         category: 'Gia vị',
@@ -12,7 +13,8 @@ const BASE_PRODUCTS = [
     },
     {
         id: 2,
-        code: 'SP002',
+        code: 'SP000002',
+        sku: 'SP000002',
         name: 'Mì gói Hảo Hảo 75g',
         barcode: '8934567890124',
         category: 'Thực phẩm khô',
@@ -23,7 +25,8 @@ const BASE_PRODUCTS = [
     },
     {
         id: 3,
-        code: 'SP003',
+        code: 'SP000003',
+        sku: 'SP000003',
         name: 'Coca Cola 1.5L',
         barcode: '8934567890125',
         category: 'Đồ uống',
@@ -34,7 +37,8 @@ const BASE_PRODUCTS = [
     },
     {
         id: 4,
-        code: 'SP004',
+        code: 'SP000004',
+        sku: 'SP000004',
         name: 'Dầu ăn Simply 1L',
         barcode: '8934567890126',
         category: 'Dầu ăn',
@@ -45,7 +49,8 @@ const BASE_PRODUCTS = [
     },
     {
         id: 5,
-        code: 'SP005',
+        code: 'SP000005',
+        sku: 'SP000005',
         name: 'Bột giặt OMO 2.1kg',
         barcode: '8934567890127',
         category: 'Hóa mỹ phẩm',
@@ -56,7 +61,8 @@ const BASE_PRODUCTS = [
     },
     {
         id: 6,
-        code: 'SP006',
+        code: 'SP000006',
+        sku: 'SP000006',
         name: 'Sữa TH true MILK 180ml',
         barcode: '8934567890128',
         category: 'Sữa',
@@ -67,7 +73,8 @@ const BASE_PRODUCTS = [
     },
     {
         id: 7,
-        code: 'SP007',
+        code: 'SP000007',
+        sku: 'SP000007',
         name: 'Bánh Oreo 133g',
         barcode: '8934567890129',
         category: 'Bánh kẹo',
@@ -78,7 +85,8 @@ const BASE_PRODUCTS = [
     },
     {
         id: 8,
-        code: 'SP008',
+        code: 'SP000008',
+        sku: 'SP000008',
         name: 'Trà xanh 0 độ 455ml',
         barcode: '8934567890130',
         category: 'Đồ uống',
@@ -89,7 +97,8 @@ const BASE_PRODUCTS = [
     },
     {
         id: 9,
-        code: 'SP009',
+        code: 'SP000009',
+        sku: 'SP000009',
         name: 'Nước suối Lavie 500ml',
         barcode: '8934567890131',
         category: 'Đồ uống',
@@ -100,7 +109,8 @@ const BASE_PRODUCTS = [
     },
     {
         id: 10,
-        code: 'SP010',
+        code: 'SP000010',
+        sku: 'SP000010',
         name: 'Kẹo Alpenliebe 32g',
         barcode: '8934567890132',
         category: 'Bánh kẹo',
@@ -116,10 +126,12 @@ function generateMockProducts() {
 
     for (let i = 11; i <= 124; i += 1) {
         const base = BASE_PRODUCTS[(i - 1) % BASE_PRODUCTS.length];
+        const formattedCode = `SP${String(i).padStart(6, '0')}`;
         products.push({
             ...base,
             id: i,
-            code: `SP${String(i).padStart(3, '0')}`,
+            code: formattedCode,
+            sku: formattedCode,
             barcode: `8934567890${String(100 + i).slice(-3)}`,
             stock: i % 7 === 0 ? 0 : ((i * 13) % 150) + 5,
         });
@@ -140,7 +152,8 @@ import { MOCK_PRODUCTS_BY_FACET } from '../constants';
 const EDIT_OVERRIDES = {
   1: {
     name: 'Nước mắm Nam Ngư 500ml',
-    sku: 'SP-NN-500-01',
+    sku: 'SP000001',
+    code: 'SP000001',
     barcode: '8934567890123',
     categoryId: '1',
     brand: 'Nam Ngư',
@@ -165,6 +178,10 @@ const EDIT_OVERRIDES = {
         url: 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=400&h=400&fit=crop',
       },
     ],
+    attributes: [
+      { name: 'Dung tích', value: '500ml' },
+      { name: 'Xuất xứ', value: 'Việt Nam' },
+    ],
   },
 };
 
@@ -173,11 +190,13 @@ function mapListProductToEdit(product) {
   const unitName = product.unitName || 'sp';
   const cost = String(override.costPrice ?? product.costPrice ?? 0);
   const sell = String(override.sellingPrice ?? product.sellingPrice ?? 0);
+  const codeFormatted = override.sku || product.sku || product.code || `SP${String(product.id).padStart(6, '0')}`;
 
   return {
     id: product.id,
     name: override.name || product.name || '',
-    sku: override.sku || `SP${String(product.id).padStart(3, '0')}`,
+    sku: codeFormatted,
+    code: codeFormatted,
     barcode: override.barcode || product.barcode || '',
     categoryId:
       override.categoryId != null
@@ -195,6 +214,7 @@ function mapListProductToEdit(product) {
     vatPercent: override.vatPercent ?? 10,
     conversionUnits: override.conversionUnits || [],
     images: override.images || [],
+    attributes: override.attributes || product.attributes || [],
     productImg: product.productImg,
   };
 }
@@ -213,11 +233,14 @@ export function getMockProductById(id) {
     return { id: numId, ...EDIT_OVERRIDES[numId] };
   }
 
+  const defaultCode = `SP${String(numId).padStart(6, '0')}`;
+
   // Demo form cho id bất kỳ khi BE chưa có
   return {
     id: numId,
     name: `Sản phẩm #${numId}`,
-    sku: `SP${String(numId).padStart(3, '0')}`,
+    sku: defaultCode,
+    code: defaultCode,
     barcode: '',
     categoryId: '1',
     brand: '',

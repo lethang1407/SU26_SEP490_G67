@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import project.be_sep490_g67.entity.ReturnOrderDetail;
 
+import java.util.Collection;
 import java.util.List;
 
 @Repository
@@ -35,4 +36,15 @@ public interface ReturnOrderDetailRepository extends JpaRepository<ReturnOrderDe
             GROUP BY rd.salesOrderDetail.salesOrder.id, rd.salesOrderDetail.id
             """)
     List<Object[]> sumReturnedQuantityByOrders(@Param("salesOrderIds") List<Integer> salesOrderIds);
+
+    @Query("""
+            SELECT rd FROM ReturnOrderDetail rd
+            JOIN FETCH rd.product p
+            WHERE rd.isRemoved = false
+              AND rd.returnOrder.isRemoved = false
+              AND rd.processedAt IS NULL
+              AND rd.itemCondition IN :conditions
+            ORDER BY rd.createdAt ASC, rd.id ASC
+            """)
+    List<ReturnOrderDetail> findAwaitingProcessing(@Param("conditions") Collection<String> conditions);
 }

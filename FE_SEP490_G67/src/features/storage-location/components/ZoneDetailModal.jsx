@@ -85,43 +85,24 @@ export default function ZoneDetailModal({
                 <div className="storage-adjust-modal__header-main">
                     <Modal.Title>Kệ {zoneGroup.zone}</Modal.Title>
                     <div className="storage-zone-detail-modal__toolbar">
-                        <div
-                            className={[
-                                'storage-zone-type-switch',
-                                zoneType === ZONE_TYPE.SALES
-                                    ? 'storage-zone-type-switch--sales'
-                                    : 'storage-zone-type-switch--warehouse',
-                                isSavingType ? 'storage-zone-type-switch--saving' : '',
-                            ]
-                                .filter(Boolean)
-                                .join(' ')}
-                            role="group"
-                            aria-label="Loại khu"
-                        >
-                            <span className="storage-zone-type-switch__thumb" aria-hidden="true" />
-                            {ZONE_TYPE_OPTIONS.map((option) => {
-                                const isActive = zoneType === option.value;
-                                return (
-                                    <button
-                                        key={option.value}
-                                        type="button"
-                                        className={[
-                                            'storage-zone-type-switch__option',
-                                            isActive
-                                                ? 'storage-zone-type-switch__option--active'
-                                                : '',
-                                        ]
-                                            .filter(Boolean)
-                                            .join(' ')}
-                                        aria-pressed={isActive}
-                                        disabled={isSavingType}
-                                        onClick={() => handleZoneTypeChange(option.value)}
-                                    >
+                        <label className="storage-zone-type-select">
+                            <span className="storage-zone-type-select__label">Loại khu</span>
+                            <select
+                                className="storage-zone-type-select__control"
+                                value={zoneType}
+                                disabled={isSavingType}
+                                onChange={(event) =>
+                                    handleZoneTypeChange(event.target.value)
+                                }
+                                aria-label="Loại khu"
+                            >
+                                {ZONE_TYPE_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
                                         {option.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
                         <ZoneSummaryPills stats={zoneGroup.stats} />
                     </div>
                 </div>
@@ -146,7 +127,7 @@ export default function ZoneDetailModal({
                                         {floorGroup.locations.length} ô
                                     </span>
                                 </div>
-                                <div className="storage-location-aisle__map">
+                                <div className="storage-location-aisle__map storage-location-aisle__map--three">
                                     {floorGroup.locations.map((location) => (
                                         <StorageLocationCell
                                             key={location.id}

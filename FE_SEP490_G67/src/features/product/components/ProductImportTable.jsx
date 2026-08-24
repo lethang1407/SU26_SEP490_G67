@@ -19,16 +19,23 @@ function salesPaceLabel(facetStatus) {
 }
 
 function salesPaceStat(product) {
-  const format = (n, suffix) => {
-    const text = Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, '');
-    return `~${text}${suffix}`;
+  if (!product) return '—';
+  const unit = product.unitName || product.baseUnitName || product.unit || 'sp';
+  const format = (n) => {
+    const num = Number(n);
+    if (!Number.isFinite(num)) return '—';
+    const text = Number.isInteger(num) ? String(num) : num.toFixed(1).replace(/\.?0+$/, '').replace('.', ',');
+    return `~${text} ${unit} / tháng`;
   };
+  const monthly = Number(product.avgMonthlyRate);
+  if (Number.isFinite(monthly) && monthly > 0) return format(monthly);
   const weekly = Number(product.avgWeeklyRate);
-  if (Number.isFinite(weekly) && weekly > 0) return format(weekly, '/tuần');
+  if (Number.isFinite(weekly) && weekly > 0) return format(Math.round(weekly * 4));
   const daily = Number(product.avgDailyRate);
-  if (Number.isFinite(daily) && daily > 0) return format(daily, '/ngày');
-  if (Number.isFinite(weekly) && weekly === 0) return '~0/tuần';
-  if (Number.isFinite(daily) && daily === 0) return '~0/ngày';
+  if (Number.isFinite(daily) && daily > 0) return format(Math.round(daily * 30));
+  if (Number.isFinite(monthly) && monthly === 0) return `~0 ${unit} / tháng`;
+  if (Number.isFinite(weekly) && weekly === 0) return `~0 ${unit} / tháng`;
+  if (Number.isFinite(daily) && daily === 0) return `~0 ${unit} / tháng`;
   return '—';
 }
 
@@ -200,12 +207,6 @@ function ProductInlineDetailPanel({
         >
           Thẻ kho (Lịch sử giá)
         </div>
-        <div
-          className={`vd-tab ${currentTab === 'stock' ? 'active' : ''}`}
-          onClick={() => onTabChange('stock')}
-        >
-          Tồn kho
-        </div>
         {allChildren.length > 0 && (
           <div
             className={`vd-tab ${currentTab === 'siblings' ? 'active' : ''}`}
@@ -246,14 +247,12 @@ function ProductInlineDetailPanel({
                 Nhóm hàng: <b style={{ color: '#334155' }}>{categoryName}</b>
               </div>
 
-              <div className="vd-badges" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 0 }}>
-                <span className="vd-badge-pill active">Hàng hóa thường</span>
-                <span className="vd-badge-pill info">Bán trực tiếp</span>
-                <span className="vd-badge-pill warn">VAT: {vatPercent}</span>
-                {seasonTag && seasonTag !== '—' && (
+              {/* Temporarily hidden season tag per user request */}
+              {/* {seasonTag && seasonTag !== '—' && (
+                <div className="vd-badges" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 0 }}>
                   <span className="vd-badge-pill ok">Mùa vụ: {seasonTag}</span>
-                )}
-              </div>
+                </div>
+              )} */}
             </div>
           </div>
 
@@ -284,10 +283,12 @@ function ProductInlineDetailPanel({
               <div className="vd-field-label">GIÁ BÁN</div>
               <div className="vd-field-val" style={{ color: '#1D4ED8' }}>{sellingPrice}</div>
             </div>
-            <div>
-              <div className="vd-field-label">THƯƠNG HIỆU</div>
-              <div className="vd-field-val">{brand}</div>
-            </div>
+            {brand && brand !== 'Chưa có' && brand !== '—' && (
+              <div>
+                <div className="vd-field-label">THƯƠNG HIỆU</div>
+                <div className="vd-field-val">{brand}</div>
+              </div>
+            )}
             <div>
               <div className="vd-field-label">NHÀ CUNG CẤP</div>
               <div className="vd-field-val">{supplierName}</div>
@@ -322,20 +323,6 @@ function ProductInlineDetailPanel({
                   <div key={i} style={{ fontSize: 13 }}>
                     <span style={{ color: '#64748B' }}>{a.name || a.attributeName}: </span>
                     <b style={{ color: '#1E293B' }}>{a.value || a.attributeValue}</b>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Dynamic Units Section */}
-          {Array.isArray(product.units) && product.units.length > 0 && (
-            <div className="vd-section-box">
-              <div className="vd-sec-header">ĐƠN VỊ TÍNH QUY ĐỔI</div>
-              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                {product.units.map((u, i) => (
-                  <div key={i} style={{ background: '#FFF', border: '1px solid #CBD5E1', padding: '6px 12px', borderRadius: 6, fontSize: 12 }}>
-                    <b>{u.name}</b> = {u.unitBase || 1} {unitName} {u.sellingPrice ? `(Giá: ${Number(u.sellingPrice).toLocaleString()} đ)` : ''}
                   </div>
                 ))}
               </div>
@@ -384,30 +371,6 @@ function ProductInlineDetailPanel({
       {currentTab === 'price' && (
         <div className="vd-body-container">
           <PriceHistoryView productId={product.id} currentCostPrice={product.costPrice} />
-        </div>
-      )}
-
-      {/* Tab 4: Tồn kho */}
-      {currentTab === 'stock' && (
-        <div className="vd-body-container">
-          <div className="vd-fields-grid" style={{ marginTop: 0, paddingTop: 0, borderTop: 'none' }}>
-            <div>
-              <div className="vd-field-label">TỒN KHO THỰC TẾ</div>
-              <div className="vd-field-val" style={{ fontSize: 18, color: onHand > 0 ? '#16A34A' : '#DC2626' }}>{onHand}</div>
-            </div>
-            <div>
-              <div className="vd-field-label">ĐỊNH MỨC TỒN TỐI THIỂU</div>
-              <div className="vd-field-val">{minStock}</div>
-            </div>
-            <div>
-              <div className="vd-field-label">NGÀY TRỮ KHO DỰ KIẾN</div>
-              <div className="vd-field-val">{coverDays} ngày</div>
-            </div>
-            <div>
-              <div className="vd-field-label">TỐC ĐỘ BÁN HÀNG</div>
-              <div className="vd-field-val">{salesPaceStat(product)}</div>
-            </div>
-          </div>
         </div>
       )}
 
@@ -655,6 +618,9 @@ export default function ProductImportTable({
                         checked={groupAllChecked}
                         onChange={() => onToggle(allChildIds)}
                       />
+                    </div>
+                    <div className="pi-td col-img">
+                      <ProductThumb product={p} />
                     </div>
                     <div className="pi-td col-sku">
                       <span className="parent-variant-badge" style={{ background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', borderRadius: 12, padding: '2px 8px', fontSize: 11, fontWeight: 600, display: 'inline-block' }}>

@@ -26,17 +26,49 @@
 .cursor-pointer { cursor: pointer; }
 .hover-dark:hover { color: #191b23 !important; }
 
-/* Làm đẹp InputGroup khi Focus */
+/* Làm đẹp InputGroup liền khối (loại bỏ vệt trắng/vệt xanh autofill) */
+.custom-input-group {
+  display: flex;
+  align-items: center;
+  background-color: #f8fafc !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 10px !important;
+  overflow: hidden;
+  transition: all 0.2s ease-in-out;
+}
+
+.custom-input-group .input-group-text {
+  background-color: transparent !important;
+  border: none !important;
+  padding: 10px 14px !important;
+}
+
+.custom-input-group .form-control {
+  background-color: transparent !important;
+  border: none !important;
+  padding: 10px 12px 10px 0 !important;
+  box-shadow: none !important;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+/* Loại bỏ vệt đổi màu do Chrome Autofill tự động chèn vào */
+.custom-input-group .form-control:-webkit-autofill,
+.custom-input-group .form-control:-webkit-autofill:hover,
+.custom-input-group .form-control:-webkit-autofill:focus,
+.custom-input-group .form-control:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0px 1000px #f8fafc inset !important;
+  -webkit-text-fill-color: #0f172a !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
 .custom-input-group:focus-within {
-  box-shadow: 0 0 0 0.25rem rgba(37, 99, 235, 0.25);
-  border-radius: var(--bs-border-radius);
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
 }
-.custom-input-group:focus-within .input-group-text,
-.custom-input-group:focus-within .form-control {
-  border-color: var(--bs-primary);
-}
+
 .custom-input-group:focus-within .material-symbols-outlined {
-  color: var(--bs-primary) !important;
+  color: #2563eb !important;
 }
 
 /* Tinh chỉnh Checkbox của Bootstrap */

@@ -8,6 +8,7 @@ import project.be_sep490_g67.dto.ReconciliationSubmitDTO;
 import project.be_sep490_g67.dto.ReconciliationSummaryDTO;
 import project.be_sep490_g67.service.ReconciliationService;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @RestController
@@ -20,8 +21,9 @@ public class ReconciliationController {
 
     @GetMapping("/summary")
     public ResponseEntity<ReconciliationSummaryDTO> getSummary(
-            @RequestParam(value = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        return ResponseEntity.ok(reconciliationService.getSummary(date != null ? date : LocalDate.now()));
+            @RequestParam(value = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(value = "openingCash", required = false) BigDecimal openingCash) {
+        return ResponseEntity.ok(reconciliationService.getSummary(date != null ? date : LocalDate.now(), openingCash));
     }
 
     @PostMapping

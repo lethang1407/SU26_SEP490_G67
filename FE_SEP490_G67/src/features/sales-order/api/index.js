@@ -30,3 +30,24 @@ export async function getInvoiceData(orderId) {
     const response = await api.get(`/sales-orders/${orderId}/invoice`);
     return response.result;
 }
+
+/**
+ * Get daily reconciliation summary for a given date from existing SalesOrder & DebtPayment entities.
+ */
+export async function getReconciliationSummary(dateStr, openingCash) {
+    const params = {};
+    if (dateStr) params.date = dateStr;
+    if (openingCash !== undefined && openingCash !== null && openingCash !== '') {
+        params.openingCash = openingCash;
+    }
+    const response = await api.get('/reconciliations/summary', { params });
+    return response;
+}
+
+/**
+ * Submit / Close day reconciliation.
+ */
+export async function submitReconciliation(data) {
+    const response = await api.post('/reconciliations', data);
+    return response;
+}

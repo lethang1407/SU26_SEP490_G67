@@ -51,7 +51,7 @@ export function createReturnLineFromProduct(product) {
 export function mapProductForSearch(product) {
     return {
         id: product.id,
-        productCode: product.code || product.barcode || `SP${String(product.id).padStart(5, '0')}`,
+        productCode: product.code || product.sku || product.barcode || `SP${String(product.id).padStart(6, '0')}`,
         productName: product.name,
         unit: product.unit || 'Cái',
         barcode: product.barcode || '',

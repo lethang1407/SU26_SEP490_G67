@@ -1,5 +1,6 @@
 import { ZONE_TYPE, ZONE_TYPE_LABEL } from '../constants';
 import { groupZoneGroupsByType } from '../utils/storageLocationUtils';
+import StorageLocationCell from './StorageLocationCell';
 
 function ZoneSummaryPills({ stats }) {
     return (
@@ -24,44 +25,63 @@ function ZoneSummaryPills({ stats }) {
     );
 }
 
-function ZoneSection({ group, onOpenZone }) {
+function ZoneSection({ group, selectedLocationId, onOpenZone, onSelectLocation }) {
     const typeLabel = ZONE_TYPE_LABEL[group.zoneType] ?? ZONE_TYPE_LABEL[ZONE_TYPE.WAREHOUSE];
     const isSales = group.zoneType === ZONE_TYPE.SALES;
+    const floorGroups = group.floors ?? group.aisles ?? [];
+    const locations = floorGroups.flatMap((floor) => floor.locations ?? []);
 
     return (
-        <section className="storage-location-zone storage-location-zone--clickable">
-            <button
-                type="button"
-                className="storage-location-zone__toggle"
-                onClick={() => onOpenZone?.(group)}
-            >
-                <div className="storage-location-zone__toggle-main">
-                    <div className="storage-location-zone__heading">
-                        <div className="storage-location-zone__title-row">
-                            <h2 className="storage-location-zone__title">KỆ {group.zone}</h2>
-                            <span
-                                className={[
-                                    'storage-location-zone__type-badge',
-                                    isSales
-                                        ? 'storage-location-zone__type-badge--sales'
-                                        : 'storage-location-zone__type-badge--warehouse',
-                                ].join(' ')}
-                            >
-                                {typeLabel}
-                            </span>
+        <section className="storage-location-zone storage-location-zone--expanded">
+            <div className="storage-location-zone__header-row">
+                <button
+                    type="button"
+                    className="storage-location-zone__toggle storage-location-zone__toggle--inline"
+                    onClick={() => onOpenZone?.(group)}
+                >
+                    <div className="storage-location-zone__toggle-main">
+                        <div className="storage-location-zone__heading">
+                            <div className="storage-location-zone__title-row">
+                                <h2 className="storage-location-zone__title">KỆ {group.zone}</h2>
+                                <span
+                                    className={[
+                                        'storage-location-zone__type-badge',
+                                        isSales
+                                            ? 'storage-location-zone__type-badge--sales'
+                                            : 'storage-location-zone__type-badge--warehouse',
+                                    ].join(' ')}
+                                >
+                                    {typeLabel}
+                                </span>
+                            </div>
+                            <p className="storage-location-zone__subtitle">{group.productPreview}</p>
                         </div>
-                        <p className="storage-location-zone__subtitle">
-                            {group.productPreview}
-                        </p>
+                        <ZoneSummaryPills stats={group.stats} />
                     </div>
-                    <ZoneSummaryPills stats={group.stats} />
+                </button>
+            </div>
+
+            {locations.length === 0 ? (
+                <div className="storage-location-empty storage-location-empty--compact">
+                    <p>Khu này chưa có ô kệ.</p>
                 </div>
-            </button>
+            ) : (
+                <div className="storage-location-zone__shelves">
+                    {locations.map((location) => (
+                        <StorageLocationCell
+                            key={location.id}
+                            location={location}
+                            isSelected={selectedLocationId === location.id}
+                            onSelect={(loc) => onSelectLocation?.(loc)}
+                        />
+                    ))}
+                </div>
+            )}
         </section>
     );
 }
 
-function ZoneTypeBlock({ title, groups, onOpenZone }) {
+function ZoneTypeBlock({ title, groups, selectedLocationId, onOpenZone, onSelectLocation }) {
     return (
         <div className="storage-location-zone-block">
             <h3 className="storage-location-zone-block__title">{title}</h3>
@@ -71,14 +91,25 @@ function ZoneTypeBlock({ title, groups, onOpenZone }) {
                 </div>
             ) : (
                 groups.map((group) => (
-                    <ZoneSection key={group.zone} group={group} onOpenZone={onOpenZone} />
+                    <ZoneSection
+                        key={group.zone}
+                        group={group}
+                        selectedLocationId={selectedLocationId}
+                        onOpenZone={onOpenZone}
+                        onSelectLocation={onSelectLocation}
+                    />
                 ))
             )}
         </div>
     );
 }
 
-export default function StorageLocationGrid({ groups, onOpenZone }) {
+export default function StorageLocationGrid({
+    groups,
+    selectedLocationId,
+    onOpenZone,
+    onSelectLocation,
+}) {
     if (groups.length === 0) {
         return (
             <div className="storage-location-empty">
@@ -90,9 +121,21 @@ export default function StorageLocationGrid({ groups, onOpenZone }) {
     const { sales, warehouse } = groupZoneGroupsByType(groups);
 
     return (
-        <div className="storage-location-grid storage-location-grid--split">
-            <ZoneTypeBlock title="Bán hàng" groups={sales} onOpenZone={onOpenZone} />
-            <ZoneTypeBlock title="Kho" groups={warehouse} onOpenZone={onOpenZone} />
+        <div className="storage-location-grid storage-location-grid--stacked">
+            <ZoneTypeBlock
+                title="Khu bán hàng"
+                groups={sales}
+                selectedLocationId={selectedLocationId}
+                onOpenZone={onOpenZone}
+                onSelectLocation={onSelectLocation}
+            />
+            <ZoneTypeBlock
+                title="Khu kho"
+                groups={warehouse}
+                selectedLocationId={selectedLocationId}
+                onOpenZone={onOpenZone}
+                onSelectLocation={onSelectLocation}
+            />
         </div>
     );
 }

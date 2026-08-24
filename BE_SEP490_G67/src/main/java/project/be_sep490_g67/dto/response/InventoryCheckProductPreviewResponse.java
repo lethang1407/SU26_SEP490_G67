@@ -27,6 +27,9 @@ public class InventoryCheckProductPreviewResponse {
     @Builder.Default
     List<BatchOption> batches = new ArrayList<>();
 
+    @Builder.Default
+    List<UnitOption> units = new ArrayList<>();
+
     @Data
     @Builder
     @NoArgsConstructor
@@ -40,5 +43,18 @@ public class InventoryCheckProductPreviewResponse {
         Integer importOrderId;
         Integer supplierId;
         String supplierName;
+        BigDecimal costPerUnit;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class UnitOption {
+        Integer id;
+        String name;
+        BigDecimal unitBase;
+        Boolean isBase;
     }
 }

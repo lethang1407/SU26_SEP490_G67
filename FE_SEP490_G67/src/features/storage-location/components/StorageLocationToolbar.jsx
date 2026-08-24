@@ -1,26 +1,32 @@
-import { LayoutGrid, List, RotateCcw, Search, SlidersHorizontal } from 'lucide-react';
-import { LOCATION_STATUS_OPTIONS, VIEW_MODE } from '../constants';
+import { Search } from 'lucide-react';
+import { LOCATION_STATUS_OPTIONS } from '../constants';
 
 export default function StorageLocationToolbar({
     keyword,
     zoneFilter,
     aisleFilter,
     statusFilter,
-    viewMode,
     zoneOptions,
     aisleOptions,
+    searchSuggestions = [],
+    searchOpen = false,
+    searchLoading = false,
     onKeywordChange,
     onZoneFilterChange,
     onAisleFilterChange,
     onStatusFilterChange,
-    onViewModeChange,
     onFilter,
-    onReset,
+    onSelectSuggestion,
+    onSearchFocus,
+    onSearchBlur,
+    searchWrapRef,
 }) {
+    const showDropdown = searchOpen && keyword.trim().length >= 1;
+
     return (
         <div className="storage-location-toolbar">
             <div className="storage-location-toolbar__row">
-                <div className="storage-location-toolbar__search">
+                <div className="storage-location-toolbar__search" ref={searchWrapRef}>
                     <Search size={18} className="storage-location-toolbar__search-icon" />
                     <input
                         type="text"
@@ -28,12 +34,56 @@ export default function StorageLocationToolbar({
                         placeholder="Tìm theo sản phẩm, số lô..."
                         value={keyword}
                         onChange={(event) => onKeywordChange(event.target.value)}
+                        onFocus={onSearchFocus}
+                        onBlur={onSearchBlur}
                         onKeyDown={(event) => {
                             if (event.key === 'Enter') {
                                 onFilter();
                             }
                         }}
+                        aria-label="Tìm sản phẩm hoặc số lô"
+                        autoComplete="off"
                     />
+
+                    {showDropdown ? (
+                        <div className="storage-location-toolbar__dropdown">
+                            {searchLoading ? (
+                                <div className="storage-location-toolbar__dropdown-empty">
+                                    Đang tìm...
+                                </div>
+                            ) : searchSuggestions.length === 0 ? (
+                                <div className="storage-location-toolbar__dropdown-empty">
+                                    Không tìm thấy ô kệ chứa sản phẩm / lô này
+                                </div>
+                            ) : (
+                                <ul className="storage-location-toolbar__dropdown-list">
+                                    {searchSuggestions.map((item) => (
+                                        <li key={`${item.location.id}-${item.batchCode || item.productName}`}>
+                                            <button
+                                                type="button"
+                                                className="storage-location-toolbar__dropdown-item"
+                                                onMouseDown={(event) => {
+                                                    event.preventDefault();
+                                                    onSelectSuggestion?.(item);
+                                                }}
+                                            >
+                                                <span className="storage-location-toolbar__dropdown-label">
+                                                    {item.location.label}
+                                                </span>
+                                                <span className="storage-location-toolbar__dropdown-meta">
+                                                    {item.productName}
+                                                    {item.batchCode ? ` · ${item.batchCode}` : ''}
+                                                    {item.quantity != null
+                                                        ? ` · SL ${item.quantity}`
+                                                        : ''}
+                                                </span>
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    ) : null}
                 </div>
 
                 <div className="storage-location-toolbar__filters">
@@ -79,39 +129,9 @@ export default function StorageLocationToolbar({
                         onClick={onFilter}
                         aria-label="Lọc"
                     >
-                        <SlidersHorizontal size={18} />
-                    </button>
-
-                    <button
-                        type="button"
-                        className="storage-location-toolbar__reset-btn"
-                        onClick={onReset}
-                        aria-label="Đặt lại"
-                    >
-                        <RotateCcw size={16} />
-                        Tải lại
+                        Lọc
                     </button>
                 </div>
-            </div>
-
-            <div className="storage-location-toolbar__view-toggle">
-                <span className="storage-location-toolbar__view-label">Chế độ xem:</span>
-                <button
-                    type="button"
-                    className={`storage-location-toolbar__view-btn${viewMode === VIEW_MODE.GRID ? ' storage-location-toolbar__view-btn--active' : ''}`}
-                    onClick={() => onViewModeChange(VIEW_MODE.GRID)}
-                >
-                    <LayoutGrid size={16} />
-                    Lưới kệ
-                </button>
-                <button
-                    type="button"
-                    className={`storage-location-toolbar__view-btn${viewMode === VIEW_MODE.LIST ? ' storage-location-toolbar__view-btn--active' : ''}`}
-                    onClick={() => onViewModeChange(VIEW_MODE.LIST)}
-                >
-                    <List size={16} />
-                    Danh sách
-                </button>
             </div>
         </div>
     );

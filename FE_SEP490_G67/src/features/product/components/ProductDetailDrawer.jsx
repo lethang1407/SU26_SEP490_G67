@@ -69,7 +69,7 @@ export default function ProductDetailDrawer({
             <div className="d-hero-meta">
               <span className={`status-pill ${pill.className}`}>{pill.label}</span>
               <div className="meta-line">
-                SKU: <b>{product.sku || `SP${String(product.id).padStart(3, '0')}`}</b>
+                SKU: <b>{product.sku || product.code || `SP${String(product.id).padStart(6, '0')}`}</b>
               </div>
               <div className="meta-line">
                 Mã vạch: <b>{product.barcode || '—'}</b>
@@ -111,29 +111,6 @@ export default function ProductDetailDrawer({
               </div>
             </div>
           </div>
-
-          {((Array.isArray(product.conversionUnits) && product.conversionUnits.length > 0) ||
-            (Array.isArray(product.units) && product.units.length > 1)) && (
-            <div className="d-section">
-              <div className="d-sec-title">ĐƠN VỊ TÍNH QUY ĐỔI</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {(product.conversionUnits || product.units || []).map((u, i) => {
-                  if (u.isBase || u.unitBase === 1) return null;
-                  const uName = u.unitName || u.name;
-                  const qty = u.qty || u.unitBase || u.ratio;
-                  const refUnit = u.ofUnit || unit;
-                  const price = u.sellPrice || u.sellingPrice;
-                  return (
-                    <div key={u.id || i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: '#f8fafc', borderRadius: 6, fontSize: 13 }}>
-                      <span>1 <b>{uName}</b> = {qty} {refUnit}</span>
-                      <span style={{ color: '#2563eb', fontWeight: 600 }}>{price ? formatMoney(price) : '—'}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           <div className="d-section">
             <div className="d-sec-title">GIÁ CẢ</div>
             <div className="field-grid">
@@ -167,7 +144,7 @@ export default function ProductDetailDrawer({
               <div className="field">
                 <div className="field-label">Tốc độ bán</div>
                 <div className="field-value muted">
-                  {formatRate(product.avgDailyRate, `${unit}/ngày`)}
+                  {formatRate(Math.round(Number(product.avgDailyRate || 0) * 30), `${unit}/tháng`)}
                 </div>
               </div>
             </div>
@@ -183,7 +160,7 @@ export default function ProductDetailDrawer({
               <div className="stock-alert">
                 <b>
                   {facet === 'hot'
-                    ? `Hết hàng · đang bán tốt (~${product.avgDailyRate ?? '—'}/${unit}/ngày).`
+                    ? `Hết hàng · đang bán tốt (~${Math.round(Number(product.avgDailyRate || 0) * 30)}/${unit}/tháng).`
                     : facet === 'warn'
                       ? `Sắp hết · còn bán được ${formatCoverDays(product.coverDaysLeft)}.`
                       : 'Cần xem xét nhập hàng.'}

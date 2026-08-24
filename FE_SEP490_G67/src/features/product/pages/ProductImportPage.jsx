@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Plus, Search } from 'lucide-react';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import ProductFacet from '../components/ProductFacet';
 import ProductImportTable from '../components/ProductImportTable';
@@ -77,7 +78,7 @@ function validateLines(panelItems, overrides) {
 }
 
 export default function ProductImportPage() {
-  const [facet, setFacet] = useState('hot');
+  const [facet, setFacet] = useState('all');
   const [keyword, setKeyword] = useState('');
   const [categoryId, setCategoryId] = useState(null);
   const [categories, setCategories] = useState([]);
@@ -499,7 +500,7 @@ export default function ProductImportPage() {
           <div className="pi-main">
             <div className="pi-head">
               <div>
-                <h1>Nhập sản phẩm</h1>
+                <h1>Danh sách sản phẩm</h1>
                 {showStatusNote ? (
                   <div
                     className={`page-note${errorMsg ? ' page-note--error' : ''}${successMsg && !errorMsg ? ' page-note--ok' : ''}`}
@@ -508,6 +509,24 @@ export default function ProductImportPage() {
                   </div>
                 ) : null}
               </div>
+              <Link
+                to="/admin/products/create"
+                className="btn btn-primary d-inline-flex align-items-center gap-1"
+                style={{
+                  backgroundColor: '#004AC6',
+                  borderColor: '#004AC6',
+                  color: '#ffffff',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  textDecoration: 'none',
+                  boxShadow: '0 2px 4px rgba(0,74,198,0.15)',
+                }}
+              >
+                <Plus size={18} />
+                Thêm sản phẩm mới
+              </Link>
             </div>
 
             <div className="pi-content">

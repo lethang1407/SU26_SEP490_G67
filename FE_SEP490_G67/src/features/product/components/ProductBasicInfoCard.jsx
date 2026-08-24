@@ -39,18 +39,22 @@ export default function ProductBasicInfoCard({ product }) {
                     <span className="product-detail-info-item__label">Danh mục</span>
                     <span className="product-detail-info-item__value">{product.category}</span>
                 </div>
-                <div className="product-detail-info-item">
-                    <span className="product-detail-info-item__label">Thương hiệu</span>
-                    <span className="product-detail-info-item__value">{product.brand}</span>
-                </div>
+                {product.brand && product.brand !== '—' && (
+                    <div className="product-detail-info-item">
+                        <span className="product-detail-info-item__label">Thương hiệu</span>
+                        <span className="product-detail-info-item__value">{product.brand}</span>
+                    </div>
+                )}
                 <div className="product-detail-info-item">
                     <span className="product-detail-info-item__label">Đơn vị tính</span>
                     <span className="product-detail-info-item__value">{product.unit}</span>
                 </div>
-                <div className="product-detail-info-item">
-                    <span className="product-detail-info-item__label">Trọng lượng</span>
-                    <span className="product-detail-info-item__value">{product.weight}</span>
-                </div>
+                {product.weight && product.weight !== '—' && (
+                    <div className="product-detail-info-item">
+                        <span className="product-detail-info-item__label">Trọng lượng</span>
+                        <span className="product-detail-info-item__value">{product.weight}</span>
+                    </div>
+                )}
             </div>
 
             <div className="product-detail-description">

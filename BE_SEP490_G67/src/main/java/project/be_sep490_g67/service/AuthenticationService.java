@@ -87,6 +87,10 @@ public class AuthenticationService {
     }
 
     public void logout(LogoutRequest request) throws ParseException, JOSEException {
+        if (request == null || request.getToken() == null || request.getToken().isBlank()) {
+            log.info("Logout requested without valid token");
+            return;
+        }
         try {
             var signToken = verifyToken(request.getToken(), true);
 

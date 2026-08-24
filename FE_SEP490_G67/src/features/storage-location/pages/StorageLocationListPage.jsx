@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Spinner } from 'react-bootstrap';
 import { Plus, Settings2 } from 'lucide-react';
 import AdminHeader from '../../../components/ui/header-footer/Header';
@@ -8,12 +8,11 @@ import { fetchStorageLocations, fetchUnplacedBatches, setStorageLocationFull } f
 import CreateStorageLocationModal from '../components/CreateStorageLocationModal';
 import StorageLocationDetailModal from '../components/StorageLocationDetailModal';
 import StorageLocationGrid from '../components/StorageLocationGrid';
-import StorageLocationTable from '../components/StorageLocationTable';
 import StorageLocationToolbar from '../components/StorageLocationToolbar';
 import ReturnHoldPanel from '../components/ReturnHoldPanel';
 import UnplacedBatchesPanel from '../components/UnplacedBatchesPanel';
 import ZoneDetailModal from '../components/ZoneDetailModal';
-import { LOCATION_STATUS, VIEW_MODE } from '../constants';
+import { LOCATION_STATUS } from '../constants';
 import {
     filterStorageLocations,
     getFloorOptions,
@@ -34,6 +33,33 @@ const DEFAULT_FILTERS = {
     statusFilter: LOCATION_STATUS.ALL,
 };
 
+function buildLocationSearchSuggestions(locations, keyword) {
+    const q = keyword.trim().toLowerCase();
+    if (!q) return [];
+
+    const results = [];
+    for (const location of locations) {
+        for (const item of location.contents ?? []) {
+            const productName = String(item.productName || '');
+            const productCode = String(item.productCode || '');
+            const batchCode = String(item.batchCode || '');
+            const matched =
+                productName.toLowerCase().includes(q) ||
+                productCode.toLowerCase().includes(q) ||
+                batchCode.toLowerCase().includes(q);
+            if (!matched) continue;
+            results.push({
+                location,
+                productName: productName || '—',
+                batchCode: batchCode || null,
+                quantity: item.quantity,
+            });
+            if (results.length >= 20) return results;
+        }
+    }
+    return results;
+}
+
 export default function StorageLocationListPage() {
     const [allLocations, setAllLocations] = useState([]);
     const [unplacedBatches, setUnplacedBatches] = useState([]);
@@ -46,7 +72,6 @@ export default function StorageLocationListPage() {
     const [zoneFilter, setZoneFilter] = useState('all');
     const [aisleFilter, setAisleFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState(LOCATION_STATUS.ALL);
-    const [viewMode, setViewMode] = useState(VIEW_MODE.GRID);
     const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
     const [selectedLocation, setSelectedLocation] = useState(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -56,6 +81,8 @@ export default function StorageLocationListPage() {
     const [selectedZoneGroup, setSelectedZoneGroup] = useState(null);
     const [reloadKey, setReloadKey] = useState(0);
     const [draftLocations, setDraftLocations] = useState(null);
+    const [searchOpen, setSearchOpen] = useState(false);
+    const searchWrapRef = useRef(null);
 
     useEffect(() => {
         let isCancelled = false;
@@ -127,6 +154,11 @@ export default function StorageLocationListPage() {
         [filteredLocations],
     );
 
+    const searchSuggestions = useMemo(
+        () => buildLocationSearchSuggestions(shelfLocations, keyword),
+        [shelfLocations, keyword],
+    );
+
     useEffect(() => {
         if (!selectedZoneGroup) {
             return;
@@ -167,14 +199,7 @@ export default function StorageLocationListPage() {
             aisleFilter,
             statusFilter,
         });
-    };
-
-    const handleResetFilters = () => {
-        setKeyword('');
-        setZoneFilter('all');
-        setAisleFilter('all');
-        setStatusFilter(LOCATION_STATUS.ALL);
-        setAppliedFilters(DEFAULT_FILTERS);
+        setSearchOpen(false);
     };
 
     const handleZoneChange = (value) => {
@@ -207,6 +232,18 @@ export default function StorageLocationListPage() {
         setReloadKey((prev) => prev + 1);
     };
 
+    const handleSelectSuggestion = (item) => {
+        setSelectedLocation(item.location);
+        setKeyword(item.productName || item.batchCode || '');
+        setSearchOpen(false);
+        setAppliedFilters({
+            keyword: item.productName || item.batchCode || '',
+            zoneFilter,
+            aisleFilter,
+            statusFilter,
+        });
+    };
+
     const handleToggleFull = async (location, isFull) => {
         if (!location?.id || togglingFull) {
             return;
@@ -237,91 +274,93 @@ export default function StorageLocationListPage() {
 
     return (
         <div className="admin-content">
-            
-                <AdminHeader />
-                <main className="admin-main">
-                    <div className="dashboard-container storage-location-page">
-                        <header className="inventory-page__header">
-                            <div>
-                                <h1 className="inventory-page__title">Vị trí hàng hóa</h1>
-                                <p className="inventory-page__subtitle">
-                                    Vị trí hàng hóa đang lưu trữ trong cửa hàng
-                                </p>
-                            </div>
-                            <div className="inventory-page__actions">
-                                <button
-                                    type="button"
-                                    className="inventory-btn inventory-btn--secondary"
-                                    onClick={() => openAdjustModal()}
-                                >
-                                    <Settings2 size={18} />
-                                    Điều chỉnh
-                                </button>
-                                <button
-                                    type="button"
-                                    className="inventory-btn inventory-btn--primary"
-                                    onClick={() => setShowCreateModal(true)}
-                                >
-                                    <Plus size={18} />
-                                    Thêm vị trí
-                                </button>
-                            </div>
-                        </header>
+            <AdminHeader />
+            <main className="admin-main">
+                <div className="dashboard-container storage-location-page">
+                    <header className="inventory-page__header">
+                        <div>
+                            <h1 className="inventory-page__title">Vị trí hàng hóa</h1>
+                            <p className="inventory-page__subtitle">
+                                Vị trí hàng hóa đang lưu trữ trong cửa hàng
+                            </p>
+                        </div>
+                        <div className="inventory-page__actions">
+                            <button
+                                type="button"
+                                className="inventory-btn inventory-btn--secondary"
+                                onClick={() => openAdjustModal()}
+                            >
+                                <Settings2 size={18} />
+                                Điều chỉnh
+                            </button>
+                            <button
+                                type="button"
+                                className="inventory-btn inventory-btn--primary"
+                                onClick={() => setShowCreateModal(true)}
+                            >
+                                <Plus size={18} />
+                                Thêm vị trí
+                            </button>
+                        </div>
+                    </header>
 
-                        <StorageLocationToolbar
-                            keyword={keyword}
-                            zoneFilter={zoneFilter}
-                            aisleFilter={aisleFilter}
-                            statusFilter={statusFilter}
-                            viewMode={viewMode}
-                            zoneOptions={zoneOptions}
-                            aisleOptions={aisleOptions}
-                            onKeywordChange={setKeyword}
-                            onZoneFilterChange={handleZoneChange}
-                            onAisleFilterChange={setAisleFilter}
-                            onStatusFilterChange={setStatusFilter}
-                            onViewModeChange={setViewMode}
-                            onFilter={handleApplyFilters}
-                            onReset={handleResetFilters}
-                        />
+                    <StorageLocationToolbar
+                        keyword={keyword}
+                        zoneFilter={zoneFilter}
+                        aisleFilter={aisleFilter}
+                        statusFilter={statusFilter}
+                        zoneOptions={zoneOptions}
+                        aisleOptions={aisleOptions}
+                        searchSuggestions={searchSuggestions}
+                        searchOpen={searchOpen}
+                        searchLoading={false}
+                        onKeywordChange={(value) => {
+                            setKeyword(value);
+                            setSearchOpen(true);
+                        }}
+                        onZoneFilterChange={handleZoneChange}
+                        onAisleFilterChange={setAisleFilter}
+                        onStatusFilterChange={setStatusFilter}
+                        onFilter={handleApplyFilters}
+                        onSelectSuggestion={handleSelectSuggestion}
+                        onSearchFocus={() => setSearchOpen(true)}
+                        onSearchBlur={() => {
+                            setTimeout(() => setSearchOpen(false), 120);
+                        }}
+                        searchWrapRef={searchWrapRef}
+                    />
 
-                        {error && <Alert variant="danger">{error}</Alert>}
+                    {error && <Alert variant="danger">{error}</Alert>}
 
-                        {isLoading ? (
-                            <div className="text-center p-5">
-                                <Spinner animation="border" role="status">
-                                    <span className="visually-hidden">Đang tải...</span>
-                                </Spinner>
-                            </div>
-                        ) : (
-                            <>
-                                {viewMode === VIEW_MODE.GRID ? (
-                                    <StorageLocationGrid
-                                        groups={zoneGroups}
-                                        onOpenZone={handleOpenZone}
-                                    />
-                                ) : (
-                                    <StorageLocationTable
-                                        locations={filteredLocations}
-                                        selectedLocationId={selectedLocation?.id ?? null}
-                                        onSelectLocation={setSelectedLocation}
-                                    />
-                                )}
+                    {isLoading ? (
+                        <div className="text-center p-5">
+                            <Spinner animation="border" role="status">
+                                <span className="visually-hidden">Đang tải...</span>
+                            </Spinner>
+                        </div>
+                    ) : (
+                        <>
+                            <UnplacedBatchesPanel
+                                batches={unplacedBatches}
+                                loading={unplacedLoading}
+                                onPlaceBatch={(batch) => openAdjustModal(batch)}
+                            />
 
-                                <ReturnHoldPanel
-                                    location={returnHoldLocation}
-                                    loading={isLoading}
-                                />
+                            <StorageLocationGrid
+                                groups={zoneGroups}
+                                selectedLocationId={selectedLocation?.id ?? null}
+                                onOpenZone={handleOpenZone}
+                                onSelectLocation={setSelectedLocation}
+                            />
 
-                                <UnplacedBatchesPanel
-                                    batches={unplacedBatches}
-                                    loading={unplacedLoading}
-                                    onPlaceBatch={(batch) => openAdjustModal(batch)}
-                                />
-                            </>
-                        )}
-                    </div>
-                </main>
+                            <ReturnHoldPanel
+                                location={returnHoldLocation}
+                                loading={isLoading}
+                            />
+                        </>
+                    )}
+                </div>
+            </main>
 
             <CreateStorageLocationModal
                 show={showCreateModal}

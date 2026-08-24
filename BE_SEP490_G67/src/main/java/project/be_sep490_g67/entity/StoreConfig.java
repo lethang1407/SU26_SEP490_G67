@@ -41,4 +41,29 @@ public class StoreConfig extends BaseEntity{
     @ColumnDefault("7")
     @Column(name = "return_window_days")
     private Integer returnWindowDays;
+
+    /**
+     * Ngưỡng leo thang mức độ nghiêm trọng của thẻ "Kho hàng" trên dashboard. Mức mặc
+     * định chỉ là điểm khởi đầu — admin chỉnh được mà không cần deploy lại.
+     *
+     * <p>SP hết hàng bán được từ {@code highVolumeSoldUnits} đơn vị trở lên trong
+     * {@code highVolumeWindowDays} ngày gần nhất thì nâng từ cam lên đỏ.
+     */
+    @ColumnDefault("30")
+    @Column(name = "high_volume_sold_units", nullable = false)
+    private Integer highVolumeSoldUnits;
+
+    @ColumnDefault("30")
+    @Column(name = "high_volume_window_days", nullable = false)
+    private Integer highVolumeWindowDays;
+
+    /** Hàng nằm chờ trong khu đổi trả quá số ngày này thì nâng từ vàng lên cam. */
+    @ColumnDefault("7")
+    @Column(name = "return_hold_orange_days", nullable = false)
+    private Integer returnHoldOrangeDays;
+
+    /** …và quá số ngày này thì lên đỏ. */
+    @ColumnDefault("14")
+    @Column(name = "return_hold_red_days", nullable = false)
+    private Integer returnHoldRedDays;
 }

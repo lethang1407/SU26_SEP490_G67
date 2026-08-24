@@ -28,6 +28,31 @@ public interface DebtPaymentRepository extends JpaRepository<DebtPayment, Intege
             Instant endOfDay
     );
 
+    @Query("""
+            SELECT COALESCE(SUM(dp.amountPaid), 0)
+            FROM DebtPayment dp
+            WHERE dp.createdAt >= :startOfDay
+              AND dp.createdAt < :endOfDay
+              AND (dp.paymentMethod IS NULL OR dp.paymentMethod = 'CASH')
+            """)
+    BigDecimal sumCashDebtCollected(
+            Instant startOfDay,
+            Instant endOfDay
+    );
+
+    @Query("""
+            SELECT COALESCE(SUM(dp.amountPaid), 0)
+            FROM DebtPayment dp
+            WHERE dp.createdAt >= :startOfDay
+              AND dp.createdAt < :endOfDay
+              AND (dp.paymentMethod = 'BANK' OR dp.paymentMethod = 'BANK_TRANSFER' OR dp.paymentMethod = 'TRANSFER')
+            """)
+    BigDecimal sumBankDebtCollected(
+            Instant startOfDay,
+            Instant endOfDay
+    );
+
+
     /**
      * Tổng tiền đã trả nợ của từng hóa đơn trong danh sách. Trả về từng dòng
      * [salesOrderId, tổng tiền] để một trang lịch sử chỉ tốn một query thay vì
