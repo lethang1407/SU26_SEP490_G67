@@ -37,14 +37,21 @@ public class CreateExchangeOrderRequest {
     BigDecimal returnDiscount;
     BigDecimal exchangeDiscount;
 
-    /**
-     * Tiền khách trả thêm cho khoản nợ của hóa đơn gốc ngay tại màn đổi trả (quyết định F2).
-     *
-     * <p>Được ghi nhận <b>sau</b> bước cấn trừ hàng trả, không phải trước: làm ngược lại sẽ
-     * có tình huống khách nộp tiền xong lại được hoàn về vì hàng trả đã xóa hết nợ.
-     */
     @PositiveOrZero(message = "Số tiền khách trả thêm không được âm")
     BigDecimal debtPaymentAmount;
+
+    /**
+     * Mã phiên PayOS đã thu tiền cho phần khách phải bù thêm của phiếu đổi này.
+     *
+     * <p>Bắt buộc khi {@code refundMethod = TRANSFER} mà phiếu có tiền thu vào
+     * (hàng lấy mới đắt hơn hàng trả lại), và phải để trống trong mọi trường hợp
+     * còn lại. Không có nó thì khoản tiền khách chuyển nằm ngoài sổ, không đối
+     * chiếu được với chứng từ nào.
+     *
+     * <p>Chiều hoàn tiền cho khách không dùng field này: cửa hàng chuyển đi chứ
+     * không thu về, PayOS không tham gia.
+     */
+    Long payosOrderCode;
 
     @Data
     @NoArgsConstructor
@@ -69,11 +76,6 @@ public class CreateExchangeOrderRequest {
 
         String itemCondition;
 
-        /**
-         * Ghi chú của riêng dòng này. itemCondition chỉ có 4 giá trị cố định;
-         * những lý do nằm ngoài 4 giá trị đó (cận date, bao bì móp, khách đổi ý)
-         * được ghi ở đây chứ không dồn vào returnNote của cả phiếu.
-         */
         String itemNote;
 
         String pairedExchangeItemRef;

@@ -51,62 +51,90 @@ export function useCheckout() {
         setError(null);
     }, []);
 
-    const submitCheckout = useCallback(async (cartItems, paymentMethod, debtInfo, note) => {
+    /**
+     * Những gì phải đúng trước khi động tới tiền của khách.
+     *
+     * <p>Tách khỏi submitCheckout vì luồng chuyển khoản phải kiểm TRƯỚC lúc dựng QR:
+     * đưa khách quét một mã rồi mới báo "chưa chọn vị trí lấy hàng" là bắt khách chờ
+     * vô ích, tệ hơn nữa là tiền đã về mà đơn thì không ghi sổ được.
+     *
+     * @returns {string|null} câu lỗi tiếng Việt, hoặc null nếu qua hết
+     */
+    const validateCheckout = useCallback((cartItems, paymentMethod, debtInfo) => {
         if (!cartItems || cartItems.length === 0) {
-            setError('Giỏ hàng trống. Vui lòng thêm sản phẩm.');
-            return { ok: false };
+            return 'Giỏ hàng trống. Vui lòng thêm sản phẩm.';
         }
 
         const badLine = cartItems.find(hasLocationProblem);
         if (badLine) {
-            setError(`"${badLine.name}": chưa chọn vị trí lấy hàng hoặc các vị trí đã chọn không đủ số lượng.`);
-            return { ok: false };
+            return `"${badLine.name}": chưa chọn vị trí lấy hàng hoặc các vị trí đã chọn không đủ số lượng.`;
         }
 
         // Debt orders must have an attached customer
         if (paymentMethod === 'debt') {
             if (!customer) {
-                setError('Đơn nợ phải có thông tin khách hàng. Vui lòng tìm hoặc thêm khách hàng.');
-                return { ok: false };
+                return 'Đơn nợ phải có thông tin khách hàng. Vui lòng tìm hoặc thêm khách hàng.';
             }
             const blockReason = debtBlockReason(customer);
-            if (blockReason) {
-                setError(blockReason);
-                return { ok: false };
-            }
-            if (!debtInfo?.dueDate) {
-                setError('Vui lòng chọn hạn trả nợ.');
-                return { ok: false };
-            }
+            if (blockReason) return blockReason;
+            if (!debtInfo?.dueDate) return 'Vui lòng chọn hạn trả nợ.';
+        }
+
+        return null;
+    }, [customer]);
+
+    /**
+     * Thân request tạo đơn.
+     *
+     * <p>Luồng chuyển khoản gửi CHÍNH payload này hai lần: lần đầu để BE tính ra số
+     * tiền trên QR, lần sau để ghi sổ đơn. Dùng chung một hàm để hai lần đó không thể
+     * lệch nhau — lệch là QR thu một đằng, đơn ghi một nẻo.
+     */
+    const buildOrderPayload = useCallback((cartItems, paymentMethod, debtInfo, note, payosOrderCode) => {
+        const discountAmount = discount > 0 ? discount : 0;
+        return {
+            paymentMethod: paymentMethod.toUpperCase(),
+            discountAmount,
+            note: note?.trim() ? note.trim() : null,
+            items: cartItems.map((item) => ({
+                productId: item.productId,
+                // Lô-tại-ô thu ngân đã tick là một phần của đơn: BE không
+                // được tự suy lại, vì hàng có thể đã được chuyển chỗ kể từ
+                // lúc chọn.
+                picks: toStockPicks(item),
+                productUnitId: item.productUnitId,
+                quantity: item.qty,
+                unitPrice: item.price,
+            })),
+
+            ...(customer?.id ? { customerId: customer.id } : {}),
+            ...(payosOrderCode ? { payosOrderCode } : {}),
+            ...(paymentMethod === 'debt' ? {
+                paidAmount: debtInfo.paidAmount ?? 0,
+                // input[type=date] cho ra yyyy-MM-dd; BE nhận Instant nên
+                // quy về cuối ngày giờ VN để hạn trả tính hết ngày đó.
+                dueDate: endOfDayIso(debtInfo.dueDate),
+            } : {}),
+        };
+    }, [discount, customer]);
+
+    /**
+     * Ghi sổ đơn.
+     *
+     * @param payosOrderCode mã phiên chuyển khoản ĐÃ thanh toán. Bắt buộc với đơn
+     *        chuyển khoản — BE từ chối đơn TRANSFER không kèm mã này.
+     */
+    const submitCheckout = useCallback(async (cartItems, paymentMethod, debtInfo, note, payosOrderCode) => {
+        const validationError = validateCheckout(cartItems, paymentMethod, debtInfo);
+        if (validationError) {
+            setError(validationError);
+            return { ok: false, error: validationError };
         }
 
         setSubmitting(true);
         setError(null);
         try {
-            const discountAmount = discount > 0 ? discount : 0;
-            const payload = {
-                paymentMethod: paymentMethod.toUpperCase(),
-                discountAmount,
-                note: note?.trim() ? note.trim() : null,
-                items: cartItems.map((item) => ({
-                    productId: item.productId,
-                    // Lô-tại-ô thu ngân đã tick là một phần của đơn: BE không
-                    // được tự suy lại, vì hàng có thể đã được chuyển chỗ kể từ
-                    // lúc chọn.
-                    picks: toStockPicks(item),
-                    productUnitId: item.productUnitId,
-                    quantity: item.qty,
-                    unitPrice: item.price,
-                })),
-
-                ...(customer?.id ? { customerId: customer.id } : {}),
-                ...(paymentMethod === 'debt' ? {
-                    paidAmount: debtInfo.paidAmount ?? 0,
-                    // input[type=date] cho ra yyyy-MM-dd; BE nhận Instant nên
-                    // quy về cuối ngày giờ VN để hạn trả tính hết ngày đó.
-                    dueDate: endOfDayIso(debtInfo.dueDate),
-                } : {}),
-            };
+            const payload = buildOrderPayload(cartItems, paymentMethod, debtInfo, note, payosOrderCode);
 
             let invoice;
             if (paymentMethod === 'debt') {
@@ -128,11 +156,11 @@ export function useCheckout() {
         } catch (err) {
             const message = err.response?.data?.message || 'Thanh toán thất bại. Vui lòng thử lại.';
             setError(message);
-            return { ok: false };
+            return { ok: false, error: message };
         } finally {
             setSubmitting(false);
         }
-    }, [discount, customer]);
+    }, [customer, validateCheckout, buildOrderPayload]);
 
     const resetCheckout = useCallback(() => {
         setPhone('');
@@ -150,9 +178,12 @@ export function useCheckout() {
         discount, setDiscount,
         submitting,
         error,
+        setError,
         lookupCustomer,
         attachCustomer,
         detachCustomer,
+        validateCheckout,
+        buildOrderPayload,
         submitCheckout,
         resetCheckout,
     };

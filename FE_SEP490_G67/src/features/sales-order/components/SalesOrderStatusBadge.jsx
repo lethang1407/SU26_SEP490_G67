@@ -19,7 +19,7 @@ export default function SalesOrderStatusBadge({ status, isDebt }) {
         <span className="sales-order-status-wrap">
             <span className={`sales-order-status ${cls}`}>{label}</span>
             {isDebt ? (
-                <span className="sales-order-status sales-order-status--debt">Bán nợ</span>
+                <span className="sales-order-status sales-order-status--debt">Ghi nợ</span>
             ) : null}
         </span>
     );

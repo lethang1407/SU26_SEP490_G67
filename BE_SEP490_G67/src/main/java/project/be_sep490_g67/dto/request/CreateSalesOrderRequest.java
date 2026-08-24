@@ -40,6 +40,13 @@ public class CreateSalesOrderRequest {
 
     String note;
 
+    /**
+     * Mã phiên thanh toán PayOS đã thu tiền cho đơn này. Bắt buộc với đơn
+     * {@code TRANSFER}, phải để trống với mọi hình thức khác.
+     * Không có biến này thì backend không có cách nào biết tiền đã thật sự về tài khoản
+     */
+    Long payosOrderCode;
+
     @NotEmpty(message = "Đơn hàng phải có ít nhất một sản phẩm")
     @Valid
     List<OrderItemRequest> items;
@@ -57,7 +64,6 @@ public class CreateSalesOrderRequest {
         /**
          * Ô lấy hàng do thu ngân chọn trên POS. Null thì hệ thống tự trừ FEFO
          * toàn kho như cũ (dùng cho các client chưa cập nhật).
-         *
          * @deprecated dùng {@link #locationIds}; giữ lại cho client cũ.
          */
         @Deprecated
@@ -65,7 +71,6 @@ public class CreateSalesOrderRequest {
 
         /**
          * Nhiều ô lấy hàng cho cùng một dòng, trong mỗi ô thì FIFO theo lô.
-         *
          * @deprecated dùng {@link #picks} để chỉ rõ cả lô; giữ lại cho client cũ.
          */
         @Deprecated

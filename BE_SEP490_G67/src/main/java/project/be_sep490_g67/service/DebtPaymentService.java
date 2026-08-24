@@ -11,18 +11,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.be_sep490_g67.dto.request.BatchDebtPaymentRequest;
 import project.be_sep490_g67.dto.request.DebtPaymentRequest;
-import project.be_sep490_g67.dto.response.BatchDebtPaymentResponse;
-import project.be_sep490_g67.dto.response.CustomerDebtOverviewResponse;
-import project.be_sep490_g67.dto.response.CustomerDebtSummaryResponse;
-import project.be_sep490_g67.dto.response.DebtPaymentHistoryResponse;
-import project.be_sep490_g67.dto.response.NewDebtCustomerAlertResponse;
-import project.be_sep490_g67.dto.response.PageResponse;
-import project.be_sep490_g67.dto.response.TodaysDebtPaymentSummaryResponse;
+import project.be_sep490_g67.dto.response.*;
 import project.be_sep490_g67.entity.Customer;
 import project.be_sep490_g67.entity.DebtPayment;
 import project.be_sep490_g67.entity.SalesOrder;
 import project.be_sep490_g67.entity.User;
-import project.be_sep490_g67.enums.DebtStatus;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.CustomerRepository;
@@ -36,14 +29,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -123,6 +109,7 @@ public class DebtPaymentService {
                 .latestCustomerName(latest.getFullName())
                 .latestCustomerDebt(latest.getTotalDebt())
                 .latestCreatedByName(resolveUserFullName(latest.getCreatedBy()))
+                .latestCreatedAt(latest.getCreatedAt())
                 .build();
     }
 
@@ -176,9 +163,7 @@ public class DebtPaymentService {
             throw new AppException(ErrorCode.INVALID_PAYMENT_AMOUNT);
         }
 
-        // Bản cũ lấy `totalAmount - SUM(debtPayments)`, bỏ qua paidAmount và không lọc
-        // phiếu đã huỷ: đơn 1.000k trả trước 300k bị coi là còn nợ đủ 1.000k nên thu quá
-        // 300k vẫn lọt. Dùng công thức chung để mọi chỗ hiển thị và chỗ chặn khớp nhau.
+        // lấy `totalAmount - SUM(debtPayments)`, bỏ qua paidAmount và không lọc phiếu đã huỷ
         BigDecimal remainingAmount = calculateRemainingDebtAmount(salesOrder);
 
         if (remainingAmount.compareTo(BigDecimal.ZERO) <= 0) {
@@ -431,7 +416,7 @@ public class DebtPaymentService {
         if (dp.getCreatedBy() != null) {
             staffName = userRepository.findById(dp.getCreatedBy())
                     .map(User::getFullName)
-                    .orElse("KhÃ´ng rÃµ");
+                    .orElse("Không rõ");
         }
 
         return DebtPaymentHistoryResponse.builder()

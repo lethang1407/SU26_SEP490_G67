@@ -19,7 +19,7 @@
     }
 }
 
-/* ── Modal card ── */
+/*  Modal card  */
 .hist-modal {
     background: #fff;
     border-radius: 12px;
@@ -45,7 +45,7 @@
     }
 }
 
-/* ── Header ── */
+/*  Header  */
 .hist-header {
     display: flex;
     align-items: flex-start;
@@ -101,7 +101,7 @@
     color: #111;
 }
 
-/* ── Toolbar: 1 ô tìm kiếm + lọc thời gian, nằm ngang trên bảng ── */
+/*  Toolbar: 1 ô tìm kiếm + lọc thời gian, nằm ngang trên bảng  */
 .hist-toolbar {
     display: flex;
     align-items: center;
@@ -236,7 +236,7 @@
     border-color: #2563eb;
 }
 
-/* ── Table ── */
+/*  Table  */
 .hist-table-wrap {
     flex: 1;
     overflow-y: auto;
@@ -332,7 +332,7 @@
     font-size: 14px;
 }
 
-/* ── Status badges ── */
+/*  Status badges  */
 .hist-badge {
     display: inline-block;
     padding: 3px 10px;
@@ -357,7 +357,28 @@
     color: #c2410c;
 }
 
-/* ── Badge công nợ (trục riêng, xếp dưới badge trạng thái hóa đơn) ── */
+
+.badge-pay-cash {
+    background: #f0fdf4;
+    color: #15803d;
+}
+
+.badge-pay-transfer {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.badge-pay-debt {
+    background: #fef9c3;
+    color: #a16207;
+}
+
+.badge-pay-unknown {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+/* Badge công nợ (trục riêng, xếp dưới badge trạng thái hóa đơn) */
 .hist-badge-group {
     display: flex;
     flex-direction: column;
@@ -385,7 +406,7 @@
     color: #6b7280;
 }
 
-/* ── Action buttons ── */
+/* Action buttons */
 .hist-actions {
     display: flex;
     gap: 6px;
@@ -439,7 +460,7 @@
     border-color: #1d4ed8;
 }
 
-/* ── Footer ── */
+/* Footer  */
 .hist-footer {
     display: flex;
     align-items: center;
@@ -493,7 +514,7 @@
     cursor: not-allowed;
 }
 
-/* ── Responsive ── */
+/* Responsive */
 @media (max-width: 640px) {
     .hist-modal {
         width: 100vw;

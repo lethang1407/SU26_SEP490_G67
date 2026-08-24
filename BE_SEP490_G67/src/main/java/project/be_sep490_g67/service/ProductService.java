@@ -9,24 +9,21 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import project.be_sep490_g67.constants.ProductConstants;
-import project.be_sep490_g67.dto.request.*;
+import project.be_sep490_g67.dto.request.CreateProductRequest;
+import project.be_sep490_g67.dto.request.ProductAttributeRequest;
+import project.be_sep490_g67.dto.request.ProductConversionUnitRequest;
+import project.be_sep490_g67.dto.request.UpdateProductRequest;
 import project.be_sep490_g67.dto.response.*;
 import project.be_sep490_g67.entity.*;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.mapper.ProductMapper;
 import project.be_sep490_g67.repository.*;
-import project.be_sep490_g67.dto.response.ProductBarcodeResponse;
-import project.be_sep490_g67.dto.response.ProductSearchResponse;
-import project.be_sep490_g67.entity.Product;
-import project.be_sep490_g67.entity.StockBatch;
-import project.be_sep490_g67.repository.ProductRepository;
-import project.be_sep490_g67.util.StockBatchUtils;
+import project.be_sep490_g67.utils.StockBatchUtils;
 import project.be_sep490_g67.utils.UnitPriceResolver;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -602,7 +599,7 @@ public class ProductService {
             return location.getLabel();
         }
         String composed = Stream.of(location.getZoneCode(), location.getAisle(),
-                location.getShelf(), location.getBin())
+                        location.getShelf(), location.getBin())
                 .filter(part -> part != null && !part.isBlank())
                 .reduce((a, b) -> a + " - " + b)
                 .orElse("");
