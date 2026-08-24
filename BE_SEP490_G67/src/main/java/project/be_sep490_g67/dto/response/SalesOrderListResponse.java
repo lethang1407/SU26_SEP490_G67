@@ -28,9 +28,7 @@ public class SalesOrderListResponse {
         Integer id;
         String orderCode;
         /**
-         * Phiếu trả và đơn đổi phát sinh từ hóa đơn này. Chúng không còn là dòng
-         * riêng trong lịch sử — mã hóa đơn gốc là dòng duy nhất, chứa các chứng từ
-         * đổi/trả bên dưới.
+         * Phiếu trả và đơn đổi phát sinh từ hóa đơn gốc
          */
         List<RelatedDocument> relatedDocuments;
         Instant createdAt;
@@ -39,16 +37,16 @@ public class SalesOrderListResponse {
         BigDecimal totalAmount;
         String orderStatus;
         String paymentMethod;
-
+        /** Nhân viên lập hóa đơn (createdBy); "—" nếu không xác định được. */
+        String staffName;
         Boolean isDebt;
-
         Boolean isCheckDebtUnstable;
         Instant dueDate;
         BigDecimal remainingDebt;
         String debtStatus;
     }
 
-    /** Một chứng từ đổi/trả gắn với hóa đơn gốc. */
+    /** chứng từ đổi/trả gắn với hóa đơn gốc. */
     @Data
     @Builder
     @NoArgsConstructor

@@ -6,7 +6,7 @@ export const selectedKeys = (item) => item?.pickKeys ?? [];
 export const selectedPicks = (item) =>
     (item?.locations ?? []).filter((loc) => selectedKeys(item).includes(pickKey(loc)));
 
-/** Số đơn vị cơ sở trong một đơn vị bán đang chọn (thùng = 12 chai → 12). */
+/** Số đơn vị cơ sở trong một đơn vị bán đang chọn. */
 export function unitFactor(item) {
     const unit = (item.units ?? []).find(
         (u) => String(u.id) === String(item.productUnitId)

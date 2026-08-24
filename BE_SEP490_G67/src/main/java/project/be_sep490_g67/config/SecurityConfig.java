@@ -20,15 +20,16 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.springframework.security.config.Customizer.withDefaults;
-
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
     private final String[] PUBLIC_ENDPOINTS = {
             "/api/users", "/api/auth/token", "/api/auth/introspect", "/api/auth/logout", "/api/auth/refresh"
-        ,"/api/auth/forgot-password/initiate", "/api/auth/forgot-password/verify-otp", "/api/auth/forgot-password/change-password"
+            , "/api/auth/forgot-password/initiate", "/api/auth/forgot-password/verify-otp", "/api/auth/forgot-password/change-password"
+            // PayOS gọi vào từ ngoài Internet, không mang theo JWT của cửa hàng.
+            // Tính xác thực do chữ ký checksum trong payload đảm nhiệm.
+            , "/api/payment/payment_transfer_handle"
     };
     @Autowired
     private CustomJwtDecoder customJwtDecoder;
@@ -57,13 +58,12 @@ public class SecurityConfig {
 
         return httpSecurity.build();
     }
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration corsConfiguration = new CorsConfiguration();
         corsConfiguration.addAllowedOrigin("http://localhost:5173");
         corsConfiguration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept"));
-        // =================================================================
-
         corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         corsConfiguration.setAllowCredentials(true);
         corsConfiguration.setMaxAge(3600L);

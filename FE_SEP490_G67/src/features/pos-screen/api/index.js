@@ -20,7 +20,7 @@ export async function getCustomerByPhone(phone) {
     return response.result ?? null;
 }
 
-/** Tìm khách theo tên hoặc số điện thoại (BE khớp keyword với cả hai). */
+/** Tìm khách theo tên hoặc số điện thoại. */
 export async function searchCustomers(keyword, size = 8) {
     const response = await api.get(`/customers/debts`, { params: { keyword, page: 1, size } });
     return response.result?.content ?? [];
@@ -63,5 +63,27 @@ export async function getOrderForExchange(orderId) {
 
 export async function processExchangeOrder(payload) {
     const response = await api.post('/sales-orders/exchange', payload);
+    return response.result;
+}
+
+/** Mở phiên chuyển khoản cho giỏ hàng hiện tại, trả về mã QR để khách quét. */
+export async function createPayosCheckout(payload) {
+    const response = await api.post('/checkout/payos', payload);
+    return response.result;
+}
+
+/** Hỏi lại trạng thái phiên — POS gọi theo nhịp trong lúc khách quét. */
+export async function getPayosCheckoutStatus(payosOrderCode) {
+    const response = await api.get(`/checkout/payos/${payosOrderCode}`);
+    return response.result;
+}
+
+/** Thu ngân đóng khung QR. Phiên đã thu tiền thì BE từ chối hủy. */
+export async function cancelPayosCheckout(payosOrderCode, reason) {
+    const response = await api.post(
+        `/checkout/payos/${payosOrderCode}/cancel`,
+        null,
+        { params: reason ? { reason } : undefined },
+    );
     return response.result;
 }

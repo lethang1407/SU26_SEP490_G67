@@ -3,7 +3,7 @@ import InvoiceTemplate from './InvoiceTemplate.js';
 const PAYMENT_LABELS = {
     CASH: 'Tiền mặt',
     TRANSFER: 'Chuyển khoản',
-    DEBT: 'Bán nợ',
+    DEBT: 'Ghi nợ',
 };
 
 class InvoiceDocument {
@@ -20,7 +20,7 @@ class InvoiceDocument {
         const { currency } = this.data;
         return num != null
             ? Number(num).toLocaleString('vi-VN') + ' ' + (currency ?? 'VND')
-            : '—';
+            : 'N/A';
     }
 
     amount(num) {
@@ -41,7 +41,7 @@ class InvoiceDocument {
         // Cờ isCheckDebtUnstable là việc nội bộ giữa nhân viên và quản lý,
         // không in lên hóa đơn của khách.
         return this.data.isDebt && !this.isCancelled
-            ? this.t.badge('BÁN NỢ', '#6b7280')
+            ? this.t.badge('GHI NỢ', '#6b7280')
             : '';
     }
 
@@ -62,7 +62,7 @@ class InvoiceDocument {
         }
         // Đơn nợ: hướng tiền do phần cấn trừ quyết định, không suy từ netAmount.
         const refunding = isDebtOrder ? cashRefundAmount > 0 : netAmount > 0;
-        return this.t.metaCell('Hóa đơn gốc', originalOrderCode ?? '—')
+        return this.t.metaCell('Hóa đơn gốc', originalOrderCode ?? 'N/A')
             + '\n    ' + this.t.metaCell(refunding ? 'Hoàn tiền' : 'Thanh toán', this.methodLabel);
     }
 
@@ -89,10 +89,10 @@ class InvoiceDocument {
         return this.t.lineRow({
             index: idx + 1,
             name: item.productName ?? '',
-            unit: item.unitName ?? '—',
+            unit: item.unitName ?? 'N/A',
             quantity: item.quantity ?? 0,
             unitPrice: this.amount(item.unitPrice),
-            discount: item.discountAmount > 0 ? this.amount(item.discountAmount) : '—',
+            discount: item.discountAmount > 0 ? this.amount(item.discountAmount) : 'N/A',
             amount: this.amount(item.lineTotal),
             tone,
         });
@@ -208,8 +208,8 @@ class InvoiceDocument {
             TAX_CODE_BLOCK: taxCode ? this.t.storeLine(`MST: ${taxCode}`) : '',
             CANCEL_BADGE: this.cancelBadge(),
             DEBT_BADGE: this.debtBadge(),
-            CREATED_AT: esc(createdAtVn ?? '—'),
-            CASHIER_NAME: esc(cashierName ?? '—'),
+            CREATED_AT: esc(createdAtVn ?? 'N/A'),
+            CASHIER_NAME: esc(cashierName ?? 'N/A'),
             CUSTOMER_SECTION: this.customerSection(),
             PAYMENT_SECTION: this.paymentSection(),
             ITEM_ROWS: this.itemRows(),
