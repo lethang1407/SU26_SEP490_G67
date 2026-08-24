@@ -12,11 +12,13 @@ import {
     Plus,
     AlertCircle,
     Lock,
+    QrCode,
 } from "lucide-react";
 import "../../../css/POS.css";
 import { isValidQtyInput, isValidQtyValue, isQtyInvalid, parseQty } from '../utils/validation';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { useCheckout } from '../hooks/useCheckout';
+import { usePayosCheckout } from '../hooks/usePayosCheckout';
 import { useProductSearch } from '../hooks/useProductSearch';
 import { useCustomerSearch } from '../hooks/useCustomerSearch';
 import { pickKey, hasLocationProblem } from '../utils/cartLocation';
@@ -31,6 +33,7 @@ import CustomerSearchDropdown from '../components/CustomerSearchDropdown';
 import QuickAddCustomerModal from '../components/QuickAddCustomerModal';
 import SalesOrderHistoryModal from '../components/SalesOrderHistoryModal';
 import ExchangeOrder from '../components/ExchangeOrder';
+import TransferQrPanel from '../components/TransferQrPanel';
 import { saveActiveCart, loadActiveCart } from '../utils/cartStorage';
 import { printInvoice } from '../utils/printInvoice';
 import { createQuickCustomer, getProductPosInfo, getInvoiceData } from '../api';
@@ -41,10 +44,12 @@ const MAX_TABS = 10;
 const EMPTY_CART = [];
 const EMPTY_QTY_INPUTS = {};
 
+const QR_REBUILD_DEBOUNCE_MS = 700;
+
 const PAYMENT_METHODS = [
     { value: 'cash', label: 'Tiền mặt' },
     { value: 'transfer', label: 'Chuyển khoản' },
-    { value: 'debt', label: 'Bán nợ' },
+    { value: 'debt', label: 'Ghi nợ' },
 ];
 
 /** Hạn trả nợ mặc định: 45 ngày kể từ hôm nay, dạng yyyy-MM-dd cho input date. */
@@ -208,6 +213,12 @@ const POSScreen = () => {
     // cảnh báo in lại chứ không phải lỗi thanh toán.
     const [printError, setPrintError] = useState(null);
 
+    // Chuyển khoản: tiền đã về, đang gọi BE ghi sổ đơn. Tách khỏi `submitting` của
+    // useCheckout vì lúc này khung QR mới là chỗ phải hiện tiến trình
+
+    const [settling, setSettling] = useState(false);
+    const [settleError, setSettleError] = useState(null);
+
 
     const addProductToCart = useCallback((product, posInfo) => {
         const units = product.productUnits ?? [];
@@ -248,7 +259,7 @@ const POSScreen = () => {
     }, [setCartItems]);
 
     const onProductFound = useCallback(async (product) => {
-        // Vị trí + lô lấy từ pos-info chứ không đoán từ stockBatches
+        // Vị trí + lô lấy từ api pos-info
         try {
             const posInfo = await getProductPosInfo(product.id);
             setPosInfoError(null);
@@ -321,6 +332,7 @@ const POSScreen = () => {
         error: checkoutError,
         attachCustomer,
         detachCustomer,
+        buildOrderPayload,
         submitCheckout,
         resetCheckout,
     } = useCheckout();
@@ -343,13 +355,8 @@ const POSScreen = () => {
         clearCustomerResults();
     }, [detachCustomer, clearCustomerResults]);
 
-    // Chỉ cần chưa chọn khách là thêm mới được. Trước đây còn đòi ô tìm kiếm phải
-    // chứa số điện thoại hợp lệ, nên tìm theo TÊN không ra kết quả thì nút "+" bị
-    // khóa cứng — đúng lúc cần thêm khách nhất thì lại không thêm được.
     const canQuickAdd = !customer;
 
-    // Ô tìm kiếm nhận cả tên lẫn số, nên đoán xem thu ngân vừa gõ gì để điền sẵn
-    // đúng ô trong popup, khỏi phải gõ lại.
     const quickAddPrefill = useMemo(() => {
         const raw = phone.trim();
         return /^\d+$/.test(raw)
@@ -402,27 +409,14 @@ const POSScreen = () => {
         }
     };
 
-    const changeQty = (id, delta) => {
-        setCartItems((prev) =>
-            prev.map((item) => {
-                if (item.id !== id) return item;
-                const next = Math.round((item.qty + delta) * 1000) / 1000;
-                return next > 0 ? { ...item, qty: next } : item;
-            })
-        );
-        setQtyInputs((prev) => { const n = { ...prev }; delete n[id]; return n; });
-    };
-
     const removeItem = (id) => {
         setCartItems((prev) => prev.filter((item) => item.id !== id));
         setQtyInputs((prev) => { const n = { ...prev }; delete n[id]; return n; });
     };
 
-    // Chặn thanh toán khi còn dòng chưa chọn được vị trí hoặc vị trí không đủ hàng.
     const locationBlocked = cartItems.some(hasLocationProblem);
-
     const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
-    const totalItems = cartItems.reduce((sum, item) => sum + item.qty, 0);
+    const totalItems = Math.ceil(cartItems.reduce((sum, item) => sum + item.qty, 0));
     const safeDiscount = Math.min(discount, subtotal);
     const amountDue = subtotal - safeDiscount;
 
@@ -431,10 +425,11 @@ const POSScreen = () => {
         : (parseFloat(cashGivenInput) || 0);
     const changeDue = cashGiven - amountDue;
 
-    // Bán nợ: trả trước bao nhiêu, còn nợ bao nhiêu
+    // Ghi nợ
     const isDebtMode = paymentMethod === 'debt';
+    const isTransferMode = paymentMethod === 'transfer';
     const prepaid = parseFloat(prepaidInput) || 0;
-    // Trả đủ thì không còn là đơn nợ
+    // Nếu trả đủ thì không phải ghi nợ
     const prepaidInvalid = prepaid < 0 || (amountDue > 0 && prepaid >= amountDue);
     const remainingDebt = Math.max(0, amountDue - prepaid);
     const debtCustomerBlocked = isDebtMode && !canSellOnDebt(customer);
@@ -466,18 +461,21 @@ const POSScreen = () => {
         setQuickAddError(null);
         setDiscountEditing(false);
         setCashGivenInput('');
+
+        closeTransfer();
+        setSettleError(null);
         setPaymentMethod('cash');
         setNote('');
         setPrepaidInput('');
         setDueDate(defaultDueDate());
     };
 
-    const runCheckout = async () => {
+    const runCheckout = async (payosOrderCode) => {
         const result = await submitCheckout(cartItems, paymentMethod, {
             paidAmount: prepaid,
             dueDate,
-        }, note);
-        if (!result.ok) return;
+        }, note, payosOrderCode);
+        if (!result.ok) return result;
         const orderId = result.order?.id ?? result.invoice?.orderId ?? null;
         let invoice = result.invoice;
         if (!invoice && orderId != null) {
@@ -499,9 +497,86 @@ const POSScreen = () => {
             );
         }
         handleNewOrder();
+        return result;
     };
 
-    const handleCheckout = runCheckout;
+    async function settleTransfer(paidSession) {
+        setSettling(true);
+        setSettleError(null);
+        const result = await runCheckout(paidSession.payosOrderCode);
+        setSettling(false);
+
+        // Thành công thì handleNewOrder bên trong runCheckout đã dọn mã QR rồi.
+        if (!result.ok) {
+            setSettleError(result.error
+                ?? 'Đã nhận được tiền nhưng chưa ghi sổ được đơn hàng. Vui lòng thử lại.');
+        }
+    }
+
+    const {
+        session: transferSession,
+        opening: transferOpening,
+        error: transferError,
+        throttled: transferThrottled,
+        open: openTransfer,
+        close: closeTransfer,
+    } = usePayosCheckout({ onPaid: settleTransfer });
+
+    const handleCheckout = async () => {
+        if (isTransferMode) {
+            if (settleError && transferSession?.status === 'PAID') {
+                await settleTransfer(transferSession);
+            }
+            return;
+        }
+        await runCheckout();
+    };
+
+    const transferBlockedReason = !isTransferMode ? null
+        : cartItems.length === 0 ? 'Thêm sản phẩm vào giỏ để hiện mã QR chuyển khoản.'
+            : locationBlocked ? 'Chưa chọn vị trí lấy hàng hoặc các vị trí đã chọn không đủ số lượng.'
+                : amountDue <= 0 ? 'Đơn hàng chưa có số tiền cần thu.'
+                    : null;
+
+    const transferReady = isTransferMode && transferBlockedReason == null;
+
+    const transferStale = transferReady
+        && transferSession != null
+        && Number(transferSession.amount) !== Math.round(amountDue);
+
+    // Payload mới nhất, đi qua ref để effect dựng mã KHÔNG chạy lại chỉ vì giỏ đổi
+    // thứ không ảnh hưởng số tiền (đổi ô lấy hàng, sửa ghi chú, gắn khách).
+    const transferPayloadRef = useRef(null);
+    useEffect(() => {
+        transferPayloadRef.current = () => buildOrderPayload(
+            cartItems, 'transfer', { paidAmount: prepaid, dueDate }, note);
+    });
+
+    const [transferRebuildTick, setTransferRebuildTick] = useState(0);
+
+    useEffect(() => {
+        if (!transferReady) return undefined;
+        const timer = setTimeout(() => {
+            transferPayloadRef.current && openTransfer(transferPayloadRef.current());
+        }, QR_REBUILD_DEBOUNCE_MS);
+        return () => clearTimeout(timer);
+    }, [transferReady, amountDue, transferRebuildTick, openTransfer]);
+
+    const transferCheckoutLabel = !isTransferMode ? null
+        : settling ? 'ĐANG GHI SỔ ĐƠN...'
+            : settleError && transferSession?.status === 'PAID' ? 'GHI SỔ LẠI'
+                : transferBlockedReason ? 'CHƯA SẴN SÀNG'
+                    : transferSession?.status === 'PAID' ? 'ĐÃ NHẬN TIỀN'
+                        : 'THANH TOÁN';
+
+    /** Đổi hình thức thanh toán; rời khỏi chuyển khoản thì hủy mã đang mở. */
+    const handleSelectPaymentMethod = (value) => {
+        if (paymentMethod === 'transfer' && value !== 'transfer') {
+            closeTransfer();
+            setSettleError(null);
+        }
+        setPaymentMethod(value);
+    };
 
     // Discount editing
     const handleDiscountEditToggle = () => {
@@ -637,7 +712,7 @@ const POSScreen = () => {
                                 <tr>
                                     <th className="col-stt">STT</th>
                                     <th>MÃ SẢN PHẨM</th>
-                                    <th>TÊN HÀNG</th>
+                                    <th>TÊN SẢN PHẨM</th>
                                     <th>ĐVT</th>
                                     <th>VỊ TRÍ</th>
                                     <th className="text-center">SỐ LƯỢNG</th>
@@ -703,18 +778,16 @@ const POSScreen = () => {
                                                 />
                                             </td>
                                             <td>
-                                                <div className="qty-control">
-                                                    <button className="qty-btn" onClick={() => changeQty(item.id, -1)}>-</button>
+                                                <div className="qty-control qty-control--underline">
                                                     <input
                                                         type="text"
                                                         inputMode="decimal"
                                                         value={displayVal}
                                                         onChange={(e) => handleQtyChange(item.id, e.target.value)}
                                                         onBlur={() => handleQtyBlur(item.id)}
-                                                        className={`qty-input${isInvalid ? ' qty-input-error' : ''}`}
-                                                        title={isInvalid ? 'Số lượng phải là số thực > 0' : ''}
+                                                        className={`qty-input qty-input--underline${isInvalid ? ' qty-input-error' : ''}`}
+                                                        title={isInvalid ? 'Số lượng phải lớn hơn 0' : ''}
                                                     />
-                                                    <button className="qty-btn" onClick={() => changeQty(item.id, 1)}>+</button>
                                                 </div>
                                                 {isInvalid && (
                                                     <div className="qty-error-msg">Phải là số &gt; 0</div>
@@ -761,7 +834,7 @@ const POSScreen = () => {
                             </button>
                             <button
                                 className="cart-action-btn"
-                                onClick={() => navigate('/admin/orders')}
+                                onClick={() => navigate('/admin/orders/reconciliation')}
                                 title="Mở trang đơn hàng"
                             >
                                 <ClipboardList size={18} />
@@ -861,7 +934,7 @@ const POSScreen = () => {
                         <div className="summary-row summary-row--total">
                             <span>
                                 Tổng tiền
-                                <span className="summary-item-count">({totalItems} mặt hàng)</span>
+                                <span className="summary-item-count">({totalItems} sản phẩm)</span>
                             </span>
                             <span className="font-bold">{formatVnd(subtotal)}</span>
                         </div>
@@ -910,19 +983,30 @@ const POSScreen = () => {
                             <span className="text-blue-large">{formatVnd(amountDue)}</span>
                         </div>
 
-                        {/* Tiền mặt */}
-                        {paymentMethod === 'cash' && (
+                        {/* Tiền khách đưa - dùng chung cho tiền mặt và ghi nợ */}
+                        {paymentMethod !== 'transfer' && (
                             <div className="summary-row summary-row--major">
                                 <span className="summary-major-label">Tiền khách đưa</span>
                                 <input
                                     type="number"
                                     min={0}
+                                    max={isDebtMode ? amountDue : undefined}
                                     step={1000}
-                                    className="cash-given-input"
-                                    value={cashGivenInput}
-                                    placeholder={amountDue.toLocaleString('vi-VN')}
-                                    onChange={(e) => setCashGivenInput(e.target.value)}
+                                    className={`cash-given-input${isDebtMode && prepaidInvalid ? ' input-error' : ''}`}
+                                    value={isDebtMode ? prepaidInput : cashGivenInput}
+                                    placeholder={isDebtMode ? '0' : amountDue.toLocaleString('vi-VN')}
+                                    onChange={(e) => {
+                                        if (isDebtMode) setPrepaidInput(e.target.value);
+                                        else setCashGivenInput(e.target.value);
+                                    }}
                                 />
+                            </div>
+                        )}
+
+                        {isDebtMode && prepaidInvalid && (
+                            <div className="debt-form-error">
+                                Tiền khách đưa phải nhỏ hơn {formatMoney(amountDue)}.
+                                Trả đủ thì chọn hình thức tiền mặt hoặc chuyển khoản.
                             </div>
                         )}
 
@@ -955,39 +1039,34 @@ const POSScreen = () => {
                                         <input
                                             type="radio"
                                             checked={paymentMethod === value}
-                                            onChange={() => setPaymentMethod(value)}
+                                            onChange={() => handleSelectPaymentMethod(value)}
                                         />
                                         <span>{label}</span>
                                     </label>
                                 ))}
                             </div>
+
+                            {/* Hiển thị mã QR khi chọn chuyển khoản, đơn tự ghi sổ khi tiền về. */}
+                            {isTransferMode && (
+                                <TransferQrPanel
+                                    session={transferSession}
+                                    opening={transferOpening}
+                                    error={transferError}
+                                    blockedReason={transferBlockedReason}
+                                    stale={transferStale}
+                                    settling={settling}
+                                    settleError={settleError}
+                                    throttled={transferThrottled}
+                                    onRebuild={() => setTransferRebuildTick((tick) => tick + 1)}
+                                    onRetrySettle={() => settleTransfer(transferSession)}
+                                />
+                            )}
                         </div>
 
-                        {/* Bán nợ */}
+                        {/* Ghi nợ */}
                         {isDebtMode && (
                             <div className="debt-form">
                                 <div className="debt-form-title">Thông tin ghi nợ</div>
-
-                                <div className="summary-row summary-row--major">
-                                    <span className="summary-major-label">Tiền khách đưa</span>
-                                    <input
-                                        type="number"
-                                        min={0}
-                                        max={amountDue}
-                                        step={1000}
-                                        className={`cash-given-input${prepaidInvalid ? ' input-error' : ''}`}
-                                        value={prepaidInput}
-                                        placeholder="0"
-                                        onChange={(e) => setPrepaidInput(e.target.value)}
-                                    />
-                                </div>
-
-                                {prepaidInvalid && (
-                                    <div className="debt-form-error">
-                                        Tiền khách đưa phải nhỏ hơn {formatMoney(amountDue)}.
-                                        Trả đủ thì chọn hình thức tiền mặt hoặc chuyển khoản.
-                                    </div>
-                                )}
 
                                 <div className="summary-row summary-row--major debt-remaining-row">
                                     <span className="summary-major-label">Khách còn nợ</span>
@@ -1040,12 +1119,16 @@ const POSScreen = () => {
                     <div className="payment-footer">
                         <button
                             className="btn-checkout"
-                            disabled={submitting || cartItems.length === 0 || locationBlocked || debtBlocked}
+                            disabled={submitting || cartItems.length === 0 || locationBlocked || debtBlocked
+                                // Chuyển khoản: nút chỉ mở khi tiền đã về mà ghi sổ hỏng.
+                                || (isTransferMode && !(settleError && transferSession?.status === 'PAID'))}
                             title={debtBlockedReason ?? undefined}
                             onClick={handleCheckout}
                         >
                             {debtBlocked && isDebtMode && <Lock size={16} />}
-                            {submitting ? 'ĐANG XỬ LÝ...' : (isDebtMode ? 'GHI NỢ' : 'THANH TOÁN')}
+                            {isTransferMode && !submitting && !settling && <QrCode size={16} />}
+                            {transferCheckoutLabel
+                                ?? (submitting ? 'ĐANG XỬ LÝ...' : (isDebtMode ? 'GHI NỢ' : 'THANH TOÁN'))}
                         </button>
                     </div>
                 </div>

@@ -22,4 +22,6 @@ public class ApiPath {
     public static final String IMPORT_HISTORY = BASE_URL_V1 + "/import-history";
     public static final String SALES_HISTORY = BASE_URL_V1 + "/sales-history";
     public static final String NOTIFICATIONS = BASE_URL_V1 + "/notifications";
+    public static final String PAYMENT_METHODS = BASE_URL_V1 + "/payment";
+    public static final String CHECKOUT = BASE_URL_V1 + "/checkout";
 }

@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -21,11 +20,10 @@ import project.be_sep490_g67.dto.response.DebtOrderResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.dto.response.TodaysDebtSalesSummaryResponse;
 import project.be_sep490_g67.entity.Customer;
-import project.be_sep490_g67.entity.DebtPayment;
+import project.be_sep490_g67.entity.SalesOrder;
 import project.be_sep490_g67.entity.User;
 import project.be_sep490_g67.enums.DebtOrderStatus;
 import project.be_sep490_g67.enums.DebtStatus;
-import project.be_sep490_g67.entity.SalesOrder;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.CustomerRepository;
@@ -37,13 +35,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -103,7 +95,7 @@ public class CustomerService {
         customer.setIsCheckUnstableDebt(!isCurrentUserAdmin());
 
         customer = customerRepository.save(customer);
-        log.info("Create new customer by id {}",customer.getId());
+        log.info("Create new customer by id {}", customer.getId());
 
         return CustomerResponse.builder()
                 .id(customer.getId())
@@ -158,8 +150,8 @@ public class CustomerService {
             List<CustomerResponse> responses = customers.stream().map(customer -> {
                 boolean hasOverdue = customer.getSalesOrders().stream().anyMatch(so ->
                         Boolean.TRUE.equals(so.getIsDebt()) &&
-                        so.getDueDate() != null && so.getDueDate().isBefore(now) &&
-                        isOrderUnpaid(so));
+                                so.getDueDate() != null && so.getDueDate().isBefore(now) &&
+                                isOrderUnpaid(so));
                 return buildCustomerResponse(customer, hasOverdue, now);
             }).collect(Collectors.toList());
 
@@ -185,12 +177,12 @@ public class CustomerService {
             customerPage = customerRepository.findFilteredCustomersWithPaging(
                     keyword, statusQuery, allowDebt, from, to, now, isOverdue, pageable
             );
-            
+
             List<CustomerResponse> responses = customerPage.getContent().stream().map(customer -> {
                 boolean hasOverdue = customer.getSalesOrders().stream().anyMatch(so ->
                         Boolean.TRUE.equals(so.getIsDebt()) &&
-                        so.getDueDate() != null && so.getDueDate().isBefore(now) &&
-                        isOrderUnpaid(so));
+                                so.getDueDate() != null && so.getDueDate().isBefore(now) &&
+                                isOrderUnpaid(so));
                 return buildCustomerResponse(customer, hasOverdue, now);
             }).toList();
 
@@ -253,7 +245,7 @@ public class CustomerService {
                 .totalOverdueOrders(totalOverdueOrders)
                 .build();
     }
-    
+
     private Comparator<CustomerResponse> getPriorityComparator() {
         // Primary sort: by priority score (descending)
         // Secondary sort: by total debt (descending)
@@ -296,8 +288,8 @@ public class CustomerService {
         Instant now = Instant.now();
         boolean hasOverdue = customer.getSalesOrders().stream().anyMatch(so ->
                 Boolean.TRUE.equals(so.getIsDebt()) &&
-                so.getDueDate() != null && so.getDueDate().isBefore(now) &&
-                isOrderUnpaid(so));
+                        so.getDueDate() != null && so.getDueDate().isBefore(now) &&
+                        isOrderUnpaid(so));
 
         return buildCustomerResponse(customer, hasOverdue, now);
     }
@@ -326,11 +318,11 @@ public class CustomerService {
             DebtOrderStatus status = DebtCalculator.deriveStatus(amountRemaining, so.getDueDate(), now);
 
             String createdByName = "N/A";
-             if (so.getCreatedBy() != null) {
-                 createdByName = userRepository.findById(so.getCreatedBy())
-                                                 .map(User::getFullName)
-                                                 .orElse("Không rõ");
-             }
+            if (so.getCreatedBy() != null) {
+                createdByName = userRepository.findById(so.getCreatedBy())
+                        .map(User::getFullName)
+                        .orElse("Không rõ");
+            }
 
             return DebtOrderResponse.builder()
                     .id(so.getId())
@@ -426,48 +418,48 @@ public class CustomerService {
         todaysDebtSales.stream()
                 .sorted(Comparator.comparing((SalesOrder so) -> isCheckDebtUnstable(so.getCustomer())).reversed())
                 .forEach(so -> {
-            BigDecimal initialPaidAmount = so.getPaidAmount() != null ? so.getPaidAmount() : BigDecimal.ZERO;
-            BigDecimal subsequentPayments = so.getDebtPayments().stream()
-                    .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal totalPaid = initialPaidAmount.add(subsequentPayments);
-            BigDecimal totalAmount = so.getTotalAmount() != null ? so.getTotalAmount() : BigDecimal.ZERO;
-            BigDecimal amountRemaining = totalAmount.subtract(totalPaid);
+                    BigDecimal initialPaidAmount = so.getPaidAmount() != null ? so.getPaidAmount() : BigDecimal.ZERO;
+                    BigDecimal subsequentPayments = so.getDebtPayments().stream()
+                            .map(dp -> dp.getAmountPaid() != null ? dp.getAmountPaid() : BigDecimal.ZERO)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    BigDecimal totalPaid = initialPaidAmount.add(subsequentPayments);
+                    BigDecimal totalAmount = so.getTotalAmount() != null ? so.getTotalAmount() : BigDecimal.ZERO;
+                    BigDecimal amountRemaining = totalAmount.subtract(totalPaid);
 
-            String createdByName = "N/A";
-            if (so.getCreatedBy() != null) {
-                createdByName = userRepository.findById(so.getCreatedBy())
-                        .map(User::getFullName)
-                        .orElse("Không rõ");
-            }
+                    String createdByName = "N/A";
+                    if (so.getCreatedBy() != null) {
+                        createdByName = userRepository.findById(so.getCreatedBy())
+                                .map(User::getFullName)
+                                .orElse("Không rõ");
+                    }
 
-            Customer orderCustomer = so.getCustomer();
+                    Customer orderCustomer = so.getCustomer();
 
-            Integer customerId = orderCustomer != null ? orderCustomer.getId() : null;
-            TodaysDebtSalesSummaryResponse customerGroup = groupedByCustomer.computeIfAbsent(
-                    customerId,
-                    id -> TodaysDebtSalesSummaryResponse.builder()
-                            .customerId(id)
-                            .customerName(orderCustomer != null ? orderCustomer.getFullName() : null)
+                    Integer customerId = orderCustomer != null ? orderCustomer.getId() : null;
+                    TodaysDebtSalesSummaryResponse customerGroup = groupedByCustomer.computeIfAbsent(
+                            customerId,
+                            id -> TodaysDebtSalesSummaryResponse.builder()
+                                    .customerId(id)
+                                    .customerName(orderCustomer != null ? orderCustomer.getFullName() : null)
+                                    .isCheckDebtUnstable(isCheckDebtUnstable(orderCustomer))
+                                    .debtSalesDetails(new ArrayList<>())
+                                    .build()
+                    );
+
+                    customerGroup.getDebtSalesDetails().add(DebtOrderResponse.builder()
+                            .id(so.getId())
+                            .orderId(so.getId())
+                            .orderCode(so.getOrderCode())
+                            .orderDate(so.getCreatedAt())
+                            .dueDate(so.getDueDate())
+                            .totalAmount(totalAmount)
+                            .amountPaid(totalPaid)
+                            .amountRemaining(amountRemaining)
                             .isCheckDebtUnstable(isCheckDebtUnstable(orderCustomer))
-                            .debtSalesDetails(new ArrayList<>())
-                            .build()
-            );
-
-            customerGroup.getDebtSalesDetails().add(DebtOrderResponse.builder()
-                    .id(so.getId())
-                    .orderId(so.getId())
-                    .orderCode(so.getOrderCode())
-                    .orderDate(so.getCreatedAt())
-                    .dueDate(so.getDueDate())
-                    .totalAmount(totalAmount)
-                    .amountPaid(totalPaid)
-                    .amountRemaining(amountRemaining)
-                    .isCheckDebtUnstable(isCheckDebtUnstable(orderCustomer))
-                    .status(amountRemaining.compareTo(BigDecimal.ZERO) <= 0 ? DebtOrderStatus.PAID : DebtOrderStatus.IN_DEBT)
-                    .createdBy(createdByName)
-                    .build());
-        });
+                            .status(amountRemaining.compareTo(BigDecimal.ZERO) <= 0 ? DebtOrderStatus.PAID : DebtOrderStatus.IN_DEBT)
+                            .createdBy(createdByName)
+                            .build());
+                });
 
         return new ArrayList<>(groupedByCustomer.values());
     }

@@ -37,7 +37,7 @@ const getPaymentMethodLabel = (method) => {
     switch (method) {
         case 'CASH': return 'Tiền mặt';
         case 'TRANSFER': return 'Chuyển khoản';
-        case 'DEBT': return 'Bán nợ';
+        case 'DEBT': return 'Ghi nợ';
         default: return method;
     }
 };

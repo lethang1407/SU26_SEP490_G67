@@ -15,7 +15,7 @@ export default function SalesOrderPaymentSummary({ order }) {
                     <dd>
                         {order.paymentMethod === 'CASH' && 'Tiền mặt'}
                         {order.paymentMethod === 'TRANSFER' && 'Chuyển khoản'}
-                        {order.paymentMethod === 'DEBT' && 'Bán nợ'}
+                        {order.paymentMethod === 'DEBT' && 'Ghi nợ'}
                         {!['CASH', 'TRANSFER', 'DEBT'].includes(order.paymentMethod) &&
                             (order.paymentMethod || '—')}
                     </dd>
