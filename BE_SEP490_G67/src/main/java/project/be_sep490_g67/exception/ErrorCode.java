@@ -187,17 +187,9 @@ public enum ErrorCode {
     // Notification errors (42xx)
     NOTIFICATION_NOT_FOUND(4201, "Không tìm thấy thông báo", HttpStatus.NOT_FOUND),
 
-    // Thanh toán chuyển khoản PayOS (43xx)
-    PAYMENT_SESSION_NOT_FOUND(4301, "Không tìm thấy phiên thanh toán chuyển khoản", HttpStatus.NOT_FOUND),
-    PAYMENT_NOT_COMPLETED(4302, "Khách chưa chuyển khoản thành công, chưa thể hoàn tất đơn hàng", HttpStatus.BAD_REQUEST),
-    PAYMENT_SESSION_ALREADY_USED(4303, "Phiên thanh toán này đã được dùng để tạo đơn hàng", HttpStatus.CONFLICT),
-    PAYMENT_AMOUNT_MISMATCH(4304, "Số tiền đã chuyển khoản không khớp với tổng tiền đơn hàng", HttpStatus.BAD_REQUEST),
-    PAYMENT_SESSION_NOT_CANCELLABLE(4305, "Phiên thanh toán này không còn ở trạng thái có thể hủy", HttpStatus.BAD_REQUEST),
-    PAYMENT_METHOD_NOT_TRANSFER(4306, "Chỉ đơn thanh toán chuyển khoản mới cần mã giao dịch PayOS", HttpStatus.BAD_REQUEST),
-    PAYMENT_REFERENCE_REQUIRED(4307, "Đơn chuyển khoản phải kèm mã phiên thanh toán PayOS", HttpStatus.BAD_REQUEST),
-    PAYMENT_GATEWAY_ERROR(4308, "Không kết nối được cổng thanh toán PayOS. Vui lòng thử lại.", HttpStatus.BAD_GATEWAY),
-    PAYMENT_INVALID_WEBHOOK(4309, "Dữ liệu webhook PayOS không hợp lệ", HttpStatus.BAD_REQUEST),
-    PAYMENT_GATEWAY_RATE_LIMITED(4310, "Cổng thanh toán đang quá tải, vui lòng thử lại sau giây lát", HttpStatus.TOO_MANY_REQUESTS),
+    // Thanh toán chuyển khoản (43xx)
+    PAYMENT_METHOD_NOT_TRANSFER(4306, "Chỉ đơn thanh toán chuyển khoản mới có nội dung chuyển khoản", HttpStatus.BAD_REQUEST),
+    STORE_BANK_ACCOUNT_NOT_CONFIGURED(4311, "Cửa hàng chưa khai báo tài khoản ngân hàng nhận chuyển khoản", HttpStatus.BAD_REQUEST),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

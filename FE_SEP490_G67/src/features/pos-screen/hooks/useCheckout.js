@@ -54,10 +54,6 @@ export function useCheckout() {
     /**
      * Những gì phải đúng trước khi động tới tiền của khách.
      *
-     * <p>Tách khỏi submitCheckout vì luồng chuyển khoản phải kiểm TRƯỚC lúc dựng QR:
-     * đưa khách quét một mã rồi mới báo "chưa chọn vị trí lấy hàng" là bắt khách chờ
-     * vô ích, tệ hơn nữa là tiền đã về mà đơn thì không ghi sổ được.
-     *
      * @returns {string|null} câu lỗi tiếng Việt, hoặc null nếu qua hết
      */
     const validateCheckout = useCallback((cartItems, paymentMethod, debtInfo) => {
@@ -83,14 +79,8 @@ export function useCheckout() {
         return null;
     }, [customer]);
 
-    /**
-     * Thân request tạo đơn.
-     *
-     * <p>Luồng chuyển khoản gửi CHÍNH payload này hai lần: lần đầu để BE tính ra số
-     * tiền trên QR, lần sau để ghi sổ đơn. Dùng chung một hàm để hai lần đó không thể
-     * lệch nhau — lệch là QR thu một đằng, đơn ghi một nẻo.
-     */
-    const buildOrderPayload = useCallback((cartItems, paymentMethod, debtInfo, note, payosOrderCode) => {
+    /** Thân request tạo đơn. */
+    const buildOrderPayload = useCallback((cartItems, paymentMethod, debtInfo, note, paymentReference) => {
         const discountAmount = discount > 0 ? discount : 0;
         return {
             paymentMethod: paymentMethod.toUpperCase(),
@@ -108,7 +98,7 @@ export function useCheckout() {
             })),
 
             ...(customer?.id ? { customerId: customer.id } : {}),
-            ...(payosOrderCode ? { payosOrderCode } : {}),
+            ...(paymentReference ? { paymentReference } : {}),
             ...(paymentMethod === 'debt' ? {
                 paidAmount: debtInfo.paidAmount ?? 0,
                 // input[type=date] cho ra yyyy-MM-dd; BE nhận Instant nên
@@ -121,10 +111,10 @@ export function useCheckout() {
     /**
      * Ghi sổ đơn.
      *
-     * @param payosOrderCode mã phiên chuyển khoản ĐÃ thanh toán. Bắt buộc với đơn
-     *        chuyển khoản — BE từ chối đơn TRANSFER không kèm mã này.
+     * @param paymentReference nội dung chuyển khoản đã in trên mã QR khách vừa quét.
+     *        Chỉ đơn TRANSFER mới có; BE từ chối chuỗi này trên mọi hình thức khác.
      */
-    const submitCheckout = useCallback(async (cartItems, paymentMethod, debtInfo, note, payosOrderCode) => {
+    const submitCheckout = useCallback(async (cartItems, paymentMethod, debtInfo, note, paymentReference) => {
         const validationError = validateCheckout(cartItems, paymentMethod, debtInfo);
         if (validationError) {
             setError(validationError);
@@ -134,7 +124,7 @@ export function useCheckout() {
         setSubmitting(true);
         setError(null);
         try {
-            const payload = buildOrderPayload(cartItems, paymentMethod, debtInfo, note, payosOrderCode);
+            const payload = buildOrderPayload(cartItems, paymentMethod, debtInfo, note, paymentReference);
 
             let invoice;
             if (paymentMethod === 'debt') {
@@ -143,14 +133,10 @@ export function useCheckout() {
                 invoice = await createInvoice(payload);
             }
 
-            // Không in thẳng nữa: POS mở màn xem trước hóa đơn, thu ngân tự quyết
-            // in hay hủy. Vẫn nạp sẵn dữ liệu ở đây để nút "In" không phải chờ.
             let invoiceData = null;
             try {
                 invoiceData = await getInvoiceData(invoice.id);
             } catch {
-                // Đơn đã lưu xong rồi — không lấy được bản in thì vẫn coi là thành công,
-                // màn hóa đơn sẽ tự tải lại khi bấm In.
             }
             return { ok: true, order: invoice, invoice: invoiceData, customer };
         } catch (err) {
@@ -182,8 +168,6 @@ export function useCheckout() {
         lookupCustomer,
         attachCustomer,
         detachCustomer,
-        validateCheckout,
-        buildOrderPayload,
         submitCheckout,
         resetCheckout,
     };

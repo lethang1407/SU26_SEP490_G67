@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Card, Form, Button, Alert, Modal } from 'react-bootstrap';
-import { FileText, TriangleAlert } from 'lucide-react';
+import { FileText, TriangleAlert, Landmark } from 'lucide-react';
 import { updateStoreInfor } from '../api';
+import { VIETQR_BANKS, bankNameOf } from '../constants/banks';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 
 function StoreForm({ initialData, onUpdateSuccess }) {
@@ -42,17 +43,45 @@ function StoreForm({ initialData, onUpdateSuccess }) {
         if (!formData.address?.trim()) newErrors.address = 'Địa chỉ không được để trống';
         if (formData.taxCode && !/^\d{10}(?:-\d{3})?$/.test(formData.taxCode)) newErrors.taxCode = 'Sai định dạng mã số thuế';
 
+        //Validate thông tin ngân hàng
+        const bankId = formData.bankId?.trim();
+        const bankAccountNo = formData.bankAccountNo?.trim();
+        if (bankId && !bankAccountNo) newErrors.bankAccountNo = 'Đã chọn ngân hàng thì phải có số tài khoản';
+        if (!bankId && bankAccountNo) newErrors.bankId = 'Đã có số tài khoản thì phải chọn ngân hàng';
+        if (bankId && !/^[A-Za-z0-9]{2,20}$/.test(bankId)) newErrors.bankId = 'Mã ngân hàng chỉ gồm chữ và số';
+        if (bankAccountNo && !/^\d{6,20}$/.test(bankAccountNo)) {
+            newErrors.bankAccountNo = 'Số tài khoản chỉ gồm chữ số, dài 6-20 ký tự';
+        }
+
+        // Ngân hàng in tên thụ hưởng dạng in hoa không dấu (PHAM HUY THAI).
+        const bankAccountName = formData.bankAccountName?.trim();
+        if (bankAccountName && !/^[A-Z0-9 ]{5,50}$/.test(bankAccountName)) {
+            newErrors.bankAccountName =
+                'Tên chủ tài khoản phải viết hoa không dấu, không chứa ký tự đặc biệt, dài 5-50 ký tự';
+        }
+
         setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
+        return newErrors;
     };
 
     const handleShowConfirmModal = () => {
-        if (!validateForm()) return;
+        const newErrors = validateForm();
+        const firstInvalid = Object.keys(newErrors)[0];
+        if (firstInvalid) {
+            // Ô sai có thể nằm ở thẻ "Tài khoản nhận chuyển khoản" phía dưới màn hình:
+            // nếu chỉ lặng lẽ return thì người dùng bấm "Lưu thay đổi" mà không thấy gì xảy ra.
+            setMessage({ type: 'danger', text: newErrors[firstInvalid] });
+            document.querySelector(`[name="${firstInvalid}"]`)?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+            });
+            return;
+        }
         setShowConfirmModal(true);
     };
 
     const handleSave = async () => {
-        if (!validateForm()) return;
+        if (Object.keys(validateForm()).length > 0) return;
 
         setIsSaving(true);
         setMessage(null);
@@ -167,6 +196,72 @@ function StoreForm({ initialData, onUpdateSuccess }) {
                                 isInvalid={!!errors.address}
                             />
                             <Form.Control.Feedback type="invalid">{errors.address}</Form.Control.Feedback>
+                        </Form.Group>
+                    </Form>
+                </Card.Body>
+            </Card>
+
+            <Card className="shadow-sm border-0 mt-3">
+                <Card.Header className="bg-white fw-semibold d-flex align-items-center gap-2">
+                    <Landmark size={18} className="text-muted" />
+                    <span>TÀI KHOẢN NHẬN CHUYỂN KHOẢN</span>
+                </Card.Header>
+
+                <Card.Body>
+                    <p className="text-muted small mb-3">
+                        Thông tin này được in lên mã QR ở màn hình bán hàng khi khách chọn
+                        thanh toán bằng chuyển khoản. Để trống nếu cửa hàng chỉ thu tiền mặt.
+                    </p>
+
+                    <Form noValidate>
+                        <Form.Group className="mb-3">
+                            <Form.Label><b>Ngân hàng</b></Form.Label>
+                            <Form.Select
+                                name="bankId"
+                                value={formData.bankId || ''}
+                                onChange={handleInputChange}
+                                disabled={!isEditing}
+                                isInvalid={!!errors.bankId}
+                            >
+                                <option value="">— Chưa chọn —</option>
+                                {VIETQR_BANKS.map(({ bin, name }) => (
+                                    <option key={bin} value={bin}>{name} ({bin})</option>
+                                ))}
+                                {/* Ngân hàng đã lưu nhưng không có trong danh sách vẫn phải
+                                    hiện ra, nếu không mở form lên là mất luôn cấu hình cũ. */}
+                                {formData.bankId && !bankNameOf(formData.bankId) && (
+                                    <option value={formData.bankId}>Mã {formData.bankId}</option>
+                                )}
+                            </Form.Select>
+                            <Form.Control.Feedback type="invalid">{errors.bankId}</Form.Control.Feedback>
+                        </Form.Group>
+
+                        <Form.Group className="mb-3">
+                            <Form.Label><b>Số tài khoản</b></Form.Label>
+                            <Form.Control
+                                name="bankAccountNo"
+                                value={formData.bankAccountNo || ''}
+                                onChange={handleInputChange}
+                                readOnly={!isEditing}
+                                isInvalid={!!errors.bankAccountNo}
+                            />
+                            <Form.Control.Feedback type="invalid">{errors.bankAccountNo}</Form.Control.Feedback>
+                        </Form.Group>
+
+                        <Form.Group>
+                            <Form.Label><b>Tên chủ tài khoản</b></Form.Label>
+                            <Form.Control
+                                name="bankAccountName"
+                                value={formData.bankAccountName || ''}
+                                onChange={handleInputChange}
+                                readOnly={!isEditing}
+                                isInvalid={!!errors.bankAccountName}
+                            />
+                            <Form.Text className="text-muted">
+                                Hiện trên mã QR để khách đối chiếu trước khi chuyển tiền.
+                                Viết hoa không dấu như ngân hàng in, ví dụ PHAM HUY THAI.
+                            </Form.Text>
+                            <Form.Control.Feedback type="invalid">{errors.bankAccountName}</Form.Control.Feedback>
                         </Form.Group>
                     </Form>
                 </Card.Body>

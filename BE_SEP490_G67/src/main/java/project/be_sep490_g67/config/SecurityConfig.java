@@ -27,9 +27,6 @@ public class SecurityConfig {
     private final String[] PUBLIC_ENDPOINTS = {
             "/api/users", "/api/auth/token", "/api/auth/introspect", "/api/auth/logout", "/api/auth/refresh"
             , "/api/auth/forgot-password/initiate", "/api/auth/forgot-password/verify-otp", "/api/auth/forgot-password/change-password"
-            // PayOS gọi vào từ ngoài Internet, không mang theo JWT của cửa hàng.
-            // Tính xác thực do chữ ký checksum trong payload đảm nhiệm.
-            , "/api/payment/payment_transfer_handle"
     };
     @Autowired
     private CustomJwtDecoder customJwtDecoder;

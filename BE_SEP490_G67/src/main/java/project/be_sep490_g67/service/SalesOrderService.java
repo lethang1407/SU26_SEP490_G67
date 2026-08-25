@@ -51,7 +51,6 @@ public class SalesOrderService {
     UserRepository userRepository;
     DebtPolicy debtPolicy;
     NotificationService notificationService;
-    PayosCheckoutService payosCheckoutService;
 
     @Transactional
     public SalesOrderResponse createOrder(CreateSalesOrderRequest request,
@@ -65,7 +64,7 @@ public class SalesOrderService {
                             HttpStatus.NOT_FOUND, "Không tìm thấy khách hàng"));
         }
 
-        validatePayosUsage(request, isDebt);
+        validateTransferReference(request, isDebt);
 
         Instant now = Instant.now();
         // Phải tính trước khi lưu đơn hiện tại, nếu không đơn này tự làm
@@ -178,13 +177,10 @@ public class SalesOrderService {
         BigDecimal paid = isDebt ? resolvePrepaid(request.getPaidAmount(), grandTotal) : grandTotal;
         order.setPaidAmount(paid);
 
-        // Chốt phiên chuyển khoản NGAY TRONG giao dịch này: nếu số tiền đã thu
-        // không khớp tổng đơn vừa tính, cả đơn lẫn phần trừ kho cùng bị cuộn lại.
-        if (request.getPayosOrderCode() != null) {
-            order.setPayosOrderCode(request.getPayosOrderCode());
-            order.setPaymentReference(payosCheckoutService.consume(
-                    request.getPayosOrderCode(), grandTotal, saved.getId()));
-        }
+        // Nội dung chuyển khoản in trên mã QR khách vừa quét. Hệ thống không đọc được
+        // sao kê nên không tự kiểm chứng được khoản tiền này — thu ngân đã nhìn app
+        // ngân hàng và xác nhận trước khi bấm. Lưu lại để cuối ca còn dò ngược được.
+        order.setPaymentReference(trimToNull(request.getPaymentReference()));
 
         salesOrderRepository.save(order);
 
@@ -201,17 +197,24 @@ public class SalesOrderService {
     }
 
     /**
-     * Đơn chuyển khoản buộc phải kèm mã phiên PayOS đã thanh toán, và ngược lại.
+     * Nội dung chuyển khoản chỉ thuộc về đơn chuyển khoản.
+     *
+     * <p>Chiều ngược lại không bắt buộc: đơn TRANSFER thiếu chuỗi này vẫn ghi được,
+     * vì tiền đã về tài khoản rồi — chặn ở đây chỉ tạo ra một hóa đơn không lưu nổi
+     * dù cửa hàng đã cầm tiền của khách.
      */
-    private void validatePayosUsage(CreateSalesOrderRequest request, boolean isDebt) {
+    private void validateTransferReference(CreateSalesOrderRequest request, boolean isDebt) {
         boolean isTransfer = !isDebt && "TRANSFER".equalsIgnoreCase(request.getPaymentMethod());
 
-        if (isTransfer && request.getPayosOrderCode() == null) {
-            throw new AppException(ErrorCode.PAYMENT_REFERENCE_REQUIRED);
-        }
-        if (!isTransfer && request.getPayosOrderCode() != null) {
+        if (!isTransfer && trimToNull(request.getPaymentReference()) != null) {
             throw new AppException(ErrorCode.PAYMENT_METHOD_NOT_TRANSFER);
         }
+    }
+
+    private static String trimToNull(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private List<StockDeductionService.StockPick> resolvePicks(
@@ -232,7 +235,6 @@ public class SalesOrderService {
 
     /**
      * check đơn nợ
-     * <p>
      * Nếu là staff thì cần đối soát admin check khách hàng nợ mới
      */
     private boolean isDebtOrderUnstable(Integer customerId, Integer createdBy) {
@@ -393,7 +395,6 @@ public class SalesOrderService {
                 .orderCode(order.getOrderCode())
                 .paymentMethod(order.getPaymentMethod())
                 .orderStatus(order.getOrderStatus())
-                .payosOrderCode(order.getPayosOrderCode())
                 .paymentReference(order.getPaymentReference())
                 .isDebt(order.getIsDebt())
                 .subtotal(order.getSubtotal())
