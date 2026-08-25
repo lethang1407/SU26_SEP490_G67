@@ -1,10 +1,7 @@
 package project.be_sep490_g67.dto.request;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.*;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -41,17 +38,14 @@ public class CreateExchangeOrderRequest {
     BigDecimal debtPaymentAmount;
 
     /**
-     * Mã phiên PayOS đã thu tiền cho phần khách phải bù thêm của phiếu đổi này.
-     *
-     * <p>Bắt buộc khi {@code refundMethod = TRANSFER} mà phiếu có tiền thu vào
-     * (hàng lấy mới đắt hơn hàng trả lại), và phải để trống trong mọi trường hợp
-     * còn lại. Không có nó thì khoản tiền khách chuyển nằm ngoài sổ, không đối
-     * chiếu được với chứng từ nào.
-     *
-     * <p>Chiều hoàn tiền cho khách không dùng field này: cửa hàng chuyển đi chứ
-     * không thu về, PayOS không tham gia.
+     * Nội dung chuyển khoản đã in trên mã VietQR, cho phần tiền khách phải bù thêm
+     * của phiếu đổi này (hàng lấy mới đắt hơn hàng trả lại).
+     * Chỉ gửi khi {@code refundMethod = TRANSFER} và phiếu có tiền thu vào; phải
+     * để trống trong mọi trường hợp còn lại. Chiều hoàn tiền cho khách không dùng
+     * field này: cửa hàng chuyển đi chứ không thu về, không có mã QR nào cả.
      */
-    Long payosOrderCode;
+    @Size(max = 100, message = "Nội dung chuyển khoản tối đa 100 ký tự")
+    String paymentReference;
 
     @Data
     @NoArgsConstructor
@@ -69,15 +63,10 @@ public class CreateExchangeOrderRequest {
 
         @Deprecated
         BigDecimal unitPrice;
-
         String unitName;
-
         String resolutionType;
-
         String itemCondition;
-
         String itemNote;
-
         String pairedExchangeItemRef;
     }
 

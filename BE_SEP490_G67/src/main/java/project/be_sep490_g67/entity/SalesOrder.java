@@ -66,13 +66,9 @@ public class SalesOrder extends BaseEntity {
     private String note;
 
     /**
-     * Mã giao dịch PayOS đã thanh toán cho đơn này (đơn chuyển khoản). NULL với
-     * đơn tiền mặt và đơn nợ.
+     * Nội dung chuyển khoản in trên mã VietQR của đơn này. NULL với đơn tiền mặt
+     * và đơn nợ.
      */
-    @Column(name = "payos_order_code")
-    private Long payosOrderCode;
-
-    /** Mã tham chiếu của ngân hàng, để đối soát cuối ca. */
     @Column(name = "payment_reference", length = 100)
     private String paymentReference;
 

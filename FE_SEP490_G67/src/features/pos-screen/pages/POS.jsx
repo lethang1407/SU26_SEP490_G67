@@ -18,7 +18,7 @@ import "../../../css/POS.css";
 import { isValidQtyInput, isValidQtyValue, isQtyInvalid, parseQty } from '../utils/validation';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { useCheckout } from '../hooks/useCheckout';
-import { usePayosCheckout } from '../hooks/usePayosCheckout';
+import { useStorePaymentInfo } from '../hooks/useStorePaymentInfo';
 import { useProductSearch } from '../hooks/useProductSearch';
 import { useCustomerSearch } from '../hooks/useCustomerSearch';
 import { pickKey, hasLocationProblem } from '../utils/cartLocation';
@@ -34,6 +34,7 @@ import QuickAddCustomerModal from '../components/QuickAddCustomerModal';
 import SalesOrderHistoryModal from '../components/SalesOrderHistoryModal';
 import ExchangeOrder from '../components/ExchangeOrder';
 import TransferQrPanel from '../components/TransferQrPanel';
+import { buildPaymentReference } from '../utils/vietqr';
 import { saveActiveCart, loadActiveCart } from '../utils/cartStorage';
 import { printInvoice } from '../utils/printInvoice';
 import { createQuickCustomer, getProductPosInfo, getInvoiceData } from '../api';
@@ -43,8 +44,6 @@ const MAX_TABS = 10;
 // Hằng số dùng chung cho tab không có giỏ
 const EMPTY_CART = [];
 const EMPTY_QTY_INPUTS = {};
-
-const QR_REBUILD_DEBOUNCE_MS = 700;
 
 const PAYMENT_METHODS = [
     { value: 'cash', label: 'Tiền mặt' },
@@ -213,11 +212,11 @@ const POSScreen = () => {
     // cảnh báo in lại chứ không phải lỗi thanh toán.
     const [printError, setPrintError] = useState(null);
 
-    // Chuyển khoản: tiền đã về, đang gọi BE ghi sổ đơn. Tách khỏi `submitting` của
-    // useCheckout vì lúc này khung QR mới là chỗ phải hiện tiến trình
-
-    const [settling, setSettling] = useState(false);
-    const [settleError, setSettleError] = useState(null);
+    // Nội dung chuyển khoản in trên mã QR của đơn đang bán. Sinh sẵn ngay từ lúc mở
+    // đơn và giữ nguyên tới lúc ghi sổ: số tiền trên mã đổi theo giỏ hàng, nhưng
+    // chuỗi này thì không — đổi giữa chừng là khách chuyển với nội dung này còn hóa
+    // đơn ghi nội dung khác, mất luôn đường đối soát.
+    const [transferReference, setTransferReference] = useState(buildPaymentReference);
 
 
     const addProductToCart = useCallback((product, posInfo) => {
@@ -332,7 +331,6 @@ const POSScreen = () => {
         error: checkoutError,
         attachCustomer,
         detachCustomer,
-        buildOrderPayload,
         submitCheckout,
         resetCheckout,
     } = useCheckout();
@@ -462,19 +460,18 @@ const POSScreen = () => {
         setDiscountEditing(false);
         setCashGivenInput('');
 
-        closeTransfer();
-        setSettleError(null);
+        setTransferReference(buildPaymentReference());
         setPaymentMethod('cash');
         setNote('');
         setPrepaidInput('');
         setDueDate(defaultDueDate());
     };
 
-    const runCheckout = async (payosOrderCode) => {
+    const runCheckout = async () => {
         const result = await submitCheckout(cartItems, paymentMethod, {
             paidAmount: prepaid,
             dueDate,
-        }, note, payosOrderCode);
+        }, note, isTransferMode ? transferReference : null);
         if (!result.ok) return result;
         const orderId = result.order?.id ?? result.invoice?.orderId ?? null;
         let invoice = result.invoice;
@@ -500,83 +497,17 @@ const POSScreen = () => {
         return result;
     };
 
-    async function settleTransfer(paidSession) {
-        setSettling(true);
-        setSettleError(null);
-        const result = await runCheckout(paidSession.payosOrderCode);
-        setSettling(false);
-
-        // Thành công thì handleNewOrder bên trong runCheckout đã dọn mã QR rồi.
-        if (!result.ok) {
-            setSettleError(result.error
-                ?? 'Đã nhận được tiền nhưng chưa ghi sổ được đơn hàng. Vui lòng thử lại.');
-        }
-    }
-
-    const {
-        session: transferSession,
-        opening: transferOpening,
-        error: transferError,
-        throttled: transferThrottled,
-        open: openTransfer,
-        close: closeTransfer,
-    } = usePayosCheckout({ onPaid: settleTransfer });
-
     const handleCheckout = async () => {
-        if (isTransferMode) {
-            if (settleError && transferSession?.status === 'PAID') {
-                await settleTransfer(transferSession);
-            }
-            return;
-        }
         await runCheckout();
     };
+
+    const { bank, loading: bankLoading, error: bankError } = useStorePaymentInfo();
 
     const transferBlockedReason = !isTransferMode ? null
         : cartItems.length === 0 ? 'Thêm sản phẩm vào giỏ để hiện mã QR chuyển khoản.'
             : locationBlocked ? 'Chưa chọn vị trí lấy hàng hoặc các vị trí đã chọn không đủ số lượng.'
                 : amountDue <= 0 ? 'Đơn hàng chưa có số tiền cần thu.'
                     : null;
-
-    const transferReady = isTransferMode && transferBlockedReason == null;
-
-    const transferStale = transferReady
-        && transferSession != null
-        && Number(transferSession.amount) !== Math.round(amountDue);
-
-    // Payload mới nhất, đi qua ref để effect dựng mã KHÔNG chạy lại chỉ vì giỏ đổi
-    // thứ không ảnh hưởng số tiền (đổi ô lấy hàng, sửa ghi chú, gắn khách).
-    const transferPayloadRef = useRef(null);
-    useEffect(() => {
-        transferPayloadRef.current = () => buildOrderPayload(
-            cartItems, 'transfer', { paidAmount: prepaid, dueDate }, note);
-    });
-
-    const [transferRebuildTick, setTransferRebuildTick] = useState(0);
-
-    useEffect(() => {
-        if (!transferReady) return undefined;
-        const timer = setTimeout(() => {
-            transferPayloadRef.current && openTransfer(transferPayloadRef.current());
-        }, QR_REBUILD_DEBOUNCE_MS);
-        return () => clearTimeout(timer);
-    }, [transferReady, amountDue, transferRebuildTick, openTransfer]);
-
-    const transferCheckoutLabel = !isTransferMode ? null
-        : settling ? 'ĐANG GHI SỔ ĐƠN...'
-            : settleError && transferSession?.status === 'PAID' ? 'GHI SỔ LẠI'
-                : transferBlockedReason ? 'CHƯA SẴN SÀNG'
-                    : transferSession?.status === 'PAID' ? 'ĐÃ NHẬN TIỀN'
-                        : 'THANH TOÁN';
-
-    /** Đổi hình thức thanh toán; rời khỏi chuyển khoản thì hủy mã đang mở. */
-    const handleSelectPaymentMethod = (value) => {
-        if (paymentMethod === 'transfer' && value !== 'transfer') {
-            closeTransfer();
-            setSettleError(null);
-        }
-        setPaymentMethod(value);
-    };
 
     // Discount editing
     const handleDiscountEditToggle = () => {
@@ -1039,26 +970,23 @@ const POSScreen = () => {
                                         <input
                                             type="radio"
                                             checked={paymentMethod === value}
-                                            onChange={() => handleSelectPaymentMethod(value)}
+                                            onChange={() => setPaymentMethod(value)}
                                         />
                                         <span>{label}</span>
                                     </label>
                                 ))}
                             </div>
 
-                            {/* Hiển thị mã QR khi chọn chuyển khoản, đơn tự ghi sổ khi tiền về. */}
+                            {/* Mã QR hiện ngay khi chọn chuyển khoản; thu ngân xác nhận
+                                tiền đã về rồi bấm "Thanh toán" như đơn tiền mặt. */}
                             {isTransferMode && (
                                 <TransferQrPanel
-                                    session={transferSession}
-                                    opening={transferOpening}
-                                    error={transferError}
+                                    bank={bank}
+                                    bankLoading={bankLoading}
+                                    bankError={bankError}
+                                    amount={amountDue}
+                                    reference={transferReference}
                                     blockedReason={transferBlockedReason}
-                                    stale={transferStale}
-                                    settling={settling}
-                                    settleError={settleError}
-                                    throttled={transferThrottled}
-                                    onRebuild={() => setTransferRebuildTick((tick) => tick + 1)}
-                                    onRetrySettle={() => settleTransfer(transferSession)}
                                 />
                             )}
                         </div>
@@ -1119,16 +1047,13 @@ const POSScreen = () => {
                     <div className="payment-footer">
                         <button
                             className="btn-checkout"
-                            disabled={submitting || cartItems.length === 0 || locationBlocked || debtBlocked
-                                // Chuyển khoản: nút chỉ mở khi tiền đã về mà ghi sổ hỏng.
-                                || (isTransferMode && !(settleError && transferSession?.status === 'PAID'))}
+                            disabled={submitting || cartItems.length === 0 || locationBlocked || debtBlocked}
                             title={debtBlockedReason ?? undefined}
                             onClick={handleCheckout}
                         >
                             {debtBlocked && isDebtMode && <Lock size={16} />}
-                            {isTransferMode && !submitting && !settling && <QrCode size={16} />}
-                            {transferCheckoutLabel
-                                ?? (submitting ? 'ĐANG XỬ LÝ...' : (isDebtMode ? 'GHI NỢ' : 'THANH TOÁN'))}
+                            {isTransferMode && !submitting && <QrCode size={16} />}
+                            {submitting ? 'ĐANG XỬ LÝ...' : (isDebtMode ? 'GHI NỢ' : 'THANH TOÁN')}
                         </button>
                     </div>
                 </div>

@@ -1876,7 +1876,7 @@
     border-bottom-color: #ef4444 !important;
 }
 /* ==========================================================================
-   Chuyển khoản (PayOS) — khối QR nằm trong cột thanh toán
+   Chuyển khoản — khối mã VietQR nằm trong cột thanh toán
    ========================================================================== */
 
 .transfer-qr-block {
@@ -1896,8 +1896,9 @@
     gap: 6px;
     font-size: 12px;
     font-weight: 700;
-    color: #1e40af;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
+    color: #1e40af;
 }
 
 .transfer-qr-placeholder {
@@ -1905,13 +1906,12 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 32px 0;
+    min-height: 120px;
+    font-size: 12px;
     color: #6b7280;
-    font-size: 13px;
 }
 
 .transfer-qr-canvas-wrap {
-    position: relative;
     align-self: center;
     padding: 8px;
     border: 1px solid #e5e7eb;
@@ -1920,41 +1920,26 @@
     line-height: 0;
 }
 
-.transfer-qr-canvas {
+/* Ảnh do img.vietqr.io dựng, tỉ lệ 540x640 (template compact2). */
+.transfer-qr-image {
     display: block;
+    width: 190px;
+    height: auto;
 }
 
-/* Mã đã dùng xong, đã chết, hoặc đang mang số tiền cũ: làm mờ để không ai quét. */
-.transfer-qr-canvas-wrap.is-paid .transfer-qr-canvas,
-.transfer-qr-canvas-wrap.is-dead .transfer-qr-canvas {
-    opacity: 0.12;
-}
-
-.transfer-qr-canvas-veil {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.transfer-qr-veil-ok {
-    color: #16a34a;
-}
-
-.transfer-qr-veil-bad {
-    color: #dc2626;
-}
-
-.transfer-qr-veil-text {
+.transfer-qr-canvas-fallback {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
-    color: #374151;
+    justify-content: center;
+    gap: 8px;
+    width: 190px;
+    min-height: 200px;
+    padding: 12px;
+    color: #b45309;
     font-size: 12px;
     font-weight: 600;
-    line-height: 1.35;
+    line-height: 1.4;
     text-align: center;
 }
 
@@ -1963,13 +1948,13 @@
     align-items: baseline;
     justify-content: space-between;
     gap: 8px;
-    font-size: 13px;
+    font-size: 12px;
     color: #6b7280;
 }
 
 .transfer-qr-amount-line strong {
-    font-size: 17px;
-    font-weight: 800;
+    font-size: 16px;
+    font-weight: 700;
     color: #1d4ed8;
 }
 
@@ -1980,7 +1965,7 @@
     padding: 8px 10px;
     border-radius: 4px;
     background: #fff;
-    border: 1px solid #eef2f7;
+    border: 1px solid #e5e7eb;
 }
 
 .transfer-qr-bank-row {
@@ -1993,8 +1978,8 @@
 }
 
 .transfer-qr-bank-row strong {
-    color: #111827;
     font-weight: 600;
+    color: #111827;
     text-align: right;
     word-break: break-all;
 }
@@ -2011,55 +1996,18 @@
     justify-content: center;
     width: 22px;
     height: 22px;
-    flex-shrink: 0;
+    padding: 0;
     border: 1px solid #e5e7eb;
     border-radius: 4px;
     background: #fff;
     color: #6b7280;
     cursor: pointer;
-}
-
-.transfer-qr-copy:hover {
-    color: #111827;
-    border-color: #d1d5db;
-}
-
-.transfer-qr-status {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 8px 10px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1.35;
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    color: #1e40af;
-}
-
-.transfer-qr-status svg {
     flex-shrink: 0;
 }
 
-.transfer-qr-status--paid {
-    background: #ecfdf5;
-    border-color: #a7f3d0;
-    color: #047857;
-}
-
-.transfer-qr-status--underpaid {
-    background: #fffbeb;
-    border-color: #fde68a;
-    color: #b45309;
-}
-
-.transfer-qr-status--cancelled,
-.transfer-qr-status--expired,
-.transfer-qr-status--failed {
-    background: #fef2f2;
-    border-color: #fecaca;
-    color: #b91c1c;
+.transfer-qr-copy:hover {
+    border-color: #2563eb;
+    color: #2563eb;
 }
 
 .transfer-qr-spin {
@@ -2099,37 +2047,9 @@
     color: #b91c1c;
 }
 
-.transfer-qr-inline-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    width: 100%;
-    height: 34px;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
-    background: #fff;
-    font-size: 12px;
-    font-weight: 700;
-    color: #374151;
-    cursor: pointer;
-}
-
-.transfer-qr-inline-btn:hover:not(:disabled) {
-    background: #f9fafb;
-}
-
-.transfer-qr-inline-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.transfer-qr-inline-btn--primary {
-    background: #2563eb;
-    border-color: #2563eb;
-    color: #fff;
-}
-
-.transfer-qr-inline-btn--primary:hover:not(:disabled) {
-    background: #1d4ed8;
+/* Nhắc thu ngân tự kiểm tiền. */
+.transfer-qr-note--hint {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e40af;
 }

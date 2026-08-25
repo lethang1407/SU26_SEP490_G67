@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.request.UpdateStoreRequest;
 import project.be_sep490_g67.dto.response.ApiResponse;
+import project.be_sep490_g67.dto.response.StorePaymentInfoResponse;
 import project.be_sep490_g67.dto.response.StoreResponse;
 import project.be_sep490_g67.service.StoreService;
 
@@ -22,11 +23,22 @@ public class StoreController {
 
     @PreAuthorize("hasRole('ADMIN') or hasAuthority('STORE:VIEW')")
     @GetMapping
-    ApiResponse<StoreResponse> getStoreInfor(){
+    ApiResponse<StoreResponse> getStoreInfor() {
         StoreResponse storeInfo = storeService.getStoreInfo();
         return ApiResponse.<StoreResponse>builder()
                 .result(storeInfo)
                 .message("Lấy thông tin pháp lý cửa hàng thành công")
+                .build();
+    }
+
+    /**
+     * GET /api/store/payment-info
+     */
+    @GetMapping("/payment-info")
+    ApiResponse<StorePaymentInfoResponse> getStorePaymentInfo() {
+        return ApiResponse.<StorePaymentInfoResponse>builder()
+                .result(storeService.getPaymentInfo())
+                .message("Lấy thông tin chuyển khoản của cửa hàng thành công")
                 .build();
     }
 

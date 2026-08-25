@@ -48,7 +48,6 @@ public class ExchangeOrderService {
     StorageLocationRepository storageLocationRepository;
     DebtPaymentRepository debtPaymentRepository;
     DebtPolicy debtPolicy;
-    PayosCheckoutService payosCheckoutService;
 
     @Transactional(readOnly = true)
     public ExchangeOrderDetailResponse getOrderForExchange(Integer orderId) {
@@ -128,9 +127,8 @@ public class ExchangeOrderService {
 
         assertWithinReturnWindow(originalOrder);
         assertDebtNotOverdue(originalOrder);
-        // Sai hình thức hoàn tiền thì chặn trước khi đụng vào kho. Chiều còn lại
-        // (TRANSFER mà thiếu mã) phải đợi tính xong tiền mới biết, chặn ở dưới.
-        if (!isTransferRefund(request) && request.getPayosOrderCode() != null) {
+        // Sai hình thức hoàn tiền thì chặn trước khi đụng vào kho.
+        if (!isTransferRefund(request) && trimToNull(request.getPaymentReference()) != null) {
             throw new AppException(ErrorCode.PAYMENT_METHOD_NOT_TRANSFER);
         }
         ReturnOrder returnOrder = new ReturnOrder();
@@ -365,16 +363,11 @@ public class ExchangeOrderService {
     }
 
     /**
-     * Chốt phiên chuyển khoản của phần tiền khách bù thêm, NGAY TRONG giao dịch này.
+     * Ghi lại nội dung chuyển khoản của phần tiền khách bù thêm.
      *
-     * <p>Số tiền đối chiếu là toàn bộ tiền khách đưa tại quầy cho phiếu này
-     * ({@code cashCollect + debtPaymentCollected}) — đúng con số POS đã dựng lên mã QR.
-     * Lệch một đồng là {@code consume} ném lỗi và cả phiếu lẫn phần trừ kho cùng bị
-     * cuộn lại, thay vì ghi một phiếu không khớp tiền đã thu.
-     *
-     * <p>Phiên được gắn vào đơn đổi (đơn bán sinh ra từ hàng lấy mới). Trường hợp
-     * hiếm không có đơn đổi — tiền thu hoàn toàn là khách trả thêm nợ cũ — thì gắn vào
-     * chính hóa đơn gốc, là chứng từ mà khoản nợ đó thuộc về.
+     * <p>Chuỗi này được gắn vào đơn đổi (đơn bán sinh ra từ hàng lấy mới). Trường hợp
+     * hiếm không có đơn đổi — tiền thu hoàn toàn là khách trả thêm nợ cũ — thì không
+     * có chứng từ nào để gắn, chuỗi bị bỏ qua.
      */
     private void settleTransferSession(
             CreateExchangeOrderRequest request,
@@ -386,24 +379,17 @@ public class ExchangeOrderService {
         boolean transferCollect = isTransferRefund(request) && cashIn.compareTo(BigDecimal.ZERO) > 0;
 
         if (!transferCollect) {
-            // Hoàn tiền cho khách, hoặc phiếu không phát sinh tiền thu: không có phiên nào để chốt.
-            if (request.getPayosOrderCode() != null) {
+            // Hoàn tiền cho khách, hoặc phiếu không phát sinh tiền thu: không có
+            // mã QR nào được dựng, nên cũng không có nội dung chuyển khoản nào.
+            if (trimToNull(request.getPaymentReference()) != null) {
                 throw new AppException(ErrorCode.PAYMENT_METHOD_NOT_TRANSFER);
             }
             return;
         }
-        if (request.getPayosOrderCode() == null) {
-            throw new AppException(ErrorCode.PAYMENT_REFERENCE_REQUIRED);
-        }
-
-        SalesOrder target = exchangeOrder != null ? exchangeOrder : originalOrder;
-        String reference = payosCheckoutService.consume(
-                request.getPayosOrderCode(), cashIn, target.getId());
 
         if (exchangeOrder != null) {
             exchangeOrder.setPaymentMethod("TRANSFER");
-            exchangeOrder.setPayosOrderCode(request.getPayosOrderCode());
-            exchangeOrder.setPaymentReference(reference);
+            exchangeOrder.setPaymentReference(trimToNull(request.getPaymentReference()));
             salesOrderRepository.save(exchangeOrder);
         }
     }

@@ -66,24 +66,10 @@ export async function processExchangeOrder(payload) {
     return response.result;
 }
 
-/** Mở phiên chuyển khoản cho giỏ hàng hiện tại, trả về mã QR để khách quét. */
-export async function createPayosCheckout(payload) {
-    const response = await api.post('/checkout/payos', payload);
-    return response.result;
-}
-
-/** Hỏi lại trạng thái phiên — POS gọi theo nhịp trong lúc khách quét. */
-export async function getPayosCheckoutStatus(payosOrderCode) {
-    const response = await api.get(`/checkout/payos/${payosOrderCode}`);
-    return response.result;
-}
-
-/** Thu ngân đóng khung QR. Phiên đã thu tiền thì BE từ chối hủy. */
-export async function cancelPayosCheckout(payosOrderCode, reason) {
-    const response = await api.post(
-        `/checkout/payos/${payosOrderCode}/cancel`,
-        null,
-        { params: reason ? { reason } : undefined },
-    );
+/**
+ * Tài khoản ngân hàng của cửa hàng, để dựng ảnh VietQR cho khách quét.
+ */
+export async function getStorePaymentInfo() {
+    const response = await api.get('/store/payment-info');
     return response.result;
 }
