@@ -96,7 +96,7 @@ export default function ImportOrderExpandPanel({ orderId, onDraftCancelled }) {
     const currentTab = visibleTabs.some((tab) => tab.id === activeTab) ? activeTab : 'info';
 
     return (
-        <div className="import-order-expand" onClick={(event) => event.stopPropagation()}>
+        <div className="import-order-expand">
             {visibleTabs.length > 1 && (
                 <div className="import-order-expand__tabs" role="tablist">
                     {visibleTabs.map((tab) => (

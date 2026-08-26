@@ -21,6 +21,7 @@ export function mapPendingReturnLine(line) {
         batchCode: line.batchCode || '',
         returnReason: line.returnReason || '',
         lineStatus: line.lineStatus || '',
+        unitName: line.unitName || line.unit || '',
         attached: Boolean(line.attached),
     };
 }

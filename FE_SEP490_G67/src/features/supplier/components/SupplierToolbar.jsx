@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import { Search, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown, Search, X } from 'lucide-react';
 import { suppliersApi } from '../api';
+import { removeVietnameseTones } from '../utils/supplierUtils';
 
 const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
@@ -31,7 +32,11 @@ export default function SupplierToolbar({
     const [products, setProducts] = useState([]);
     const [productLoading, setProductLoading] = useState(false);
     const [open, setOpen] = useState(false);
+    const [categoryOpen, setCategoryOpen] = useState(false);
+    const [categorySearch, setCategorySearch] = useState('');
     const productRef = useRef(null);
+    const categoryRef = useRef(null);
+    const categorySearchRef = useRef(null);
     const requestIdRef = useRef(0);
 
     useEffect(() => {
@@ -39,10 +44,26 @@ export default function SupplierToolbar({
             if (productRef.current && !productRef.current.contains(event.target)) {
                 setOpen(false);
             }
+            if (categoryRef.current && !categoryRef.current.contains(event.target)) {
+                setCategoryOpen(false);
+            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    useEffect(() => {
+        if (!categoryOpen) return undefined;
+        categorySearchRef.current?.focus();
+
+        const handleEscape = (event) => {
+            if (event.key === 'Escape') {
+                setCategoryOpen(false);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+        return () => document.removeEventListener('keydown', handleEscape);
+    }, [categoryOpen]);
 
     useEffect(() => {
         if (selectedProduct) {
@@ -89,6 +110,25 @@ export default function SupplierToolbar({
 
     const showProductDropdown =
         open && !selectedProduct && productKeyword.trim().length >= MIN_QUERY_LENGTH;
+
+    const selectedCategory = useMemo(
+        () => categories.find((category) => category.id === categoryId) || null,
+        [categories, categoryId],
+    );
+
+    const filteredCategories = useMemo(() => {
+        const keyword = removeVietnameseTones(categorySearch);
+        if (!keyword) return categories;
+        return categories.filter((category) =>
+            removeVietnameseTones(category.name).includes(keyword),
+        );
+    }, [categories, categorySearch]);
+
+    const handleSelectCategory = (nextCategoryId) => {
+        onCategoryChange?.(nextCategoryId);
+        setCategoryOpen(false);
+        setCategorySearch('');
+    };
 
     return (
         <div className="supplier-toolbar">
@@ -188,27 +228,92 @@ export default function SupplierToolbar({
             </div>
 
             <div className="supplier-toolbar__filters">
-                <label className="supplier-toolbar__filter-label" htmlFor="supplier-category-filter">
+                <span className="supplier-toolbar__filter-label" id="supplier-category-filter-label">
                     Danh mục:
-                </label>
-                <select
-                    id="supplier-category-filter"
-                    className="supplier-toolbar__select"
-                    value={categoryId ?? ''}
-                    onChange={(event) => {
-                        const value = event.target.value;
-                        onCategoryChange(value === '' ? null : Number(value));
-                    }}
-                    disabled={categoriesLoading}
-                    aria-label="Lọc theo danh mục"
-                >
-                    <option value="">Tất cả danh mục</option>
-                    {categories.map((category) => (
-                        <option key={category.id} value={category.id}>
-                            {category.name}
-                        </option>
-                    ))}
-                </select>
+                </span>
+                <div className="supplier-dropdown supplier-toolbar__category-dropdown" ref={categoryRef}>
+                    <button
+                        type="button"
+                        id="supplier-category-filter"
+                        className="supplier-dropdown__trigger"
+                        onClick={() => {
+                            if (categoriesLoading) return;
+                            setCategoryOpen((prev) => {
+                                const next = !prev;
+                                if (!next) setCategorySearch('');
+                                return next;
+                            });
+                        }}
+                        disabled={categoriesLoading}
+                        aria-haspopup="listbox"
+                        aria-expanded={categoryOpen}
+                        aria-labelledby="supplier-category-filter-label"
+                    >
+                        <span className="supplier-dropdown__value">
+                            {categoriesLoading
+                                ? 'Đang tải danh mục...'
+                                : selectedCategory?.name || 'Tất cả danh mục'}
+                        </span>
+                        <ChevronDown
+                            size={18}
+                            className={`supplier-dropdown__icon ${
+                                categoryOpen ? 'supplier-dropdown__icon--open' : ''
+                            }`}
+                        />
+                    </button>
+
+                    {categoryOpen && (
+                        <div className="supplier-dropdown__menu" role="listbox">
+                            <div className="supplier-dropdown__search">
+                                <input
+                                    ref={categorySearchRef}
+                                    type="text"
+                                    className="supplier-dropdown__search-input"
+                                    placeholder="Tìm danh mục..."
+                                    value={categorySearch}
+                                    onChange={(event) => setCategorySearch(event.target.value)}
+                                    onClick={(event) => event.stopPropagation()}
+                                    aria-label="Tìm danh mục"
+                                />
+                                <Search size={16} className="supplier-dropdown__search-icon" />
+                            </div>
+
+                            <div className="supplier-dropdown__list">
+                                <button
+                                    type="button"
+                                    className={`supplier-dropdown__item ${
+                                        categoryId == null ? 'supplier-dropdown__item--active' : ''
+                                    }`}
+                                    onClick={() => handleSelectCategory(null)}
+                                >
+                                    Tất cả danh mục
+                                </button>
+                                {filteredCategories.length > 0 ? (
+                                    filteredCategories.map((category) => (
+                                        <button
+                                            key={category.id}
+                                            type="button"
+                                            className={`supplier-dropdown__item ${
+                                                categoryId === category.id
+                                                    ? 'supplier-dropdown__item--active'
+                                                    : ''
+                                            }`}
+                                            onClick={() => handleSelectCategory(category.id)}
+                                        >
+                                            {category.name}
+                                        </button>
+                                    ))
+                                ) : (
+                                    <div className="supplier-dropdown__empty">
+                                        {categorySearch.trim()
+                                            ? 'Không tìm thấy danh mục phù hợp'
+                                            : 'Chưa có danh mục'}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

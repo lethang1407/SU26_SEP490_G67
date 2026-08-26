@@ -240,6 +240,10 @@ export default function CreateImportOrderPage() {
         });
     };
 
+    const importItemCount = useMemo(
+        () => lines.filter((line) => !line.isPromotion).length,
+        [lines],
+    );
     const totalAmount = useMemo(
         () =>
             lines.reduce((sum, line) => {
@@ -966,6 +970,7 @@ export default function CreateImportOrderPage() {
                                     invoiceImageName={invoiceImageName}
                                     uploadingInvoiceImage={uploadingInvoiceImage}
                                     totalAmount={totalAmount}
+                                    importItemCount={importItemCount}
                                     discountAmount={safeDiscount}
                                     returnDeductionAmount={returnDeductionAmount}
                                     amountDue={amountDue}
