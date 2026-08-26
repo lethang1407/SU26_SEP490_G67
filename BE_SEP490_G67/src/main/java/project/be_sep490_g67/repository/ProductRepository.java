@@ -98,9 +98,19 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
         LEFT JOIN FETCH p.category c
         LEFT JOIN FETCH c.defaultSupplier
         WHERE (p.isRemoved = false OR p.isRemoved IS NULL)
+          AND (p.parent IS NULL)
           AND (:keyword IS NULL OR :keyword = ''
                OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-               OR LOWER(p.barcode) LIKE LOWER(CONCAT('%', :keyword, '%')))
+               OR LOWER(p.barcode) LIKE LOWER(CONCAT('%', :keyword, '%'))
+               OR LOWER(p.sku) LIKE LOWER(CONCAT('%', :keyword, '%'))
+               OR EXISTS (
+                   SELECT c2 FROM Product c2 
+                   WHERE c2.parent.id = p.id 
+                     AND (c2.isRemoved = false OR c2.isRemoved IS NULL)
+                     AND (LOWER(c2.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                          OR LOWER(c2.barcode) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                          OR LOWER(c2.sku) LIKE LOWER(CONCAT('%', :keyword, '%')))
+               ))
           AND (:categoryId IS NULL OR c.id = :categoryId)
         ORDER BY p.name ASC
         """)

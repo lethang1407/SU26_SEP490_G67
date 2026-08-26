@@ -35,7 +35,10 @@ public class ImportSuggestionDTO {
     String coverSourceLabel;
     BigDecimal costPerUnit;
     Integer onHand;
+    Integer minStock;
+    Integer sold14Days;
     BigDecimal avgDailyRate;
+    String unitName;
     List<SupplierOption> supplierOptions;
     List<UnitOption> units;
 

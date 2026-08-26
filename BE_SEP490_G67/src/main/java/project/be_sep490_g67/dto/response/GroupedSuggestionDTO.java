@@ -32,6 +32,11 @@ public class GroupedSuggestionDTO {
 
     Boolean isGroup;
 
+    // Open DRAFT Import Order (Phiếu tạm) info if exists
+    Integer openPoId;
+    String openPoCode;
+    Integer openPoQty;
+
     List<VariantGroupDTO> variantGroups;
 
     @Data
@@ -80,6 +85,11 @@ public class GroupedSuggestionDTO {
         String coverSource;
         String coverSourceLabel;
         BigDecimal costPerUnit;
+
+        // Open DRAFT Import Order (Phiếu tạm) info if exists
+        Integer openPoId;
+        String openPoCode;
+        Integer openPoQty;
 
         List<ImportSuggestionDTO.SupplierOption> supplierOptions;
         List<ImportSuggestionDTO.UnitOption> units;

@@ -35,7 +35,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.text.Normalizer;
 import java.util.Objects;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -213,10 +215,31 @@ public class ImportSuggestionService {
                 .coverSourceLabel(cover.label)
                 .costPerUnit(costPerUnit)
                 .onHand(onHand)
+                .minStock(p.getMinStock() != null ? p.getMinStock() : 0)
+                .sold14Days((int) soldQty)
                 .avgDailyRate(avgDaily)
+                .unitName(resolveBaseUnitName(p))
                 .supplierOptions(options)
                 .units(buildUnitOptions(p))
                 .build();
+    }
+
+    String resolveBaseUnitName(Product p) {
+        if (p.getProductUnits() == null || p.getProductUnits().isEmpty()) {
+            return "Cái";
+        }
+        return p.getProductUnits().stream()
+                .filter(u -> !Boolean.TRUE.equals(u.getIsRemoved()))
+                .filter(u -> u.getUnitBase() != null && u.getUnitBase().compareTo(BigDecimal.ONE) == 0)
+                .map(ProductUnit::getName)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElseGet(() -> p.getProductUnits().stream()
+                        .filter(u -> !Boolean.TRUE.equals(u.getIsRemoved()))
+                        .map(ProductUnit::getName)
+                        .filter(Objects::nonNull)
+                        .findFirst()
+                        .orElse("Cái"));
     }
 
     List<ImportSuggestionDTO.UnitOption> buildUnitOptions(Product p) {
@@ -589,26 +612,29 @@ public class ImportSuggestionService {
                 })
                 .filter(g -> {
                     if (keyword == null || keyword.isBlank()) return true;
-                    String[] words = keyword.trim().toLowerCase(Locale.ROOT).split("\\s+");
+                    String[] words = normalizeVietnamese(keyword).split("\\s+");
                     for (String word : words) {
                         boolean wordMatched = false;
-                        if (g.getName().toLowerCase(Locale.ROOT).contains(word)
-                                || (g.getSku() != null && g.getSku().toLowerCase(Locale.ROOT).contains(word))
-                                || (g.getBarcode() != null && g.getBarcode().toLowerCase(Locale.ROOT).contains(word))) {
+                        String gNameNorm = normalizeVietnamese(g.getName());
+                        String gSkuNorm = normalizeVietnamese(g.getSku());
+                        String gBarcodeNorm = normalizeVietnamese(g.getBarcode());
+                        if (gNameNorm.contains(word) || gSkuNorm.contains(word) || gBarcodeNorm.contains(word)) {
                             wordMatched = true;
                         }
                         if (!wordMatched && g.getIsGroup()) {
                             List<Product> children = childrenMap.get(g.getId());
                             if (children != null) {
                                 for (Product c : children) {
-                                    if (c.getName().toLowerCase(Locale.ROOT).contains(word)
-                                            || (c.getSku() != null && c.getSku().toLowerCase(Locale.ROOT).contains(word))
-                                            || (c.getBarcode() != null && c.getBarcode().toLowerCase(Locale.ROOT).contains(word))) {
+                                    String cNameNorm = normalizeVietnamese(c.getName());
+                                    String cSkuNorm = normalizeVietnamese(c.getSku());
+                                    String cBarcodeNorm = normalizeVietnamese(c.getBarcode());
+                                    if (cNameNorm.contains(word) || cSkuNorm.contains(word) || cBarcodeNorm.contains(word)) {
                                         wordMatched = true;
                                         break;
                                     }
                                     for (var attr : c.getProductAttributes()) {
-                                        if (attr.getValue() != null && attr.getValue().toLowerCase(Locale.ROOT).contains(word)) {
+                                        String attrValNorm = normalizeVietnamese(attr.getValue());
+                                        if (attrValNorm.contains(word)) {
                                             wordMatched = true;
                                             break;
                                         }
@@ -638,6 +664,7 @@ public class ImportSuggestionService {
         int fromIdx = Math.min(page * size, total);
         int toIdx = Math.min(fromIdx + size, total);
         List<GroupedSuggestionDTO> content = filteredList.subList(fromIdx, toIdx);
+        fillOpenPoForSuggestions(content);
 
         return PageResponse.<GroupedSuggestionDTO>builder()
                 .content(content)
@@ -647,6 +674,84 @@ public class ImportSuggestionService {
                 .totalPages(size == 0 ? 0 : (int) Math.ceil((double) total / size))
                 .build();
     }
+
+    void fillOpenPoForSuggestions(List<GroupedSuggestionDTO> content) {
+        if (content == null || content.isEmpty()) {
+            return;
+        }
+        List<Integer> allProductIds = new ArrayList<>();
+        for (GroupedSuggestionDTO g : content) {
+            if (g.getId() != null) {
+                allProductIds.add(g.getId());
+            }
+            if (Boolean.TRUE.equals(g.getIsGroup()) && g.getVariantGroups() != null) {
+                for (GroupedSuggestionDTO.VariantGroupDTO vg : g.getVariantGroups()) {
+                    if (vg.getSizes() != null) {
+                        for (GroupedSuggestionDTO.VariantItemDTO sz : vg.getSizes()) {
+                            if (sz.getId() != null) {
+                                allProductIds.add(sz.getId());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (allProductIds.isEmpty()) {
+            return;
+        }
+
+        List<Object[]> rows = importOrderDetailRepository.findDraftOpenPoRows(allProductIds);
+        Map<Integer, OpenPoInfo> byProduct = new HashMap<>();
+        for (Object[] row : rows) {
+            Integer productId = (Integer) row[0];
+            if (byProduct.containsKey(productId)) {
+                continue; // newest first
+            }
+            byProduct.put(productId, new OpenPoInfo(
+                    (Integer) row[1],
+                    (String) row[2],
+                    row[3] == null ? 0 : ((Number) row[3]).intValue()
+            ));
+        }
+
+        for (GroupedSuggestionDTO g : content) {
+            OpenPoInfo selfInfo = byProduct.get(g.getId());
+            if (selfInfo != null) {
+                g.setOpenPoId(selfInfo.orderId());
+                g.setOpenPoCode(selfInfo.orderCode());
+                g.setOpenPoQty(selfInfo.qty());
+            }
+            if (Boolean.TRUE.equals(g.getIsGroup()) && g.getVariantGroups() != null) {
+                String groupFirstOpenPoCode = null;
+                Integer groupFirstOpenPoId = null;
+                int groupTotalOpenPoQty = 0;
+                for (GroupedSuggestionDTO.VariantGroupDTO vg : g.getVariantGroups()) {
+                    if (vg.getSizes() != null) {
+                        for (GroupedSuggestionDTO.VariantItemDTO sz : vg.getSizes()) {
+                            OpenPoInfo szInfo = byProduct.get(sz.getId());
+                            if (szInfo != null) {
+                                sz.setOpenPoId(szInfo.orderId());
+                                sz.setOpenPoCode(szInfo.orderCode());
+                                sz.setOpenPoQty(szInfo.qty());
+                                if (groupFirstOpenPoCode == null) {
+                                    groupFirstOpenPoCode = szInfo.orderCode();
+                                    groupFirstOpenPoId = szInfo.orderId();
+                                }
+                                groupTotalOpenPoQty += szInfo.qty();
+                            }
+                        }
+                    }
+                }
+                if (groupFirstOpenPoCode != null && g.getOpenPoCode() == null) {
+                    g.setOpenPoId(groupFirstOpenPoId);
+                    g.setOpenPoCode(groupFirstOpenPoCode);
+                    g.setOpenPoQty(groupTotalOpenPoQty);
+                }
+            }
+        }
+    }
+
+    record OpenPoInfo(Integer orderId, String orderCode, int qty) {}
 
     private int safeSize(int size) {
         return size <= 0 ? 10 : size;
@@ -763,9 +868,20 @@ public class ImportSuggestionService {
     }
 
     String resolveImg(Product p) {
-        if (p != null && p.getProductImages() != null && !p.getProductImages().isEmpty()) {
+        if (p == null) return null;
+        if (p.getProductImages() != null && !p.getProductImages().isEmpty()) {
             return p.getProductImages().iterator().next().getUrl();
         }
+        if (p.getParent() != null && p.getParent().getProductImages() != null && !p.getParent().getProductImages().isEmpty()) {
+            return p.getParent().getProductImages().iterator().next().getUrl();
+        }
         return null;
+    }
+
+    private static String normalizeVietnamese(String text) {
+        if (text == null) return "";
+        String nfd = Normalizer.normalize(text, Normalizer.Form.NFD);
+        Pattern pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
+        return pattern.matcher(nfd).replaceAll("").replace('đ', 'd').replace('Đ', 'd').toLowerCase(Locale.ROOT).trim();
     }
 }

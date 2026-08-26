@@ -41,6 +41,7 @@ public class ProductListService {
     static final int SAFETY_DAYS = 1;
     static final int DEFAULT_LEAD_DAYS = 3;
     static final int STORE_COVER_DEFAULT = 7;
+    static final int NEW_PRODUCT_DAYS = 30;
 
     ProductRepository productRepository;
     SalesOrderDetailRepository salesOrderDetailRepository;
@@ -57,11 +58,12 @@ public class ProductListService {
             int page,
             int size
     ) {
-        String facetKey = facet == null || facet.isBlank() ? "hot" : facet.toLowerCase(Locale.ROOT);
+        String facetKey = facet == null || facet.isBlank() ? "all" : facet.toLowerCase(Locale.ROOT);
         List<Product> all = productRepository.findAllForList(keyword, categoryId);
 
         Instant to = Instant.now();
         Instant from = to.minus(SALES_WINDOW_DAYS, ChronoUnit.DAYS);
+        Instant newThreshold = to.minus(NEW_PRODUCT_DAYS, ChronoUnit.DAYS);
 
         List<Integer> categoryIds = all.stream()
                 .map(Product::getCategory)
@@ -83,15 +85,13 @@ public class ProductListService {
 
         List<ProductListItemDTO> mapped = new ArrayList<>();
         for (Product p : all) {
-            ProductListItemDTO dto = toListItem(p, from, to, fallbackSupplierByCategory);
-            if (matchesFacet(dto, facetKey)) {
+            ProductListItemDTO dto = toListItem(p, from, to, newThreshold, fallbackSupplierByCategory);
+            if (matchesFacet(dto, facetKey, newThreshold)) {
                 mapped.add(dto);
             }
         }
 
-        mapped.sort(Comparator
-                .comparing(ProductListItemDTO::getAvgDailyRate, Comparator.nullsLast(Comparator.reverseOrder()))
-                .thenComparing(ProductListItemDTO::getName, Comparator.nullsLast(String::compareToIgnoreCase)));
+        mapped.sort(buildComparator(facetKey));
 
         int total = mapped.size();
         int fromIdx = Math.min(page * size, total);
@@ -120,7 +120,15 @@ public class ProductListService {
         if (content == null || content.isEmpty()) {
             return;
         }
-        List<Integer> ids = content.stream().map(ProductListItemDTO::getId).toList();
+        List<Integer> ids = new ArrayList<>();
+        for (ProductListItemDTO dto : content) {
+            if (dto.getId() != null) ids.add(dto.getId());
+            if (dto.getChildren() != null) {
+                for (ProductListItemDTO c : dto.getChildren()) {
+                    if (c.getId() != null) ids.add(c.getId());
+                }
+            }
+        }
         List<Object[]> rows = importOrderDetailRepository.findDraftOpenPoRows(ids);
         Map<Integer, OpenPoInfo> byProduct = new HashMap<>();
         for (Object[] row : rows) {
@@ -141,6 +149,27 @@ public class ProductListService {
                 dto.setOpenPoCode(info.orderCode());
                 dto.setOpenPoQty(info.qty());
             }
+            if (dto.getChildren() != null) {
+                for (ProductListItemDTO c : dto.getChildren()) {
+                    OpenPoInfo cInfo = byProduct.get(c.getId());
+                    if (cInfo != null) {
+                        c.setOpenPoId(cInfo.orderId());
+                        c.setOpenPoCode(cInfo.orderCode());
+                        c.setOpenPoQty(cInfo.qty());
+                    }
+                }
+                // If parent has no open PO of its own, check if any child has one
+                if (dto.getOpenPoId() == null) {
+                    for (ProductListItemDTO c : dto.getChildren()) {
+                        if (c.getOpenPoId() != null) {
+                            dto.setOpenPoId(c.getOpenPoId());
+                            dto.setOpenPoCode(c.getOpenPoCode());
+                            dto.setOpenPoQty(c.getOpenPoQty());
+                            break;
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -150,16 +179,35 @@ public class ProductListService {
             Product p,
             Instant from,
             Instant to,
+            Instant newThreshold,
             Map<Integer, String> fallbackSupplierByCategory
     ) {
-        Long sold = salesOrderDetailRepository.sumQtyByProductAndDateRange(p.getId(), from, to);
-        long soldQty = sold == null ? 0L : sold;
+        // Determine if product is a group (has children)
+        List<Product> children = productRepository.findByParent_IdAndIsRemovedFalse(p.getId());
+        boolean isGroup = !children.isEmpty();
+
+        List<Integer> targetProductIds = new ArrayList<>();
+        targetProductIds.add(p.getId());
+        if (isGroup) {
+            for (Product c : children) {
+                targetProductIds.add(c.getId());
+            }
+        }
+
+        long soldQty = 0L;
+        for (Integer pid : targetProductIds) {
+            Long s = salesOrderDetailRepository.sumQtyByProductAndDateRange(pid, from, to);
+            if (s != null) soldQty += s;
+        }
         BigDecimal avgDaily = BigDecimal.valueOf(soldQty)
                 .divide(BigDecimal.valueOf(SALES_WINDOW_DAYS), 2, RoundingMode.HALF_UP);
         BigDecimal avgWeekly = avgDaily.multiply(BigDecimal.valueOf(7)).setScale(1, RoundingMode.HALF_UP);
 
-        Long onHandRaw = batchLocationRepository.sumOnHandByProductId(p.getId());
-        int onHand = onHandRaw == null ? 0 : onHandRaw.intValue();
+        int onHand = 0;
+        for (Integer pid : targetProductIds) {
+            Long onHandRaw = batchLocationRepository.sumOnHandByProductId(pid);
+            if (onHandRaw != null) onHand += onHandRaw.intValue();
+        }
 
         Double coverDaysLeft = null;
         if (avgDaily.compareTo(BigDecimal.ZERO) > 0) {
@@ -172,13 +220,55 @@ public class ProductListService {
             coverDaysLeft = 0.0;
         }
 
+        // Determine if product is "new" (created within NEW_PRODUCT_DAYS)
+        boolean isInactive = "inactive".equalsIgnoreCase(p.getStatus());
+        boolean isNew = "new".equalsIgnoreCase(p.getStatus())
+                || (!isInactive && p.getCreatedAt() != null && p.getCreatedAt().isAfter(newThreshold));
+
         String unit = resolveUnit(p);
-        String facetStatus = resolveFacet(p, onHand, avgDaily.doubleValue(), coverDaysLeft);
+        String facetStatus;
+        if (isInactive) {
+            facetStatus = "stop";
+        } else if (isNew && onHand <= 0 && avgDaily.doubleValue() <= SLOW_THRESHOLD) {
+            facetStatus = "new";
+        } else {
+            facetStatus = resolveFacet(p, onHand, avgDaily.doubleValue(), coverDaysLeft);
+        }
+
         Category category = p.getCategory();
         String supplierName = resolveSupplierName(category, fallbackSupplierByCategory);
         String mainImg = p.getProductImages() != null && !p.getProductImages().isEmpty()
                 ? p.getProductImages().iterator().next().getUrl()
                 : null;
+
+        BigDecimal sellingPrice = p.getSellingPrice();
+        BigDecimal costPrice = p.getCostPrice();
+        if (isGroup) {
+            if (sellingPrice == null || sellingPrice.compareTo(BigDecimal.ZERO) == 0) {
+                for (Product c : children) {
+                    if (c.getSellingPrice() != null && c.getSellingPrice().compareTo(BigDecimal.ZERO) > 0) {
+                        sellingPrice = c.getSellingPrice();
+                        break;
+                    }
+                }
+            }
+            if (costPrice == null || costPrice.compareTo(BigDecimal.ZERO) == 0) {
+                for (Product c : children) {
+                    if (c.getCostPrice() != null && c.getCostPrice().compareTo(BigDecimal.ZERO) > 0) {
+                        costPrice = c.getCostPrice();
+                        break;
+                    }
+                }
+            }
+        }
+
+        List<ProductListItemDTO> childDtos = null;
+        if (isGroup) {
+            childDtos = new ArrayList<>();
+            for (Product c : children) {
+                childDtos.add(toChildListItem(c, from, to, newThreshold, fallbackSupplierByCategory));
+            }
+        }
 
         Product parent = p.getParent();
         return ProductListItemDTO.builder()
@@ -193,16 +283,101 @@ public class ProductListService {
                 .unitName(unit)
                 .supplierName(supplierName)
                 .description(p.getDescription())
-                .sellingPrice(p.getSellingPrice())
-                .costPrice(p.getCostPrice())
+                .sellingPrice(sellingPrice)
+                .costPrice(costPrice)
                 .categoryCoverDays(category != null && category.getCoverDays() != null
                         ? category.getCoverDays()
                         : STORE_COVER_DEFAULT)
                 .avgDailyRate(avgDaily)
                 .avgWeeklyRate(avgWeekly)
+                .sold14Days((int) soldQty)
                 .onHand(onHand)
                 .coverDaysLeft(coverDaysLeft)
                 .facetStatus(facetStatus)
+                .status(p.getStatus() == null ? "active" : p.getStatus())
+                .createdAt(p.getCreatedAt())
+                .isGroup(isGroup)
+                .childCount(isGroup ? children.size() : null)
+                .children(childDtos)
+                .build();
+    }
+
+    ProductListItemDTO toChildListItem(
+            Product c,
+            Instant from,
+            Instant to,
+            Instant newThreshold,
+            Map<Integer, String> fallbackSupplierByCategory
+    ) {
+        Long sold = salesOrderDetailRepository.sumQtyByProductAndDateRange(c.getId(), from, to);
+        long soldQty = sold == null ? 0L : sold;
+        BigDecimal avgDaily = BigDecimal.valueOf(soldQty)
+                .divide(BigDecimal.valueOf(SALES_WINDOW_DAYS), 2, RoundingMode.HALF_UP);
+        BigDecimal avgWeekly = avgDaily.multiply(BigDecimal.valueOf(7)).setScale(1, RoundingMode.HALF_UP);
+
+        Long onHandRaw = batchLocationRepository.sumOnHandByProductId(c.getId());
+        int onHand = onHandRaw == null ? 0 : onHandRaw.intValue();
+
+        Double coverDaysLeft = null;
+        if (avgDaily.compareTo(BigDecimal.ZERO) > 0) {
+            coverDaysLeft = BigDecimal.valueOf(onHand)
+                    .divide(avgDaily, 1, RoundingMode.HALF_UP)
+                    .doubleValue();
+        } else if (onHand > 0) {
+            coverDaysLeft = 999.0;
+        } else {
+            coverDaysLeft = 0.0;
+        }
+
+        boolean isInactive = "inactive".equalsIgnoreCase(c.getStatus());
+        boolean isNew = "new".equalsIgnoreCase(c.getStatus())
+                || (!isInactive && c.getCreatedAt() != null && c.getCreatedAt().isAfter(newThreshold));
+
+        String unit = resolveUnit(c);
+        String facetStatus;
+        if (isInactive) {
+            facetStatus = "stop";
+        } else if (isNew && onHand <= 0 && avgDaily.doubleValue() <= SLOW_THRESHOLD) {
+            facetStatus = "new";
+        } else {
+            facetStatus = resolveFacet(c, onHand, avgDaily.doubleValue(), coverDaysLeft);
+        }
+
+        Category category = c.getCategory();
+        String supplierName = resolveSupplierName(category, fallbackSupplierByCategory);
+        String mainImg = c.getProductImages() != null && !c.getProductImages().isEmpty()
+                ? c.getProductImages().iterator().next().getUrl()
+                : (c.getParent() != null && c.getParent().getProductImages() != null && !c.getParent().getProductImages().isEmpty()
+                        ? c.getParent().getProductImages().iterator().next().getUrl()
+                        : null);
+
+        Product parent = c.getParent();
+        return ProductListItemDTO.builder()
+                .id(c.getId())
+                .parentId(parent != null ? parent.getId() : null)
+                .parentName(parent != null ? parent.getName() : null)
+                .name(c.getName())
+                .sku(c.getSku())
+                .barcode(c.getBarcode())
+                .productImg(mainImg)
+                .categoryName(category != null ? category.getName() : null)
+                .unitName(unit)
+                .supplierName(supplierName)
+                .description(c.getDescription())
+                .sellingPrice(c.getSellingPrice())
+                .costPrice(c.getCostPrice())
+                .categoryCoverDays(category != null && category.getCoverDays() != null
+                        ? category.getCoverDays()
+                        : STORE_COVER_DEFAULT)
+                .avgDailyRate(avgDaily)
+                .avgWeeklyRate(avgWeekly)
+                .sold14Days((int) soldQty)
+                .onHand(onHand)
+                .coverDaysLeft(coverDaysLeft)
+                .facetStatus(facetStatus)
+                .status(c.getStatus() == null ? "active" : c.getStatus())
+                .createdAt(c.getCreatedAt())
+                .isGroup(false)
                 .build();
     }
 
@@ -260,7 +435,64 @@ public class ProductListService {
         return DEFAULT_LEAD_DAYS;
     }
 
-    boolean matchesFacet(ProductListItemDTO dto, String facet) {
+    boolean matchesFacet(ProductListItemDTO dto, String facet, Instant newThreshold) {
+        if ("all".equals(facet)) return true;
+        if ("new".equals(facet)) {
+            return dto.getCreatedAt() != null && dto.getCreatedAt().isAfter(newThreshold)
+                    && !"inactive".equalsIgnoreCase(dto.getStatus());
+        }
         return facet.equals(dto.getFacetStatus());
     }
+
+    Comparator<ProductListItemDTO> buildComparator(String facet) {
+        Comparator<ProductListItemDTO> secondary = Comparator.comparing(
+                ProductListItemDTO::getName, Comparator.nullsLast(String::compareToIgnoreCase));
+        return switch (facet) {
+            case "new" -> Comparator.comparing(
+                    ProductListItemDTO::getCreatedAt,
+                    Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(secondary);
+            case "hot" -> Comparator.comparing(
+                    ProductListItemDTO::getAvgDailyRate,
+                    Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(secondary);
+            case "warn" -> Comparator.comparing(
+                    ProductListItemDTO::getCoverDaysLeft,
+                    Comparator.nullsLast(Comparator.naturalOrder())).thenComparing(secondary);
+            case "slow" -> Comparator.comparing(
+                    ProductListItemDTO::getAvgDailyRate,
+                    Comparator.nullsLast(Comparator.naturalOrder())).thenComparing(secondary);
+            case "stop" -> secondary;
+            case "all" -> {
+                // Group by facet priority: new -> hot -> warn -> ok -> season -> slow -> stop
+                List<String> order = List.of("new", "hot", "warn", "ok", "season", "slow", "stop");
+                yield Comparator.comparingInt((ProductListItemDTO dto) -> {
+                    int idx = order.indexOf(dto.getFacetStatus());
+                    return idx < 0 ? order.size() : idx;
+                }).thenComparing((dto1, dto2) -> {
+                    String status1 = dto1.getFacetStatus();
+                    String status2 = dto2.getFacetStatus();
+                    if (status1 != null && status1.equals(status2)) {
+                        if ("new".equals(status1)) {
+                            if (dto1.getCreatedAt() != null && dto2.getCreatedAt() != null) {
+                                return dto2.getCreatedAt().compareTo(dto1.getCreatedAt());
+                            }
+                        } else if ("warn".equals(status1)) {
+                            if (dto1.getCoverDaysLeft() != null && dto2.getCoverDaysLeft() != null) {
+                                return Double.compare(dto1.getCoverDaysLeft(), dto2.getCoverDaysLeft());
+                            }
+                        }
+                    }
+                    BigDecimal rate1 = dto1.getAvgDailyRate() == null ? BigDecimal.ZERO : dto1.getAvgDailyRate();
+                    BigDecimal rate2 = dto2.getAvgDailyRate() == null ? BigDecimal.ZERO : dto2.getAvgDailyRate();
+                    int rateCompare = rate2.compareTo(rate1);
+                    if (rateCompare != 0) return rateCompare;
+                    return (dto1.getName() == null ? "" : dto1.getName())
+                            .compareToIgnoreCase(dto2.getName() == null ? "" : dto2.getName());
+                });
+            }
+            default -> Comparator.comparing(
+                    ProductListItemDTO::getAvgDailyRate,
+                    Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(secondary);
+        };
+    }
 }
+
