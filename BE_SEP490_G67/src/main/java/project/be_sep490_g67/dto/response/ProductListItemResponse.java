@@ -45,3 +45,4 @@ public class ProductListItemResponse {
     Integer openPoQty;
     List<ProductListItemResponse> children;
 }
+

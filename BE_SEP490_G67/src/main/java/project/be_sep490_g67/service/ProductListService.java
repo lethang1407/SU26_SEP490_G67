@@ -91,9 +91,7 @@ public class ProductListService {
             }
         }
 
-        mapped.sort(Comparator
-                .comparing(ProductListItemResponse::getAvgDailyRate, Comparator.nullsLast(Comparator.reverseOrder()))
-                .thenComparing(ProductListItemResponse::getName, Comparator.nullsLast(String::compareToIgnoreCase)));
+        mapped.sort(buildComparator(facetKey));
 
         int total = mapped.size();
         int fromIdx = Math.min(page * size, total);
@@ -184,7 +182,6 @@ public class ProductListService {
             Instant newThreshold,
             Map<Integer, String> fallbackSupplierByCategory
     ) {
-
         // Determine if product is a group (has children)
         List<Product> children = productRepository.findByParent_IdAndIsRemovedFalse(p.getId());
         boolean isGroup = !children.isEmpty();
@@ -223,8 +220,21 @@ public class ProductListService {
             coverDaysLeft = 0.0;
         }
 
+        // Determine if product is "new" (created within NEW_PRODUCT_DAYS)
+        boolean isInactive = "inactive".equalsIgnoreCase(p.getStatus());
+        boolean isNew = "new".equalsIgnoreCase(p.getStatus())
+                || (!isInactive && p.getCreatedAt() != null && p.getCreatedAt().isAfter(newThreshold));
+
         String unit = resolveUnit(p);
-        String facetStatus = resolveFacet(p, onHand, avgDaily.doubleValue(), coverDaysLeft);
+        String facetStatus;
+        if (isInactive) {
+            facetStatus = "stop";
+        } else if (isNew && onHand <= 0 && avgDaily.doubleValue() <= SLOW_THRESHOLD) {
+            facetStatus = "new";
+        } else {
+            facetStatus = resolveFacet(p, onHand, avgDaily.doubleValue(), coverDaysLeft);
+        }
+
         Category category = p.getCategory();
         String supplierName = resolveSupplierName(category, fallbackSupplierByCategory);
         String mainImg = p.getProductImages() != null && !p.getProductImages().isEmpty()
@@ -273,13 +283,14 @@ public class ProductListService {
                 .unitName(unit)
                 .supplierName(supplierName)
                 .description(p.getDescription())
-                .sellingPrice(p.getSellingPrice())
-                .costPrice(p.getCostPrice())
+                .sellingPrice(sellingPrice)
+                .costPrice(costPrice)
                 .categoryCoverDays(category != null && category.getCoverDays() != null
                         ? category.getCoverDays()
                         : STORE_COVER_DEFAULT)
                 .avgDailyRate(avgDaily)
                 .avgWeeklyRate(avgWeekly)
+                .sold14Days((int) soldQty)
                 .onHand(onHand)
                 .coverDaysLeft(coverDaysLeft)
                 .facetStatus(facetStatus)
@@ -484,3 +495,4 @@ public class ProductListService {
         };
     }
 }
+

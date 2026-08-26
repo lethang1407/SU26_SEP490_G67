@@ -54,10 +54,6 @@ const adminRoutes = [
         element: <ProtectedRoute><ProductCreatePage /></ProtectedRoute>,
     },
     {
-        path: '/admin/products/categories',
-        element: <ProtectedRoute><CategoryListPage /></ProtectedRoute>,
-    },
-    {
         path: '/admin/products/:productId/edit',
         element: <ProtectedRoute><ProductEditPage /></ProtectedRoute>,
     },

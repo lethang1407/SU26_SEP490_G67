@@ -35,9 +35,9 @@ public class ImportSuggestionResponse {
     String coverSourceLabel;
     BigDecimal costPerUnit;
     Integer onHand;
-    BigDecimal avgDailyRate;
     Integer minStock;
     Integer sold14Days;
+    BigDecimal avgDailyRate;
     String unitName;
     List<SupplierOption> supplierOptions;
     List<UnitOption> units;

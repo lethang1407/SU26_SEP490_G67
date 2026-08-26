@@ -16,6 +16,7 @@ import project.be_sep490_g67.repository.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -51,7 +52,11 @@ public class ProductCommandService {
         replaceUnits(product, request.getUnits());
         replaceAttributes(product, request.getAttributes());
 
-        createChildVariantsIfAny(product, request, category);
+        if (request.getVariants() != null && !request.getVariants().isEmpty()) {
+            upsertChildVariants(product, request.getVariants(), category, request.getUnits());
+        } else {
+            createChildVariantsIfAny(product, request, category);
+        }
 
         return toDetail(product.getId());
     }
@@ -78,6 +83,10 @@ public class ProductCommandService {
         productAttributeRepository.deleteByProductId(id);
         replaceUnits(product, request.getUnits());
         replaceAttributes(product, request.getAttributes());
+
+        if (request.getVariants() != null && !request.getVariants().isEmpty()) {
+            upsertChildVariants(product, request.getVariants(), category, request.getUnits());
+        }
 
         return toDetail(id);
     }
@@ -170,9 +179,6 @@ public class ProductCommandService {
         BigDecimal cost = nullToZero(request.getCostPrice());
         BigDecimal sell = nullToZero(request.getSellingPrice());
         String status = normalizeStatus(request.getStatus());
-        if (cost.compareTo(BigDecimal.ZERO) == 0 || sell.compareTo(BigDecimal.ZERO) == 0) {
-            status = "inactive";
-        }
 
         product.setStatus(status);
         product.setCostPrice(cost);
@@ -366,7 +372,7 @@ public class ProductCommandService {
         }
 
         String status = normalizeStatus(request.getStatus());
-        if (!"active".equals(status) && !"inactive".equals(status)) {
+        if (!"active".equals(status) && !"inactive".equals(status) && !"new".equals(status)) {
             throw new AppException(ErrorCode.PRODUCT_STATUS_INVALID);
         }
 
@@ -533,5 +539,74 @@ public class ProductCommandService {
         }
 
         return result;
+    }
+
+    private void upsertChildVariants(Product parentProduct,
+                                     List<UpsertProductRequest.VariantRequest> variantRequests,
+                                     Category category,
+                                     List<UpsertProductRequest.UnitRequest> parentUnits) {
+        if (variantRequests == null || variantRequests.isEmpty()) {
+            return;
+        }
+
+        List<Product> existingChildren = productRepository.findByParent_IdAndIsRemovedFalse(parentProduct.getId());
+        Map<Integer, Product> existingMap = existingChildren.stream()
+                .collect(Collectors.toMap(Product::getId, Function.identity()));
+
+        Set<Integer> keptIds = new HashSet<>();
+
+        for (UpsertProductRequest.VariantRequest vr : variantRequests) {
+            Product child;
+            if (vr.getId() != null && existingMap.containsKey(vr.getId())) {
+                child = existingMap.get(vr.getId());
+            } else {
+                child = new Product();
+                child.setParent(parentProduct);
+                child.setIsRemoved(false);
+            }
+
+            child.setCategory(category);
+            child.setName(vr.getName() != null && !vr.getName().isBlank() ? vr.getName().trim() : parentProduct.getName());
+            child.setBarcode(blankToNull(vr.getBarcode()));
+
+            if (vr.getSku() != null && !vr.getSku().isBlank()) {
+                child.setSku(vr.getSku().trim());
+            } else if (child.getSku() == null || child.getSku().isBlank()) {
+                String parentSku = parentProduct.getSku() != null ? parentProduct.getSku() : "SP" + parentProduct.getId();
+                String slug = vr.getName() != null ? vr.getName().replaceAll("[^a-zA-Z0-9-]", "").toUpperCase() : String.valueOf(System.currentTimeMillis());
+                child.setSku(parentSku + "-" + slug);
+            }
+
+            BigDecimal cost = nullToZero(vr.getCostPrice());
+            BigDecimal sell = nullToZero(vr.getSellingPrice());
+            if (cost.compareTo(BigDecimal.ZERO) == 0 && parentProduct.getCostPrice() != null) {
+                cost = parentProduct.getCostPrice();
+            }
+            if (sell.compareTo(BigDecimal.ZERO) == 0 && parentProduct.getSellingPrice() != null) {
+                sell = parentProduct.getSellingPrice();
+            }
+
+            child.setCostPrice(cost);
+            child.setSellingPrice(sell);
+            child.setStatus(vr.getStatus() != null ? vr.getStatus() : parentProduct.getStatus());
+            child.setDescription(parentProduct.getDescription());
+            child.setSeasonTag(parentProduct.getSeasonTag());
+
+            child = productRepository.save(child);
+            keptIds.add(child.getId());
+
+            productUnitRepository.deleteByProductId(child.getId());
+            productAttributeRepository.deleteByProductId(child.getId());
+            replaceUnits(child, parentUnits);
+            replaceAttributes(child, vr.getAttributes());
+        }
+
+        // Soft delete child variants that were removed in UI
+        for (Product existing : existingChildren) {
+            if (!keptIds.contains(existing.getId())) {
+                existing.setIsRemoved(true);
+                productRepository.save(existing);
+            }
+        }
     }
 }

@@ -35,7 +35,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.text.Normalizer;
 import java.util.Objects;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -227,11 +229,13 @@ public class ImportSuggestionService {
             return "Cái";
         }
         return p.getProductUnits().stream()
+                .filter(u -> !Boolean.TRUE.equals(u.getIsRemoved()))
                 .filter(u -> u.getUnitBase() != null && u.getUnitBase().compareTo(BigDecimal.ONE) == 0)
                 .map(ProductUnit::getName)
                 .filter(Objects::nonNull)
                 .findFirst()
-                .orElse(p.getProductUnits().stream()
+                .orElseGet(() -> p.getProductUnits().stream()
+                        .filter(u -> !Boolean.TRUE.equals(u.getIsRemoved()))
                         .map(ProductUnit::getName)
                         .filter(Objects::nonNull)
                         .findFirst()
@@ -608,26 +612,29 @@ public class ImportSuggestionService {
                 })
                 .filter(g -> {
                     if (keyword == null || keyword.isBlank()) return true;
-                    String[] words = keyword.trim().toLowerCase(Locale.ROOT).split("\\s+");
+                    String[] words = normalizeVietnamese(keyword).split("\\s+");
                     for (String word : words) {
                         boolean wordMatched = false;
-                        if (g.getName().toLowerCase(Locale.ROOT).contains(word)
-                                || (g.getSku() != null && g.getSku().toLowerCase(Locale.ROOT).contains(word))
-                                || (g.getBarcode() != null && g.getBarcode().toLowerCase(Locale.ROOT).contains(word))) {
+                        String gNameNorm = normalizeVietnamese(g.getName());
+                        String gSkuNorm = normalizeVietnamese(g.getSku());
+                        String gBarcodeNorm = normalizeVietnamese(g.getBarcode());
+                        if (gNameNorm.contains(word) || gSkuNorm.contains(word) || gBarcodeNorm.contains(word)) {
                             wordMatched = true;
                         }
                         if (!wordMatched && g.getIsGroup()) {
                             List<Product> children = childrenMap.get(g.getId());
                             if (children != null) {
                                 for (Product c : children) {
-                                    if (c.getName().toLowerCase(Locale.ROOT).contains(word)
-                                            || (c.getSku() != null && c.getSku().toLowerCase(Locale.ROOT).contains(word))
-                                            || (c.getBarcode() != null && c.getBarcode().toLowerCase(Locale.ROOT).contains(word))) {
+                                    String cNameNorm = normalizeVietnamese(c.getName());
+                                    String cSkuNorm = normalizeVietnamese(c.getSku());
+                                    String cBarcodeNorm = normalizeVietnamese(c.getBarcode());
+                                    if (cNameNorm.contains(word) || cSkuNorm.contains(word) || cBarcodeNorm.contains(word)) {
                                         wordMatched = true;
                                         break;
                                     }
                                     for (var attr : c.getProductAttributes()) {
-                                        if (attr.getValue() != null && attr.getValue().toLowerCase(Locale.ROOT).contains(word)) {
+                                        String attrValNorm = normalizeVietnamese(attr.getValue());
+                                        if (attrValNorm.contains(word)) {
                                             wordMatched = true;
                                             break;
                                         }
@@ -861,9 +868,20 @@ public class ImportSuggestionService {
     }
 
     String resolveImg(Product p) {
-        if (p != null && p.getProductImages() != null && !p.getProductImages().isEmpty()) {
+        if (p == null) return null;
+        if (p.getProductImages() != null && !p.getProductImages().isEmpty()) {
             return p.getProductImages().iterator().next().getUrl();
         }
+        if (p.getParent() != null && p.getParent().getProductImages() != null && !p.getParent().getProductImages().isEmpty()) {
+            return p.getParent().getProductImages().iterator().next().getUrl();
+        }
         return null;
+    }
+
+    private static String normalizeVietnamese(String text) {
+        if (text == null) return "";
+        String nfd = Normalizer.normalize(text, Normalizer.Form.NFD);
+        Pattern pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
+        return pattern.matcher(nfd).replaceAll("").replace('đ', 'd').replace('Đ', 'd').toLowerCase(Locale.ROOT).trim();
     }
 }
