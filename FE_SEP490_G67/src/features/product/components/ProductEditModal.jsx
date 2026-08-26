@@ -1391,25 +1391,29 @@ export default function ProductEditModal({
                       </div>
                     </div>
 
-                    {/* Row 3: Hàng hóa cha */}
+                    {/* Row 3: Mô tả sản phẩm */}
                     <div className="pi-edit-field">
-                      <label className="pi-edit-label">Hàng hóa cha (Nếu là biến thể con)</label>
-                      <select
+                      <label className="pi-edit-label">Mô tả sản phẩm</label>
+                      <textarea
                         className="pi-edit-input"
-                        value={formData.parentId}
-                        onChange={(e) => handleInputChange('parentId', e.target.value)}
-                        disabled={isChild || parentAttributes.length > 0}
-                      >
-                        <option value="">-- Không có (Hàng hóa độc lập / Hàng hóa cha) --</option>
-                        {parentProducts.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} ({p.sku || `SP${p.id}`})
-                          </option>
-                        ))}
-                      </select>
-                      {isChild && (
-                        <span className="pi-field-lock-hint">🔒 Cố định theo nhóm hàng cha</span>
-                      )}
+                        rows={2}
+                        value={formData.description}
+                        onChange={(e) => handleInputChange('description', e.target.value)}
+                        placeholder="Nhập mô tả chi tiết, xuất xứ, công dụng, bảo quản…"
+                        style={{
+                          width: '100%',
+                          minHeight: 58,
+                          maxHeight: 120,
+                          padding: '8px 12px',
+                          fontSize: 13.5,
+                          lineHeight: 1.5,
+                          resize: 'vertical',
+                          borderRadius: 8,
+                          border: '1px solid #CBD5E1',
+                          boxSizing: 'border-box',
+                          background: '#FFFFFF',
+                        }}
+                      />
                     </div>
                   </div>
                 </div>
@@ -1912,305 +1916,271 @@ export default function ProductEditModal({
                   </div>
                 </div>
               </div>
-
-              {/* Section 5: Mô tả sản phẩm (Full diện tích) */}
-              <div className="pi-edit-section" style={{ marginTop: 20 }}>
-                <div className="pi-edit-sec-head">
-                  <h3 className="pi-edit-sec-title">
-                    <FileText size={16} color="#004AC6" />
-                    Mô tả sản phẩm
-                  </h3>
-                  <p className="pi-edit-sec-desc">
-                    Ghi chú chi tiết về thành phần, xuất xứ, công dụng, lưu ý bảo quản hoặc hướng dẫn sử dụng.
-                  </p>
-                </div>
-                <div className="pi-edit-field" style={{ width: '100%', marginTop: 8 }}>
-                  <textarea
-                    className="pi-edit-input"
-                    rows={4}
-                    value={formData.description}
-                    onChange={(e) => handleInputChange('description', e.target.value)}
-                    placeholder="Mô tả chi tiết công dụng, thành phần, xuất xứ, hạn dùng, lưu ý bảo quản…"
-                    style={{
-                      width: '100%',
-                      minHeight: 90,
-                      padding: '10px 12px',
-                      fontSize: 13.5,
-                      lineHeight: 1.6,
-                      resize: 'vertical',
-                      borderRadius: 8,
-                      border: '1px solid #CBD5E1',
-                      boxSizing: 'border-box',
-                      background: '#FFFFFF',
-                    }}
-                  />
-                </div>
-              </div>
             </div>
 
             {/* Footer */}
-            <div className="pi-modal-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div className="pi-modal-footer-left" style={{ display: 'flex', alignItems: 'center' }}>
-                {!isCreateMode && (
-                  <label
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 7,
-                      cursor: 'pointer',
-                      fontSize: 13.5,
-                      fontWeight: 500,
-                      color: '#1E293B',
-                      userSelect: 'none',
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      className="pi-cb"
-                      checked={formData.status !== 'inactive'}
-                      onChange={(e) => handleInputChange('status', e.target.checked ? 'active' : 'inactive')}
-                      style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#004AC6' }}
-                    />
-                    <span>Đang kinh doanh</span>
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 15,
-                        height: 15,
-                        borderRadius: '50%',
-                        border: '1.2px solid #94A3B8',
-                        color: '#64748B',
-                        fontSize: 10,
-                        fontWeight: 700,
-                        cursor: 'help',
-                      }}
-                      title="Cho phép kinh doanh và hiển thị hàng hóa này trên hệ thống bán hàng"
-                    >
-                      i
-                    </span>
-                  </label>
+        <div className="pi-modal-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="pi-modal-footer-left" style={{ display: 'flex', alignItems: 'center' }}>
+            {!isCreateMode && (
+              <label
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  cursor: 'pointer',
+                  fontSize: 13.5,
+                  fontWeight: 500,
+                  color: '#1E293B',
+                  userSelect: 'none',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  className="pi-cb"
+                  checked={formData.status !== 'inactive'}
+                  onChange={(e) => handleInputChange('status', e.target.checked ? 'active' : 'inactive')}
+                  style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#004AC6' }}
+                />
+                <span>Đang kinh doanh</span>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 15,
+                    height: 15,
+                    borderRadius: '50%',
+                    border: '1.2px solid #94A3B8',
+                    color: '#64748B',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    cursor: 'help',
+                  }}
+                  title="Cho phép kinh doanh và hiển thị hàng hóa này trên hệ thống bán hàng"
+                >
+                  i
+                </span>
+              </label>
+            )}
+          </div>
+
+          <div className="pi-modal-footer-right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button
+              type="button"
+              className="pi-modal-btn pi-modal-btn--secondary"
+              onClick={onClose}
+              disabled={submitting}
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              className="pi-modal-btn pi-modal-btn--primary"
+              disabled={submitting}
+            >
+              {submitting
+                ? (isCreateMode ? 'Đang tạo…' : 'Đang cập nhật…')
+                : (isCreateMode ? 'Lưu sản phẩm' : 'Lưu thay đổi')}
+            </button>
+          </div>
+        </div>
+      </form>
+        )}
+
+      {/* TAB 2: THẺ KHO & LỊCH SỬ GIÁ */}
+      {modalTab === 'stockCard' && (
+        <div className="pi-modal-body pi-stock-card-body">
+          {/* Overview Stats Bar */}
+          <div className="pi-stock-overview-bar" style={{ marginBottom: 20 }}>
+            <div className="pi-stock-stat-item">
+              <span className="pi-stock-stat-label">Tồn kho hiện tại</span>
+              <span className="pi-stock-stat-val pi-stock-stat-val--blue">
+                {product?.onHand ?? product?.stock ?? 0} {formData.baseUnitName}
+              </span>
+            </div>
+            <div className="pi-stock-stat-item">
+              <span className="pi-stock-stat-label">Giá vốn hiện tại</span>
+              <span className="pi-stock-stat-val">
+                {formData.costPrice ? `${Number(formData.costPrice).toLocaleString()} đ` : '—'}
+              </span>
+            </div>
+            <div className="pi-stock-stat-item">
+              <span className="pi-stock-stat-label">Giá bán niêm yết</span>
+              <span className="pi-stock-stat-val pi-stock-stat-val--green">
+                {formData.sellingPrice ? `${Number(formData.sellingPrice).toLocaleString()} đ` : '—'}
+              </span>
+            </div>
+          </div>
+
+          {/* Body: History Table */}
+          <h3 className="pi-unit-section-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Clock size={15} color="#64748B" />
+            Lịch sử biến động giá nhập & Giao dịch kho
+          </h3>
+
+          {loadingStockHistory && (
+            <div className="pi-stock-loading">
+              Đang tải dữ liệu thẻ kho…
+            </div>
+          )}
+
+          {!loadingStockHistory && stockHistory.length === 0 && (
+            <div className="pi-stock-empty">
+              <Package size={36} color="#CBD5E1" />
+              <p>Chưa có biến động giao dịch hoặc lịch sử giá cho sản phẩm này.</p>
+            </div>
+          )}
+
+          {!loadingStockHistory && stockHistory.length > 0 && (
+            <div className="pi-stock-table-wrap">
+              <table className="pi-stock-table">
+                <thead>
+                  <tr>
+                    <th>Thời gian</th>
+                    <th>Loại biến động</th>
+                    <th>Giá vốn (Cũ → Mới)</th>
+                    <th>Giá bán (Cũ → Mới)</th>
+                    <th>Số lượng</th>
+                    <th>Ghi chú</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stockHistory.map((item, idx) => (
+                    <tr key={item.id || idx}>
+                      <td style={{ color: '#64748B', whiteSpace: 'nowrap' }}>
+                        {item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : (item.date || '—')}
+                      </td>
+                      <td>
+                        <span className="pi-badge-parent" style={{ background: '#F1F5F9', color: '#334155' }}>
+                          {item.changeType || item.type || 'Cập nhật giá'}
+                        </span>
+                      </td>
+                      <td>
+                        {item.oldCostPrice != null && item.newCostPrice != null ? (
+                          <span>
+                            {Number(item.oldCostPrice).toLocaleString()} → <strong>{Number(item.newCostPrice).toLocaleString()} đ</strong>
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td>
+                        {item.oldSellingPrice != null && item.newSellingPrice != null ? (
+                          <span style={{ color: '#059669', fontWeight: 600 }}>
+                            {Number(item.oldSellingPrice).toLocaleString()} → <strong>{Number(item.newSellingPrice).toLocaleString()} đ</strong>
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td style={{ fontWeight: 600 }}>
+                        {item.quantity != null ? `${item.quantity > 0 ? `+${item.quantity}` : item.quantity} ${formData.baseUnitName}` : '—'}
+                      </td>
+                      <td style={{ color: '#64748B', fontSize: 12.5 }}>
+                        {item.note || item.reason || '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Footer for StockCard tab */}
+      {modalTab !== 'info' && (
+        <div className="pi-modal-footer">
+          <button
+            type="button"
+            className="pi-modal-btn pi-modal-btn--secondary"
+            onClick={onClose}
+          >
+            Đóng
+          </button>
+        </div>
+      )}
+
+      {/* Interactive Barcode Capture Modal */}
+      <BarcodeCaptureModal
+        isOpen={Boolean(barcodeScannerTarget)}
+        onClose={() => setBarcodeScannerTarget(null)}
+        onCapture={handleBarcodeCaptured}
+        targetTitle={barcodeScannerTarget?.title || 'hàng hóa'}
+      />
+
+      {/* Pop-up Thêm nhanh nhóm hàng hóa (Danh mục) */}
+      {isCreateCategoryModalOpen && (
+        <div className="pi-nested-modal-backdrop" onClick={() => setIsCreateCategoryModalOpen(false)}>
+          <div className="pi-nested-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="pi-nested-modal-header">
+              <h3 className="pi-nested-modal-title">
+                <FolderPlus size={18} color="#004AC6" />
+                Thêm nhanh nhóm hàng hóa (Danh mục)
+              </h3>
+              <button
+                type="button"
+                className="pi-nested-modal-close"
+                onClick={() => setIsCreateCategoryModalOpen(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveNewCategory}>
+              <div className="pi-nested-modal-body">
+                {createCategoryError && (
+                  <div style={{ padding: '8px 12px', background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 6, color: '#DC2626', fontSize: 13 }}>
+                    {createCategoryError}
+                  </div>
                 )}
+                <div className="pi-edit-field">
+                  <label className="pi-edit-label">Tên nhóm hàng hóa (Danh mục) *</label>
+                  <input
+                    type="text"
+                    className="pi-edit-input"
+                    placeholder="Nhập tên danh mục (ví dụ: Nước giải khát, Bánh kẹo...)"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+                <div className="pi-edit-field">
+                  <label className="pi-edit-label">Mô tả danh mục (Tùy chọn)</label>
+                  <textarea
+                    className="pi-edit-input"
+                    style={{ minHeight: 70, resize: 'vertical' }}
+                    placeholder="Mô tả ngắn về nhóm hàng hóa..."
+                    value={newCategoryDescription}
+                    onChange={(e) => setNewCategoryDescription(e.target.value)}
+                  />
+                </div>
               </div>
 
-              <div className="pi-modal-footer-right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div className="pi-nested-modal-footer">
                 <button
                   type="button"
-                  className="pi-modal-btn pi-modal-btn--secondary"
-                  onClick={onClose}
-                  disabled={submitting}
+                  className="pi-edit-btn-cancel"
+                  onClick={() => setIsCreateCategoryModalOpen(false)}
+                  disabled={creatingCategory}
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="pi-modal-btn pi-modal-btn--primary"
-                  disabled={submitting}
+                  className="pi-edit-btn-save"
+                  disabled={creatingCategory}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                 >
-                  {submitting
-                    ? (isCreateMode ? 'Đang tạo…' : 'Đang cập nhật…')
-                    : (isCreateMode ? 'Lưu sản phẩm' : 'Lưu thay đổi')}
+                  {creatingCategory ? 'Đang lưu...' : 'Lưu danh mục'}
                 </button>
               </div>
-            </div>
-          </form>
-        )}
-
-        {/* TAB 2: THẺ KHO & LỊCH SỬ GIÁ */}
-        {modalTab === 'stockCard' && (
-          <div className="pi-modal-body pi-stock-card-body">
-            {/* Overview Stats Bar */}
-            <div className="pi-stock-overview-bar" style={{ marginBottom: 20 }}>
-              <div className="pi-stock-stat-item">
-                <span className="pi-stock-stat-label">Tồn kho hiện tại</span>
-                <span className="pi-stock-stat-val pi-stock-stat-val--blue">
-                  {product?.onHand ?? product?.stock ?? 0} {formData.baseUnitName}
-                </span>
-              </div>
-              <div className="pi-stock-stat-item">
-                <span className="pi-stock-stat-label">Giá vốn hiện tại</span>
-                <span className="pi-stock-stat-val">
-                  {formData.costPrice ? `${Number(formData.costPrice).toLocaleString()} đ` : '—'}
-                </span>
-              </div>
-              <div className="pi-stock-stat-item">
-                <span className="pi-stock-stat-label">Giá bán niêm yết</span>
-                <span className="pi-stock-stat-val pi-stock-stat-val--green">
-                  {formData.sellingPrice ? `${Number(formData.sellingPrice).toLocaleString()} đ` : '—'}
-                </span>
-              </div>
-            </div>
-
-            {/* Body: History Table */}
-            <h3 className="pi-unit-section-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Clock size={15} color="#64748B" />
-              Lịch sử biến động giá nhập & Giao dịch kho
-            </h3>
-
-            {loadingStockHistory && (
-              <div className="pi-stock-loading">
-                Đang tải dữ liệu thẻ kho…
-              </div>
-            )}
-
-            {!loadingStockHistory && stockHistory.length === 0 && (
-              <div className="pi-stock-empty">
-                <Package size={36} color="#CBD5E1" />
-                <p>Chưa có biến động giao dịch hoặc lịch sử giá cho sản phẩm này.</p>
-              </div>
-            )}
-
-            {!loadingStockHistory && stockHistory.length > 0 && (
-              <div className="pi-stock-table-wrap">
-                <table className="pi-stock-table">
-                  <thead>
-                    <tr>
-                      <th>Thời gian</th>
-                      <th>Loại biến động</th>
-                      <th>Giá vốn (Cũ → Mới)</th>
-                      <th>Giá bán (Cũ → Mới)</th>
-                      <th>Số lượng</th>
-                      <th>Ghi chú</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stockHistory.map((item, idx) => (
-                      <tr key={item.id || idx}>
-                        <td style={{ color: '#64748B', whiteSpace: 'nowrap' }}>
-                          {item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : (item.date || '—')}
-                        </td>
-                        <td>
-                          <span className="pi-badge-parent" style={{ background: '#F1F5F9', color: '#334155' }}>
-                            {item.changeType || item.type || 'Cập nhật giá'}
-                          </span>
-                        </td>
-                        <td>
-                          {item.oldCostPrice != null && item.newCostPrice != null ? (
-                            <span>
-                              {Number(item.oldCostPrice).toLocaleString()} → <strong>{Number(item.newCostPrice).toLocaleString()} đ</strong>
-                            </span>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                        <td>
-                          {item.oldSellingPrice != null && item.newSellingPrice != null ? (
-                            <span style={{ color: '#059669', fontWeight: 600 }}>
-                              {Number(item.oldSellingPrice).toLocaleString()} → <strong>{Number(item.newSellingPrice).toLocaleString()} đ</strong>
-                            </span>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                        <td style={{ fontWeight: 600 }}>
-                          {item.quantity != null ? `${item.quantity > 0 ? `+${item.quantity}` : item.quantity} ${formData.baseUnitName}` : '—'}
-                        </td>
-                        <td style={{ color: '#64748B', fontSize: 12.5 }}>
-                          {item.note || item.reason || '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            </form>
           </div>
-        )}
-
-        {/* Footer for StockCard tab */}
-        {modalTab !== 'info' && (
-          <div className="pi-modal-footer">
-            <button
-              type="button"
-              className="pi-modal-btn pi-modal-btn--secondary"
-              onClick={onClose}
-            >
-              Đóng
-            </button>
-          </div>
-        )}
-
-        {/* Interactive Barcode Capture Modal */}
-        <BarcodeCaptureModal
-          isOpen={Boolean(barcodeScannerTarget)}
-          onClose={() => setBarcodeScannerTarget(null)}
-          onCapture={handleBarcodeCaptured}
-          targetTitle={barcodeScannerTarget?.title || 'hàng hóa'}
-        />
-
-        {/* Pop-up Thêm nhanh nhóm hàng hóa (Danh mục) */}
-        {isCreateCategoryModalOpen && (
-          <div className="pi-nested-modal-backdrop" onClick={() => setIsCreateCategoryModalOpen(false)}>
-            <div className="pi-nested-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="pi-nested-modal-header">
-                <h3 className="pi-nested-modal-title">
-                  <FolderPlus size={18} color="#004AC6" />
-                  Thêm nhanh nhóm hàng hóa (Danh mục)
-                </h3>
-                <button
-                  type="button"
-                  className="pi-nested-modal-close"
-                  onClick={() => setIsCreateCategoryModalOpen(false)}
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <form onSubmit={handleSaveNewCategory}>
-                <div className="pi-nested-modal-body">
-                  {createCategoryError && (
-                    <div style={{ padding: '8px 12px', background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 6, color: '#DC2626', fontSize: 13 }}>
-                      {createCategoryError}
-                    </div>
-                  )}
-                  <div className="pi-edit-field">
-                    <label className="pi-edit-label">Tên nhóm hàng hóa (Danh mục) *</label>
-                    <input
-                      type="text"
-                      className="pi-edit-input"
-                      placeholder="Nhập tên danh mục (ví dụ: Nước giải khát, Bánh kẹo...)"
-                      value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
-                      required
-                      autoFocus
-                    />
-                  </div>
-                  <div className="pi-edit-field">
-                    <label className="pi-edit-label">Mô tả danh mục (Tùy chọn)</label>
-                    <textarea
-                      className="pi-edit-input"
-                      style={{ minHeight: 70, resize: 'vertical' }}
-                      placeholder="Mô tả ngắn về nhóm hàng hóa..."
-                      value={newCategoryDescription}
-                      onChange={(e) => setNewCategoryDescription(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="pi-nested-modal-footer">
-                  <button
-                    type="button"
-                    className="pi-edit-btn-cancel"
-                    onClick={() => setIsCreateCategoryModalOpen(false)}
-                    disabled={creatingCategory}
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    type="submit"
-                    className="pi-edit-btn-save"
-                    disabled={creatingCategory}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                  >
-                    {creatingCategory ? 'Đang lưu...' : 'Lưu danh mục'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
+    </div >
   );
 }
