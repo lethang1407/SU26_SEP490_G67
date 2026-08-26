@@ -3,16 +3,36 @@ import { FACETS } from '../constants';
 
 const TOP_CATEGORY_COUNT = 5;
 
+const CATEGORY_NAME_MAP = {
+  'do dung gia dinh': 'Đồ dùng gia đình',
+  'do uong': 'Đồ uống',
+  'thuc pham kho': 'Thực phẩm khô',
+  'banh keo': 'Bánh kẹo',
+  'gia vi': 'Gia vị',
+  'gia vi & che bien': 'Gia vị & Chế biến',
+  'sua & tuoi': 'Sữa & tươi',
+  'sua': 'Sữa',
+  'hoa my pham': 'Hóa mỹ phẩm',
+  'dau an': 'Dầu ăn',
+  'tp kho': 'Thực phẩm khô',
+};
+
+export function formatCategoryName(name) {
+  if (!name) return '';
+  const key = String(name).trim().toLowerCase();
+  return CATEGORY_NAME_MAP[key] || name;
+}
+
 function normalizeCategories(categories) {
   const list = Array.isArray(categories) ? categories : [];
   return list
     .map((cat) => {
       if (typeof cat === 'string') {
-        return { id: cat, name: cat, productCount: 0 };
+        return { id: cat, name: formatCategoryName(cat), productCount: 0 };
       }
       return {
         id: cat.id,
-        name: cat.name,
+        name: formatCategoryName(cat.name),
         productCount: Number(cat.productCount) || 0,
       };
     })
@@ -60,24 +80,27 @@ export default function ProductFacet({
 
   return (
     <aside className="facet pi-autohide-scroll">
-      <div className="facet-title">Nhóm cần nhập</div>
+      <div className="facet-title">Nhóm sản phẩm</div>
 
       {FACETS.map((group) => (
         <div key={group.group}>
           <div className="facet-group">{group.group}</div>
-          {group.items.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`chip ${item.nested ? 'nested' : ''} ${facet === item.key ? 'active' : ''}`}
-              onClick={() => onFacetChange(item.key)}
-            >
-              <span className="label">
-                <span className={`dot ${item.dot}`} />
-                <span className="chip-main">{item.label}</span>
-              </span>
-            </button>
-          ))}
+          {group.items.map((item) => {
+            const isActive = facet === item.key;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                className={`chip ${item.nested ? 'nested' : ''} ${isActive ? 'active' : ''}`}
+                onClick={() => onFacetChange(isActive ? 'all' : item.key)}
+              >
+                <span className="label">
+                  <span className={`dot ${item.dot}`} />
+                  <span className="chip-main">{item.label}</span>
+                </span>
+              </button>
+            );
+          })}
         </div>
       ))}
 

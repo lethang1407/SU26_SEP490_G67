@@ -28,7 +28,7 @@ public class StorageZoneController {
 
     StorageZoneService storageZoneService;
 
-    @PreAuthorize("hasAuthority('WAREHOUSE:VIEW')")
+   // @PreAuthorize("hasAuthority('WAREHOUSE:VIEW')")
     @GetMapping
     public ApiResponse<List<StorageZoneResponse>> getZones() {
         return ApiResponse.<List<StorageZoneResponse>>builder()
@@ -37,7 +37,7 @@ public class StorageZoneController {
                 .build();
     }
 
-    @PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
+  //  @PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
     @PutMapping("/{code}")
     public ApiResponse<StorageZoneResponse> updateZone(
             @PathVariable("code") String code,

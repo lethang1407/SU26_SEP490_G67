@@ -217,6 +217,16 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
     List<SalesOrder> findActiveDebtSalesCreatedBetween(@Param("start") Instant start, @Param("end") Instant end);
 
     @Query("""
+            SELECT DISTINCT so FROM SalesOrder so
+            LEFT JOIN FETCH so.customer
+            LEFT JOIN FETCH so.debtPayments
+            WHERE so.id IN :ids
+              AND so.isRemoved = false
+              AND so.isDebt = true
+            """)
+    List<SalesOrder> findActiveDebtOrdersByIdsWithPayments(@Param("ids") List<Integer> ids);
+
+    @Query("""
             SELECT COALESCE(SUM(so.paidAmount), 0)
             FROM SalesOrder so
             WHERE so.isRemoved = false
@@ -235,4 +245,59 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
               AND so.createdAt >= :start AND so.createdAt < :end
             """)
     BigDecimal sumBankSalesBetween(@Param("start") Instant start, @Param("end") Instant end);
+
+    @Query("""
+            SELECT COALESCE(SUM(so.totalAmount - so.paidAmount), 0)
+            FROM SalesOrder so
+            WHERE so.isRemoved = false
+              AND so.orderStatus <> 'CANCELLED'
+              AND so.isDebt = true
+              AND so.createdAt >= :start AND so.createdAt < :end
+            """)
+    BigDecimal sumDebtSalesBetween(@Param("start") Instant start, @Param("end") Instant end);
+
+    @Query("""
+            SELECT COUNT(so)
+            FROM SalesOrder so
+            WHERE so.isRemoved = false
+              AND so.createdAt >= :start AND so.createdAt < :end
+            """)
+    long countTotalOrdersBetween(@Param("start") Instant start, @Param("end") Instant end);
+
+    @Query("""
+            SELECT COUNT(so)
+            FROM SalesOrder so
+            WHERE so.isRemoved = false
+              AND so.orderStatus = 'COMPLETED'
+              AND so.createdAt >= :start AND so.createdAt < :end
+            """)
+    long countCompletedOrdersBetween(@Param("start") Instant start, @Param("end") Instant end);
+
+    @Query("""
+            SELECT COUNT(so)
+            FROM SalesOrder so
+            WHERE so.isRemoved = false
+              AND so.orderStatus = 'CANCELLED'
+              AND so.createdAt >= :start AND so.createdAt < :end
+            """)
+    long countCancelledOrdersBetween(@Param("start") Instant start, @Param("end") Instant end);
+
+    @Query("""
+            SELECT COUNT(so)
+            FROM SalesOrder so
+            WHERE so.isRemoved = false
+              AND so.isDebt = true
+              AND so.createdAt >= :start AND so.createdAt < :end
+            """)
+    long countDebtOrdersBetween(@Param("start") Instant start, @Param("end") Instant end);
+
+    @Query("""
+            SELECT so FROM SalesOrder so
+            LEFT JOIN FETCH so.customer
+            WHERE so.isRemoved = false
+              AND so.createdAt >= :start AND so.createdAt < :end
+            ORDER BY so.createdAt DESC
+            """)
+    List<SalesOrder> findOrdersBetween(@Param("start") Instant start, @Param("end") Instant end);
 }
+

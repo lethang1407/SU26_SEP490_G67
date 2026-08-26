@@ -57,7 +57,8 @@ export function paginateItems(items, page, pageSize) {
 export function formatRate(value, unit) {
   if (value == null) return '—';
   const n = Number(value);
-  const text = Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, '');
+  if (!Number.isFinite(n)) return '—';
+  const text = Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, '').replace('.', ',');
   return `~${text} ${unit || 'sp'}`;
 }
 

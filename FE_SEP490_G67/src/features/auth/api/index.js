@@ -10,7 +10,8 @@ const auth = {
     return response;
   },
   logout: async () => {
-    const response = await api.post("/auth/logout");
+    const token = localStorage.getItem("accessToken") || localStorage.getItem("token") || "";
+    const response = await api.post("/auth/logout", { token });
     return response;
   },
   initiatePasswordReset: async (payload) => {

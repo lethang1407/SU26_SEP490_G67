@@ -20,7 +20,7 @@ export async function getCustomerByPhone(phone) {
     return response.result ?? null;
 }
 
-/** Tìm khách theo tên hoặc số điện thoại (BE khớp keyword với cả hai). */
+/** Tìm khách theo tên hoặc số điện thoại. */
 export async function searchCustomers(keyword, size = 8) {
     const response = await api.get(`/customers/debts`, { params: { keyword, page: 1, size } });
     return response.result?.content ?? [];
@@ -63,5 +63,13 @@ export async function getOrderForExchange(orderId) {
 
 export async function processExchangeOrder(payload) {
     const response = await api.post('/sales-orders/exchange', payload);
+    return response.result;
+}
+
+/**
+ * Tài khoản ngân hàng của cửa hàng, để dựng ảnh VietQR cho khách quét.
+ */
+export async function getStorePaymentInfo() {
+    const response = await api.get('/store/payment-info');
     return response.result;
 }

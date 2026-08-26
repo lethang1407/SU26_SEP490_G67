@@ -126,18 +126,26 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
 
     Optional<Product> findByIdAndIsRemovedFalse(Integer id);
 
-    @Query("""
-        SELECT p FROM Product p
-        LEFT JOIN FETCH p.category c
-        LEFT JOIN FETCH c.defaultSupplier
-        WHERE LOWER(p.sku) = LOWER(:sku)
-          AND (p.isRemoved = false OR p.isRemoved IS NULL)
-        """)
-    Optional<Product> findBySkuIgnoreCase(@Param("sku") String sku);
-
     boolean existsBySkuIgnoreCaseAndIsRemovedFalse(String sku);
 
     boolean existsBySkuIgnoreCaseAndIdNotAndIsRemovedFalse(String sku, Integer id);
 
+    @Query("""
+            SELECT p, COALESCE(SUM(CASE WHEN sz.zoneType <> 'RETURN_HOLD'
+                                        THEN bl.quantity ELSE 0 END), 0)
+            FROM Product p
+            LEFT JOIN StockBatch sb ON sb.product = p AND sb.isRemoved = false
+            LEFT JOIN BatchLocation bl ON bl.batch = sb AND bl.isRemoved = false
+            LEFT JOIN bl.location loc
+            LEFT JOIN loc.storageZone sz
+            WHERE p.isRemoved = false
+              AND p.status = 'active'
+            GROUP BY p
+            HAVING COALESCE(SUM(CASE WHEN sz.zoneType <> 'RETURN_HOLD'
+                                     THEN bl.quantity ELSE 0 END), 0) <= COALESCE(p.minStock, 0)
+            ORDER BY COALESCE(SUM(CASE WHEN sz.zoneType <> 'RETURN_HOLD'
+                                       THEN bl.quantity ELSE 0 END), 0) ASC, p.id ASC
+            """)
+    List<Object[]> findOutOfStockOrBelowMinimum();
 
 }

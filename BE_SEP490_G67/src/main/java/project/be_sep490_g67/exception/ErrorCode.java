@@ -57,6 +57,7 @@ public enum ErrorCode {
     STORAGE_ZONE_NOT_FOUND(1055, "Không tìm thấy khu", HttpStatus.NOT_FOUND),
     INVALID_STORAGE_ZONE_TYPE(1056, "Loại khu không hợp lệ (SALES, WAREHOUSE)", HttpStatus.BAD_REQUEST),
     STORAGE_RETURN_HOLD_LOCKED(1081, "Không thể thay đổi hoặc tạo thêm vị trí trong khu chứa hàng đổi trả", HttpStatus.BAD_REQUEST),
+    RETURN_HOLD_LOCATION_NOT_FOUND(1082, "Chưa có khu chứa hàng đổi trả trong kho", HttpStatus.INTERNAL_SERVER_ERROR),
     SALES_ZONE_PRODUCT_BATCH_EXISTS(1057, "Sản phẩm đã có một lô trên khu bán. Mỗi SP chỉ được 1 lô trên toàn khu bán", HttpStatus.BAD_REQUEST),
     SALES_ZONE_BATCH_SPLIT(1058, "Không thể tách cùng một lô sang nhiều ô trên khu bán", HttpStatus.BAD_REQUEST),
     STOCK_BATCH_NOT_FOUND(1033, "Không tìm thấy lô hàng", HttpStatus.NOT_FOUND),
@@ -152,6 +153,7 @@ public enum ErrorCode {
     // không định nghĩa bản 3107 song song.
     NO_AVAILABLE_STOCK_BATCH(3108, "Không tìm thấy lô hàng khả dụng cho sản phẩm", HttpStatus.BAD_REQUEST),
     INVALID_UNIT_CONVERSION(3109, "Quy đổi đơn vị của sản phẩm không hợp lệ", HttpStatus.UNPROCESSABLE_ENTITY),
+    PRODUCT_PRICE_MISSING(3113, "Sản phẩm chưa được đặt giá bán", HttpStatus.UNPROCESSABLE_ENTITY),
 
     // Document code errors (32xx)
     DOCUMENT_CODE_GENERATION_FAILED(3201, "Không thể cấp mã chứng từ, vui lòng thử lại", HttpStatus.INTERNAL_SERVER_ERROR),
@@ -179,9 +181,15 @@ public enum ErrorCode {
     DEBT_DUE_DATE_IN_PAST(4106, "Hạn trả nợ phải sau thời điểm tạo đơn", HttpStatus.BAD_REQUEST),
     DEBT_PAYMENT_EXCEEDS_REMAINING(4107, "Số tiền khách trả thêm vượt quá số nợ còn lại sau khi đã cấn trừ hàng trả", HttpStatus.BAD_REQUEST),
     DEBT_ORDER_ALREADY_SETTLED(4108, "Đơn hàng này đã trả hết nợ", HttpStatus.BAD_REQUEST),
+    DEBT_PAYMENT_ORDER_LIST_REQUIRED(4109, "Danh sách đơn nợ cần thanh toán không được để trống", HttpStatus.BAD_REQUEST),
+    DEBT_PAYMENT_ORDERS_DIFFERENT_CUSTOMERS(4110, "Chỉ được thanh toán nhiều đơn nợ của cùng một khách hàng", HttpStatus.BAD_REQUEST),
 
     // Notification errors (42xx)
     NOTIFICATION_NOT_FOUND(4201, "Không tìm thấy thông báo", HttpStatus.NOT_FOUND),
+
+    // Thanh toán chuyển khoản (43xx)
+    PAYMENT_METHOD_NOT_TRANSFER(4306, "Chỉ đơn thanh toán chuyển khoản mới có nội dung chuyển khoản", HttpStatus.BAD_REQUEST),
+    STORE_BANK_ACCOUNT_NOT_CONFIGURED(4311, "Cửa hàng chưa khai báo tài khoản ngân hàng nhận chuyển khoản", HttpStatus.BAD_REQUEST),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

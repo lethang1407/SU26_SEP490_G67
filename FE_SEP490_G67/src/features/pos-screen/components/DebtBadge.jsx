@@ -8,9 +8,8 @@ const DEBT_CONFIG = {
 
 const formatVnDate = (iso) => (iso ? new Date(iso).toLocaleDateString('vi-VN') : null);
 
-/** Tooltip: còn nợ bao nhiêu, hạn ngày nào. */
 function buildTitle(debtStatus, remainingDebt, dueDate) {
-    if (debtStatus === 'PAID') return 'Hóa đơn bán nợ đã trả đủ';
+    if (debtStatus === 'PAID') return 'Hóa đơn ghi nợ đã trả đủ';
 
     const due = formatVnDate(dueDate);
     const parts = [`Còn nợ ${formatMoney(remainingDebt)}`];
@@ -18,11 +17,6 @@ function buildTitle(debtStatus, remainingDebt, dueDate) {
     return parts.join(' · ');
 }
 
-/**
- * Lịch sử đơn hàng không còn trạng thái "Chờ duyệt": đơn nợ vào công nợ khách ngay
- * khi lập, việc rà soát khách nợ mới được đẩy sang thông báo cho admin thay vì
- * treo một trạng thái trên hóa đơn.
- */
 export default function DebtBadge({ debtStatus, remainingDebt, dueDate }) {
     const cfg = DEBT_CONFIG[debtStatus];
     if (!cfg) return null;

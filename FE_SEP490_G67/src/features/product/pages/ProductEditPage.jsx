@@ -33,6 +33,7 @@ function mapDetailToForm(detail) {
         ...img,
         preview: img.preview || img.url,
       })),
+      attributes: detail.attributes || [],
     };
   }
 
@@ -42,18 +43,24 @@ function mapDetailToForm(detail) {
   const base = units.find(isBaseUnit) || units[0];
   const conversions = units
     .filter((u) => !isBaseUnit(u))
-    .map((u) => ({
-      id: String(u.id),
-      unitName: u.name,
-      qty: String(u.unitBase ?? 1),
-      ofUnit: base?.name || 'Chai',
-      sellPrice: String(u.sellingPrice ?? 0),
-    }));
+    .map((u) => {
+      const uBase = Number(u.unitBase ?? u.ratio ?? 1);
+      const isRev = uBase >= 1;
+      const displayQty = isRev ? String(uBase) : String(Math.round((1 / uBase) * 1000000) / 1000000);
+      return {
+        id: String(u.id),
+        unitName: u.name,
+        qty: displayQty,
+        ofUnit: base?.name || 'Chai',
+        sellPrice: String(u.sellingPrice ?? 0),
+        isReversed: isRev,
+      };
+    });
 
   return {
     id: detail.id,
     name: detail.name || '',
-    sku: detail.sku || '',
+    sku: detail.sku || detail.code || '',
     barcode: detail.barcode || '',
     categoryId: detail.categoryId != null ? String(detail.categoryId) : '',
     brand: detail.brand || '',
@@ -72,6 +79,7 @@ function mapDetailToForm(detail) {
       publicId: img.publicId,
       isMain: img.isMain,
     })),
+    attributes: detail.attributes || [],
   };
 }
 
@@ -82,21 +90,23 @@ function toUpsertPayload(formData) {
     if (!u.unitName?.trim()) continue;
     const ref = u.ofUnit || baseUnit;
     const refAbs = abs[ref] || 1;
-    abs[u.unitName] = (Number(u.qty) || 1) * refAbs;
+    const rawQty = parseFloat(u.qty) || 1;
+    const effectiveRatio = u.isReversed ? rawQty : (rawQty > 0 ? 1 / rawQty : 1);
+    abs[u.unitName] = effectiveRatio * refAbs;
   }
 
   const units = [
     {
       name: baseUnit,
       unitBase: 1,
-      sellingPrice: formData.sellingPrice,
+      sellingPrice: Number(formData.sellingPrice) || 0,
       isBase: true,
     },
     ...(formData.conversionUnits || [])
       .filter((u) => u.unitName?.trim())
       .map((u) => ({
         name: u.unitName,
-        unitBase: abs[u.unitName] || Number(u.qty) || 1,
+        unitBase: abs[u.unitName] != null ? abs[u.unitName] : 1,
         sellingPrice: Number(u.sellPrice) || 0,
         isBase: false,
       })),
@@ -114,7 +124,7 @@ function toUpsertPayload(formData) {
     sellingPrice: formData.sellingPrice,
     vatPercent: formData.vatPercent ?? 10,
     units,
-    attributes: [],
+    attributes: formData.attributes || [],
   };
 }
 

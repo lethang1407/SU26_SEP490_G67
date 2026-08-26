@@ -30,12 +30,6 @@ public class SalesOrder extends BaseEntity {
     @Column(name = "order_code", length = 30)
     private String orderCode;
 
-    /**
-     * Đơn bán gốc mà đơn đổi này sinh ra từ đó; NULL với đơn bán thường.
-     *
-     * <p>Là id thuần chứ không phải quan hệ: con trỏ chỉ dùng để tra ngược nguồn
-     * gốc, không có thao tác nào đi qua nó để nạp cả đơn gốc.
-     */
     @Column(name = "original_sales_order_id")
     private Integer originalSalesOrderId;
 
@@ -70,6 +64,14 @@ public class SalesOrder extends BaseEntity {
     @Lob
     @Column(name = "note")
     private String note;
+
+    /**
+     * Nội dung chuyển khoản in trên mã VietQR của đơn này. NULL với đơn tiền mặt
+     * và đơn nợ.
+     */
+    @Column(name = "payment_reference", length = 100)
+    private String paymentReference;
+
 
     @Column(name = "due_date")
     private Instant dueDate;

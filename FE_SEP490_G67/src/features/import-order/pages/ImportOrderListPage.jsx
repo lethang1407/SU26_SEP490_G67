@@ -29,7 +29,9 @@ export default function ImportOrderListPage() {
     const navigate = useNavigate();
     const [keyword, setKeyword] = useState('');
     const [debouncedKeyword, setDebouncedKeyword] = useState('');
-    const [orderStatusFilter, setOrderStatusFilter] = useState(null);
+    const [orderStatusFilter, setOrderStatusFilter] = useState(
+        location.state?.orderStatusFilter ?? null,
+    );
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
     const [page, setPage] = useState(1);

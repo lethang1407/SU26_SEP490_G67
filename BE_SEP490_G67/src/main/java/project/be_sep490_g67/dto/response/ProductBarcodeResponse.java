@@ -27,6 +27,8 @@ public class ProductBarcodeResponse {
         Integer id;
         String name;
         BigDecimal unitBase;   // 1.0 = base unit
+        /** Giá bán của đúng đơn vị này (đã nhân hệ số nếu không đặt giá riêng). */
+        BigDecimal sellingPrice;
     }
 
     @Data

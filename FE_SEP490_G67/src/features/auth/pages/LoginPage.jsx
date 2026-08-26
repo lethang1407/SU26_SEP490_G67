@@ -89,8 +89,8 @@ const LoginPage = () => {
               {/* Username */}
               <Form.Group className="mb-4">
                 <Form.Label className="fw-medium text-muted small">Tên đăng nhập hoặc Số điện thoại</Form.Label>
-                <InputGroup className="custom-input-group">
-                  <InputGroup.Text className="bg-light border-end-0">
+                <InputGroup className="custom-input-group mt-1">
+                  <InputGroup.Text>
                     <span className="material-symbols-outlined text-muted">person</span>
                   </InputGroup.Text>
                   <Form.Control
@@ -100,14 +100,13 @@ const LoginPage = () => {
                     placeholder="Nhập tài khoản của bạn"
                     value={formData.username}
                     onChange={handleInputChange}
-                    className="bg-light border-start-0 ps-0 py-2 shadow-none"
                   />
                 </InputGroup>
               </Form.Group>
 
               {/* Password */}
               <Form.Group className="mb-4">
-                <div className="d-flex justify-content-between align-items-center">
+                <div className="d-flex justify-content-between align-items-center mb-1">
                   <Form.Label className="fw-medium text-muted small mb-0">Mật khẩu</Form.Label>
                   <a href="#" className="text-primary text-decoration-none small" onClick={(e) => {
                     e.preventDefault();
@@ -116,8 +115,8 @@ const LoginPage = () => {
                     Quên mật khẩu?
                   </a>
                 </div>
-                <InputGroup className="custom-input-group mt-2">
-                  <InputGroup.Text className="bg-light border-end-0">
+                <InputGroup className="custom-input-group">
+                  <InputGroup.Text>
                     <span className="material-symbols-outlined text-muted">lock</span>
                   </InputGroup.Text>
                   <Form.Control
@@ -127,10 +126,9 @@ const LoginPage = () => {
                     placeholder="••••••••"
                     value={formData.password}
                     onChange={handleInputChange}
-                    className="bg-light border-start-0 border-end-0 px-0 py-2 shadow-none"
                   />
                   <InputGroup.Text
-                    className="bg-light border-start-0 cursor-pointer"
+                    className="cursor-pointer"
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     <span className="material-symbols-outlined text-muted hover-dark">

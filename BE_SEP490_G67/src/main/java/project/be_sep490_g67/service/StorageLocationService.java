@@ -28,7 +28,7 @@ import project.be_sep490_g67.repository.BatchLocationRepository;
 import project.be_sep490_g67.repository.ProductUnitRepository;
 import project.be_sep490_g67.repository.StockBatchRepository;
 import project.be_sep490_g67.repository.StorageLocationRepository;
-import project.be_sep490_g67.util.StockBatchUtils;
+import project.be_sep490_g67.utils.StockBatchUtils;
 
 import java.util.Comparator;
 import java.util.List;

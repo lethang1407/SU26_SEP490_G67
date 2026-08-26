@@ -15,4 +15,9 @@ public class StoreResponse {
     String address;
     String taxCode;
 //    BigDecimal taxRate;
+
+    /** Tài khoản nhận chuyển khoản dùng để dựng ảnh VietQR ở màn hình bán hàng. */
+    String bankId;
+    String bankAccountNo;
+    String bankAccountName;
 }

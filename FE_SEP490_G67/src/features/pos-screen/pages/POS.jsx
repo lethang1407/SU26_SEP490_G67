@@ -12,11 +12,13 @@ import {
     Plus,
     AlertCircle,
     Lock,
+    QrCode,
 } from "lucide-react";
 import "../../../css/POS.css";
 import { isValidQtyInput, isValidQtyValue, isQtyInvalid, parseQty } from '../utils/validation';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { useCheckout } from '../hooks/useCheckout';
+import { useStorePaymentInfo } from '../hooks/useStorePaymentInfo';
 import { useProductSearch } from '../hooks/useProductSearch';
 import { useCustomerSearch } from '../hooks/useCustomerSearch';
 import { pickKey, hasLocationProblem } from '../utils/cartLocation';
@@ -31,6 +33,8 @@ import CustomerSearchDropdown from '../components/CustomerSearchDropdown';
 import QuickAddCustomerModal from '../components/QuickAddCustomerModal';
 import SalesOrderHistoryModal from '../components/SalesOrderHistoryModal';
 import ExchangeOrder from '../components/ExchangeOrder';
+import TransferQrPanel from '../components/TransferQrPanel';
+import { buildPaymentReference } from '../utils/vietqr';
 import { saveActiveCart, loadActiveCart } from '../utils/cartStorage';
 import { printInvoice } from '../utils/printInvoice';
 import { createQuickCustomer, getProductPosInfo, getInvoiceData } from '../api';
@@ -44,7 +48,7 @@ const EMPTY_QTY_INPUTS = {};
 const PAYMENT_METHODS = [
     { value: 'cash', label: 'Tiền mặt' },
     { value: 'transfer', label: 'Chuyển khoản' },
-    { value: 'debt', label: 'Bán nợ' },
+    { value: 'debt', label: 'Ghi nợ' },
 ];
 
 /** Hạn trả nợ mặc định: 45 ngày kể từ hôm nay, dạng yyyy-MM-dd cho input date. */
@@ -208,6 +212,12 @@ const POSScreen = () => {
     // cảnh báo in lại chứ không phải lỗi thanh toán.
     const [printError, setPrintError] = useState(null);
 
+    // Nội dung chuyển khoản in trên mã QR của đơn đang bán. Sinh sẵn ngay từ lúc mở
+    // đơn và giữ nguyên tới lúc ghi sổ: số tiền trên mã đổi theo giỏ hàng, nhưng
+    // chuỗi này thì không — đổi giữa chừng là khách chuyển với nội dung này còn hóa
+    // đơn ghi nội dung khác, mất luôn đường đối soát.
+    const [transferReference, setTransferReference] = useState(buildPaymentReference);
+
 
     const addProductToCart = useCallback((product, posInfo) => {
         const units = product.productUnits ?? [];
@@ -248,7 +258,7 @@ const POSScreen = () => {
     }, [setCartItems]);
 
     const onProductFound = useCallback(async (product) => {
-        // Vị trí + lô lấy từ pos-info chứ không đoán từ stockBatches
+        // Vị trí + lô lấy từ api pos-info
         try {
             const posInfo = await getProductPosInfo(product.id);
             setPosInfoError(null);
@@ -286,7 +296,7 @@ const POSScreen = () => {
                     ...item,
                     productUnitId: selectedUnit.id,
                     unit: selectedUnit.name,
-                    price: selectedUnit.sellingPrice ?? item.price,
+                    price: selectedUnit.sellingPrice ?? 0,
                 };
             })
         );
@@ -343,13 +353,8 @@ const POSScreen = () => {
         clearCustomerResults();
     }, [detachCustomer, clearCustomerResults]);
 
-    // Chỉ cần chưa chọn khách là thêm mới được. Trước đây còn đòi ô tìm kiếm phải
-    // chứa số điện thoại hợp lệ, nên tìm theo TÊN không ra kết quả thì nút "+" bị
-    // khóa cứng — đúng lúc cần thêm khách nhất thì lại không thêm được.
     const canQuickAdd = !customer;
 
-    // Ô tìm kiếm nhận cả tên lẫn số, nên đoán xem thu ngân vừa gõ gì để điền sẵn
-    // đúng ô trong popup, khỏi phải gõ lại.
     const quickAddPrefill = useMemo(() => {
         const raw = phone.trim();
         return /^\d+$/.test(raw)
@@ -402,27 +407,14 @@ const POSScreen = () => {
         }
     };
 
-    const changeQty = (id, delta) => {
-        setCartItems((prev) =>
-            prev.map((item) => {
-                if (item.id !== id) return item;
-                const next = Math.round((item.qty + delta) * 1000) / 1000;
-                return next > 0 ? { ...item, qty: next } : item;
-            })
-        );
-        setQtyInputs((prev) => { const n = { ...prev }; delete n[id]; return n; });
-    };
-
     const removeItem = (id) => {
         setCartItems((prev) => prev.filter((item) => item.id !== id));
         setQtyInputs((prev) => { const n = { ...prev }; delete n[id]; return n; });
     };
 
-    // Chặn thanh toán khi còn dòng chưa chọn được vị trí hoặc vị trí không đủ hàng.
     const locationBlocked = cartItems.some(hasLocationProblem);
-
     const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
-    const totalItems = cartItems.reduce((sum, item) => sum + item.qty, 0);
+    const totalItems = Math.ceil(cartItems.reduce((sum, item) => sum + item.qty, 0));
     const safeDiscount = Math.min(discount, subtotal);
     const amountDue = subtotal - safeDiscount;
 
@@ -431,10 +423,11 @@ const POSScreen = () => {
         : (parseFloat(cashGivenInput) || 0);
     const changeDue = cashGiven - amountDue;
 
-    // Bán nợ: trả trước bao nhiêu, còn nợ bao nhiêu
+    // Ghi nợ
     const isDebtMode = paymentMethod === 'debt';
+    const isTransferMode = paymentMethod === 'transfer';
     const prepaid = parseFloat(prepaidInput) || 0;
-    // Trả đủ thì không còn là đơn nợ
+    // Nếu trả đủ thì không phải ghi nợ
     const prepaidInvalid = prepaid < 0 || (amountDue > 0 && prepaid >= amountDue);
     const remainingDebt = Math.max(0, amountDue - prepaid);
     const debtCustomerBlocked = isDebtMode && !canSellOnDebt(customer);
@@ -466,6 +459,8 @@ const POSScreen = () => {
         setQuickAddError(null);
         setDiscountEditing(false);
         setCashGivenInput('');
+
+        setTransferReference(buildPaymentReference());
         setPaymentMethod('cash');
         setNote('');
         setPrepaidInput('');
@@ -476,8 +471,8 @@ const POSScreen = () => {
         const result = await submitCheckout(cartItems, paymentMethod, {
             paidAmount: prepaid,
             dueDate,
-        }, note);
-        if (!result.ok) return;
+        }, note, isTransferMode ? transferReference : null);
+        if (!result.ok) return result;
         const orderId = result.order?.id ?? result.invoice?.orderId ?? null;
         let invoice = result.invoice;
         if (!invoice && orderId != null) {
@@ -499,9 +494,20 @@ const POSScreen = () => {
             );
         }
         handleNewOrder();
+        return result;
     };
 
-    const handleCheckout = runCheckout;
+    const handleCheckout = async () => {
+        await runCheckout();
+    };
+
+    const { bank, loading: bankLoading, error: bankError } = useStorePaymentInfo();
+
+    const transferBlockedReason = !isTransferMode ? null
+        : cartItems.length === 0 ? 'Thêm sản phẩm vào giỏ để hiện mã QR chuyển khoản.'
+            : locationBlocked ? 'Chưa chọn vị trí lấy hàng hoặc các vị trí đã chọn không đủ số lượng.'
+                : amountDue <= 0 ? 'Đơn hàng chưa có số tiền cần thu.'
+                    : null;
 
     // Discount editing
     const handleDiscountEditToggle = () => {
@@ -637,7 +643,7 @@ const POSScreen = () => {
                                 <tr>
                                     <th className="col-stt">STT</th>
                                     <th>MÃ SẢN PHẨM</th>
-                                    <th>TÊN HÀNG</th>
+                                    <th>TÊN SẢN PHẨM</th>
                                     <th>ĐVT</th>
                                     <th>VỊ TRÍ</th>
                                     <th className="text-center">SỐ LƯỢNG</th>
@@ -703,18 +709,16 @@ const POSScreen = () => {
                                                 />
                                             </td>
                                             <td>
-                                                <div className="qty-control">
-                                                    <button className="qty-btn" onClick={() => changeQty(item.id, -1)}>-</button>
+                                                <div className="qty-control qty-control--underline">
                                                     <input
                                                         type="text"
                                                         inputMode="decimal"
                                                         value={displayVal}
                                                         onChange={(e) => handleQtyChange(item.id, e.target.value)}
                                                         onBlur={() => handleQtyBlur(item.id)}
-                                                        className={`qty-input${isInvalid ? ' qty-input-error' : ''}`}
-                                                        title={isInvalid ? 'Số lượng phải là số thực > 0' : ''}
+                                                        className={`qty-input qty-input--underline${isInvalid ? ' qty-input-error' : ''}`}
+                                                        title={isInvalid ? 'Số lượng phải lớn hơn 0' : ''}
                                                     />
-                                                    <button className="qty-btn" onClick={() => changeQty(item.id, 1)}>+</button>
                                                 </div>
                                                 {isInvalid && (
                                                     <div className="qty-error-msg">Phải là số &gt; 0</div>
@@ -761,7 +765,7 @@ const POSScreen = () => {
                             </button>
                             <button
                                 className="cart-action-btn"
-                                onClick={() => navigate('/admin/orders')}
+                                onClick={() => navigate('/admin/orders/reconciliation')}
                                 title="Mở trang đơn hàng"
                             >
                                 <ClipboardList size={18} />
@@ -861,7 +865,7 @@ const POSScreen = () => {
                         <div className="summary-row summary-row--total">
                             <span>
                                 Tổng tiền
-                                <span className="summary-item-count">({totalItems} mặt hàng)</span>
+                                <span className="summary-item-count">({totalItems} sản phẩm)</span>
                             </span>
                             <span className="font-bold">{formatVnd(subtotal)}</span>
                         </div>
@@ -910,19 +914,30 @@ const POSScreen = () => {
                             <span className="text-blue-large">{formatVnd(amountDue)}</span>
                         </div>
 
-                        {/* Tiền mặt */}
-                        {paymentMethod === 'cash' && (
+                        {/* Tiền khách đưa - dùng chung cho tiền mặt và ghi nợ */}
+                        {paymentMethod !== 'transfer' && (
                             <div className="summary-row summary-row--major">
                                 <span className="summary-major-label">Tiền khách đưa</span>
                                 <input
                                     type="number"
                                     min={0}
+                                    max={isDebtMode ? amountDue : undefined}
                                     step={1000}
-                                    className="cash-given-input"
-                                    value={cashGivenInput}
-                                    placeholder={amountDue.toLocaleString('vi-VN')}
-                                    onChange={(e) => setCashGivenInput(e.target.value)}
+                                    className={`cash-given-input${isDebtMode && prepaidInvalid ? ' input-error' : ''}`}
+                                    value={isDebtMode ? prepaidInput : cashGivenInput}
+                                    placeholder={isDebtMode ? '0' : amountDue.toLocaleString('vi-VN')}
+                                    onChange={(e) => {
+                                        if (isDebtMode) setPrepaidInput(e.target.value);
+                                        else setCashGivenInput(e.target.value);
+                                    }}
                                 />
+                            </div>
+                        )}
+
+                        {isDebtMode && prepaidInvalid && (
+                            <div className="debt-form-error">
+                                Tiền khách đưa phải nhỏ hơn {formatMoney(amountDue)}.
+                                Trả đủ thì chọn hình thức tiền mặt hoặc chuyển khoản.
                             </div>
                         )}
 
@@ -961,33 +976,25 @@ const POSScreen = () => {
                                     </label>
                                 ))}
                             </div>
+
+                            {/* Mã QR hiện ngay khi chọn chuyển khoản; thu ngân xác nhận
+                                tiền đã về rồi bấm "Thanh toán" như đơn tiền mặt. */}
+                            {isTransferMode && (
+                                <TransferQrPanel
+                                    bank={bank}
+                                    bankLoading={bankLoading}
+                                    bankError={bankError}
+                                    amount={amountDue}
+                                    reference={transferReference}
+                                    blockedReason={transferBlockedReason}
+                                />
+                            )}
                         </div>
 
-                        {/* Bán nợ */}
+                        {/* Ghi nợ */}
                         {isDebtMode && (
                             <div className="debt-form">
                                 <div className="debt-form-title">Thông tin ghi nợ</div>
-
-                                <div className="summary-row summary-row--major">
-                                    <span className="summary-major-label">Tiền khách đưa</span>
-                                    <input
-                                        type="number"
-                                        min={0}
-                                        max={amountDue}
-                                        step={1000}
-                                        className={`cash-given-input${prepaidInvalid ? ' input-error' : ''}`}
-                                        value={prepaidInput}
-                                        placeholder="0"
-                                        onChange={(e) => setPrepaidInput(e.target.value)}
-                                    />
-                                </div>
-
-                                {prepaidInvalid && (
-                                    <div className="debt-form-error">
-                                        Tiền khách đưa phải nhỏ hơn {formatMoney(amountDue)}.
-                                        Trả đủ thì chọn hình thức tiền mặt hoặc chuyển khoản.
-                                    </div>
-                                )}
 
                                 <div className="summary-row summary-row--major debt-remaining-row">
                                     <span className="summary-major-label">Khách còn nợ</span>
@@ -1045,6 +1052,7 @@ const POSScreen = () => {
                             onClick={handleCheckout}
                         >
                             {debtBlocked && isDebtMode && <Lock size={16} />}
+                            {isTransferMode && !submitting && <QrCode size={16} />}
                             {submitting ? 'ĐANG XỬ LÝ...' : (isDebtMode ? 'GHI NỢ' : 'THANH TOÁN')}
                         </button>
                     </div>

@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 @Setter
 @Entity
 @Table(name = "store_config")
-public class StoreConfig extends BaseEntity{
+public class StoreConfig extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -41,4 +41,35 @@ public class StoreConfig extends BaseEntity{
     @ColumnDefault("7")
     @Column(name = "return_window_days")
     private Integer returnWindowDays;
+
+    @ColumnDefault("30")
+    @Column(name = "high_volume_sold_units", nullable = false)
+    private Integer highVolumeSoldUnits;
+
+    @ColumnDefault("30")
+    @Column(name = "high_volume_window_days", nullable = false)
+    private Integer highVolumeWindowDays;
+
+    /**
+     * Hàng nằm chờ trong khu đổi trả quá số ngày này thì nâng từ vàng lên cam.
+     */
+    @ColumnDefault("7")
+    @Column(name = "return_hold_orange_days", nullable = false)
+    private Integer returnHoldOrangeDays;
+
+    @ColumnDefault("14")
+    @Column(name = "return_hold_red_days", nullable = false)
+    private Integer returnHoldRedDays;
+
+    /**
+     * Tài khoản thụ hưởng in lên ảnh VietQR ở màn hình bán hàng.
+     */
+    @Column(name = "bank_id", length = 20)
+    private String bankId;
+
+    @Column(name = "bank_account_no", length = 50)
+    private String bankAccountNo;
+
+    @Column(name = "bank_account_name", length = 100)
+    private String bankAccountName;
 }

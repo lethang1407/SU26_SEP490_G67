@@ -16,6 +16,8 @@ import project.be_sep490_g67.enums.SalesOrderStatus;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.*;
+import project.be_sep490_g67.utils.ResolvedReturnLine;
+import project.be_sep490_g67.utils.UnitPriceResolver;
 import project.be_sep490_g67.utils.UnitQuantityConverter;
 
 import java.math.BigDecimal;
@@ -43,6 +45,7 @@ public class ExchangeOrderService {
     ProductUnitRepository productUnitRepository;
     StoreConfigRepository storeConfigRepository;
     BatchLocationRepository batchLocationRepository;
+    StorageLocationRepository storageLocationRepository;
     DebtPaymentRepository debtPaymentRepository;
     DebtPolicy debtPolicy;
 
@@ -124,6 +127,10 @@ public class ExchangeOrderService {
 
         assertWithinReturnWindow(originalOrder);
         assertDebtNotOverdue(originalOrder);
+        // Sai hình thức hoàn tiền thì chặn trước khi đụng vào kho.
+        if (!isTransferRefund(request) && trimToNull(request.getPaymentReference()) != null) {
+            throw new AppException(ErrorCode.PAYMENT_METHOD_NOT_TRANSFER);
+        }
         ReturnOrder returnOrder = new ReturnOrder();
         returnOrder.setSalesOrder(originalOrder);
         returnOrder.setReturnCode(documentCodeService.generate(DocumentType.CREDIT_NOTE));
@@ -157,6 +164,12 @@ public class ExchangeOrderService {
             detail.setResolutionType(line.resolution().name());
             detail.setItemCondition(line.condition().name());
             detail.setNote(line.itemNote());
+            // Hàng bán lại được đã về thẳng kho bán nên coi như xử lý xong ngay. Hàng
+            // lỗi đưa về khu đổi trả, admin sẽ đánh dấu để có hướng xử lý.
+            if (line.condition().isSellable()) {
+                detail.setProcessedAt(Instant.now());
+                detail.setProcessedBy(staffId);
+            }
             detail.setCreatedBy(staffId);
             detail.setUpdatedBy(staffId);
             detail.setCreatedAt(Instant.now());
@@ -254,10 +267,12 @@ public class ExchangeOrderService {
                 movement.setCreatedAt(Instant.now());
                 stockMovementRepository.save(movement);
 
+                BigDecimal exchangeUnitPrice = UnitPriceResolver.resolve(product, resolvedUnit);
+
                 BigDecimal lineDiscount = exchangeItem.getDiscountAmount() != null
                         ? exchangeItem.getDiscountAmount()
                         : BigDecimal.ZERO;
-                BigDecimal lineTotal = exchangeItem.getUnitPrice()
+                BigDecimal lineTotal = exchangeUnitPrice
                         .multiply(BigDecimal.valueOf(exchangeItem.getQuantity()))
                         .subtract(lineDiscount);
 
@@ -267,7 +282,7 @@ public class ExchangeOrderService {
                 detail.setProductUnit(resolvedUnit);
                 detail.setUnitName(resolvedUnitName);
                 detail.setQuantity(exchangeItem.getQuantity());
-                detail.setUnitPrice(exchangeItem.getUnitPrice());
+                detail.setUnitPrice(exchangeUnitPrice);
                 detail.setDiscountAmount(lineDiscount);
                 detail.setLineTotal(lineTotal);
                 detail.setCreatedBy(staffId);
@@ -315,6 +330,8 @@ public class ExchangeOrderService {
                 request.getDebtPaymentAmount(),
                 staffId);
 
+        settleTransferSession(request, settlement, exchangeOrder, originalOrder);
+
         savedReturnOrder.setDebtOffsetAmount(settlement.debtOffset());
         savedReturnOrder.setCashRefundAmount(settlement.cashRefund());
         returnOrderRepository.save(savedReturnOrder);
@@ -341,56 +358,65 @@ public class ExchangeOrderService {
                 exchangeOrder);
     }
 
+    private static boolean isTransferRefund(CreateExchangeOrderRequest request) {
+        return "TRANSFER".equalsIgnoreCase(request.getRefundMethod());
+    }
+
+    /**
+     * Ghi lại nội dung chuyển khoản của phần tiền khách bù thêm.
+     *
+     * <p>Chuỗi này được gắn vào đơn đổi (đơn bán sinh ra từ hàng lấy mới). Trường hợp
+     * hiếm không có đơn đổi — tiền thu hoàn toàn là khách trả thêm nợ cũ — thì không
+     * có chứng từ nào để gắn, chuỗi bị bỏ qua.
+     */
+    private void settleTransferSession(
+            CreateExchangeOrderRequest request,
+            DebtSettlement settlement,
+            SalesOrder exchangeOrder,
+            SalesOrder originalOrder) {
+
+        BigDecimal cashIn = settlement.cashCollect().add(settlement.debtPaymentCollected());
+        boolean transferCollect = isTransferRefund(request) && cashIn.compareTo(BigDecimal.ZERO) > 0;
+
+        if (!transferCollect) {
+            // Hoàn tiền cho khách, hoặc phiếu không phát sinh tiền thu: không có
+            // mã QR nào được dựng, nên cũng không có nội dung chuyển khoản nào.
+            if (trimToNull(request.getPaymentReference()) != null) {
+                throw new AppException(ErrorCode.PAYMENT_METHOD_NOT_TRANSFER);
+            }
+            return;
+        }
+
+        if (exchangeOrder != null) {
+            exchangeOrder.setPaymentMethod("TRANSFER");
+            exchangeOrder.setPaymentReference(trimToNull(request.getPaymentReference()));
+            salesOrderRepository.save(exchangeOrder);
+        }
+    }
+
     /**
      * Kết quả quyết toán tiền của một phiếu đổi/trả. Mỗi con số ở đây đều được in ra phiếu
      * hoặc hiện trên màn hình, nên chúng được trả về nguyên vẹn thay vì để phía gọi tự suy lại.
-     *
-     * <p>Bất biến: {@code debtOffset + exchangeCredit + cashRefund} = tổng giá trị hàng trả về.
      */
     public record DebtSettlement(
             /** Nợ còn lại của hóa đơn gốc trước khi quyết toán. */
             BigDecimal remainingBefore,
-            /** Phần giá trị hàng trả được trừ thẳng vào nợ hóa đơn gốc (bước 1). */
+            /** Phần giá trị hàng trả được trừ thẳng vào nợ hóa đơn gốc. */
             BigDecimal debtOffset,
-            /** Phần credit dùng để trả cho hàng đổi ra (bước 3). */
+            /** Phần credit dùng để trả cho hàng đổi ra. */
             BigDecimal exchangeCredit,
-            /** Tiền mặt hoàn cho khách (bước 4). */
+            /** Tiền mặt hoàn cho khách. */
             BigDecimal cashRefund,
             /** Tiền khách bù thêm ngay tại quầy cho hàng đổi đắt hơn — chỉ với đơn thường. */
             BigDecimal cashCollect,
-            /** Phần chênh được ghi nợ trên đơn đổi — chỉ với đơn còn nợ (quyết định F1). */
+            /** Phần chênh được ghi nợ trên đơn đổi — chỉ với đơn còn nợ. */
             BigDecimal newDebtOnExchange,
-            /** Tiền khách chủ động trả thêm cho nợ cũ tại màn đổi trả (quyết định F2). */
+            /** Tiền khách chủ động trả thêm cho nợ cũ tại màn đổi trả. */
             BigDecimal debtPaymentCollected,
             /** Nợ của hóa đơn gốc sau khi đã cấn trừ và thu thêm. */
             BigDecimal remainingAfter) {
     }
 
-    private record ResolvedReturnLine(
-            SalesOrderDetail soldLine,
-            int quantity,
-            ResolutionType resolution,
-            ItemCondition condition,
-            String itemNote,
-            String pairedExchangeItemRef) {
-    }
-
-    /**
-     * Quyết toán tiền của phiếu đổi/trả.
-     *
-     * B1. Cấn trừ nợ hóa đơn gốc:  offset = min(V, R)     → ghi DebtPayment
-     * B2. Credit tiền mặt:         credit = V - offset     ← đây mới là tiền THẬT của khách
-     * B3. Trả cho hàng đổi ra:     dùng   = min(credit, X) → đơn đổi paidAmount = dùng
-     * B4. Dư credit → hoàn tiền mặt;  thiếu → ghi nợ (đơn nợ) hoặc thu tiền (đơn thường)
-     *
-     * <p><b>Vì sao cấn trừ nợ trước:</b> hàng trên đơn nợ chưa phải tiền của khách, nó là khoản
-     * nợ khách đang gánh. Trả hàng đó về thì việc đầu tiên là xóa phần nợ nó sinh ra, chứ không
-     * phải sinh ra một khoản credit để tiêu. Thứ tự này cho hai bất biến mà không cần luật riêng:
-     * tiền mặt chỉ ra khi {@code V > R}, và tiền mặt ra không bao giờ vượt số khách đã thực trả.
-     *
-     * <p>Toàn bộ số học được tính xong và kiểm tra trước, rồi mới ghi — để một request bị từ
-     * chối không để lại nửa vời (dù {@code @Transactional} vẫn rollback).
-     */
     private DebtSettlement settleAgainstDebt(
             SalesOrder originalOrder,
             ReturnOrder returnOrder,
@@ -404,16 +430,12 @@ public class ExchangeOrderService {
         Customer customer = originalOrder.getCustomer();
         BigDecimal remaining = debtPolicy.remainingOf(originalOrder);
 
-        // --- B1..B4: số học thuần, chưa ghi gì ---
         BigDecimal debtOffset = remaining.min(returnAmount);
         BigDecimal credit = returnAmount.subtract(debtOffset);
         BigDecimal exchangeCredit = credit.min(exchangeAmount);
         BigDecimal cashRefund = credit.subtract(exchangeCredit);
         BigDecimal shortfall = exchangeAmount.subtract(exchangeCredit);
 
-        // Chỉ ghi nợ tiếp khi hóa đơn gốc THỰC SỰ còn nợ và hạn trả còn hiệu lực.
-        // Đơn nợ đã trả hết, hoặc đơn nợ cũ không có dueDate thì phần
-        // chênh phải thu tiền ngay — không thể tạo một khoản nợ mà không định được hạn trả.
         Instant dueDate = originalOrder.getDueDate();
         boolean canExtendDebt = remaining.compareTo(BigDecimal.ZERO) > 0
                 && dueDate != null
@@ -436,7 +458,7 @@ public class ExchangeOrderService {
                     "Cấn trừ hàng trả " + returnOrder.getReturnCode(), staffId);
             debtPolicy.reduceCustomerDebt(customer, debtOffset);
         }
-        // F2: khách trả thêm được ghi SAU bước cấn trừ, nên số nợ nó đối chiếu là số đã
+        // khách trả thêm được ghi SAU bước cấn trừ, nên số nợ nó đối chiếu là số đã
         // trừ hàng trả rồi.
         if (debtPayment.compareTo(BigDecimal.ZERO) > 0) {
             writeDebtPayment(originalOrder, debtPayment, "CASH",
@@ -491,10 +513,6 @@ public class ExchangeOrderService {
 
     /**
      * Đơn nợ đã quá hạn trả nợ thì không được đổi/trả.
-     *
-     * <p>Đánh đổi đã ghi nhận: hàng lỗi trên đơn quá hạn sẽ kẹt hoàn toàn — khách không trả
-     * được mà cửa hàng cũng không thu hồi được hàng lỗi. Lối mở theo tình trạng hàng cố ý
-     * không áp dụng ở đây, giống A1 và A2.
      */
     private void assertDebtNotOverdue(SalesOrder order) {
         if (debtPolicy.isOverdue(order, Instant.now())) {
@@ -520,9 +538,6 @@ public class ExchangeOrderService {
         exchangeOrder.setOriginalSalesOrderId(originalOrder.getId());
         exchangeOrder.setOrderStatus(SalesOrderStatus.COMPLETED.name());
         exchangeOrder.setPaymentMethod(originalOrder.getPaymentMethod());
-        // isDebt/paidAmount/dueDate được settleAgainstDebt đặt lại sau khi biết tổng tiền
-        // hai bên. Trước nhóm quyết định F, isDebt bị hard-code false ở đây, nên đơn đổi của
-        // một khách đang nợ trở thành hàng ra khỏi quầy mà không nằm trong công nợ lẫn dòng tiền.
         exchangeOrder.setIsDebt(false);
         exchangeOrder.setSubtotal(BigDecimal.ZERO);
         exchangeOrder.setDiscountAmount(BigDecimal.ZERO);
@@ -538,12 +553,7 @@ public class ExchangeOrderService {
     }
 
     /**
-     * Kiểm tra việc ghép cặp "dòng trả ↔ dòng đổi ra" của một phiếu.
-     *
-     * <p>Kết quả ghép cặp không còn được lưu xuống DB (cột paired_out_detail_id đã bỏ ở V26):
-     * không màn hình nào đọc tới nó, còn các luật dưới đây thì vẫn phải giữ vì chúng chặn
-     * những phiếu sai ngay lúc lập — một dòng EXCHANGE_EVEN lệch tiền là tiền lệch thật,
-     * dù có ghi lại cặp hay không.
+     * Kiểm tra việc ghép cặp "dòng trả <-> dòng đổi ra" của một phiếu.
      */
     private void assertPairingValid(
             List<ResolvedReturnLine> resolvedLines,
@@ -660,7 +670,7 @@ public class ExchangeOrderService {
     }
 
     /**
-     * Hạn đổi trả hết vào <b>cuối ngày</b> thứ N sau ngày mua.
+     * Hạn đổi trả hết vào cuối ngày thứ N sau ngày mua.
      */
     private boolean isReturnWindowExpired(SalesOrder order) {
         Instant deadline = returnDeadline(order);
@@ -757,9 +767,33 @@ public class ExchangeOrderService {
                 batchLocationRepository.save(location);
             }
         } else {
-            movement.setMovementType("WRITE_OFF");
-            movement.setQuantityDelta(0);
-            movement.setStockAfter(currentStock);
+            // Hàng không bán lại được (DAMAGED / EXPIRED / OPENED) đi thẳng vào khu chứa
+            // hàng đổi trả để admin xử lý sau (trả NCC hoặc tiêu huỷ). 
+            StorageLocation holdLocation = storageLocationRepository
+                    .findReturnHoldLocation()
+                    .orElseThrow(() -> new AppException(ErrorCode.RETURN_HOLD_LOCATION_NOT_FOUND));
+
+            BatchLocation holdLine = batchLocationRepository
+                    .findActiveByBatchIdAndLocationId(batch.getId(), holdLocation.getId())
+                    .orElseGet(() -> {
+                        BatchLocation created = new BatchLocation();
+                        created.setBatch(batch);
+                        created.setLocation(holdLocation);
+                        created.setQuantity(0);
+                        created.setCreatedBy(staffId);
+                        created.setCreatedAt(Instant.now());
+                        return created;
+                    });
+
+            holdLine.setQuantity((holdLine.getQuantity() == null ? 0 : holdLine.getQuantity()) + quantity);
+            holdLine.setUpdatedAt(Instant.now());
+            holdLine.setUpdatedBy(staffId);
+            batchLocationRepository.save(holdLine);
+
+            movement.setMovementType("RETURN_HOLD_IN");
+            movement.setBatchLocation(holdLine);
+            movement.setQuantityDelta(quantity);
+            movement.setStockAfter(currentStock + quantity);
         }
 
         stockMovementRepository.save(movement);

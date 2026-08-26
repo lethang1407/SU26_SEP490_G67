@@ -135,6 +135,34 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
     List<StockBatch> findAvailableWithImportByProductId(@Param("productId") Integer productId);
 
     /**
+     * Lô đã quá hạn và vẫn còn hàng thật trên kệ — nguồn của lằn cảnh báo đỏ trên thẻ
+     * "Kho hàng" và của danh sách chi tiết khi bấm vào.
+     *
+     * <p>Số lượng trả về là tổng {@code batch_location.quantity} của lô, tức hàng đang
+     * thực sự nằm đâu đó trong kho, KHÔNG phải {@code quantityIn} (số đã nhập ban đầu,
+     * không trừ phần đã bán) và cũng không phải tổng tồn của sản phẩm. Khu RETURN_HOLD
+     * bị loại vì hàng ở đó đã là hàng chờ xử lý, đếm nữa là đếm hai lần.
+     *
+     * <p>Mỗi phần tử: [StockBatch, số lượng còn lại].
+     */
+    @Query("""
+            SELECT sb, COALESCE(SUM(bl.quantity), 0)
+            FROM StockBatch sb
+            JOIN sb.product p
+            JOIN BatchLocation bl ON bl.batch = sb AND bl.isRemoved = false
+            JOIN bl.location loc
+            JOIN loc.storageZone sz
+            WHERE sb.isRemoved = false
+              AND sz.zoneType <> 'RETURN_HOLD'
+              AND sb.expiryDate IS NOT NULL
+              AND sb.expiryDate < :today
+            GROUP BY sb, p
+            HAVING COALESCE(SUM(bl.quantity), 0) > 0
+            ORDER BY sb.expiryDate ASC, sb.id ASC
+            """)
+    List<Object[]> findExpiredWithRemainingQuantity(@Param("today") LocalDate today);
+
+    /**
      * Số thứ tự lớn nhất trong ngày cho mã lô dạng {prefix}-xx (một dấu '-').
      * dayPrefix ví dụ: L210826 hoặc LODH210826. Bỏ qua mã cũ LddMMyy-NCC-SP.
      */

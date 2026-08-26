@@ -9,7 +9,7 @@ import '../../../css/SalesOrderDetailModal.css';
 const PAYMENT_LABELS = {
     CASH: 'Tiền mặt',
     TRANSFER: 'Chuyển khoản',
-    DEBT: 'Bán nợ',
+    DEBT: 'Ghi nợ',
 };
 
 const ItemTable = ({ items = [] }) => (
@@ -53,17 +53,11 @@ const TotalRow = ({ label, value, grand }) => (
     </div>
 );
 
-/**
- * Xem nhanh một hóa đơn ngay trong app. Cùng nguồn dữ liệu với bản in
- * (`/sales-orders/{id}/invoice`) nên số liệu luôn khớp tờ hóa đơn khách cầm về.
- */
 export default function SalesOrderDetailModal({ orderId, onClose }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    // Component được remount theo `key={orderId}` ở nơi gọi, nên state khởi tạo
-    // đã là trạng thái "đang tải" — không cần reset lại trong effect.
     useEffect(() => {
         let alive = true;
         getInvoiceData(orderId)
@@ -151,8 +145,6 @@ export default function SalesOrderDetailModal({ orderId, onClose }) {
                                 <ItemTable items={data.items} />
                             )}
 
-                            {/* Vết đổi/trả của hóa đơn này: lịch sử không còn liệt kê chúng
-                                thành dòng riêng nên chi tiết hóa đơn gốc phải kể đủ. */}
                             {relatedDocuments.length > 0 && (
                                 <div className="sod-related">
                                     <div className="sod-group-title">
