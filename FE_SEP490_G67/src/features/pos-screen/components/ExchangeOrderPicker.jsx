@@ -17,9 +17,7 @@ const DATE_FILTERS = [
 ];
 
 /**
- * Đơn nợ quá hạn không được đổi/trả (quyết định F3). Chặn ngay từ bước chọn hóa đơn
- * thay vì để thu ngân nhập xong cả phiếu rồi mới nhận lỗi từ server — backend vẫn
- * kiểm lại, đây chỉ là để khách khỏi đứng chờ vô ích.
+ * Đơn nợ quá hạn không được đổi/trả.
  */
 const isOverdueDebt = (order) => order.debtStatus === 'OVERDUE';
 
@@ -72,7 +70,7 @@ export default function ExchangeOrderPicker() {
                         </div>
                     </div>
 
-                    {/* ── Toolbar ── */}
+                    {/* Toolbar */}
                     <div className="hist-toolbar">
                         <div className="hist-search-wrap">
                             <Search size={15} className="hist-search-icon" />
@@ -116,7 +114,7 @@ export default function ExchangeOrderPicker() {
                         )}
                     </div>
 
-                    {/* ── Table ── */}
+                    {/* Table */}
                     <div className="hist-table-wrap">
                         {error && <div className="hist-error">{error}</div>}
 
@@ -204,7 +202,7 @@ export default function ExchangeOrderPicker() {
                         </table>
                     </div>
 
-                    {/* ── Footer: count + pagination ── */}
+                    {/* Footer: count + pagination */}
                     <div className="hist-footer">
                         <span className="hist-count">
                             Hiển thị {orders.length} trên {total} hóa đơn
