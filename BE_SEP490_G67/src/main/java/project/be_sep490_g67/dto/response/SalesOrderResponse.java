@@ -26,6 +26,7 @@ public class SalesOrderResponse {
     Instant createdAt;
     Instant dueDate;
     String note;
+    String paymentReference;
     Integer createdBy;
     String cashierName;
     CustomerInfo customer;

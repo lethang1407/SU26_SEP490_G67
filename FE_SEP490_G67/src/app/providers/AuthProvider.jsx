@@ -72,7 +72,7 @@ const AuthProvider = ({ children }) => {
         //     return perm.some(p => user.permissions?.includes(p));
         // }
         // return user.permissions?.includes(perm);
-        return true;
+        return true; // Temporarily allow all permissions for testing purposes  
     }, [user]);
 
     const hasRole = useCallback((role) => {

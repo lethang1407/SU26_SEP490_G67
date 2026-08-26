@@ -17,15 +17,6 @@ function buildInitialForm(customer) {
     };
 }
 
-/**
- * @param {object} [completeProfile] - khách đã tồn tại cần bổ sung thông tin.
- *   Thu ngân thêm nhanh khách ngay trên POS thì chỉ có tên và số điện thoại;
- *   sau khi ghi nợ, POS đẩy sang đây để điền nốt địa chỉ và hạn mức nợ.
- *   Có giá trị thì modal chuyển sang chế độ cập nhật (PUT) thay vì tạo mới.
- *
- * Component nhận key theo completeProfile ở phía cha nên mỗi lần đổi khách là
- * một lần mount mới — form khởi tạo thẳng từ prop, không cần effect đồng bộ.
- */
 export default function CreateCustomerDebtModal({ show, onHide, onSuccess, completeProfile = null }) {
     const isCompleting = !!completeProfile;
     const [formData, setFormData] = useState(() => buildInitialForm(completeProfile));
@@ -36,7 +27,6 @@ export default function CreateCustomerDebtModal({ show, onHide, onSuccess, compl
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
-        // Clear validation error for the field being edited
         if (errors[name]) {
             setErrors(prev => ({ ...prev, [name]: null }));
         }
@@ -110,7 +100,7 @@ export default function CreateCustomerDebtModal({ show, onHide, onSuccess, compl
                     {apiError && <Alert variant="danger">{apiError}</Alert>}
                     {isCompleting && (
                         <Alert variant="info" className="py-2 small">
-                            Khách này vừa được thêm nhanh khi bán nợ trên POS. Hoàn thiện hồ sơ
+                            Khách này vừa được thêm nhanh khi ghi nợ trên POS. Hoàn thiện hồ sơ
                             trước khi duyệt đơn nợ.
                         </Alert>
                     )}

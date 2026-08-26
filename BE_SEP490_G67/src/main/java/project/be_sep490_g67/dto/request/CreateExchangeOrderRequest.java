@@ -1,10 +1,7 @@
 package project.be_sep490_g67.dto.request;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.*;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -37,14 +34,18 @@ public class CreateExchangeOrderRequest {
     BigDecimal returnDiscount;
     BigDecimal exchangeDiscount;
 
-    /**
-     * Tiền khách trả thêm cho khoản nợ của hóa đơn gốc ngay tại màn đổi trả (quyết định F2).
-     *
-     * <p>Được ghi nhận <b>sau</b> bước cấn trừ hàng trả, không phải trước: làm ngược lại sẽ
-     * có tình huống khách nộp tiền xong lại được hoàn về vì hàng trả đã xóa hết nợ.
-     */
     @PositiveOrZero(message = "Số tiền khách trả thêm không được âm")
     BigDecimal debtPaymentAmount;
+
+    /**
+     * Nội dung chuyển khoản đã in trên mã VietQR, cho phần tiền khách phải bù thêm
+     * của phiếu đổi này (hàng lấy mới đắt hơn hàng trả lại).
+     * Chỉ gửi khi {@code refundMethod = TRANSFER} và phiếu có tiền thu vào; phải
+     * để trống trong mọi trường hợp còn lại. Chiều hoàn tiền cho khách không dùng
+     * field này: cửa hàng chuyển đi chứ không thu về, không có mã QR nào cả.
+     */
+    @Size(max = 100, message = "Nội dung chuyển khoản tối đa 100 ký tự")
+    String paymentReference;
 
     @Data
     @NoArgsConstructor
@@ -62,20 +63,10 @@ public class CreateExchangeOrderRequest {
 
         @Deprecated
         BigDecimal unitPrice;
-
         String unitName;
-
         String resolutionType;
-
         String itemCondition;
-
-        /**
-         * Ghi chú của riêng dòng này. itemCondition chỉ có 4 giá trị cố định;
-         * những lý do nằm ngoài 4 giá trị đó (cận date, bao bì móp, khách đổi ý)
-         * được ghi ở đây chứ không dồn vào returnNote của cả phiếu.
-         */
         String itemNote;
-
         String pairedExchangeItemRef;
     }
 

@@ -4,6 +4,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 /**
  * Thẻ "Khách hàng & Công nợ" trên dashboard: khách nợ mới do nhân viên thêm trong ngày.
@@ -21,4 +22,6 @@ public class NewDebtCustomerAlertResponse {
     String latestCustomerName;
     BigDecimal latestCustomerDebt;
     String latestCreatedByName;
+    /** Thời điểm khách mới nhất được thêm, để thẻ dashboard hiện giờ tạo. */
+    Instant latestCreatedAt;
 }

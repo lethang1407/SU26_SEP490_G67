@@ -40,8 +40,6 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
 
     boolean existsByParent_IdAndIsRemovedFalse(Integer parentId);
 
-    List<Product> findByParent_IdAndIsRemovedFalse(Integer parentId);
-
     /**
      * Hàng bán được / nhập được: SP thường hoặc SP con.
      * Loại nhóm hàng (có ít nhất một con active).
@@ -138,15 +136,6 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
 
     Optional<Product> findByIdAndIsRemovedFalse(Integer id);
 
-    @Query("""
-        SELECT p FROM Product p
-        LEFT JOIN FETCH p.category c
-        LEFT JOIN FETCH c.defaultSupplier
-        WHERE LOWER(p.sku) = LOWER(:sku)
-          AND (p.isRemoved = false OR p.isRemoved IS NULL)
-        """)
-    Optional<Product> findBySkuIgnoreCase(@Param("sku") String sku);
-
     boolean existsBySkuIgnoreCaseAndIsRemovedFalse(String sku);
 
     boolean existsBySkuIgnoreCaseAndIdNotAndIsRemovedFalse(String sku, Integer id);
@@ -168,4 +157,5 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
                                        THEN bl.quantity ELSE 0 END), 0) ASC, p.id ASC
             """)
     List<Object[]> findOutOfStockOrBelowMinimum();
+
 }

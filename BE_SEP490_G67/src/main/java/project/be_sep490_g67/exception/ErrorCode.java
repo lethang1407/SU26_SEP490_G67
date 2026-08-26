@@ -186,6 +186,10 @@ public enum ErrorCode {
 
     // Notification errors (42xx)
     NOTIFICATION_NOT_FOUND(4201, "Không tìm thấy thông báo", HttpStatus.NOT_FOUND),
+
+    // Thanh toán chuyển khoản (43xx)
+    PAYMENT_METHOD_NOT_TRANSFER(4306, "Chỉ đơn thanh toán chuyển khoản mới có nội dung chuyển khoản", HttpStatus.BAD_REQUEST),
+    STORE_BANK_ACCOUNT_NOT_CONFIGURED(4311, "Cửa hàng chưa khai báo tài khoản ngân hàng nhận chuyển khoản", HttpStatus.BAD_REQUEST),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

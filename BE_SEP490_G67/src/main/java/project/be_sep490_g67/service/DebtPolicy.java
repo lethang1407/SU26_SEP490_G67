@@ -21,18 +21,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Luật công nợ dùng chung cho mọi nghiệp vụ chạm vào nợ của khách.
- *
- * <p>Trước đây toàn bộ phần này nằm private trong {@code SalesOrderService}, đúng lúc chỉ
- * có bán nợ cần tới. Từ khi đổi/trả cũng phải cấn trừ công nợ (nhóm quyết định F,
- * 13/08/2026) thì {@code ExchangeOrderService} cần y hệt các luật đó. Chép sang sẽ tạo ra
- * bản sao thứ năm của công thức nợ trong dự án — đúng thứ mà {@link DebtCalculator} được
- * viết ra để dẹp — nên phần luật được tách ra đây thay vì nhân bản.
- *
- * <p>Ranh giới: lớp này giữ <b>luật</b> (được nợ không, còn nợ bao nhiêu, cộng/trừ công nợ).
- * Phần <b>số học thuần</b> vẫn nằm ở {@link DebtCalculator}, và những thứ chỉ đúng với lúc
- * tạo đơn ({@code resolvePrepaid}, cờ {@code isCheckDebtUnstable}) vẫn ở lại
- * {@code SalesOrderService}.
+ * công nợ dùng chung cho mọi nghiệp vụ chạm vào nợ của khách.
  */
 @Component
 @RequiredArgsConstructor
@@ -46,11 +35,6 @@ public class DebtPolicy {
     /**
      * Điều kiện để được ghi nợ. Màu trạng thái trên POS chỉ là gợi ý cho thu ngân;
      * quyết định cuối cùng nằm ở đây vì FE có thể bị bỏ qua bằng cách gọi thẳng API.
-     *
-     * <p>Nợ quá hạn KHÔNG còn chặn bán nợ: cửa hàng vẫn bán tiếp cho khách quen đang
-     * trễ hạn, việc thu nợ cũ xử lý riêng. Cửa chặn duy nhất còn lại là cờ
-     * {@code allowDebt} do quản lý đặt trên hồ sơ khách. {@link #hasOverdueDebt} vẫn
-     * giữ lại vì các nghiệp vụ khác (đổi/trả) còn dùng để cảnh báo.
      */
     public void validateDebtSale(Customer customer, Instant dueDate, Instant now) {
         if (customer == null) {
@@ -68,9 +52,7 @@ public class DebtPolicy {
     }
 
     /**
-     * Kiểm tra khách còn đơn nợ nào quá hạn mà chưa trả hết không lọc theo
-     * {@code dueDate < now}; phần "còn nợ bao nhiêu" để {@link DebtCalculator} tính ở tầng
-     * service, tránh nhúng công thức nợ vào JPQL thêm một lần nữa.
+     * Kiểm tra khách còn đơn nợ nào quá hạn mà chưa trả hết không
      */
     public boolean hasOverdueDebt(Integer customerId, Instant now) {
         List<SalesOrder> overdueCandidates =
@@ -92,9 +74,7 @@ public class DebtPolicy {
     }
 
     /**
-     * Số tiền một hoá đơn còn nợ. Đơn không phải đơn nợ luôn trả 0 — đơn thường được
-     * tạo với {@code paidAmount = totalAmount} nên công thức vẫn ra 0, nhưng chặn sớm
-     * để khỏi tốn một query {@code sumPaidBySalesOrderId} cho mỗi đơn thường.
+     * Số tiền một hoá đơn còn nợ. Đơn không phải đơn nợ luôn trả 0
      */
     public BigDecimal remainingOf(SalesOrder order) {
         if (!Boolean.TRUE.equals(order.getIsDebt())) {
@@ -107,8 +87,8 @@ public class DebtPolicy {
     }
 
     /**
-     * Đơn nợ này đã quá hạn mà vẫn chưa trả hết chưa. Đơn quá hạn nhưng đã trả đủ qua
-     * {@code DebtPayment} thì không tính là quá hạn — nợ đã xong, ngày tháng không còn ý nghĩa.
+     * Kiểm tra đơn nợ đã quá hạn mà vẫn chưa trả hết. Đơn quá hạn nhưng đã trả đủ qua
+     * {@code DebtPayment} thì không tính là quá hạn - nợ đã xong
      */
     public boolean isOverdue(SalesOrder order, Instant now) {
         return Boolean.TRUE.equals(order.getIsDebt())
@@ -129,10 +109,6 @@ public class DebtPolicy {
 
     /**
      * Trừ bớt công nợ của khách, dùng khi trả hàng cấn trừ vào đơn nợ.
-     *
-     * <p>Sàn ở 0: {@code totalDebt} là số tổng hợp, còn phần cấn trừ được tính trên từng
-     * hoá đơn. Nếu {@code totalDebt} đã lệch sẵn (dữ liệu cũ, đơn bị xoá) thì việc trả hàng
-     * không được phép đẩy nó xuống âm — cửa hàng không nợ khách.
      */
     public void reduceCustomerDebt(Customer customer, BigDecimal amount) {
         if (customer == null || amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {

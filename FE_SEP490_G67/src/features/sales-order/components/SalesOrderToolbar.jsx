@@ -63,9 +63,8 @@ export default function SalesOrderToolbar({
                             <button
                                 key={key}
                                 type="button"
-                                className={`supplier-toolbar__chip ${
-                                    dateFilter === key ? 'supplier-toolbar__chip--active' : ''
-                                }`}
+                                className={`supplier-toolbar__chip ${dateFilter === key ? 'supplier-toolbar__chip--active' : ''
+                                    }`}
                                 onClick={() => onDateFilterChange(key)}
                             >
                                 {label}
@@ -122,7 +121,7 @@ export default function SalesOrderToolbar({
                 </label>
 
                 <label className="sales-order-toolbar__select-wrap">
-                    <span>Bán nợ</span>
+                    <span>Ghi nợ</span>
                     <select
                         value={debtFilter}
                         onChange={(e) => onDebtFilterChange(e.target.value)}

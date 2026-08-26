@@ -7,7 +7,7 @@ import { getInvoiceData } from '../api';
 import OrderStatusBadge from './OrderStatusBadge';
 import SalesOrderDetailModal from './SalesOrderDetailModal';
 import DebtBadge from './DebtBadge';
-import { formatVnDateTime, formatCustomerName } from '../utils/orderDisplay';
+import { formatVnDateTime, formatCustomerName, formatPaymentMethod } from '../utils/orderDisplay';
 import { formatVnd } from '../utils/money';
 import '../../../css/SalesOrderHistoryModal.css';
 
@@ -78,7 +78,8 @@ export default function SalesOrderHistoryModal({ onClose, onExchange, mode = 'ex
         isHistoryMode ? setDetailOrderId(orderId) : handleExchange(orderId)
     );
 
-    const colCount = isHistoryMode ? 6 : 5;
+    // Mã HĐ, thời gian, khách, tổng tiền, hình thức, [trạng thái], hành động
+    const colCount = isHistoryMode ? 7 : 6;
 
     const pageNumbers = [];
     const maxPages = Math.min(totalPages, 10);
@@ -171,6 +172,7 @@ export default function SalesOrderHistoryModal({ onClose, onExchange, mode = 'ex
                                             <th>Thời gian</th>
                                             <th>Khách hàng</th>
                                             <th className="text-right">Tổng tiền</th>
+                                            <th>Hình thức</th>
                                             {isHistoryMode && <th>Trạng thái</th>}
                                             <th className="hist-col-action"></th>
                                         </tr>
@@ -203,6 +205,14 @@ export default function SalesOrderHistoryModal({ onClose, onExchange, mode = 'ex
                                                 <td>{formatCustomerName(order)}</td>
                                                 <td className="text-right hist-amount">
                                                     {formatVnd(order.totalAmount)}
+                                                </td>
+                                                <td>
+                                                    {(() => {
+                                                        const { label, tone } = formatPaymentMethod(order.paymentMethod);
+                                                        return (
+                                                            <span className={`hist-badge badge-pay-${tone}`}>{label}</span>
+                                                        );
+                                                    })()}
                                                 </td>
                                                 {isHistoryMode && (
                                                     <td>

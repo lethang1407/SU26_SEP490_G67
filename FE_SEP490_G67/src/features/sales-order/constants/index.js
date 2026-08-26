@@ -11,7 +11,7 @@ export const ORDER_STATUS_LABEL = {
     CANCELLED: 'Đã hủy',
     'TRẢ HÀNG': 'Đã đổi/trả',
     RETURNED: 'Đã đổi/trả',
-    DEBT: 'Bán nợ',
+    DEBT: 'Ghi nợ',
 };
 
 export const PAYMENT_METHOD = {
@@ -25,7 +25,7 @@ export const PAYMENT_METHOD_LABEL = {
     ALL: 'Tất cả',
     CASH: 'Tiền mặt',
     TRANSFER: 'Chuyển khoản',
-    DEBT: 'Bán nợ',
+    DEBT: 'Ghi nợ',
 };
 
 export const DEBT_FILTER = {
@@ -36,7 +36,7 @@ export const DEBT_FILTER = {
 
 export const DEBT_FILTER_LABEL = {
     ALL: 'Tất cả',
-    YES: 'Bán nợ',
+    YES: 'Ghi nợ',
     NO: 'Không nợ',
 };
 
