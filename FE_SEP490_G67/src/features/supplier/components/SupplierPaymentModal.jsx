@@ -3,19 +3,20 @@ import { X } from 'lucide-react';
 import { formatCurrency } from '../utils/supplierUtils';
 import { suppliersApi } from '../api';
 
-// Hiển thị số tiền có dấu phẩy ngăn cách hàng nghìn ngay khi người dùng gõ
-// (ví dụ "15000000" -> "15,000,000"), số thật lưu ở dạng chuỗi chỉ chứa chữ số
-// ở nơi khác (parsedAmount) nên không ảnh hưởng logic tính toán/gửi API.
 function formatAmountInput(rawValue) {
     const digitsOnly = rawValue.replace(/\D/g, '');
     if (!digitsOnly) return '';
     return new Intl.NumberFormat('en-US').format(Number(digitsOnly));
 }
 
+function remainingOf(order) {
+    return Number(order?.remainingDebt) || 0;
+}
+
 export default function SupplierPaymentModal({ open, supplier, onClose, onSubmit, submitting, submitError }) {
     const [orders, setOrders] = useState([]);
     const [loadingOrders, setLoadingOrders] = useState(false);
-    const [selectedOrderId, setSelectedOrderId] = useState('');
+    const [selectedOrderIds, setSelectedOrderIds] = useState([]);
     const [amount, setAmount] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('CASH');
     const [notes, setNotes] = useState('');
@@ -24,7 +25,7 @@ export default function SupplierPaymentModal({ open, supplier, onClose, onSubmit
     useEffect(() => {
         if (!open || !supplier?.id) return;
 
-        setSelectedOrderId('');
+        setSelectedOrderIds([]);
         setAmount('');
         setNotes('');
         setPaymentMethod('CASH');
@@ -33,20 +34,45 @@ export default function SupplierPaymentModal({ open, supplier, onClose, onSubmit
 
         suppliersApi
             .getImportOrders(supplier.id, { status: 'DEBT', size: 100 })
-            .then((result) => setOrders(result?.content || []))
+            .then((result) => {
+                const list = (result?.content || []).filter((order) => remainingOf(order) > 0);
+                list.sort((a, b) => {
+                    const dateA = a.receivedDate || '';
+                    const dateB = b.receivedDate || '';
+                    if (dateA !== dateB) return dateA.localeCompare(dateB);
+                    return (a.id || 0) - (b.id || 0);
+                });
+                setOrders(list);
+            })
             .catch(() => setOrders([]))
             .finally(() => setLoadingOrders(false));
     }, [open, supplier?.id]);
 
-    const selectedOrder = useMemo(
-        () => orders.find((order) => String(order.id) === String(selectedOrderId)) || null,
-        [orders, selectedOrderId],
+    const selectedOrders = useMemo(
+        () => orders.filter((order) => selectedOrderIds.includes(order.id)),
+        [orders, selectedOrderIds],
+    );
+
+    const totalRemainingDebt = useMemo(
+        () => selectedOrders.reduce((sum, order) => sum + remainingOf(order), 0),
+        [selectedOrders],
     );
 
     const parsedAmount = Number(String(amount).replace(/\D/g, '')) || 0;
-    const remainingAfterPayment = selectedOrder
-        ? Math.max(selectedOrder.remainingDebt - parsedAmount, 0)
-        : 0;
+    const remainingAfterPayment = Math.max(totalRemainingDebt - parsedAmount, 0);
+    const allSelected = orders.length > 0 && selectedOrderIds.length === orders.length;
+
+    const handleToggleOrder = (orderId) => {
+        setSelectedOrderIds((prev) =>
+            prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId],
+        );
+        setError('');
+    };
+
+    const handleToggleAll = () => {
+        setSelectedOrderIds(allSelected ? [] : orders.map((order) => order.id));
+        setError('');
+    };
 
     if (!open || !supplier) {
         return null;
@@ -55,37 +81,36 @@ export default function SupplierPaymentModal({ open, supplier, onClose, onSubmit
     const handleSubmit = (event) => {
         event.preventDefault();
 
-        if (!selectedOrder) {
-            setError('Vui lòng chọn đơn nợ cần thanh toán.');
+        if (selectedOrderIds.length === 0) {
+            setError('Vui lòng chọn ít nhất một phiếu nhập để thanh toán.');
             return;
         }
         if (parsedAmount <= 0) {
             setError('Số tiền thanh toán không hợp lệ.');
             return;
         }
-        if (parsedAmount > selectedOrder.remainingDebt) {
-            setError('Số tiền vượt quá số nợ còn lại của đơn này.');
+        if (parsedAmount > totalRemainingDebt) {
+            setError(`Số tiền không được vượt quá tổng nợ đã chọn (${formatCurrency(totalRemainingDebt)}).`);
             return;
         }
 
         setError('');
         onSubmit({
-            orderId: selectedOrder.id,
-            orderCode: selectedOrder.orderCode,
+            importOrderIds: selectedOrders.map((order) => order.id),
+            orderCodes: selectedOrders.map((order) => order.orderCode),
             amount: parsedAmount,
             paymentMethod,
             notes: notes.trim(),
         });
     };
 
-    // Lỗi từ server (ví dụ nợ vừa được trả ở nơi khác nên số liệu FE bị cũ) được ưu tiên
-    // hiển thị hơn lỗi validate client, vì nó phản ánh đúng trạng thái mới nhất từ DB.
     const displayError = submitError || error;
+    const hasSelection = selectedOrderIds.length > 0;
 
     return (
         <div className="supplier-modal-overlay" onClick={onClose} role="presentation">
             <div
-                className="supplier-modal"
+                className="supplier-modal supplier-modal--payment"
                 onClick={(event) => event.stopPropagation()}
                 role="dialog"
                 aria-modal="true"
@@ -100,36 +125,48 @@ export default function SupplierPaymentModal({ open, supplier, onClose, onSubmit
                     </button>
                 </div>
 
-                <form className="supplier-modal__body" onSubmit={handleSubmit}>
+                <form className="supplier-modal__form" onSubmit={handleSubmit}>
+                    <div className="supplier-modal__scroll">
                     <p className="supplier-modal__supplier-name">{supplier.name}</p>
 
                     {displayError && <p className="supplier-modal__error">{displayError}</p>}
 
-                    <label className="supplier-modal__field">
-                        <span>Chọn đơn nợ cần thanh toán *</span>
-                        <select
-                            value={selectedOrderId}
-                            onChange={(event) => {
-                                setSelectedOrderId(event.target.value);
-                                setAmount('');
-                                setError('');
-                            }}
-                            disabled={loadingOrders || orders.length === 0 || submitting}
-                            required
-                        >
-                            <option value="">
-                                {loadingOrders ? 'Đang tải danh sách đơn nợ...' : '-- Chọn đơn nợ --'}
-                            </option>
-                            {orders.map((order) => (
-                                <option key={order.id} value={order.id}>
-                                    {order.orderCode}
-                                </option>
-                            ))}
-                        </select>
-                        {!loadingOrders && orders.length === 0 && (
-                            <span className="supplier-modal__hint">NCC này hiện không có đơn nào đang nợ.</span>
-                        )}
-                    </label>
+                    <div className="supplier-modal__field">
+                        <span>Chọn phiếu nhập cần thanh toán *</span>
+                        <div className="supplier-payment-orders">
+                            {loadingOrders ? (
+                                <span className="supplier-modal__hint">Đang tải danh sách phiếu nợ...</span>
+                            ) : orders.length === 0 ? (
+                                <span className="supplier-modal__hint">NCC này hiện không có phiếu nào đang nợ.</span>
+                            ) : (
+                                <>
+                                    <label className="supplier-payment-orders__item supplier-payment-orders__item--all">
+                                        <input
+                                            type="checkbox"
+                                            checked={allSelected}
+                                            onChange={handleToggleAll}
+                                            disabled={submitting}
+                                        />
+                                        <span>Chọn tất cả ({orders.length})</span>
+                                    </label>
+                                    {orders.map((order) => (
+                                        <label key={order.id} className="supplier-payment-orders__item">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedOrderIds.includes(order.id)}
+                                                onChange={() => handleToggleOrder(order.id)}
+                                                disabled={submitting}
+                                            />
+                                            <span className="supplier-payment-orders__code">{order.orderCode}</span>
+                                            <span className="supplier-payment-orders__debt">
+                                                {formatCurrency(remainingOf(order))}
+                                            </span>
+                                        </label>
+                                    ))}
+                                </>
+                            )}
+                        </div>
+                    </div>
 
                     <label className="supplier-modal__field">
                         <span>Số tiền trả *</span>
@@ -142,10 +179,21 @@ export default function SupplierPaymentModal({ open, supplier, onClose, onSubmit
                                 setAmount(formatAmountInput(event.target.value));
                                 setError('');
                             }}
-                            disabled={!selectedOrder || submitting}
+                            disabled={!hasSelection || submitting}
                             required
                         />
                     </label>
+
+                    {hasSelection ? (
+                        <button
+                            type="button"
+                            className="supplier-btn supplier-btn--secondary supplier-payment-pay-all"
+                            onClick={() => setAmount(formatAmountInput(String(Math.round(totalRemainingDebt))))}
+                            disabled={submitting}
+                        >
+                            Trả hết nợ đã chọn
+                        </button>
+                    ) : null}
 
                     <label className="supplier-modal__field">
                         <span>Hình thức thanh toán</span>
@@ -155,14 +203,14 @@ export default function SupplierPaymentModal({ open, supplier, onClose, onSubmit
                             disabled={submitting}
                         >
                             <option value="CASH">Tiền mặt</option>
-                            <option value="QR">Chuyển khoản / QR</option>
+                            <option value="QR">Chuyển khoản</option>
                         </select>
                     </label>
 
                     <label className="supplier-modal__field">
                         <span>Ghi chú</span>
                         <textarea
-                            rows={3}
+                            rows={2}
                             placeholder="Ghi chú (tuỳ chọn)"
                             value={notes}
                             onChange={(event) => setNotes(event.target.value)}
@@ -172,19 +220,20 @@ export default function SupplierPaymentModal({ open, supplier, onClose, onSubmit
 
                     <div className="supplier-modal__readonly-group">
                         <div className="supplier-modal__readonly-row">
-                            <span>Công nợ hiện tại</span>
-                            <strong>{selectedOrder ? formatCurrency(selectedOrder.remainingDebt) : '—'}</strong>
+                            <span>Tổng nợ đã chọn</span>
+                            <strong>{hasSelection ? formatCurrency(totalRemainingDebt) : '—'}</strong>
                         </div>
                         <div className="supplier-modal__readonly-row">
                             <span>Số tiền trả</span>
-                            <strong>{selectedOrder ? formatCurrency(parsedAmount) : '—'}</strong>
+                            <strong>{hasSelection ? formatCurrency(parsedAmount) : '—'}</strong>
                         </div>
                         <div className="supplier-modal__readonly-row">
                             <span>Số nợ còn lại</span>
                             <strong className="supplier-modal__readonly-row--highlight">
-                                {selectedOrder ? formatCurrency(remainingAfterPayment) : '—'}
+                                {hasSelection ? formatCurrency(remainingAfterPayment) : '—'}
                             </strong>
                         </div>
+                    </div>
                     </div>
 
                     <div className="supplier-modal__footer">
@@ -199,7 +248,7 @@ export default function SupplierPaymentModal({ open, supplier, onClose, onSubmit
                         <button
                             type="submit"
                             className="supplier-btn supplier-btn--primary"
-                            disabled={!selectedOrder || submitting}
+                            disabled={!hasSelection || submitting}
                         >
                             {submitting ? 'Đang xử lý...' : 'Xác nhận thanh toán'}
                         </button>

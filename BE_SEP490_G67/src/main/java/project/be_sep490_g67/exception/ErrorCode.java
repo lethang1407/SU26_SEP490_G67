@@ -41,6 +41,7 @@ public enum ErrorCode {
     NOT_FOUND_IMPORT_ORDER(1025, "Không tìm thấy đơn nhập hàng", HttpStatus.NOT_FOUND),
     INVALID_PAYMENT_AMOUNT(1026, "Số tiền thanh toán không hợp lệ", HttpStatus.BAD_REQUEST),
     PAYMENT_EXCEEDS_DEBT(1027, "Số tiền vượt quá số nợ còn lại của đơn hàng", HttpStatus.BAD_REQUEST),
+    SUPPLIER_PAYMENT_ORDER_LIST_REQUIRED(1028, "Danh sách phiếu nhập cần thanh toán không được để trống", HttpStatus.BAD_REQUEST),
     PRODUCT_NOT_FOUND(1046, "Không tìm thấy sản phẩm", HttpStatus.NOT_FOUND),
     BARCODE_EXISTED(1047, "Mã vạch đã được sử dụng", HttpStatus.CONFLICT),
     INVALID_PRODUCT_PRICE(1048, "Giá sản phẩm không hợp lệ", HttpStatus.BAD_REQUEST),
@@ -98,6 +99,7 @@ public enum ErrorCode {
     IMPORT_ORDER_NOT_EDITABLE(1035, "Chỉ được sửa phiếu tạm. Phiếu đã nhập hàng không thể chỉnh sửa.", HttpStatus.BAD_REQUEST),
     IMPORT_ORDER_NOT_DELETABLE(1036, "Chỉ được hủy phiếu tạm. Phiếu đã nhập hàng không thể xóa.", HttpStatus.BAD_REQUEST),
     SUPPLIER_REQUIRED_FOR_IMPORT(1037, "Vui lòng chọn nhà cung cấp trước khi hoàn thành phiếu nhập hàng.", HttpStatus.BAD_REQUEST),
+    IMPORT_INVOICE_REQUIRED(1076, "Vui lòng tải ảnh hóa đơn trước khi hoàn thành phiếu nhập hàng.", HttpStatus.BAD_REQUEST),
 
     // Product / category errors (11xx)
     PRODUCT_NAME_REQUIRED(1101, "Vui lòng nhập tên sản phẩm", HttpStatus.BAD_REQUEST),

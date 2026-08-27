@@ -839,6 +839,10 @@ a.supplier-btn {
     background: #fffbeb;
 }
 
+.ioc-lines-table tbody tr.ioc-lines-table__row--promo:hover td {
+    background: #fef3c7;
+}
+
 .ioc-line-meta {
     display: flex;
     align-items: center;
@@ -1162,19 +1166,6 @@ a.supplier-btn {
     font-size: 13px;
     font-weight: 600;
     color: #475569;
-}
-
-.ioc-sidebar__label-row {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
-}
-
-.ioc-sidebar__label-optional {
-    font-size: 12px;
-    font-weight: 500;
-    color: #94a3b8;
 }
 
 .ioc-sidebar__input,

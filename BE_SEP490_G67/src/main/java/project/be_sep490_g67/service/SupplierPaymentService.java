@@ -6,7 +6,9 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import project.be_sep490_g67.dto.request.BatchCreateSupplierPaymentRequest;
 import project.be_sep490_g67.dto.request.CreateSupplierPaymentRequest;
+import project.be_sep490_g67.dto.response.BatchSupplierPaymentResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.dto.response.SupplierPaymentResponse;
 import project.be_sep490_g67.entity.ImportOrder;
@@ -22,10 +24,13 @@ import project.be_sep490_g67.repository.SupplierRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Slf4j
 @Service
@@ -39,55 +44,136 @@ public class SupplierPaymentService {
 
     @Transactional
     public SupplierPaymentResponse createPayment(Integer supplierId, CreateSupplierPaymentRequest request) {
+        if (request.getOrderId() == null) {
+            throw new AppException(ErrorCode.NOT_FOUND_IMPORT_ORDER);
+        }
+        BatchSupplierPaymentResponse batch = createBatchPayment(supplierId, BatchCreateSupplierPaymentRequest.builder()
+                .importOrderIds(List.of(request.getOrderId()))
+                .amount(request.getAmount())
+                .paymentMethod(request.getPaymentMethod())
+                .note(request.getNote())
+                .build());
+        return batch.getPaymentDetails().get(0);
+    }
+
+    @Transactional
+    public BatchSupplierPaymentResponse createBatchPayment(
+            Integer supplierId, BatchCreateSupplierPaymentRequest request) {
         Supplier supplier = supplierRepository.findByIdAndIsRemovedFalse(supplierId)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
 
-        ImportOrder order = importOrderRepository.findById(request.getOrderId())
-                .filter(io -> !Boolean.TRUE.equals(io.getIsRemoved()))
-                .filter(io -> io.getSupplier() != null && io.getSupplier().getId().equals(supplierId))
-                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_IMPORT_ORDER));
+        if (request.getImportOrderIds() == null || request.getImportOrderIds().isEmpty()) {
+            throw new AppException(ErrorCode.SUPPLIER_PAYMENT_ORDER_LIST_REQUIRED);
+        }
+
+        List<Integer> distinctOrderIds = new ArrayList<>(new LinkedHashSet<>(
+                request.getImportOrderIds().stream().filter(Objects::nonNull).toList()
+        ));
+        if (distinctOrderIds.isEmpty()) {
+            throw new AppException(ErrorCode.SUPPLIER_PAYMENT_ORDER_LIST_REQUIRED);
+        }
 
         BigDecimal amount = request.getAmount();
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new AppException(ErrorCode.INVALID_PAYMENT_AMOUNT);
         }
 
-        BigDecimal totalCost = order.getTotalCost() != null ? order.getTotalCost() : BigDecimal.ZERO;
-        BigDecimal paidSoFar = supplierPaymentRepository.sumPaidAmountByImportOrder(order.getId());
-        BigDecimal remainingDebt = totalCost.subtract(paidSoFar).max(BigDecimal.ZERO);
+        List<ImportOrder> loaded = importOrderRepository.findAllById(distinctOrderIds);
+        Map<Integer, ImportOrder> byId = new HashMap<>();
+        for (ImportOrder order : loaded) {
+            byId.put(order.getId(), order);
+        }
 
-        if (amount.compareTo(remainingDebt) > 0) {
+        List<ImportOrder> debtOrders = new ArrayList<>();
+        for (Integer orderId : distinctOrderIds) {
+            ImportOrder order = byId.get(orderId);
+            if (order == null
+                    || Boolean.TRUE.equals(order.getIsRemoved())
+                    || order.getSupplier() == null
+                    || !supplierId.equals(order.getSupplier().getId())
+                    || !ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(order.getOrderStatus())) {
+                throw new AppException(ErrorCode.NOT_FOUND_IMPORT_ORDER);
+            }
+            debtOrders.add(order);
+        }
+
+        debtOrders.sort(Comparator
+                .comparing(ImportOrder::getReceivedDate, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(ImportOrder::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(ImportOrder::getId));
+
+        BigDecimal totalRemaining = debtOrders.stream()
+                .map(this::remainingDebtOf)
+                .filter(remaining -> remaining.compareTo(BigDecimal.ZERO) > 0)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (totalRemaining.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new AppException(ErrorCode.DEBT_ORDER_ALREADY_SETTLED);
+        }
+        if (amount.compareTo(totalRemaining) > 0) {
             throw new AppException(ErrorCode.PAYMENT_EXCEEDS_DEBT);
         }
 
-        SupplierPayment payment = new SupplierPayment();
-        payment.setPaymentCode(generatePaymentCode());
-        payment.setSupplier(supplier);
-        payment.setImportOrder(order);
-        payment.setAmount(amount);
-        payment.setPaymentMethod(request.getPaymentMethod() == null || request.getPaymentMethod().isBlank()
-                ? "CASH" : request.getPaymentMethod());
-        payment.setPaymentDate(LocalDateTime.now());
-        payment.setNote(request.getNote());
-        payment.setIsRemoved(false);
+        String method = request.getPaymentMethod() == null || request.getPaymentMethod().isBlank()
+                ? "CASH" : request.getPaymentMethod();
+        LocalDateTime paidAt = LocalDateTime.now();
+        int nextSeq = nextPaymentSequence();
+        BigDecimal unapplied = amount;
+        List<SupplierPaymentResponse> paymentDetails = new ArrayList<>();
 
-        SupplierPayment saved = supplierPaymentRepository.save(payment);
-        log.info("Recorded payment {} for order {} (supplier {}), amount={}",
-                saved.getPaymentCode(), order.getOrderCode(), supplierId, amount);
+        for (ImportOrder order : debtOrders) {
+            if (unapplied.compareTo(BigDecimal.ZERO) <= 0) {
+                break;
+            }
+            BigDecimal remaining = remainingDebtOf(order);
+            if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            BigDecimal paidForOrder = unapplied.min(remaining);
 
-        BigDecimal remainingAfter = remainingDebt.subtract(amount).max(BigDecimal.ZERO);
+            SupplierPayment payment = new SupplierPayment();
+            payment.setPaymentCode(formatPaymentCode(nextSeq++));
+            payment.setSupplier(supplier);
+            payment.setImportOrder(order);
+            payment.setAmount(paidForOrder);
+            payment.setPaymentMethod(method);
+            payment.setPaymentDate(paidAt);
+            payment.setNote(request.getNote());
+            payment.setIsRemoved(false);
 
-        return SupplierPaymentResponse.builder()
-                .id(saved.getId())
-                .paymentCode(saved.getPaymentCode())
-                .orderId(order.getId())
-                .orderCode(order.getOrderCode())
-                .amount(saved.getAmount())
-                .paymentMethod(saved.getPaymentMethod())
-                .paymentDate(saved.getPaymentDate())
-                .note(saved.getNote())
-                .remainingDebtAfter(remainingAfter)
+            SupplierPayment saved = supplierPaymentRepository.save(payment);
+            paymentDetails.add(SupplierPaymentResponse.builder()
+                    .id(saved.getId())
+                    .paymentCode(saved.getPaymentCode())
+                    .orderId(order.getId())
+                    .orderCode(order.getOrderCode())
+                    .amount(saved.getAmount())
+                    .paymentMethod(saved.getPaymentMethod())
+                    .paymentDate(saved.getPaymentDate())
+                    .note(saved.getNote())
+                    .remainingDebtAfter(remaining.subtract(paidForOrder).max(BigDecimal.ZERO))
+                    .build());
+            unapplied = unapplied.subtract(paidForOrder);
+
+            log.info("Recorded payment {} for order {} (supplier {}), amount={}",
+                    saved.getPaymentCode(), order.getOrderCode(), supplierId, paidForOrder);
+        }
+
+        return BatchSupplierPaymentResponse.builder()
+                .supplierId(supplier.getId())
+                .supplierName(supplier.getName())
+                .totalPaidAmount(amount)
+                .paymentDetails(paymentDetails)
                 .build();
+    }
+
+    private BigDecimal remainingDebtOf(ImportOrder order) {
+        BigDecimal totalCost = order.getTotalCost() != null ? order.getTotalCost() : BigDecimal.ZERO;
+        BigDecimal paidSoFar = supplierPaymentRepository.sumPaidAmountByImportOrder(order.getId());
+        if (paidSoFar == null) {
+            paidSoFar = BigDecimal.ZERO;
+        }
+        return totalCost.subtract(paidSoFar).max(BigDecimal.ZERO);
     }
 
     @Transactional(readOnly = true)
@@ -196,18 +282,19 @@ public class SupplierPaymentService {
                 .build();
     }
 
-    private String generatePaymentCode() {
+    private int nextPaymentSequence() {
         String prefix = ImportOrderConstants.PAYMENT_CODE_PREFIX;
-        int seqLength = ImportOrderConstants.PAYMENT_CODE_SEQ_LENGTH;
-
         int nextSeq = supplierPaymentRepository.findLatestTtnPaymentCode()
                 .map(code -> Integer.parseInt(code.substring(prefix.length())) + 1)
                 .orElse(0);
-
         if (nextSeq > 999_999) {
             throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
         }
+        return nextSeq;
+    }
 
-        return prefix + String.format("%0" + seqLength + "d", nextSeq);
+    private String formatPaymentCode(int seq) {
+        return ImportOrderConstants.PAYMENT_CODE_PREFIX
+                + String.format("%0" + ImportOrderConstants.PAYMENT_CODE_SEQ_LENGTH + "d", seq);
     }
 }

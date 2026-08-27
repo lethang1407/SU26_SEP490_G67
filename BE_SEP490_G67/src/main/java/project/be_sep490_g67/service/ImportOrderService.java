@@ -76,6 +76,7 @@ public class ImportOrderService {
     public ImportOrderListItemResponse createImportOrder(CreateImportOrderRequest request) {
         String orderStatus = normalizeCreateOrderStatus(request.getOrderStatus());
         boolean isImported = ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(orderStatus);
+        requireInvoiceImageIfImported(isImported, request.getInvoiceImage());
         Supplier supplier = resolveSupplier(request.getSupplierId(), isImported);
 
         List<CreateImportOrderRequest.LineItem> requestLines =
@@ -172,6 +173,7 @@ public class ImportOrderService {
 
         String orderStatus = normalizeCreateOrderStatus(request.getOrderStatus());
         boolean isImported = ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(orderStatus);
+        requireInvoiceImageIfImported(isImported, request.getInvoiceImage());
         Supplier supplier = resolveSupplier(request.getSupplierId(), isImported);
 
         List<CreateImportOrderRequest.LineItem> requestLines =
@@ -349,7 +351,7 @@ public class ImportOrderService {
                 : statusFilter.toUpperCase();
 
         List<ImportOrder> orders = importOrderRepository.searchBySupplier(supplierId, safeSearch);
-        return toPagedResponse(orders, page, size, safePaymentStatus);
+        return toPagedResponse(orders, page, size, safePaymentStatus, true);
     }
 
     @Transactional(readOnly = true)
@@ -555,6 +557,11 @@ public class ImportOrderService {
 
     private PageResponse<ImportOrderListItemResponse> toPagedResponse(
             List<ImportOrder> orders, int page, int size, String paymentStatusFilter) {
+        return toPagedResponse(orders, page, size, paymentStatusFilter, false);
+    }
+
+    private PageResponse<ImportOrderListItemResponse> toPagedResponse(
+            List<ImportOrder> orders, int page, int size, String paymentStatusFilter, boolean debtFirst) {
 
         Map<Integer, BigDecimal> paidPerOrder = supplierPaymentRepository.sumPaidAmountGroupByImportOrder()
                 .stream()
@@ -567,6 +574,11 @@ public class ImportOrderService {
                 .toList();
 
         List<ImportOrderListItemResponse> filtered = filterByPaymentStatus(allItems, paymentStatusFilter);
+        if (debtFirst) {
+            filtered = new ArrayList<>(filtered);
+            filtered.sort(Comparator.comparingInt(item ->
+                    ImportOrderConstants.PAYMENT_STATUS_DEBT.equals(item.getStatus()) ? 0 : 1));
+        }
 
         int totalElements = filtered.size();
         int totalPages = Math.max(1, (int) Math.ceil((double) totalElements / size));
@@ -716,6 +728,12 @@ public class ImportOrderService {
         }
         return supplierRepository.findByIdAndIsRemovedFalse(supplierId)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
+    }
+
+    private void requireInvoiceImageIfImported(boolean isImported, String invoiceImage) {
+        if (isImported && (invoiceImage == null || invoiceImage.isBlank())) {
+            throw new AppException(ErrorCode.IMPORT_INVOICE_REQUIRED);
+        }
     }
 
     private String normalizeCreateOrderStatus(String orderStatus) {

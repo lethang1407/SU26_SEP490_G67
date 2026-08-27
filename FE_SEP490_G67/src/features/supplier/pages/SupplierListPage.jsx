@@ -8,8 +8,10 @@ import SupplierTable from '../components/SupplierTable';
 import SupplierDetailModal from '../components/SupplierDetailModal';
 import SupplierPagination from '../components/SupplierPagination';
 import SupplierAddNewModal from '../components/SupplierAddNewModal';
+import SupplierSuccessToast from '../components/SupplierSuccessToast';
 import { suppliersApi } from '../api';
 import { categoriesApi } from '../../category/api';
+import { PAYMENT_METHOD_LABEL } from '../constants';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Supplier.css';
 
@@ -151,18 +153,18 @@ export default function SupplierListPage() {
         setSelectedSupplierId(null);
     };
 
-    const handlePaymentSuccess = ({ orderCode, amount, paymentMethod, notes }) => {
+    const handlePaymentSuccess = ({ orderCodes, orderCode, amount, paymentMethod, notes }) => {
         fetchSuppliers({ silent: true });
+        const orderLabel = (orderCodes && orderCodes.length ? orderCodes : [orderCode].filter(Boolean)).join(', ');
+        const methodLabel = PAYMENT_METHOD_LABEL[paymentMethod] || paymentMethod;
         setToast(
-            `Đã ghi nhận thanh toán ${new Intl.NumberFormat('vi-VN').format(amount)}đ cho đơn ${orderCode} (${paymentMethod})${notes ? `: ${notes}` : ''}.`,
+            `Đã ghi nhận thanh toán ${new Intl.NumberFormat('vi-VN').format(amount)}đ cho ${orderLabel} (${methodLabel})${notes ? `: ${notes}` : ''}.`,
         );
-        setTimeout(() => setToast(''), 4000);
     };
 
     const handleSupplierUpdated = (updated) => {
         fetchSuppliers({ silent: true });
         setToast(`Đã cập nhật nhà cung cấp ${updated?.name || ''}.`);
-        setTimeout(() => setToast(''), 3000);
     };
 
     const handleAddSupplier = (supplierData) => {
@@ -175,7 +177,6 @@ export default function SupplierListPage() {
                 setPage(1);
                 fetchSuppliers();
                 setToast('Đã thêm nhà cung cấp mới.');
-                setTimeout(() => setToast(''), 3000);
             })
             .catch((error) => {
                 console.error('Error adding supplier:', error);
@@ -208,7 +209,13 @@ export default function SupplierListPage() {
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container supplier-page">
-                        {toast && <p className="supplier-page__toast">{toast}</p>}
+                        {toast && (
+                            <SupplierSuccessToast
+                                key={toast}
+                                message={toast}
+                                onDismiss={() => setToast('')}
+                            />
+                        )}
 
                         <header className="supplier-page__header">
                             <div>
