@@ -11,7 +11,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class GroupedSuggestionDTO {
+public class GroupedSuggestionResponse {
     Integer id;
     String name;
     String sku;
@@ -32,14 +32,19 @@ public class GroupedSuggestionDTO {
 
     Boolean isGroup;
 
-    List<VariantGroupDTO> variantGroups;
+    // Open DRAFT Import Order (Phiếu tạm) info if exists
+    Integer openPoId;
+    String openPoCode;
+    Integer openPoQty;
+
+    List<VariantGroupResponse> variantGroups;
 
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class VariantGroupDTO {
+    public static class VariantGroupResponse {
         String primaryAttrValue; // e.g. "Vàng"
         String name; // e.g. "Dép tổ ong siêu nhẹ đại của thanh - Màu Vàng"
         String sku; // e.g. "SP000003..." or "(2 mã)"
@@ -49,7 +54,7 @@ public class GroupedSuggestionDTO {
         Integer onHand;
         BigDecimal avgDailyRate;
 
-        List<VariantItemDTO> sizes;
+        List<VariantItemResponse> sizes;
     }
 
     @Data
@@ -57,7 +62,7 @@ public class GroupedSuggestionDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class VariantItemDTO {
+    public static class VariantItemResponse {
         Integer id; // actual product ID
         String name;
         String primaryAttrValue;
@@ -81,7 +86,12 @@ public class GroupedSuggestionDTO {
         String coverSourceLabel;
         BigDecimal costPerUnit;
 
-        List<ImportSuggestionDTO.SupplierOption> supplierOptions;
-        List<ImportSuggestionDTO.UnitOption> units;
+        // Open DRAFT Import Order (Phiếu tạm) info if exists
+        Integer openPoId;
+        String openPoCode;
+        Integer openPoQty;
+
+        List<ImportSuggestionResponse.SupplierOption> supplierOptions;
+        List<ImportSuggestionResponse.UnitOption> units;
     }
 }
