@@ -142,9 +142,6 @@ public class StorageLocationService {
             throw new AppException(ErrorCode.INSUFFICIENT_UNPLACED_QUANTITY);
         }
 
-        // Khu bán: mỗi SP chỉ 1 mã lô (được tách nhiều ô). Khu kho: 1 ô được nhiều SP.
-        assertSalesZoneBatchRule(batch, location);
-
         upsertBatchLocation(batch, location, quantity);
 
         StorageLocation refreshed = storageLocationRepository.findActiveWithContentsById(location.getId())
@@ -173,7 +170,6 @@ public class StorageLocationService {
         }
 
         StockBatch batch = source.getBatch();
-        assertSalesZoneBatchRule(batch, destination);
 
         int remainingOnSource = available - quantity;
         if (remainingOnSource <= 0) {
@@ -218,7 +214,6 @@ public class StorageLocationService {
 
         for (BatchLocation line : activeLines) {
             StockBatch batch = line.getBatch();
-            assertSalesZoneBatchRule(batch, destination);
 
             int quantity = line.getQuantity();
             line.setQuantity(0);
@@ -302,28 +297,6 @@ public class StorageLocationService {
                         !Boolean.TRUE.equals(batchLocation.getIsRemoved())
                                 && batchLocation.getQuantity() != null
                                 && batchLocation.getQuantity() > 0);
-    }
-
-    /**
-     * Khu bán: mỗi SP tối đa 1 StockBatch trên toàn bộ khu bán.
-     * Cùng một lô được tách sang nhiều ô bán.
-     */
-    private void assertSalesZoneBatchRule(StockBatch batch, StorageLocation destination) {
-        if (!storageZoneService.isSalesZone(destination.getStorageZone())) {
-            return;
-        }
-
-        Integer productId = batch.getProduct().getId();
-        Integer batchId = batch.getId();
-        List<BatchLocation> salesLines =
-                batchLocationRepository.findActiveOnSalesZonesByProductId(productId);
-
-        for (BatchLocation existing : salesLines) {
-            Integer existingBatchId = existing.getBatch().getId();
-            if (!Objects.equals(existingBatchId, batchId)) {
-                throw new AppException(ErrorCode.SALES_ZONE_PRODUCT_BATCH_EXISTS);
-            }
-        }
     }
 
     private int getUnplacedQuantity(StockBatch batch) {

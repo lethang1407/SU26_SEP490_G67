@@ -485,31 +485,22 @@ export function groupLocationsByZone(locations) {
         };
     });
 
-    // Khu bán trước, khu kho sau; trong nhóm sort theo mã khu
-    return mapped.sort((a, b) => {
-        const typeA = a.zoneType === 'SALES' ? 0 : 1;
-        const typeB = b.zoneType === 'SALES' ? 0 : 1;
-        if (typeA !== typeB) return typeA - typeB;
-        return String(a.zone ?? '').localeCompare(String(b.zone ?? ''));
-    });
+    // Sort theo mã khu (RETURN_HOLD đã lọc ở tầng khác nếu cần)
+    return mapped.sort((a, b) => String(a.zone ?? '').localeCompare(String(b.zone ?? '')));
 }
 
-/** Nhóm zone groups thành section: bán hàng / kho (bỏ RETURN_HOLD). */
+/**
+ * Danh sách khu xếp hàng được (bỏ RETURN_HOLD). Một khối thống nhất — không tách bán/kho.
+ */
+export function getAssignableZoneGroups(zoneGroups) {
+    return (zoneGroups ?? []).filter(
+        (group) => normalizeZoneType(group.zoneType) !== ZONE_TYPE.RETURN_HOLD,
+    );
+}
+
+/** @deprecated Dùng getAssignableZoneGroups — giữ để tương thích tạm. */
 export function groupZoneGroupsByType(zoneGroups) {
-    const sales = [];
-    const warehouse = [];
-    (zoneGroups ?? []).forEach((group) => {
-        const type = normalizeZoneType(group.zoneType);
-        if (type === ZONE_TYPE.RETURN_HOLD) {
-            return;
-        }
-        if (type === ZONE_TYPE.SALES) {
-            sales.push(group);
-        } else {
-            warehouse.push(group);
-        }
-    });
-    return { sales, warehouse };
+    return { sales: [], warehouse: getAssignableZoneGroups(zoneGroups) };
 }
 
 export function getReturnHoldLocation(locations) {
@@ -531,9 +522,8 @@ export function getLineValue(item) {
 
 /**
  * Gợi ý ô xếp cho 1 lô (unplaced hoặc dòng trên kệ).
- * Ưu tiên: cùng lô > cùng SP > cùng danh mục > ô trống.
- * Nếu SP đã có mã lô khác trên khu bán → không gợi ý khu bán (chỉ khu kho).
- * Cùng mã lô đã xếp một phần trên khu bán → vẫn gợi ý các ô đó để xếp tiếp.
+ * Ưu tiên: cùng lô > cùng SP > cùng danh mục.
+ * Không gợi ý ô trống / RETURN_HOLD / isFull / ô nguồn.
  */
 export function suggestLocationsForBatch(batch, locations, options = {}) {
     if (!batch) {
@@ -559,19 +549,6 @@ export function suggestLocationsForBatch(batch, locations, options = {}) {
         return false;
     };
 
-    // SP đã có mã lô khác trên khu bán → chặn gợi ý khu bán
-    const salesHasOtherBatchOfProduct =
-        productId != null &&
-        (locations ?? []).some(
-            (location) =>
-                location &&
-                location.id !== excludeLocationId &&
-                location.zoneType === ZONE_TYPE.SALES &&
-                (location.contents ?? []).some(
-                    (item) => item.productId === productId && !isSameBatch(item),
-                ),
-        );
-
     const scored = [];
     for (const location of locations ?? []) {
         if (!location || location.id === excludeLocationId) {
@@ -584,19 +561,18 @@ export function suggestLocationsForBatch(batch, locations, options = {}) {
             continue;
         }
 
-        const isWarehouse = normalizeZoneType(location.zoneType) === ZONE_TYPE.WAREHOUSE;
-        if (!isWarehouse && salesHasOtherBatchOfProduct) {
+        const contents = location.contents ?? [];
+        if (contents.length === 0) {
+            // Không gợi ý ô trống
             continue;
         }
 
-        const contents = location.contents ?? [];
         const occupiedProductIds = [
             ...new Set(contents.map((item) => item.productId).filter((id) => id != null)),
         ];
         const occupiedCategoryIds = [
             ...new Set(contents.map((item) => item.categoryId).filter((id) => id != null)),
         ];
-        const isEmpty = contents.length === 0;
         const hasSameBatch = contents.some(isSameBatch);
 
         let score = 0;
@@ -611,12 +587,8 @@ export function suggestLocationsForBatch(batch, locations, options = {}) {
         } else if (categoryId != null && occupiedCategoryIds.includes(categoryId)) {
             score = 70;
             reason = 'cùng danh mục';
-        } else if (isEmpty) {
-            score = 50;
-            reason = 'ô trống';
         } else {
-            score = 20;
-            reason = isWarehouse ? 'khu kho' : 'khu bán';
+            continue;
         }
 
         if (preferredZone && location.zone === preferredZone) {

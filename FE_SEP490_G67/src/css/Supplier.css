@@ -1419,6 +1419,29 @@
     justify-content: center;
     padding: 20px;
     background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    animation: supplier-modal-overlay-in 0.28s ease-out;
+}
+
+@keyframes supplier-modal-overlay-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes supplier-modal-panel-in {
+    from {
+        opacity: 0;
+        transform: translateY(14px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .supplier-modal {
@@ -1427,6 +1450,8 @@
     background: #fff;
     border-radius: 14px;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+    animation: supplier-modal-panel-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform, opacity;
 }
 
 .supplier-modal__header {

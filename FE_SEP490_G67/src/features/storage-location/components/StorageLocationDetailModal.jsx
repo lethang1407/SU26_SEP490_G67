@@ -1,6 +1,6 @@
 import { Modal } from 'react-bootstrap';
 import { Package, Settings2, CircleDot } from 'lucide-react';
-import { LOCATION_STATUS, ZONE_TYPE } from '../constants';
+import { LOCATION_STATUS } from '../constants';
 import {
     formatDate,
     formatLocationAddress,
@@ -21,7 +21,6 @@ export default function StorageLocationDetailModal({
     const metrics = location ? getLocationMetrics(location) : null;
     const isEmpty = status === LOCATION_STATUS.EMPTY;
     const isFull = Boolean(location?.isFull);
-    const isSales = location?.zoneType === ZONE_TYPE.SALES;
     const batches = location?.contents ?? [];
 
     return (
@@ -49,7 +48,6 @@ export default function StorageLocationDetailModal({
                             </Modal.Title>
                             <p className="storage-location-detail-modal__address">
                                 {formatLocationAddress(location)}
-                                {isSales ? ' · Khu bán' : ' · Khu kho'}
                             </p>
                             {location.description && (
                                 <p className="storage-location-detail-modal__description">

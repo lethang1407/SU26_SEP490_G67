@@ -114,24 +114,6 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
     Long sumOnHandByProductId(@Param("productId") Integer productId);
 
     /**
-     * Các dòng batch_location active của SP trên các khu có zone_type = SALES.
-     */
-    @Query("""
-            SELECT bl FROM BatchLocation bl
-            JOIN FETCH bl.batch sb
-            JOIN FETCH bl.location loc
-            JOIN FETCH loc.storageZone sz
-            WHERE sb.product.id = :productId
-              AND bl.quantity > 0
-              AND bl.isRemoved = false
-              AND sb.isRemoved = false
-              AND loc.isRemoved = false
-              AND (sz.isRemoved = false OR sz.isRemoved IS NULL)
-              AND sz.zoneType = 'SALES'
-            """)
-    List<BatchLocation> findActiveOnSalesZonesByProductId(@Param("productId") Integer productId);
-
-    /**
      * Ô đang giữ nhiều hàng nhất của lô — dùng khi nhập hàng trả bán lại được về kho.
      * Loại khu RT để hàng RESELLABLE không bị nhập ngược vào chỗ chứa hàng hỏng.
      */
@@ -149,8 +131,7 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
 
     /**
      * Mọi dòng (vị trí, lô) còn hàng của một SP — dùng cho dropdown chọn vị trí ở POS.
-     * Khu bán xếp trước (dòng đầu tiên là mặc định của POS), rồi FIFO theo ngày nhập.
-     * Lô chưa có ngày nhập bị đẩy xuống cuối (NULLS LAST viết bằng CASE cho portable).
+     * Sắp FEFO theo HSD rồi ngày nhập; loại khu RETURN_HOLD.
      */
     @Query("""
             SELECT bl FROM BatchLocation bl
@@ -164,15 +145,12 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
               AND loc.isRemoved = false
               AND (sz.isRemoved = false OR sz.isRemoved IS NULL)
               AND sz.zoneType <> 'RETURN_HOLD'
-            ORDER BY CASE WHEN sz.zoneType = 'SALES' THEN 0 ELSE 1 END ASC,
-                     CASE WHEN sb.receivedDate IS NULL THEN 1 ELSE 0 END ASC,
-                     sb.receivedDate ASC,
-                     sb.id ASC
+            ORDER BY sb.expiryDate ASC, sb.receivedDate ASC, sb.id ASC
             """)
     List<BatchLocation> findPosLinesByProductId(@Param("productId") Integer productId);
 
     /**
-     * Hàng còn lại của một SP tại đúng một ô, FIFO theo ngày nhập.
+     * Hàng còn lại của một SP tại đúng một ô, FEFO theo HSD rồi ngày nhập.
      * Dùng khi thu ngân đã chốt vị trí lấy hàng trên POS.
      */
     @Query("""
@@ -187,9 +165,7 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
               AND sb.isRemoved = false
               AND loc.isRemoved = false
               AND sz.zoneType <> 'RETURN_HOLD'
-            ORDER BY CASE WHEN sb.receivedDate IS NULL THEN 1 ELSE 0 END ASC,
-                     sb.receivedDate ASC,
-                     sb.id ASC
+            ORDER BY sb.expiryDate ASC, sb.receivedDate ASC, sb.id ASC
             """)
     List<BatchLocation> findAvailableByProductIdAndLocationId(
             @Param("productId") Integer productId,

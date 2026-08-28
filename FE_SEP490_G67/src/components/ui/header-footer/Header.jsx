@@ -1,13 +1,15 @@
 import { useEffect, useState, useRef } from 'react';
-import { Bell, User, Store, Settings, CircleHelp } from 'lucide-react';
+import { Bell, User, Store, CircleHelp, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getProfile } from '../../../features/profile/api';
 import { PROFILE_ROUTES } from '../../../features/profile/constants';
 import { getRoleLabel } from '../../../features/profile/utils/profileUtils';
+import { useSidebarCollapse } from '../../../app/providers/SidebarCollapseProvider';
 import '../../../css/AdminHeader.css';
 
 export default function AdminHeader({ user, activePage }) {
     const navigate = useNavigate();
+    const { collapsed, toggle } = useSidebarCollapse();
     const [headerUser, setHeaderUser] = useState(user ?? null);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -56,6 +58,18 @@ export default function AdminHeader({ user, activePage }) {
 
     return (
         <header className="admin-header">
+            <div className="header-left">
+                <button
+                    type="button"
+                    className="header-btn header-btn--sidebar"
+                    onClick={toggle}
+                    aria-label={collapsed ? 'Mở menu' : 'Thu gọn menu'}
+                    title={collapsed ? 'Mở menu' : 'Thu gọn menu'}
+                >
+                    {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
+                </button>
+            </div>
+
             {/* Right: Actions */}
             <div className="header-actions">
                 {/* Bell – Thông báo */}

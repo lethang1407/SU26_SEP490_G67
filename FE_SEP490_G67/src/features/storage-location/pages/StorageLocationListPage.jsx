@@ -228,10 +228,6 @@ export default function StorageLocationListPage() {
         setSelectedLocation(location);
     };
 
-    const handleZoneUpdated = () => {
-        setReloadKey((prev) => prev + 1);
-    };
-
     const handleSelectSuggestion = (item) => {
         setSelectedLocation(item.location);
         setKeyword(item.productName || item.batchCode || '');
@@ -340,23 +336,23 @@ export default function StorageLocationListPage() {
                         </div>
                     ) : (
                         <>
-                            <UnplacedBatchesPanel
-                                batches={unplacedBatches}
-                                loading={unplacedLoading}
-                                onPlaceBatch={(batch) => openAdjustModal(batch)}
-                            />
+                            <div className="storage-location-page__sections">
+                                <UnplacedBatchesPanel
+                                    batches={unplacedBatches}
+                                    loading={unplacedLoading}
+                                    onPlaceBatch={(batch) => openAdjustModal(batch)}
+                                />
 
-                            <StorageLocationGrid
-                                groups={zoneGroups}
-                                selectedLocationId={selectedLocation?.id ?? null}
-                                onOpenZone={handleOpenZone}
-                                onSelectLocation={setSelectedLocation}
-                            />
+                                <StorageLocationGrid
+                                    groups={zoneGroups}
+                                    onOpenZone={handleOpenZone}
+                                />
 
-                            <ReturnHoldPanel
-                                location={returnHoldLocation}
-                                loading={isLoading}
-                            />
+                                <ReturnHoldPanel
+                                    location={returnHoldLocation}
+                                    loading={isLoading}
+                                />
+                            </div>
                         </>
                     )}
                 </div>
@@ -388,7 +384,6 @@ export default function StorageLocationListPage() {
                 onHide={() => setSelectedZoneGroup(null)}
                 selectedLocationId={selectedLocation?.id ?? null}
                 onSelectLocation={handleSelectLocationFromZone}
-                onZoneUpdated={handleZoneUpdated}
             />
 
             <StorageLocationDetailModal

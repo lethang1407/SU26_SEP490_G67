@@ -7,16 +7,30 @@
     align-items: center;
     justify-content: center;
     z-index: 1100;
-    animation: sod-fade-in 0.15s ease;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    animation: sod-overlay-in 0.28s ease-out;
 }
 
-@keyframes sod-fade-in {
+@keyframes sod-overlay-in {
     from {
         opacity: 0;
     }
 
     to {
         opacity: 1;
+    }
+}
+
+@keyframes sod-panel-in {
+    from {
+        opacity: 0;
+        transform: translateY(14px) scale(0.97);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
     }
 }
 
@@ -30,6 +44,8 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    animation: sod-panel-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform, opacity;
 }
 
 /* ── Header ── */
