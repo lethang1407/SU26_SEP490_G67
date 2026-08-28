@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Bell, User, Store, Settings, CircleHelp } from 'lucide-react';
+import { Bell, User, Store } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getProfile } from '../../../features/profile/api';
 import { PROFILE_ROUTES } from '../../../features/profile/constants';
@@ -62,11 +62,6 @@ export default function AdminHeader({ user, activePage }) {
                 <button className="header-btn" aria-label="Thông báo" type="button">
                     <Bell size={18} />
                     <span className="notification-badge">3</span>
-                </button>
-
-                {/* Help */}
-                <button className="header-btn" aria-label="Trợ giúp" type="button">
-                    <CircleHelp size={18} />
                 </button>
 
                 <div className="header-divider" />
