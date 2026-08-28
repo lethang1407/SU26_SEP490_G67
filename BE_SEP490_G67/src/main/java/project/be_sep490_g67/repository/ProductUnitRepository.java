@@ -16,4 +16,7 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Intege
     List<ProductUnit> findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(Integer productId);
 
     Optional<ProductUnit> findByIdAndProduct_IdAndIsRemovedFalse(Integer id, Integer productId);
+
+    /** Đơn vị của nhiều SP cùng lúc — tránh N+1 khi dựng danh sách widget. */
+    List<ProductUnit> findByProduct_IdInAndIsRemovedFalse(List<Integer> productIds);
 }

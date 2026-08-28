@@ -13,7 +13,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ReconciliationSummaryDTO {
+public class ReconciliationSummaryResponse {
     private LocalDate date;
     private BigDecimal openingCash;
 
@@ -29,6 +29,12 @@ public class ReconciliationSummaryDTO {
 
     // Cash theory
     private BigDecimal cashRefunded;
+
+    /**
+     * Giá trị hàng trả được cấn sang đơn đổi. Đơn đổi ghi số này vào paidAmount nên nó
+     * nằm trong cashSales/bankSales, dù không phải tiền vào. Trừ ra khi tính tiền thực thu.
+     */
+    private BigDecimal exchangeCreditApplied;
     private BigDecimal theoreticalCash; // openingCash + cashSales + cashDebtCollected - cashRefunded
 
     // Bank theory

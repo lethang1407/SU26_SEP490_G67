@@ -299,5 +299,27 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
             ORDER BY so.createdAt DESC
             """)
     List<SalesOrder> findOrdersBetween(@Param("start") Instant start, @Param("end") Instant end);
+
+    /**
+     * Hình thức thanh toán của các đơn đổi sinh ra trong kỳ, tra theo đơn gốc.
+     *
+     * <p>Đơn đổi ghi phần hàng trả cấn sang vào {@code paidAmount}, nên khoản đó rơi vào
+     * quỹ tiền mặt hay quỹ ngân hàng là do hình thức thanh toán của chính đơn đổi quyết
+     * định — cùng tiêu chí mà {@code sumCashSalesBetween}/{@code sumBankSalesBetween} dùng.
+     *
+     * <p>Mỗi phần tử: {@code [idĐơnGốc, hìnhThứcThanhToán]}.
+     */
+    @Query("""
+            SELECT so.originalSalesOrderId, so.paymentMethod
+            FROM SalesOrder so
+            WHERE so.originalSalesOrderId IN :originalOrderIds
+              AND so.isRemoved = false
+              AND so.orderStatus <> 'CANCELLED'
+              AND so.createdAt >= :start AND so.createdAt < :end
+            """)
+    List<Object[]> findExchangeOrderPaymentMethods(
+            @Param("originalOrderIds") List<Integer> originalOrderIds,
+            @Param("start") Instant start,
+            @Param("end") Instant end);
 }
 

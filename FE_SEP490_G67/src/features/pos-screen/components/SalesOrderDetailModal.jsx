@@ -33,11 +33,11 @@ const ItemTable = ({ items = [] }) => (
                 <tr key={`${item.productName}-${idx}`}>
                     <td className="sod-col-idx">{idx + 1}</td>
                     <td>{item.productName ?? ''}</td>
-                    <td>{item.unitName ?? '—'}</td>
+                    <td>{item.unitName ?? 'N/A'}</td>
                     <td className="sod-num">{item.quantity ?? 0}</td>
                     <td className="sod-num">{formatVnd(item.unitPrice)}</td>
                     <td className="sod-num">
-                        {item.discountAmount > 0 ? formatVnd(item.discountAmount) : '—'}
+                        {item.discountAmount > 0 ? formatVnd(item.discountAmount) : 'N/A'}
                     </td>
                     <td className="sod-num sod-strong">{formatVnd(item.lineTotal)}</td>
                 </tr>
@@ -116,20 +116,20 @@ export default function SalesOrderDetailModal({ orderId, onClose }) {
                                 </div>
                                 <div>
                                     <dt>Số điện thoại</dt>
-                                    <dd>{data.customer?.phoneNumber ?? '—'}</dd>
+                                    <dd>{data.customer?.phoneNumber ?? 'N/A'}</dd>
                                 </div>
                                 <div>
                                     <dt>Thu ngân</dt>
-                                    <dd>{data.cashierName ?? '—'}</dd>
+                                    <dd>{data.cashierName ?? 'N/A'}</dd>
                                 </div>
                                 <div>
                                     <dt>{isExchange ? 'Hình thức hoàn tiền' : 'Thanh toán'}</dt>
-                                    <dd>{methodLabel ?? '—'}</dd>
+                                    <dd>{methodLabel ?? 'N/A'}</dd>
                                 </div>
                                 {(isExchange || data.originalOrderCode) && (
                                     <div>
                                         <dt>Hóa đơn gốc</dt>
-                                        <dd>{data.originalOrderCode ?? '—'}</dd>
+                                        <dd>{data.originalOrderCode ?? 'N/A'}</dd>
                                     </div>
                                 )}
                             </dl>

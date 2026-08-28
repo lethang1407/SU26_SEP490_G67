@@ -6,7 +6,7 @@ import { formatVnd } from '../utils/money';
 
 /** Ngày dạng ISO (yyyy-MM-dd) từ BE -> dd/MM/yyyy, rỗng thì gạch ngang. */
 const formatVnDate = (isoDate) =>
-    isoDate ? new Date(isoDate).toLocaleDateString('vi-VN') : '—';
+    isoDate ? new Date(isoDate).toLocaleDateString('vi-VN') : 'N/A';
 
 export default function ProductInfoModal({ productId, onClose }) {
     const [info, setInfo] = useState(null);
@@ -65,10 +65,10 @@ export default function ProductInfoModal({ productId, onClose }) {
                     <div className="product-info-body">
                         <dl className="product-info-grid">
                             <dt>Mã vạch</dt>
-                            <dd>{info.barcode || '—'}</dd>
+                            <dd>{info.barcode || 'N/A'}</dd>
 
                             <dt>Nhóm hàng</dt>
-                            <dd>{info.categoryName || '—'}</dd>
+                            <dd>{info.categoryName || 'N/A'}</dd>
 
                             <dt>Giá bán</dt>
                             <dd className="product-info-price">
@@ -127,13 +127,13 @@ export default function ProductInfoModal({ productId, onClose }) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {/* Mỗi dòng là một lô tại một ô — một ô kho có thể chứa
+                                    {/* Mỗi dòng là một lô tại một ô - một ô kho có thể chứa
                                         nhiều lô của cùng SP nên key phải gồm cả batchId. */}
                                     {info.locations.map((loc) => (
                                         <tr key={`${loc.locationId}-${loc.batchId}`}>
                                             <td>{loc.label}</td>
                                             <td>{loc.zoneType === 'SALES' ? 'Quầy' : 'Kho'}</td>
-                                            <td>{loc.batchCode ?? '—'}</td>
+                                            <td>{loc.batchCode ?? 'N/A'}</td>
                                             <td className="text-right">
                                                 {Number(loc.quantity ?? 0).toLocaleString('vi-VN')}
                                             </td>

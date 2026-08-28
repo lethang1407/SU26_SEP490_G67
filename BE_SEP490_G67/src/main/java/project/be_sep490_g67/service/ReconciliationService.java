@@ -4,11 +4,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.be_sep490_g67.dto.ReconciliationSubmitDTO;
-import project.be_sep490_g67.dto.ReconciliationSummaryDTO;
+import project.be_sep490_g67.dto.ReconciliationSummaryResponse;
 import project.be_sep490_g67.dto.ReconciliationTransactionDTO;
 import project.be_sep490_g67.entity.DebtPayment;
 import project.be_sep490_g67.entity.SalesOrder;
 import project.be_sep490_g67.repository.DebtPaymentRepository;
+import project.be_sep490_g67.repository.ReturnOrderRepository;
 import project.be_sep490_g67.repository.SalesOrderRepository;
 
 import java.math.BigDecimal;
@@ -18,7 +19,10 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -26,12 +30,13 @@ public class ReconciliationService {
 
     private final SalesOrderRepository salesOrderRepository;
     private final DebtPaymentRepository debtPaymentRepository;
+    private final ReturnOrderRepository returnOrderRepository;
 
     private static final ZoneId VN_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm dd/MM").withZone(VN_ZONE);
 
     @Transactional(readOnly = true)
-    public ReconciliationSummaryDTO getSummary(LocalDate date, BigDecimal openingCashInput) {
+    public ReconciliationSummaryResponse getSummary(LocalDate date, BigDecimal openingCashInput) {
         LocalDate targetDate = date != null ? date : LocalDate.now(VN_ZONE);
         Instant startOfDay = targetDate.atStartOfDay(VN_ZONE).toInstant();
         Instant endOfDay = targetDate.plusDays(1).atStartOfDay(VN_ZONE).toInstant();
@@ -61,16 +66,31 @@ public class ReconciliationService {
         if (cashDebtCollected == null) cashDebtCollected = BigDecimal.ZERO;
         if (bankDebtCollected == null) bankDebtCollected = BigDecimal.ZERO;
 
-        BigDecimal cashRefunded = BigDecimal.ZERO;
+        // Tiền mặt hoàn cho khách khi đổi/trả. Phần cấn trừ vào công nợ không đụng tới
+        // két nên không tính ở đây.
+        BigDecimal cashRefunded = returnOrderRepository.sumCashRefundBetween(startOfDay, endOfDay);
+        if (cashRefunded == null) cashRefunded = BigDecimal.ZERO;
+
+        // Hàng trả cấn sang đơn đổi bị đơn đổi ghi vào paidAmount, nên đang nằm trong
+        // cashSales/bankSales ở trên dù chưa bao giờ là tiền vào.
+        BigDecimal exchangeCreditApplied = returnOrderRepository.sumExchangeCreditBetween(startOfDay, endOfDay);
+        if (exchangeCreditApplied == null) exchangeCreditApplied = BigDecimal.ZERO;
+
+        // Khoản trên nằm trong cashSales hay bankSales là tùy hình thức thanh toán của
+        // đơn đổi, nên phải tách ra rồi mới trừ đúng quỹ.
+        ExchangeCreditSplit exchangeCredit = splitExchangeCredit(startOfDay, endOfDay);
 
         // 3. Calculate Theoretical balances
-        BigDecimal theoreticalCash = openingCash.add(cashSales).add(cashDebtCollected).subtract(cashRefunded);
-        BigDecimal theoreticalBank = bankSales.add(bankDebtCollected);
+        BigDecimal theoreticalCash = openingCash.add(cashSales).add(cashDebtCollected)
+                .subtract(cashRefunded)
+                .subtract(exchangeCredit.cash());
+        BigDecimal theoreticalBank = bankSales.add(bankDebtCollected)
+                .subtract(exchangeCredit.bank());
 
         // 4. Build combined transaction timeline from SalesOrder and DebtPayment
         List<ReconciliationTransactionDTO> transactions = buildTransactionTimeline(startOfDay, endOfDay);
 
-        return ReconciliationSummaryDTO.builder()
+        return ReconciliationSummaryResponse.builder()
                 .date(targetDate)
                 .openingCash(openingCash)
                 .cashSales(cashSales)
@@ -80,6 +100,7 @@ public class ReconciliationService {
                 .cashDebtCollected(cashDebtCollected)
                 .bankDebtCollected(bankDebtCollected)
                 .cashRefunded(cashRefunded)
+                .exchangeCreditApplied(exchangeCreditApplied)
                 .theoreticalCash(theoreticalCash)
                 .theoreticalBank(theoreticalBank)
                 .totalOrdersCount(totalOrdersCount)
@@ -91,8 +112,79 @@ public class ReconciliationService {
     }
 
     @Transactional(readOnly = true)
-    public ReconciliationSummaryDTO submitReconciliation(ReconciliationSubmitDTO dto) {
+    public ReconciliationSummaryResponse submitReconciliation(ReconciliationSubmitDTO dto) {
         return getSummary(dto.getDate(), null);
+    }
+
+    /** Hàng trả cấn sang đơn đổi, tách theo quỹ mà nó đang bị cộng nhầm vào. */
+    private record ExchangeCreditSplit(BigDecimal cash, BigDecimal bank) {
+    }
+
+    /** Phép trừ trong JPQL có thể trả về kiểu số khác BigDecimal tùy dialect. */
+    private static BigDecimal toBigDecimal(Object value) {
+        if (value == null) return BigDecimal.ZERO;
+        if (value instanceof BigDecimal decimal) return decimal;
+        return BigDecimal.valueOf(((Number) value).doubleValue());
+    }
+
+    private static boolean isBankMethod(String paymentMethod) {
+        return "BANK".equalsIgnoreCase(paymentMethod)
+                || "BANK_TRANSFER".equalsIgnoreCase(paymentMethod)
+                || "TRANSFER".equalsIgnoreCase(paymentMethod);
+    }
+
+    /**
+     * Chia giá trị hàng trả cấn sang đơn đổi thành phần nằm trong quỹ tiền mặt và phần
+     * nằm trong quỹ ngân hàng.
+     *
+     * <p>Đơn đổi mặc định thừa hưởng hình thức thanh toán của đơn gốc, trừ khi khách bù
+     * thêm bằng chuyển khoản thì đơn đổi được đánh dấu TRANSFER — nên tra hình thức của
+     * chính đơn đổi mới đúng.
+     *
+     * <p>Một đơn gốc bị đổi nhiều lần trong cùng ngày và các lần đó khác hình thức thanh
+     * toán là trường hợp hiếm mà dữ liệu không phân biệt được; khi đó lấy đơn đổi đầu
+     * tiên. Tổng vẫn đúng, chỉ có thể lệch giữa hai quỹ.
+     */
+    private ExchangeCreditSplit splitExchangeCredit(Instant startOfDay, Instant endOfDay) {
+        List<Object[]> credits =
+                returnOrderRepository.findExchangeCreditByOriginalOrderBetween(startOfDay, endOfDay);
+        if (credits.isEmpty()) {
+            return new ExchangeCreditSplit(BigDecimal.ZERO, BigDecimal.ZERO);
+        }
+
+        List<Integer> originalOrderIds = credits.stream()
+                .map(row -> (Integer) row[0])
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (originalOrderIds.isEmpty()) {
+            return new ExchangeCreditSplit(BigDecimal.ZERO, BigDecimal.ZERO);
+        }
+
+        Map<Integer, String> methodByOriginalOrder = new HashMap<>();
+        for (Object[] row : salesOrderRepository.findExchangeOrderPaymentMethods(
+                originalOrderIds, startOfDay, endOfDay)) {
+            methodByOriginalOrder.putIfAbsent((Integer) row[0], (String) row[1]);
+        }
+
+        BigDecimal cash = BigDecimal.ZERO;
+        BigDecimal bank = BigDecimal.ZERO;
+        for (Object[] row : credits) {
+            BigDecimal amount = toBigDecimal(row[1]);
+            if (amount.signum() <= 0) continue;
+
+            // Không tìm được đơn đổi thì khoản này chưa từng vào quỹ nào — bỏ qua còn hơn
+            // trừ nhầm vào két và tạo ra chênh lệch ảo cho thu ngân.
+            String method = methodByOriginalOrder.get((Integer) row[0]);
+            if (method == null) continue;
+
+            if (isBankMethod(method)) {
+                bank = bank.add(amount);
+            } else {
+                cash = cash.add(amount);
+            }
+        }
+        return new ExchangeCreditSplit(cash, bank);
     }
 
     private List<ReconciliationTransactionDTO> buildTransactionTimeline(Instant start, Instant end) {

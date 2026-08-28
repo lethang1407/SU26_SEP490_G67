@@ -1,7 +1,7 @@
 export default function SalesOrderStatusBadge({ status, isDebt }) {
     const key = String(status || '');
     let cls = 'sales-order-status--default';
-    let label = key || '—';
+    let label = key || 'N/A';
 
     const upper = key.toUpperCase();
     if (upper === 'COMPLETED') {
