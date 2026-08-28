@@ -22,5 +22,5 @@ export const IMPORT_HISTORY_FILTER_LABEL = {
 
 export const PAYMENT_METHOD_LABEL = {
     CASH: 'Tiền mặt',
-    QR: 'Chuyển khoản / QR',
+    QR: 'Chuyển khoản',
 };

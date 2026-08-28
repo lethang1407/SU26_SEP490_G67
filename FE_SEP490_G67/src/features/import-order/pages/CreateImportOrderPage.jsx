@@ -240,6 +240,10 @@ export default function CreateImportOrderPage() {
         });
     };
 
+    const importItemCount = useMemo(
+        () => lines.filter((line) => !line.isPromotion).length,
+        [lines],
+    );
     const totalAmount = useMemo(
         () =>
             lines.reduce((sum, line) => {
@@ -690,11 +694,25 @@ export default function CreateImportOrderPage() {
             .finally(() => setAddingSupplier(false));
     };
 
-    const validate = ({ useModal = false, requireSupplier = true } = {}) => {
+    const validate = ({ useModal = false, requireSupplier = true, requireInvoiceImage = false } = {}) => {
         if (requireSupplier && !hasValidSupplier(supplier)) {
             showAlertModal(
                 'Hoàn thành phiếu nhập',
                 'Bạn chưa chọn nhà cung cấp. Vui lòng chọn nhà cung cấp trước khi hoàn thành phiếu nhập hàng.',
+            );
+            return false;
+        }
+        if (requireInvoiceImage && uploadingInvoiceImage) {
+            showAlertModal(
+                'Hoàn thành phiếu nhập',
+                'Đang upload ảnh hóa đơn. Vui lòng đợi xong rồi hoàn thành phiếu.',
+            );
+            return false;
+        }
+        if (requireInvoiceImage && !String(invoiceImageUrl || '').trim()) {
+            showAlertModal(
+                'Hoàn thành phiếu nhập',
+                'Bạn chưa thêm ảnh hóa đơn. Vui lòng tải ảnh hóa đơn trước khi hoàn thành phiếu nhập hàng.',
             );
             return false;
         }
@@ -858,7 +876,13 @@ export default function CreateImportOrderPage() {
     };
 
     const handleComplete = () => {
-        if (!validate({ useModal: true, requireSupplier: true }) || submitting || loadingDetail) return;
+        if (
+            !validate({ useModal: true, requireSupplier: true, requireInvoiceImage: true }) ||
+            submitting ||
+            loadingDetail
+        ) {
+            return;
+        }
 
         const missingCount = countMissingExpiry();
         if (missingCount > 0) {
@@ -966,6 +990,7 @@ export default function CreateImportOrderPage() {
                                     invoiceImageName={invoiceImageName}
                                     uploadingInvoiceImage={uploadingInvoiceImage}
                                     totalAmount={totalAmount}
+                                    importItemCount={importItemCount}
                                     discountAmount={safeDiscount}
                                     returnDeductionAmount={returnDeductionAmount}
                                     amountDue={amountDue}

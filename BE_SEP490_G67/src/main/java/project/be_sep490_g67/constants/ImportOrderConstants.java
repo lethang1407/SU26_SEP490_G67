@@ -13,62 +13,59 @@ public final class ImportOrderConstants {
     public static final String PAYMENT_STATUS_DEBT = "DEBT";
     public static final String PAYMENT_STATUS_DONE = "DONE";
 
-    /** Prefix mã phiếu nhập: NH000000, NH000001, ... */
+    /**
+     * Mã phiếu nhập: NH + ddMMyy + "-" + STT trong ngày (2 chữ số).
+     * Ví dụ: NH210826-01, NH210826-02
+     */
     public static final String ORDER_CODE_PREFIX = "NH";
-    public static final int ORDER_CODE_SEQ_LENGTH = 6;
+    public static final int ORDER_CODE_SEQ_LENGTH = 2;
 
     /** Prefix mã thanh toán nợ NCC: TTN000000, TTN000001, ... */
     public static final String PAYMENT_CODE_PREFIX = "TTN";
     public static final int PAYMENT_CODE_SEQ_LENGTH = 6;
 
     /**
-     * Mã lô: L + ddMMyy + "-" + 4 số cuối mã NCC + "-" + 4 số cuối mã SP.
-     * Ví dụ: L050826-0001-1244
+     * Mã lô: L + ddMMyy + "-" + STT trong ngày (2 chữ số).
+     * Ví dụ: L210826-01, L210826-02
      */
     public static final String BATCH_CODE_LETTER = "L";
+    public static final int BATCH_CODE_SEQ_LENGTH = 2;
     public static final DateTimeFormatter BATCH_CODE_DATE =
             DateTimeFormatter.ofPattern("ddMMyy");
 
-    /** Phần ngày của mã lô, vd L050826 */
+    /** Phần ngày của mã lô, vd L210826 */
     public static String batchDayPrefix(LocalDate date) {
         LocalDate d = date != null ? date : LocalDate.now();
         return BATCH_CODE_LETTER + d.format(BATCH_CODE_DATE);
     }
 
     /**
-     * Ghép mã lô đầy đủ: L050826-0001-1244
+     * Ghép mã lô đầy đủ: L210826-01
      *
-     * @param date         ngày nhập
-     * @param supplierCode mã NCC (vd NCC0001)
-     * @param productCode  mã SP (vd SP1244 / SP000001)
+     * @param date     ngày nhập
+     * @param sequence số thứ tự trong ngày (bắt đầu từ 1)
      */
-    public static String formatBatchCode(LocalDate date, String supplierCode, String productCode) {
+    public static String formatBatchCode(LocalDate date, int sequence) {
         return batchDayPrefix(date)
                 + "-"
-                + lastFourDigits(supplierCode)
-                + "-"
-                + lastFourDigits(productCode);
+                + String.format("%0" + BATCH_CODE_SEQ_LENGTH + "d", sequence);
     }
 
-    /** Lấy 4 chữ số cuối; thiếu thì pad 0 bên trái. Không có số → 0000. */
-    public static String lastFourDigits(String code) {
-        if (code == null || code.isBlank()) {
-            return "0000";
-        }
-        StringBuilder digits = new StringBuilder();
-        for (int i = 0; i < code.length(); i++) {
-            char c = code.charAt(i);
-            if (c >= '0' && c <= '9') {
-                digits.append(c);
-            }
-        }
-        if (digits.isEmpty()) {
-            return "0000";
-        }
-        String value = digits.toString();
-        if (value.length() >= 4) {
-            return value.substring(value.length() - 4);
-        }
-        return String.format("%4s", value).replace(' ', '0');
+    /** Phần ngày của mã phiếu nhập, vd NH210826 */
+    public static String orderDayPrefix(LocalDate date) {
+        LocalDate d = date != null ? date : LocalDate.now();
+        return ORDER_CODE_PREFIX + d.format(BATCH_CODE_DATE);
+    }
+
+    /**
+     * Ghép mã phiếu nhập đầy đủ: NH210826-01
+     *
+     * @param date     ngày tạo phiếu
+     * @param sequence số thứ tự trong ngày (bắt đầu từ 1)
+     */
+    public static String formatOrderCode(LocalDate date, int sequence) {
+        return orderDayPrefix(date)
+                + "-"
+                + String.format("%0" + ORDER_CODE_SEQ_LENGTH + "d", sequence);
     }
 }

@@ -9,9 +9,11 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.request.AddNewSupplierRequest;
+import project.be_sep490_g67.dto.request.BatchCreateSupplierPaymentRequest;
 import project.be_sep490_g67.dto.request.CreateSupplierPaymentRequest;
 import project.be_sep490_g67.dto.response.AddNewSupplierResponse;
 import project.be_sep490_g67.dto.response.ApiResponse;
+import project.be_sep490_g67.dto.response.BatchSupplierPaymentResponse;
 import project.be_sep490_g67.dto.response.ImportOrderListItemResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.dto.response.SupplierDetailResponse;
@@ -100,6 +102,17 @@ public class SupplierController {
     ) {
         return ApiResponse.<SupplierPaymentResponse>builder()
                 .result(supplierPaymentService.createPayment(id, request))
+                .message("Ghi nhận thanh toán nợ thành công")
+                .build();
+    }
+
+    @PostMapping("/{id}/payments/batch")
+    public ApiResponse<BatchSupplierPaymentResponse> createBatchPayment(
+            @PathVariable Integer id,
+            @Valid @RequestBody BatchCreateSupplierPaymentRequest request
+    ) {
+        return ApiResponse.<BatchSupplierPaymentResponse>builder()
+                .result(supplierPaymentService.createBatchPayment(id, request))
                 .message("Ghi nhận thanh toán nợ thành công")
                 .build();
     }
