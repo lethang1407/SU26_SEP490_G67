@@ -12,7 +12,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class ImportSuggestionDTO {
+public class ImportSuggestionResponse {
     Integer productId;
     String productName;
     Integer parentId;
@@ -36,6 +36,9 @@ public class ImportSuggestionDTO {
     BigDecimal costPerUnit;
     Integer onHand;
     BigDecimal avgDailyRate;
+    Integer minStock;
+    Integer sold14Days;
+    String unitName;
     List<SupplierOption> supplierOptions;
     List<UnitOption> units;
 

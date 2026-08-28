@@ -5,8 +5,8 @@ import lombok.experimental.FieldDefaults;
 import lombok.AccessLevel;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import project.be_sep490_g67.dto.response.ImportHistoryRowDTO;
-import project.be_sep490_g67.dto.response.ImportHistorySummaryDTO;
+import project.be_sep490_g67.dto.response.ImportHistoryRowResponse;
+import project.be_sep490_g67.dto.response.ImportHistorySummaryResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.entity.ImportOrderDetail;
 import project.be_sep490_g67.entity.ProductUnit;
@@ -38,7 +38,7 @@ public class ImportHistoryService {
     private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     @Transactional(readOnly = true)
-    public PageResponse<ImportHistoryRowDTO> list(
+    public PageResponse<ImportHistoryRowResponse> list(
             LocalDate from,
             LocalDate to,
             String supplierKeyword,
@@ -56,7 +56,7 @@ public class ImportHistoryService {
         Map<Integer, String> staffNames = loadStaffNames(rows);
         Map<Integer, String> unitNames = loadUnitNames(rows);
 
-        List<ImportHistoryRowDTO> mapped = rows.stream()
+        List<ImportHistoryRowResponse> mapped = rows.stream()
                 .map(d -> toRow(d, staffNames, unitNames))
                 .toList();
 
@@ -64,7 +64,7 @@ public class ImportHistoryService {
     }
 
     @Transactional(readOnly = true)
-    public ImportHistorySummaryDTO summary(LocalDate from, LocalDate to, Integer productId) {
+    public ImportHistorySummaryResponse summary(LocalDate from, LocalDate to, Integer productId) {
         InstantRange range = resolveRange(from, to);
         List<ImportOrderDetail> rows = importOrderDetailRepository.findHistoryRows(
                 range.from(), range.to(), productId, null, null);
@@ -80,9 +80,9 @@ public class ImportHistoryService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         YearMonth ym = YearMonth.from(LocalDate.now(ZONE));
-        List<ImportHistorySummaryDTO.WeekDTO> weeks = buildWeeks(rows, ym);
+        List<ImportHistorySummaryResponse.WeekResponse> weeks = buildWeeks(rows, ym);
 
-        ImportHistorySummaryDTO.ImportHistorySummaryDTOBuilder builder = ImportHistorySummaryDTO.builder()
+        ImportHistorySummaryResponse.ImportHistorySummaryResponseBuilder builder = ImportHistorySummaryResponse.builder()
                 .monthLabel("tháng " + ym.getMonthValue())
                 .todayLabel("Hôm nay: " + LocalDate.now(ZONE).format(DateTimeFormatter.ofPattern("dd/MM/yyyy")))
                 .totalQty(totalQty)
@@ -119,7 +119,7 @@ public class ImportHistoryService {
         return builder.build();
     }
 
-    private ImportHistoryRowDTO toRow(
+    private ImportHistoryRowResponse toRow(
             ImportOrderDetail d,
             Map<Integer, String> staffNames,
             Map<Integer, String> unitNames
@@ -127,7 +127,7 @@ public class ImportHistoryService {
         var order = d.getImportOrder();
         var product = d.getProduct();
         Integer createdBy = order.getCreatedBy();
-        return ImportHistoryRowDTO.builder()
+        return ImportHistoryRowResponse.builder()
                 .id(d.getId())
                 .orderCode(order.getOrderCode())
                 .importedAt(importedAt(d))
@@ -183,10 +183,10 @@ public class ImportHistoryService {
         return map;
     }
 
-    private List<ImportHistorySummaryDTO.WeekDTO> buildWeeks(List<ImportOrderDetail> rows, YearMonth ym) {
+    private List<ImportHistorySummaryResponse.WeekResponse> buildWeeks(List<ImportOrderDetail> rows, YearMonth ym) {
         LocalDate monthStart = ym.atDay(1);
         LocalDate monthEnd = ym.atEndOfMonth();
-        List<ImportHistorySummaryDTO.WeekDTO> weeks = new ArrayList<>();
+        List<ImportHistorySummaryResponse.WeekResponse> weeks = new ArrayList<>();
         LocalDate cursor = monthStart;
         int weekIdx = 1;
         LocalDate today = LocalDate.now(ZONE);
@@ -219,7 +219,7 @@ public class ImportHistoryService {
 
             boolean isCurrent = !today.isBefore(wStart) && !today.isAfter(wEnd);
 
-            weeks.add(ImportHistorySummaryDTO.WeekDTO.builder()
+            weeks.add(ImportHistorySummaryResponse.WeekResponse.builder()
                     .id("w" + weekIdx)
                     .weekLabel("Tuần " + weekIdx)
                     .dateRange(wStart.format(DateTimeFormatter.ofPattern("dd/MM"))

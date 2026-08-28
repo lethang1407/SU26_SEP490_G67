@@ -40,6 +40,8 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
 
     boolean existsByParent_IdAndIsRemovedFalse(Integer parentId);
 
+    List<Product> findByParent_IdAndIsRemovedFalse(Integer parentId);
+
     /**
      * Hàng bán được / nhập được: SP thường hoặc SP con.
      * Loại nhóm hàng (có ít nhất một con active).

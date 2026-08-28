@@ -17,8 +17,8 @@ import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.ImportOrderDetailResponse;
 import project.be_sep490_g67.dto.response.ImportOrderListItemResponse;
 import project.be_sep490_g67.dto.response.ImportOrderReturnLineResponse;
-import project.be_sep490_g67.dto.response.ImportOrderResponseDTO;
-import project.be_sep490_g67.dto.response.ImportSuggestionDTO;
+import project.be_sep490_g67.dto.response.ImportOrderResponse;
+import project.be_sep490_g67.dto.response.ImportSuggestionResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.dto.response.SupplierPaymentResponse;
 import project.be_sep490_g67.service.ImportOrderService;
@@ -58,12 +58,12 @@ public class ImportOrderController {
      * Tạo nhiều phiếu DRAFT từ màn Gợi ý nhập hàng (gom theo NCC). Không tăng tồn.
      */
     @PostMapping("/from-suggest")
-    public ResponseEntity<ApiResponse<List<ImportOrderResponseDTO>>> createDraftsFromSuggest(
+    public ResponseEntity<ApiResponse<List<ImportOrderResponse>>> createDraftsFromSuggest(
             @Valid @RequestBody CreateDraftFromSuggestRequest request
     ) {
-        List<ImportOrderResponseDTO> result = importOrderService.createOrdersFromSuggest(request);
+        List<ImportOrderResponse> result = importOrderService.createOrdersFromSuggest(request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.<List<ImportOrderResponseDTO>>builder()
+                .body(ApiResponse.<List<ImportOrderResponse>>builder()
                         .result(result)
                         .message("Tạo đơn nhập hàng thành công")
                         .build());
@@ -96,9 +96,9 @@ public class ImportOrderController {
     }
 
     @PostMapping("/suggest")
-    public ApiResponse<List<ImportSuggestionDTO>> suggest(@RequestBody ImportSuggestRequest request) {
-        List<ImportSuggestionDTO> result = importSuggestionService.getSuggestions(request);
-        return ApiResponse.<List<ImportSuggestionDTO>>builder()
+    public ApiResponse<List<ImportSuggestionResponse>> suggest(@RequestBody ImportSuggestRequest request) {
+        List<ImportSuggestionResponse> result = importSuggestionService.getSuggestions(request);
+        return ApiResponse.<List<ImportSuggestionResponse>>builder()
                 .result(result)
                 .message("Gửi gợi ý thành công")
                 .build();

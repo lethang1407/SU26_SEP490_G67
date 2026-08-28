@@ -10,7 +10,7 @@ import java.util.List;
 
 @Data
 @Builder
-public class ImportHistorySummaryDTO {
+public class ImportHistorySummaryResponse {
     private String monthLabel;
     private String todayLabel;
     private long totalQty;
@@ -18,7 +18,7 @@ public class ImportHistorySummaryDTO {
     private BigDecimal totalCost;
 
     @Builder.Default
-    private List<WeekDTO> weeks = new ArrayList<>();
+    private List<WeekResponse> weeks = new ArrayList<>();
 
     /** Present when productId filter is set */
     private Integer productId;
@@ -30,7 +30,7 @@ public class ImportHistorySummaryDTO {
 
     @Data
     @Builder
-    public static class WeekDTO {
+    public static class WeekResponse {
         private String id;
         private String weekLabel;
         private String dateRange;
