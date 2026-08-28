@@ -95,7 +95,7 @@ export default function LocationPicker({ item, onToggle }) {
             )}
             {short && (
                 <div className="location-msg">
-                    Đã chọn chỉ còn {fmt(selectedQuantity(item))} — tick thêm dòng khác
+                    Đã chọn chỉ còn {fmt(selectedQuantity(item))} - tick thêm dòng khác
                 </div>
             )}
         </div>

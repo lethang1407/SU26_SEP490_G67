@@ -14,8 +14,12 @@ public class CustomerDebtOverviewResponse {
     BigDecimal totalDebt;
     Long debtCustomerCount;
     BigDecimal todayCollectedAmount;
+    long todayPayingCustomerCount;
+    long todayFullSettlementCount;
+    long todayPartialPaymentCount;
     long totalDebtSalesCount;
     long uniqueCustomersInDebtCount;
     BigDecimal totalDebtAmountIncurredToday;
     NewDebtCustomerAlertResponse newDebtCustomerAlert;
+    StaffDebtSalesAlertResponse staffDebtSalesAlert;
 }

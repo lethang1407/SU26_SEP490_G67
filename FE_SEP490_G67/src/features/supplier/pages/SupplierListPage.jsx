@@ -5,10 +5,13 @@ import AdminHeader from '../../../components/ui/header-footer/Header';
 import SupplierSummaryCards from '../components/SupplierSummaryCards';
 import SupplierToolbar from '../components/SupplierToolbar';
 import SupplierTable from '../components/SupplierTable';
+import SupplierDetailModal from '../components/SupplierDetailModal';
 import SupplierPagination from '../components/SupplierPagination';
 import SupplierAddNewModal from '../components/SupplierAddNewModal';
+import SupplierSuccessToast from '../components/SupplierSuccessToast';
 import { suppliersApi } from '../api';
 import { categoriesApi } from '../../category/api';
+import { PAYMENT_METHOD_LABEL } from '../constants';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Supplier.css';
 
@@ -42,7 +45,7 @@ export default function SupplierListPage() {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [addSubmitting, setAddSubmitting] = useState(false);
     const [addError, setAddError] = useState('');
-    const [expandedId, setExpandedId] = useState(null);
+    const [selectedSupplierId, setSelectedSupplierId] = useState(null);
     const [toast, setToast] = useState('');
 
     // Deep-link từ phiếu nhập: mở đúng NCC (search theo mã rồi expand)
@@ -59,7 +62,7 @@ export default function SupplierListPage() {
             setDeepLinkSearch(name);
             setPage(1);
         } else {
-            setExpandedId(expandId);
+            setSelectedSupplierId(expandId);
             pendingExpandIdRef.current = null;
         }
         navigate(location.pathname, { replace: true, state: {} });
@@ -70,7 +73,7 @@ export default function SupplierListPage() {
             setDebouncedKeyword(keyword);
             setPage(1);
             if (pendingExpandIdRef.current == null) {
-                setExpandedId(null);
+                setSelectedSupplierId(null);
             }
         }, 400);
         return () => clearTimeout(timer);
@@ -81,7 +84,7 @@ export default function SupplierListPage() {
         if (pendingId == null || loading) return;
         const found = (data.content || []).some((item) => item.id === pendingId);
         if (found) {
-            setExpandedId(pendingId);
+            setSelectedSupplierId(pendingId);
             pendingExpandIdRef.current = null;
         }
     }, [data, loading]);
@@ -127,37 +130,41 @@ export default function SupplierListPage() {
     const handleSelectProduct = (product) => {
         setSelectedProduct(product);
         setPage(1);
-        setExpandedId(null);
+        setSelectedSupplierId(null);
     };
 
     const handleClearProduct = () => {
         setSelectedProduct(null);
         setPage(1);
-        setExpandedId(null);
+        setSelectedSupplierId(null);
     };
 
     const handleCategoryChange = (value) => {
         setCategoryId(value);
         setPage(1);
-        setExpandedId(null);
+        setSelectedSupplierId(null);
     };
 
-    const handleToggleExpand = (supplierId) => {
-        setExpandedId((current) => (current === supplierId ? null : supplierId));
+    const handleOpenDetail = (supplierId) => {
+        setSelectedSupplierId(supplierId);
     };
 
-    const handlePaymentSuccess = ({ orderCode, amount, paymentMethod, notes }) => {
+    const handleCloseDetail = () => {
+        setSelectedSupplierId(null);
+    };
+
+    const handlePaymentSuccess = ({ orderCodes, orderCode, amount, paymentMethod, notes }) => {
         fetchSuppliers({ silent: true });
+        const orderLabel = (orderCodes && orderCodes.length ? orderCodes : [orderCode].filter(Boolean)).join(', ');
+        const methodLabel = PAYMENT_METHOD_LABEL[paymentMethod] || paymentMethod;
         setToast(
-            `Đã ghi nhận thanh toán ${new Intl.NumberFormat('vi-VN').format(amount)}đ cho đơn ${orderCode} (${paymentMethod})${notes ? `: ${notes}` : ''}.`,
+            `Đã ghi nhận thanh toán ${new Intl.NumberFormat('vi-VN').format(amount)}đ cho ${orderLabel} (${methodLabel})${notes ? `: ${notes}` : ''}.`,
         );
-        setTimeout(() => setToast(''), 4000);
     };
 
     const handleSupplierUpdated = (updated) => {
         fetchSuppliers({ silent: true });
         setToast(`Đã cập nhật nhà cung cấp ${updated?.name || ''}.`);
-        setTimeout(() => setToast(''), 3000);
     };
 
     const handleAddSupplier = (supplierData) => {
@@ -170,7 +177,6 @@ export default function SupplierListPage() {
                 setPage(1);
                 fetchSuppliers();
                 setToast('Đã thêm nhà cung cấp mới.');
-                setTimeout(() => setToast(''), 3000);
             })
             .catch((error) => {
                 console.error('Error adding supplier:', error);
@@ -194,13 +200,22 @@ export default function SupplierListPage() {
         endIndex: Math.min(page * PAGE_SIZE, data.totalElements),
     };
 
+    const selectedSupplier =
+        (data.content || []).find((item) => item.id === selectedSupplierId) || null;
+
     return (
         <div className="admin-content">
             
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container supplier-page">
-                        {toast && <p className="supplier-page__toast">{toast}</p>}
+                        {toast && (
+                            <SupplierSuccessToast
+                                key={toast}
+                                message={toast}
+                                onDismiss={() => setToast('')}
+                            />
+                        )}
 
                         <header className="supplier-page__header">
                             <div>
@@ -241,16 +256,13 @@ export default function SupplierListPage() {
                         <SupplierTable
                             items={data.content}
                             loading={loading}
-                            expandedId={expandedId}
                             startIndex={pagination.startIndex}
                             emptyMessage={
                                 selectedProduct
                                     ? 'Chưa có nhà cung cấp từng nhập sản phẩm này.'
                                     : 'Không tìm thấy nhà cung cấp phù hợp.'
                             }
-                            onToggleExpand={handleToggleExpand}
-                            onPaymentSuccess={handlePaymentSuccess}
-                            onSupplierUpdated={handleSupplierUpdated}
+                            onOpenDetail={handleOpenDetail}
                         />
 
                         <SupplierPagination
@@ -260,9 +272,19 @@ export default function SupplierListPage() {
                             endIndex={pagination.endIndex}
                             totalItems={pagination.totalItems}
                             onPageChange={(nextPage) => {
-                                setExpandedId(null);
+                                setSelectedSupplierId(null);
                                 setPage(nextPage);
                             }}
+                        />
+
+                        <SupplierDetailModal
+                            open={Boolean(selectedSupplierId)}
+                            supplierId={selectedSupplierId}
+                            supplierName={selectedSupplier?.name}
+                            listDebt={selectedSupplier?.currentDebt}
+                            onClose={handleCloseDetail}
+                            onPaymentSuccess={handlePaymentSuccess}
+                            onSupplierUpdated={handleSupplierUpdated}
                         />
 
                         <SupplierAddNewModal

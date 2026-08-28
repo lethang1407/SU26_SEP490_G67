@@ -10,6 +10,7 @@ import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.dto.response.SalesHistoryRowResponse;
 import project.be_sep490_g67.dto.response.SalesHistorySummaryResponse;
 import project.be_sep490_g67.entity.ProductUnit;
+import project.be_sep490_g67.entity.ReturnOrder;
 import project.be_sep490_g67.entity.SalesOrderDetail;
 import project.be_sep490_g67.entity.User;
 import project.be_sep490_g67.exception.AppException;
@@ -17,6 +18,8 @@ import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.BatchLocationRepository;
 import project.be_sep490_g67.repository.ProductRepository;
 import project.be_sep490_g67.repository.ProductUnitRepository;
+import project.be_sep490_g67.repository.ReturnOrderDetailRepository;
+import project.be_sep490_g67.repository.ReturnOrderRepository;
 import project.be_sep490_g67.repository.SalesOrderDetailRepository;
 import project.be_sep490_g67.repository.UserRepository;
 
@@ -37,6 +40,8 @@ public class SalesHistoryService {
     ProductUnitRepository productUnitRepository;
     BatchLocationRepository batchLocationRepository;
     UserRepository userRepository;
+    ReturnOrderRepository returnOrderRepository;
+    ReturnOrderDetailRepository returnOrderDetailRepository;
 
     private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
@@ -74,6 +79,9 @@ public class SalesHistoryService {
      *
      * <p>Tính doanh thu tại thời điểm bán — cộng {@code lineTotal} của mọi đơn chưa
      * huỷ, không phân biệt hình thức thanh toán, nên đơn nợ vào ngay lúc lập đơn.
+     *
+     * <p>Hàng khách trả được trừ vào khung giờ lập phiếu trả, không phải khung giờ bán
+     * gốc — nên một khung giờ có thể âm khi khách trả hàng đã mua từ hôm trước.
      */
     @Transactional(readOnly = true)
     public List<HourlyRevenueResponse> hourlyRevenue(LocalDate date) {
@@ -105,7 +113,9 @@ public class SalesHistoryService {
             result.add(HourlyRevenueResponse.builder()
                     .hour(hour)
                     .label(String.format("%02dh", hour))
-                    .revenue(revenueByHour.getOrDefault(hour, BigDecimal.ZERO))
+                    .revenue(gross.subtract(refund))
+                    .grossRevenue(gross)
+                    .refundAmount(refund)
                     .orderCount(orderIdsByHour.getOrDefault(hour, Set.of()).size())
                     .build());
         }
@@ -132,6 +142,18 @@ public class SalesHistoryService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalProfit = calcProfit(active);
 
+        // Hàng khách trả lại phải trừ ra: đơn gốc đã được ghi doanh thu lúc bán, và nếu
+        // khách đổi sang hàng khác thì phần hàng đổi ra còn sinh thêm một đơn bán mới —
+        // không trừ thì phần đã trả bị tính doanh thu hai lần.
+        BigDecimal refundAmount = productId != null
+                ? returnOrderDetailRepository.sumRefundByProductBetween(productId, range.from(), range.to())
+                : returnOrderRepository.sumRefundBetween(range.from(), range.to());
+        long returnOrderCount = productId != null
+                ? returnOrderDetailRepository.countByProductBetween(productId, range.from(), range.to())
+                : returnOrderRepository.countBetween(range.from(), range.to());
+        refundAmount = refundAmount == null ? BigDecimal.ZERO : refundAmount;
+        BigDecimal netRevenue = totalRevenue.subtract(refundAmount);
+
         YearMonth ym = YearMonth.from(LocalDate.now(ZONE));
         List<SalesHistorySummaryResponse.WeekResponse> weeks = buildWeeks(active, ym);
 
@@ -142,6 +164,9 @@ public class SalesHistoryService {
                 .totalOrders(totalOrders)
                 .totalRevenue(totalRevenue)
                 .totalProfit(totalProfit)
+                .refundAmount(refundAmount)
+                .returnOrderCount(returnOrderCount)
+                .netRevenue(netRevenue)
                 .weeks(weeks);
 
         if (productId != null) {

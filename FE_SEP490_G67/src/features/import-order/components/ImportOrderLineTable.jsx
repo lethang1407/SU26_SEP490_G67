@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import {
     formatCurrency,
     formatMoneyInput,
@@ -17,38 +16,14 @@ export default function ImportOrderLineTable({
     section = 'import',
     emptyText = 'Chưa có hàng hóa nào. Tìm và chọn sản phẩm ở ô phía trên để thêm vào phiếu.',
 }) {
-    const [openNoteKey, setOpenNoteKey] = useState(null);
-    const noteEditorRef = useRef(null);
     const canEdit = !readOnly && typeof onChangeLine === 'function';
     const canRemove = !readOnly && typeof onRemoveLine === 'function';
-
-    useEffect(() => {
-        if (!openNoteKey) return undefined;
-
-        const handleClickOutside = (event) => {
-            if (noteEditorRef.current && !noteEditorRef.current.contains(event.target)) {
-                setOpenNoteKey(null);
-            }
-        };
-
-        const handleEscape = (event) => {
-            if (event.key === 'Escape') setOpenNoteKey(null);
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        document.addEventListener('keydown', handleEscape);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-            document.removeEventListener('keydown', handleEscape);
-        };
-    }, [openNoteKey]);
+    const isPromoSection = section === 'promo';
+    const colSpan = 8;
 
     const handleTogglePromotion = (line) => {
         onChangeLine(line.key, { isPromotion: !line.isPromotion });
     };
-
-    const isPromoSection = section === 'promo';
-    const colSpan = 7;
 
     return (
         <div className="ioc-lines-card">
@@ -62,6 +37,7 @@ export default function ImportOrderLineTable({
                             <th>Số lượng</th>
                             <th>Đơn giá</th>
                             <th>Hạn sử dụng</th>
+                            <th className="ioc-lines-table__note">Ghi chú</th>
                             <th>Thành tiền</th>
                         </tr>
                     </thead>
@@ -79,12 +55,12 @@ export default function ImportOrderLineTable({
                             const computedTotal =
                                 (Number(line.quantity) || 0) * (Number(line.costPerUnit) || 0);
                             const lineTotal = isPromotion ? 0 : computedTotal;
-                            const hasNote = Boolean(line.note?.trim());
-                            const isNoteOpen = openNoteKey === line.key;
+                            const noteText = line.note?.trim() || '';
                             const priceWarning = canEdit ? getLinePriceWarning(line) : null;
                             const rowClass = isPromotion
                                 ? 'ioc-lines-table__row--promo'
                                 : undefined;
+                            const showMeta = canEdit || isPromotion;
 
                             return (
                                 <tr key={line.key} className={rowClass}>
@@ -107,9 +83,9 @@ export default function ImportOrderLineTable({
                                         {attributeLabel ? (
                                             <div className="ioc-lines-table__attrs">{attributeLabel}</div>
                                         ) : null}
-                                        <div className="ioc-line-meta">
-                                            {canEdit ? (
-                                                <>
+                                        {showMeta ? (
+                                            <div className="ioc-line-meta">
+                                                {canEdit ? (
                                                     <button
                                                         type="button"
                                                         className={`ioc-promo-chip ${
@@ -125,60 +101,13 @@ export default function ImportOrderLineTable({
                                                     >
                                                         Hàng KM
                                                     </button>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    {isPromotion ? (
-                                                        <span className="ioc-promo-chip ioc-promo-chip--on">
-                                                            Hàng KM
-                                                        </span>
-                                                    ) : null}
-                                                </>
-                                            )}
-
-                                            {canEdit ? (
-                                                <div className="ioc-line-note">
-                                                    <button
-                                                        type="button"
-                                                        className={`ioc-line-note__trigger ${
-                                                            hasNote ? 'ioc-line-note__trigger--filled' : ''
-                                                        }`}
-                                                        onClick={() =>
-                                                            setOpenNoteKey((prev) =>
-                                                                prev === line.key ? null : line.key,
-                                                            )
-                                                        }
-                                                    >
-                                                        <span className="ioc-line-note__preview">
-                                                            {hasNote ? line.note : 'Ghi chú...'}
-                                                        </span>
-                                                        <Pencil size={13} className="ioc-line-note__icon" />
-                                                    </button>
-
-                                                    {isNoteOpen && (
-                                                        <div
-                                                            className="ioc-line-note__popover"
-                                                            ref={noteEditorRef}
-                                                        >
-                                                            <textarea
-                                                                className="ioc-line-note__textarea"
-                                                                rows={3}
-                                                                autoFocus
-                                                                placeholder="VD: Trả thưởng - HBTB0526"
-                                                                value={line.note}
-                                                                onChange={(event) =>
-                                                                    onChangeLine(line.key, {
-                                                                        note: event.target.value,
-                                                                    })
-                                                                }
-                                                            />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : hasNote ? (
-                                                <span className="ioc-line-note__preview">{line.note}</span>
-                                            ) : null}
-                                        </div>
+                                                ) : (
+                                                    <span className="ioc-promo-chip ioc-promo-chip--on">
+                                                        Hàng KM
+                                                    </span>
+                                                )}
+                                            </div>
+                                        ) : null}
                                     </td>
                                     <td>
                                         {canEdit && (line.productUnits || []).length > 0 ? (
@@ -290,6 +219,31 @@ export default function ImportOrderLineTable({
                                             />
                                         ) : (
                                             <span>{line.expiryDate || '—'}</span>
+                                        )}
+                                    </td>
+                                    <td className="ioc-lines-table__note">
+                                        {canEdit ? (
+                                            <input
+                                                type="text"
+                                                className="ioc-lines-table__input ioc-lines-table__input--note"
+                                                placeholder="Ghi chú..."
+                                                value={line.note || ''}
+                                                onChange={(event) =>
+                                                    onChangeLine(line.key, {
+                                                        note: event.target.value,
+                                                    })
+                                                }
+                                                aria-label={`Ghi chú ${line.productName}`}
+                                            />
+                                        ) : (
+                                            <span
+                                                className={
+                                                    noteText ? undefined : 'ioc-lines-table__note--empty'
+                                                }
+                                                title={noteText || undefined}
+                                            >
+                                                {noteText || '—'}
+                                            </span>
                                         )}
                                     </td>
                                     <td

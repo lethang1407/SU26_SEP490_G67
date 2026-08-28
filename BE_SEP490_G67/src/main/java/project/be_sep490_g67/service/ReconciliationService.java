@@ -9,6 +9,7 @@ import project.be_sep490_g67.dto.response.ReconciliationTransactionResponse;
 import project.be_sep490_g67.entity.DebtPayment;
 import project.be_sep490_g67.entity.SalesOrder;
 import project.be_sep490_g67.repository.DebtPaymentRepository;
+import project.be_sep490_g67.repository.ReturnOrderRepository;
 import project.be_sep490_g67.repository.SalesOrderRepository;
 
 import java.math.BigDecimal;
@@ -18,7 +19,10 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +30,7 @@ public class ReconciliationService {
 
     private final SalesOrderRepository salesOrderRepository;
     private final DebtPaymentRepository debtPaymentRepository;
+    private final ReturnOrderRepository returnOrderRepository;
 
     private static final ZoneId VN_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm dd/MM").withZone(VN_ZONE);
@@ -61,11 +66,26 @@ public class ReconciliationService {
         if (cashDebtCollected == null) cashDebtCollected = BigDecimal.ZERO;
         if (bankDebtCollected == null) bankDebtCollected = BigDecimal.ZERO;
 
-        BigDecimal cashRefunded = BigDecimal.ZERO;
+        // Tiền mặt hoàn cho khách khi đổi/trả. Phần cấn trừ vào công nợ không đụng tới
+        // két nên không tính ở đây.
+        BigDecimal cashRefunded = returnOrderRepository.sumCashRefundBetween(startOfDay, endOfDay);
+        if (cashRefunded == null) cashRefunded = BigDecimal.ZERO;
+
+        // Hàng trả cấn sang đơn đổi bị đơn đổi ghi vào paidAmount, nên đang nằm trong
+        // cashSales/bankSales ở trên dù chưa bao giờ là tiền vào.
+        BigDecimal exchangeCreditApplied = returnOrderRepository.sumExchangeCreditBetween(startOfDay, endOfDay);
+        if (exchangeCreditApplied == null) exchangeCreditApplied = BigDecimal.ZERO;
+
+        // Khoản trên nằm trong cashSales hay bankSales là tùy hình thức thanh toán của
+        // đơn đổi, nên phải tách ra rồi mới trừ đúng quỹ.
+        ExchangeCreditSplit exchangeCredit = splitExchangeCredit(startOfDay, endOfDay);
 
         // 3. Calculate Theoretical balances
-        BigDecimal theoreticalCash = openingCash.add(cashSales).add(cashDebtCollected).subtract(cashRefunded);
-        BigDecimal theoreticalBank = bankSales.add(bankDebtCollected);
+        BigDecimal theoreticalCash = openingCash.add(cashSales).add(cashDebtCollected)
+                .subtract(cashRefunded)
+                .subtract(exchangeCredit.cash());
+        BigDecimal theoreticalBank = bankSales.add(bankDebtCollected)
+                .subtract(exchangeCredit.bank());
 
         // 4. Build combined transaction timeline from SalesOrder and DebtPayment
         List<ReconciliationTransactionResponse> transactions = buildTransactionTimeline(startOfDay, endOfDay);
@@ -80,6 +100,7 @@ public class ReconciliationService {
                 .cashDebtCollected(cashDebtCollected)
                 .bankDebtCollected(bankDebtCollected)
                 .cashRefunded(cashRefunded)
+                .exchangeCreditApplied(exchangeCreditApplied)
                 .theoreticalCash(theoreticalCash)
                 .theoreticalBank(theoreticalBank)
                 .totalOrdersCount(totalOrdersCount)

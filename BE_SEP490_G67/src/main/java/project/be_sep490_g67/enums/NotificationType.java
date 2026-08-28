@@ -6,5 +6,10 @@ package project.be_sep490_g67.enums;
  */
 public enum NotificationType {
     /** Thu ngân ghi nợ cho một khách hàng nợ mới — admin cần rà soát hồ sơ. */
-    DEBT_CUSTOMER_REVIEW
+    DEBT_CUSTOMER_REVIEW,
+    LOW_STOCK,
+    EXPIRED,
+    NEAR_EXPIRED,
+    SUPPLIER_DEBT,
+
 }
