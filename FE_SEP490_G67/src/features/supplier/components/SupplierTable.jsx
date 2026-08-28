@@ -1,9 +1,6 @@
-import { Fragment } from 'react';
-import SupplierExpandPanel from './SupplierExpandPanel';
 import SupplierPhoneCell from './SupplierPhoneCell';
 import { formatCurrency } from '../utils/supplierUtils';
 
-const COLUMN_COUNT = 5;
 const SKELETON_ROWS = 6;
 
 function SupplierTableSkeleton() {
@@ -50,12 +47,9 @@ function SupplierTableSkeleton() {
 export default function SupplierTable({
     items,
     loading,
-    expandedId,
     startIndex = 1,
     emptyMessage = 'Không tìm thấy nhà cung cấp phù hợp.',
-    onToggleExpand,
-    onPaymentSuccess,
-    onSupplierUpdated,
+    onOpenDetail,
 }) {
     if (loading) {
         return <SupplierTableSkeleton />;
@@ -84,53 +78,36 @@ export default function SupplierTable({
                     </thead>
                     <tbody>
                         {items.map((supplier, index) => {
-                            const isExpanded = expandedId === supplier.id;
                             const noteText = supplier.notes?.trim() || '';
                             const stt = startIndex + index;
 
                             return (
-                                <Fragment key={supplier.id}>
-                                    <tr
-                                        className={`supplier-table__row ${
-                                            isExpanded ? 'supplier-table__row--expanded' : ''
+                                <tr
+                                    key={supplier.id}
+                                    className="supplier-table__row"
+                                    onClick={() => onOpenDetail?.(supplier.id)}
+                                >
+                                    <td className="supplier-table__stt">{stt}</td>
+                                    <td className="supplier-table__name">{supplier.name}</td>
+                                    <td className="supplier-table__phone">
+                                        <SupplierPhoneCell phoneNumber={supplier.phoneNumber} stopRowClick />
+                                    </td>
+                                    <td
+                                        className={`supplier-table__notes ${
+                                            noteText ? '' : 'supplier-table__notes--empty'
                                         }`}
-                                        onClick={() => onToggleExpand(supplier.id)}
-                                        aria-expanded={isExpanded}
+                                        title={noteText || undefined}
                                     >
-                                        <td className="supplier-table__stt">{stt}</td>
-                                        <td className="supplier-table__name">{supplier.name}</td>
-                                        <td className="supplier-table__phone">
-                                            <SupplierPhoneCell phoneNumber={supplier.phoneNumber} stopRowClick />
-                                        </td>
-                                        <td
-                                            className={`supplier-table__notes ${
-                                                noteText ? '' : 'supplier-table__notes--empty'
-                                            }`}
-                                            title={noteText || undefined}
-                                        >
-                                            {noteText || '—'}
-                                        </td>
-                                        <td
-                                            className={`supplier-table__debt ${
-                                                supplier.currentDebt > 0 ? 'supplier-table__debt--highlight' : ''
-                                            }`}
-                                        >
-                                            <div>{formatCurrency(supplier.currentDebt)}</div>
-                                        </td>
-                                    </tr>
-                                    {isExpanded && (
-                                        <tr className="supplier-table__expand-row">
-                                            <td colSpan={COLUMN_COUNT} className="supplier-table__expand-cell">
-                                                <SupplierExpandPanel
-                                                    supplierId={supplier.id}
-                                                    listDebt={supplier.currentDebt}
-                                                    onPaymentSuccess={onPaymentSuccess}
-                                                    onUpdated={onSupplierUpdated}
-                                                />
-                                            </td>
-                                        </tr>
-                                    )}
-                                </Fragment>
+                                        {noteText || '—'}
+                                    </td>
+                                    <td
+                                        className={`supplier-table__debt ${
+                                            supplier.currentDebt > 0 ? 'supplier-table__debt--highlight' : ''
+                                        }`}
+                                    >
+                                        <div>{formatCurrency(supplier.currentDebt)}</div>
+                                    </td>
+                                </tr>
                             );
                         })}
                     </tbody>

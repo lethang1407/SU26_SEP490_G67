@@ -52,4 +52,5 @@ public class ImportOrderDetail extends BaseEntity {
     @Column(name = "is_promotion", nullable = false)
     private Boolean isPromotion = false;
 
+
 }

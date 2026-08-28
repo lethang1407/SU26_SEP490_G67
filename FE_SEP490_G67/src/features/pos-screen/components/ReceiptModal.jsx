@@ -54,7 +54,7 @@ export default function ReceiptModal({ receipt, invoice = null, onClose }) {
                             ? new Date(receipt.createdAt).toLocaleString('vi-VN', {
                                 timeZone: 'Asia/Ho_Chi_Minh',
                             })
-                            : '—'}
+                            : 'N/A'}
                     </span>
                 </div>
 
@@ -73,7 +73,7 @@ export default function ReceiptModal({ receipt, invoice = null, onClose }) {
                         {items.map((item, idx) => (
                             <tr key={idx}>
                                 <td>{item.name}</td>
-                                <td>{item.unitName ?? '—'}</td>
+                                <td>{item.unitName ?? 'N/A'}</td>
                                 <td className="text-right">{item.quantity}</td>
                                 <td className="text-right">
                                     {formatVnd(item.unitPrice)}

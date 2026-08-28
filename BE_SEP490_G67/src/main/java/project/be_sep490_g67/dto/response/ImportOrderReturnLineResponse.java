@@ -27,5 +27,6 @@ public class ImportOrderReturnLineResponse {
     String batchCode;
     String returnReason;
     String lineStatus;
+    String unitName;
     boolean attached;
 }

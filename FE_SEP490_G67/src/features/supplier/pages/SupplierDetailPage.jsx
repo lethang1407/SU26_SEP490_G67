@@ -5,7 +5,9 @@ import SupplierDetailHeader from '../components/SupplierDetailHeader';
 import SupplierDetailStats from '../components/SupplierDetailStats';
 import SupplierDetailTabs from '../components/SupplierDetailTabs';
 import SupplierPaymentModal from '../components/SupplierPaymentModal';
+import SupplierSuccessToast from '../components/SupplierSuccessToast';
 import { suppliersApi } from '../api';
+import { PAYMENT_METHOD_LABEL } from '../constants';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Supplier.css';
 
@@ -27,15 +29,20 @@ export default function SupplierDetailPage() {
     const [refreshToken, setRefreshToken] = useState(0);
     const [toast, setToast] = useState('');
 
-    const fetchSupplier = useCallback(() => {
-        setLoading(true);
-        setNotFound(false);
+    const fetchSupplier = useCallback((options = {}) => {
+        const silent = options.silent === true;
+        if (!silent) {
+            setLoading(true);
+            setNotFound(false);
+        }
         suppliersApi
             .getSupplierById(id)
             .then((detail) => {
                 if (!detail) {
-                    setNotFound(true);
-                    setSupplier(null);
+                    if (!silent) {
+                        setNotFound(true);
+                        setSupplier(null);
+                    }
                     return;
                 }
                 setSupplier({
@@ -44,10 +51,14 @@ export default function SupplierDetailPage() {
                 });
             })
             .catch(() => {
-                setNotFound(true);
-                setSupplier(null);
+                if (!silent) {
+                    setNotFound(true);
+                    setSupplier(null);
+                }
             })
-            .finally(() => setLoading(false));
+            .finally(() => {
+                if (!silent) setLoading(false);
+            });
     }, [id]);
 
     useEffect(() => {
@@ -56,7 +67,6 @@ export default function SupplierDetailPage() {
 
     const handleEdit = () => {
         setToast('Chức năng sửa NCC sẽ được cập nhật khi có API.');
-        setTimeout(() => setToast(''), 3000);
     };
 
     const handleOpenPayment = () => {
@@ -64,23 +74,29 @@ export default function SupplierDetailPage() {
         setPaymentOpen(true);
     };
 
-    const handlePaymentSubmit = ({ orderId, orderCode, amount, paymentMethod, notes }) => {
+    const handlePaymentSubmit = ({ importOrderIds, orderCodes, amount, paymentMethod, notes }) => {
         setSubmittingPayment(true);
         setPaymentError('');
         suppliersApi
-            .createPayment(supplier.id, { orderId, amount, paymentMethod, note: notes })
+            .createBatchPayment(supplier.id, {
+                importOrderIds,
+                amount,
+                paymentMethod,
+                note: notes,
+            })
             .then(() => {
                 setPaymentOpen(false);
-                fetchSupplier();
+                fetchSupplier({ silent: true });
                 setRefreshToken((token) => token + 1);
+                const orderLabel = orderCodes?.length
+                    ? orderCodes.join(', ')
+                    : `${importOrderIds.length} phiếu`;
+                const methodLabel = PAYMENT_METHOD_LABEL[paymentMethod] || paymentMethod;
                 setToast(
-                    `Đã ghi nhận thanh toán ${new Intl.NumberFormat('vi-VN').format(amount)}đ cho đơn ${orderCode} (${paymentMethod})${notes ? `: ${notes}` : ''}.`,
+                    `Đã ghi nhận thanh toán ${new Intl.NumberFormat('vi-VN').format(amount)}đ cho ${orderLabel} (${methodLabel})${notes ? `: ${notes}` : ''}.`,
                 );
-                setTimeout(() => setToast(''), 4000);
             })
             .catch((error) => {
-                // Giữ modal mở, hiện lỗi thật từ server (ví dụ nợ đã bị thanh toán ở nơi khác
-                // trước đó nên số liệu trên FE bị cũ) để người dùng biết vì sao thất bại.
                 setPaymentError(error.response?.data?.message || 'Thanh toán thất bại. Vui lòng thử lại.');
             })
             .finally(() => setSubmittingPayment(false));
@@ -127,7 +143,13 @@ export default function SupplierDetailPage() {
                 <AdminHeader />
                 <main className="admin-main">
                     <div className="dashboard-container supplier-page supplier-detail-page">
-                        {toast && <p className="supplier-page__toast">{toast}</p>}
+                        {toast && (
+                            <SupplierSuccessToast
+                                key={toast}
+                                message={toast}
+                                onDismiss={() => setToast('')}
+                            />
+                        )}
 
                         <SupplierDetailHeader
                             supplier={supplier}

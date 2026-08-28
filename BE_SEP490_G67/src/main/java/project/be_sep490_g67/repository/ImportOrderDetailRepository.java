@@ -93,4 +93,31 @@ public interface ImportOrderDetailRepository extends JpaRepository<ImportOrderDe
         ORDER BY o.createdAt ASC, d.id ASC
         """)
     List<ImportOrderDetail> findPriceHistoryFromImportOrders(@Param("productId") Integer productId);
+
+    /**
+     * Nhà cung cấp của từng lần nhập, phiếu mới nhất trước (theo id phiếu — id tăng dần
+     * theo thời gian tạo, còn received_date có thể để trống).
+     *
+     * <p>Trả về nhiều dòng cho một sản phẩm; nơi gọi lấy dòng đầu tiên gặp được để có
+     * "NCC nhập gần nhất". Gộp bằng MAX ở SQL không làm được vì cần tên gắn với phiếu
+     * mới nhất chứ không phải tên lớn nhất theo alphabet.
+     *
+     * <p>Chỉ tính phiếu đã nhập thật, cùng tiêu chí với
+     * {@link #findPriceHistoryFromImportOrders}. Phiếu nháp hay phiếu đã hủy vẫn mang id
+     * lớn nhất nên nếu không lọc, một phiếu nháp lập sáng nay sẽ đè lên mọi phiếu đã
+     * giao hàng và gợi ý sai NCC ngay tại chỗ chủ cửa hàng ra quyết định.
+     */
+    @Query("""
+        SELECT d.product.id, s.name
+        FROM ImportOrderDetail d
+        JOIN d.importOrder o
+        JOIN o.supplier s
+        WHERE d.product.id IN :productIds
+          AND (d.isRemoved = false OR d.isRemoved IS NULL)
+          AND (o.isRemoved = false OR o.isRemoved IS NULL)
+          AND (s.isRemoved = false OR s.isRemoved IS NULL)
+          AND (o.orderStatus IS NULL OR UPPER(o.orderStatus) = 'IMPORTED' OR UPPER(o.orderStatus) = 'COMPLETED')
+        ORDER BY o.id DESC
+        """)
+    List<Object[]> findSupplierNamesByProductsLatestFirst(@Param("productIds") List<Integer> productIds);
 }

@@ -5,6 +5,7 @@ import AdminHeader from '../../../components/ui/header-footer/Header';
 import SupplierPagination from '../../supplier/components/SupplierPagination';
 import ImportOrderToolbar from '../components/ImportOrderToolbar';
 import ImportOrderTable from '../components/ImportOrderTable';
+import ImportOrderDetailModal from '../components/ImportOrderDetailModal';
 import ImportOrderSuccessToast from '../components/ImportOrderSuccessToast';
 import { ORDER_STATUS_FILTER } from '../constants';
 import { importOrdersApi } from '../api';
@@ -29,15 +30,21 @@ export default function ImportOrderListPage() {
     const [keyword, setKeyword] = useState('');
     const [debouncedKeyword, setDebouncedKeyword] = useState('');
     const [orderStatusFilter, setOrderStatusFilter] = useState(
-        location.state?.orderStatusFilter ?? ORDER_STATUS_FILTER.ALL,
+        location.state?.orderStatusFilter ?? null,
     );
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
     const [page, setPage] = useState(1);
     const [data, setData] = useState(EMPTY_PAGE);
-    const [loading, setLoading] = useState(true);
-    const [expandedId, setExpandedId] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [selectedOrderId, setSelectedOrderId] = useState(null);
     const [successMessage, setSuccessMessage] = useState(null);
+
+    const trimmedKeyword = debouncedKeyword.trim();
+    const hasDateFilter = Boolean(fromDate || toDate);
+    const hasActiveListQuery =
+        trimmedKeyword.length > 0 || orderStatusFilter != null || hasDateFilter;
+    const appliedOrderStatus = orderStatusFilter ?? ORDER_STATUS_FILTER.ALL;
 
     useEffect(() => {
         if (location.state?.successMessage) {
@@ -50,27 +57,33 @@ export default function ImportOrderListPage() {
         const timer = setTimeout(() => {
             setDebouncedKeyword(keyword);
             setPage(1);
-            setExpandedId(null);
+            setSelectedOrderId(null);
         }, SEARCH_DEBOUNCE_MS);
 
         return () => clearTimeout(timer);
     }, [keyword]);
 
     const fetchImportOrders = useCallback(() => {
+        if (!hasActiveListQuery) {
+            setData(EMPTY_PAGE);
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
         importOrdersApi
             .getImportOrders({
                 page: page - 1,
                 size: PAGE_SIZE,
-                search: debouncedKeyword,
-                orderStatus: orderStatusFilter,
+                search: trimmedKeyword,
+                orderStatus: appliedOrderStatus,
                 fromDate,
                 toDate,
             })
             .then((result) => setData(result ?? EMPTY_PAGE))
             .catch(() => setData(EMPTY_PAGE))
             .finally(() => setLoading(false));
-    }, [page, debouncedKeyword, orderStatusFilter, fromDate, toDate]);
+    }, [hasActiveListQuery, page, trimmedKeyword, appliedOrderStatus, fromDate, toDate]);
 
     useEffect(() => {
         fetchImportOrders();
@@ -79,22 +92,26 @@ export default function ImportOrderListPage() {
     const handleOrderStatusFilterChange = (value) => {
         setOrderStatusFilter(value);
         setPage(1);
-        setExpandedId(null);
+        setSelectedOrderId(null);
     };
 
     const handleDateRangeChange = ({ fromDate: nextFrom = '', toDate: nextTo = '' }) => {
         setFromDate(nextFrom);
         setToDate(nextTo);
         setPage(1);
-        setExpandedId(null);
+        setSelectedOrderId(null);
     };
 
-    const handleToggleExpand = (orderId) => {
-        setExpandedId((prev) => (prev === orderId ? null : orderId));
+    const handleOpenDetail = (orderId) => {
+        setSelectedOrderId(orderId);
+    };
+
+    const handleCloseDetail = () => {
+        setSelectedOrderId(null);
     };
 
     const handleDraftCancelled = () => {
-        setExpandedId(null);
+        setSelectedOrderId(null);
         fetchImportOrders();
     };
 
@@ -113,10 +130,7 @@ export default function ImportOrderListPage() {
                 <div className="dashboard-container supplier-page import-order-page">
                     <header className="supplier-page__header">
                         <div>
-                            <h1 className="supplier-page__title">Danh sách nhập hàng</h1>
-                            <p className="supplier-page__subtitle">
-                                Theo dõi các phiếu nhập hàng từ nhà cung cấp
-                            </p>
+                            <h1 className="supplier-page__title">Danh sách phiếu nhập hàng</h1>
                         </div>
                         <div className="supplier-page__actions">
                             <Link to="/admin/warehouse/import/create" className="supplier-btn supplier-btn--primary">
@@ -137,25 +151,38 @@ export default function ImportOrderListPage() {
                     />
 
                     <ImportOrderTable
-                        items={data.content ?? []}
-                        loading={loading}
-                        expandedId={expandedId}
-                        onToggleExpand={handleToggleExpand}
+                        items={hasActiveListQuery ? (data.content ?? []) : []}
+                        loading={hasActiveListQuery && loading}
+                        startIndex={totalItems === 0 ? 1 : (page - 1) * PAGE_SIZE + 1}
+                        emptyMessage={
+                            hasActiveListQuery
+                                ? 'Không tìm thấy phiếu nhập hàng phù hợp.'
+                                : 'Nhập từ khóa tìm kiếm, chọn trạng thái hoặc khoảng ngày để hiển thị danh sách phiếu nhập hàng.'
+                        }
+                        onOpenDetail={handleOpenDetail}
+                    />
+
+                    <ImportOrderDetailModal
+                        open={Boolean(selectedOrderId)}
+                        orderId={selectedOrderId}
+                        onClose={handleCloseDetail}
                         onDraftCancelled={handleDraftCancelled}
                     />
 
-                    <SupplierPagination
-                        page={page}
-                        totalPages={data.totalPages ?? 1}
-                        startIndex={totalItems === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}
-                        endIndex={Math.min(page * PAGE_SIZE, totalItems)}
-                        totalItems={totalItems}
-                        onPageChange={(nextPage) => {
-                            setExpandedId(null);
-                            setPage(nextPage);
-                        }}
-                        itemLabel="đơn nhập"
-                    />
+                    {hasActiveListQuery ? (
+                        <SupplierPagination
+                            page={page}
+                            totalPages={data.totalPages ?? 1}
+                            startIndex={totalItems === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}
+                            endIndex={Math.min(page * PAGE_SIZE, totalItems)}
+                            totalItems={totalItems}
+                            onPageChange={(nextPage) => {
+                                setSelectedOrderId(null);
+                                setPage(nextPage);
+                            }}
+                            itemLabel="phiếu nhập"
+                        />
+                    ) : null}
                 </div>
             </main>
         </div>

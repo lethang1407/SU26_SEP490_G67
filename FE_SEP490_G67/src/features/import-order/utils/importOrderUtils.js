@@ -5,6 +5,12 @@ export function formatCurrency(value) {
     return `${new Intl.NumberFormat('vi-VN').format(amount)} đ`;
 }
 
+/** Số tiền không kèm đơn vị, dùng trong popup chi tiết. */
+export function formatMoneyPlain(value) {
+    const amount = Number(value) || 0;
+    return new Intl.NumberFormat('vi-VN').format(amount);
+}
+
 /** Hiển thị số tiền trong ô input: 1000000 → 1.000.000 */
 export function formatMoneyInput(value) {
     const amount = Math.max(0, Number(value) || 0);
@@ -65,7 +71,7 @@ export function suggestCostForUnit(lastCostPerBase, unitBase) {
 
 /**
  * Cảnh báo giá ngay trên dòng (không popup).
- * @returns {{ level: 'danger' | 'warn', message: string } | null}
+ * @returns {{ level: 'warn', message: string } | null}
  */
 export function getLinePriceWarning(line) {
     if (!line || line.isPromotion) return null;
@@ -76,14 +82,7 @@ export function getLinePriceWarning(line) {
 
     const newCostBase = costPerUnit / unitBase;
     const lastCost = Number(line.lastCostPerBase) || 0;
-    const selling = Number(line.sellingPrice) || 0;
 
-    if (selling > 0 && newCostBase >= selling) {
-        return {
-            level: 'danger',
-            message: 'Giá nhập ≥ giá bán — có thể lỗ, nên tăng giá bán.',
-        };
-    }
     if (lastCost > 0 && newCostBase > lastCost) {
         return {
             level: 'warn',

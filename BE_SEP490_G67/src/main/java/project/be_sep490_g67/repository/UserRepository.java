@@ -47,7 +47,9 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     @Query("SELECT u FROM User u WHERE u.id = :id AND u.isRemoved = false")
     Optional<User> findActiveStaffByIdWithRoles(@Param("id") Integer id);
 
-    /** Người nhận mặc định của các thông báo cần quản lý xử lý. */
+    /**
+     * Người nhận mặc định của các thông báo cần quản lý xử lý.
+     */
     @Query("""
             SELECT u FROM User u
             WHERE u.isRemoved = false
@@ -60,4 +62,14 @@ public interface UserRepository extends JpaRepository<User, Integer> {
 
     @Query("SELECT u FROM User u WHERE u.id = :id AND u.isRemoved = false")
     Optional<User> findActiveById(@Param("id") Integer id);
+
+    @Query("""
+            SELECT u.id FROM User u
+            WHERE u.isRemoved = false
+              AND NOT EXISTS (
+                SELECT 1 FROM u.roles r
+                WHERE UPPER(r.name) = :adminRoleName
+              )
+            """)
+    List<Integer> findActiveNonAdminUserIds(@Param("adminRoleName") String adminRoleName);
 }

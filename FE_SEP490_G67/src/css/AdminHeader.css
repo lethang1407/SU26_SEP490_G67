@@ -46,18 +46,18 @@
     color: #D97706;
 }
 
-.header-status__dot {
+.header-status_dot {
     width: 7px;
     height: 7px;
     border-radius: 50%;
 }
 
-.header-status__dot--online {
+.header-status_dot--online {
     background: #16a34a;
     animation: pulse-dot 2s infinite;
 }
 
-.header-status__dot--offline {
+.header-status_dot--offline {
     background: #D97706;
 }
 
@@ -133,21 +133,21 @@
 
 }
 
-.header-user__info {
+.header-user_info {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
     gap: 0;
 }
 
-.header-user__name {
+.header-user_name {
     font-size: 14px;
     font-weight: 600;
     color: #111827;
     white-space: nowrap;
 }
 
-.header-user__role {
+.header-user_role {
     font-size: 11px;
     font-weight: 500;
     color: #9ca3af;
@@ -186,19 +186,20 @@
         opacity: 0;
         transform: translateY(-5px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
     }
 }
 
-.user-dropdown__header {
+.user-dropdown_header {
     padding: 8px 16px;
     display: flex;
     flex-direction: column;
 }
 
-.user-dropdown__name {
+.user-dropdown_name {
     font-size: 14px;
     font-weight: 600;
     color: #111827;
@@ -207,7 +208,7 @@
     text-overflow: ellipsis;
 }
 
-.user-dropdown__email {
+.user-dropdown_email {
     font-size: 12px;
     color: #6b7280;
     white-space: nowrap;
@@ -215,13 +216,13 @@
     text-overflow: ellipsis;
 }
 
-.user-dropdown__divider {
+.user-dropdown_divider {
     height: 1px;
     background: #f3f4f6;
     margin: 8px 0;
 }
 
-.user-dropdown__item {
+.user-dropdown_item {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -237,18 +238,19 @@
     transition: background-color 0.1s;
 }
 
-.user-dropdown__item:hover {
+.user-dropdown_item:hover {
     background: #f9fafb;
 }
 
-.user-dropdown__item svg {
+.user-dropdown_item svg {
     color: #6b7280;
 }
 
-.user-dropdown__item--logout {
+.user-dropdown_item--logout {
     color: #ef4444;
 }
-.user-dropdown__item--logout:hover {
+
+.user-dropdown_item--logout:hover {
     background: #fef2f2;
 }
 
@@ -278,7 +280,7 @@
     }
 }
 
-.offline-banner__icon {
+.offline-banner_icon {
     font-size: 16px;
     flex-shrink: 0;
 }
@@ -339,7 +341,7 @@
         font-size: 15px;
     }
 
-    .header-user__info {
+    .header-user_info {
         display: none;
     }
 

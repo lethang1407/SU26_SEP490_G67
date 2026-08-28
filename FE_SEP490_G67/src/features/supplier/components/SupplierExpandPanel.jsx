@@ -57,16 +57,21 @@ export default function SupplierExpandPanel({
     const currentDebt = supplier?.currentDebt ?? listDebt ?? 0;
     const canPayDebt = currentDebt > 0;
 
-    const handlePaymentSubmit = ({ orderId, orderCode, amount, paymentMethod, notes }) => {
+    const handlePaymentSubmit = ({ importOrderIds, orderCodes, amount, paymentMethod, notes }) => {
         setSubmittingPayment(true);
         setPaymentError('');
         suppliersApi
-            .createPayment(supplierId, { orderId, amount, paymentMethod, note: notes })
+            .createBatchPayment(supplierId, {
+                importOrderIds,
+                amount,
+                paymentMethod,
+                note: notes,
+            })
             .then(() => {
                 setPaymentOpen(false);
                 fetchSupplier({ silent: true });
                 setRefreshToken((token) => token + 1);
-                onPaymentSuccess?.({ orderCode, amount, paymentMethod, notes });
+                onPaymentSuccess?.({ orderCodes, amount, paymentMethod, notes });
             })
             .catch((err) => {
                 setPaymentError(err.response?.data?.message || 'Thanh toán thất bại. Vui lòng thử lại.');
