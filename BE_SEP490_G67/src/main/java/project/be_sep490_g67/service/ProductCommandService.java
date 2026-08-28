@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import project.be_sep490_g67.dto.request.UpsertProductRequest;
-import project.be_sep490_g67.dto.response.ProductDetailResponse;
+import project.be_sep490_g67.dto.response.ProductDetailDTO;
 import project.be_sep490_g67.entity.*;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
@@ -16,7 +16,6 @@ import project.be_sep490_g67.repository.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -34,7 +33,7 @@ public class ProductCommandService {
     SupplierRepository supplierRepository;
 
     @Transactional
-    public ProductDetailResponse create(UpsertProductRequest request) {
+    public ProductDetailDTO create(UpsertProductRequest request) {
         validateRequest(request, null);
         Category category = categoryRepository.findById(request.getCategoryId())
                 .filter(c -> !Boolean.TRUE.equals(c.getIsRemoved()))
@@ -52,22 +51,18 @@ public class ProductCommandService {
         replaceUnits(product, request.getUnits());
         replaceAttributes(product, request.getAttributes());
 
-        if (request.getVariants() != null && !request.getVariants().isEmpty()) {
-            upsertChildVariants(product, request.getVariants(), category, request.getUnits());
-        } else {
-            createChildVariantsIfAny(product, request, category);
-        }
+        createChildVariantsIfAny(product, request, category);
 
         return toDetail(product.getId());
     }
 
     @Transactional(readOnly = true)
-    public ProductDetailResponse getById(Integer id) {
+    public ProductDetailDTO getById(Integer id) {
         return toDetail(id);
     }
 
     @Transactional
-    public ProductDetailResponse update(Integer id, UpsertProductRequest request) {
+    public ProductDetailDTO update(Integer id, UpsertProductRequest request) {
         Product product = productRepository.findByIdAndIsRemovedFalse(id)
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
         validateRequest(request, id);
@@ -84,15 +79,11 @@ public class ProductCommandService {
         replaceUnits(product, request.getUnits());
         replaceAttributes(product, request.getAttributes());
 
-        if (request.getVariants() != null && !request.getVariants().isEmpty()) {
-            upsertChildVariants(product, request.getVariants(), category, request.getUnits());
-        }
-
         return toDetail(id);
     }
 
     @Transactional
-    public ProductDetailResponse.ImageResponse uploadImage(Integer productId, MultipartFile file) {
+    public ProductDetailDTO.ImageDTO uploadImage(Integer productId, MultipartFile file) {
         Product product = productRepository.findByIdAndIsRemovedFalse(productId)
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
@@ -114,7 +105,7 @@ public class ProductCommandService {
             productRepository.save(product);
         }
 
-        return ProductDetailResponse.ImageResponse.builder()
+        return ProductDetailDTO.ImageDTO.builder()
                 .id(image.getId())
                 .url(image.getUrl())
                 .publicId(image.getPublicId())
@@ -179,6 +170,9 @@ public class ProductCommandService {
         BigDecimal cost = nullToZero(request.getCostPrice());
         BigDecimal sell = nullToZero(request.getSellingPrice());
         String status = normalizeStatus(request.getStatus());
+        if (cost.compareTo(BigDecimal.ZERO) == 0 || sell.compareTo(BigDecimal.ZERO) == 0) {
+            status = "inactive";
+        }
 
         product.setStatus(status);
         product.setCostPrice(cost);
@@ -241,7 +235,7 @@ public class ProductCommandService {
         }
     }
 
-    private ProductDetailResponse toDetail(Integer id) {
+    private ProductDetailDTO toDetail(Integer id) {
         Product product = productRepository.findDetailById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
@@ -274,39 +268,8 @@ public class ProductCommandService {
                 .findFirst()
                 .orElse(images.isEmpty() ? null : images.get(0).getUrl());
 
-        if (mainImgUrl == null && product.getParent() != null) {
-            Product parentObj = product.getParent();
-            List<ProductImage> parentImages = productImageRepository.findByProductIdAndIsRemovedFalseOrderBySortOrderAscIdAsc(parentObj.getId());
-            if (parentImages != null && !parentImages.isEmpty()) {
-                mainImgUrl = parentImages.stream()
-                        .filter(i -> Boolean.TRUE.equals(i.getIsMain()))
-                        .map(ProductImage::getUrl)
-                        .findFirst()
-                        .orElse(parentImages.get(0).getUrl());
-            }
-        }
-
-        List<Product> childProducts = productRepository.findByParent_IdAndIsRemovedFalse(id);
-        List<ProductDetailResponse.VariantResponse> variantDTOs = childProducts.stream().map(cp -> {
-            List<ProductAttribute> childAttrs = productAttributeRepository.findByProductIdAndIsRemovedFalse(cp.getId());
-            return ProductDetailResponse.VariantResponse.builder()
-                    .id(cp.getId())
-                    .name(cp.getName())
-                    .sku(cp.getSku())
-                    .barcode(cp.getBarcode())
-                    .costPrice(cp.getCostPrice())
-                    .sellingPrice(cp.getSellingPrice())
-                    .status(cp.getStatus())
-                    .attributes(childAttrs.stream().map(ca -> ProductDetailResponse.AttributeResponse.builder()
-                            .id(ca.getId())
-                            .name(ca.getAttribute() != null ? ca.getAttribute().getName() : null)
-                            .value(ca.getValue())
-                            .build()).toList())
-                    .build();
-        }).toList();
-
         Product parent = product.getParent();
-        return ProductDetailResponse.builder()
+        return ProductDetailDTO.builder()
                 .id(product.getId())
                 .parentId(parent != null ? parent.getId() : null)
                 .parentName(parent != null ? parent.getName() : null)
@@ -326,20 +289,19 @@ public class ProductCommandService {
                 .supplierName(supplierName)
                 .productImg(mainImgUrl)
                 .baseUnitName(baseUnitName)
-                .units(units.stream().map(u -> ProductDetailResponse.UnitResponse.builder()
+                .units(units.stream().map(u -> ProductDetailDTO.UnitDTO.builder()
                         .id(u.getId())
                         .name(u.getName())
                         .unitBase(u.getUnitBase())
                         .sellingPrice(u.getSellingPrice())
                         .isBase(u.getUnitBase() != null && u.getUnitBase().compareTo(BigDecimal.ONE) == 0)
                         .build()).toList())
-                .attributes(attrs.stream().map(a -> ProductDetailResponse.AttributeResponse.builder()
+                .attributes(attrs.stream().map(a -> ProductDetailDTO.AttributeDTO.builder()
                         .id(a.getId())
                         .name(a.getAttribute() != null ? a.getAttribute().getName() : null)
                         .value(a.getValue())
                         .build()).toList())
-                .variants(variantDTOs)
-                .images(images.stream().map(img -> ProductDetailResponse.ImageResponse.builder()
+                .images(images.stream().map(img -> ProductDetailDTO.ImageDTO.builder()
                         .id(img.getId())
                         .url(img.getUrl())
                         .publicId(img.getPublicId())
@@ -372,7 +334,7 @@ public class ProductCommandService {
         }
 
         String status = normalizeStatus(request.getStatus());
-        if (!"active".equals(status) && !"inactive".equals(status) && !"new".equals(status)) {
+        if (!"active".equals(status) && !"inactive".equals(status)) {
             throw new AppException(ErrorCode.PRODUCT_STATUS_INVALID);
         }
 
@@ -539,74 +501,5 @@ public class ProductCommandService {
         }
 
         return result;
-    }
-
-    private void upsertChildVariants(Product parentProduct,
-                                     List<UpsertProductRequest.VariantRequest> variantRequests,
-                                     Category category,
-                                     List<UpsertProductRequest.UnitRequest> parentUnits) {
-        if (variantRequests == null || variantRequests.isEmpty()) {
-            return;
-        }
-
-        List<Product> existingChildren = productRepository.findByParent_IdAndIsRemovedFalse(parentProduct.getId());
-        Map<Integer, Product> existingMap = existingChildren.stream()
-                .collect(Collectors.toMap(Product::getId, Function.identity()));
-
-        Set<Integer> keptIds = new HashSet<>();
-
-        for (UpsertProductRequest.VariantRequest vr : variantRequests) {
-            Product child;
-            if (vr.getId() != null && existingMap.containsKey(vr.getId())) {
-                child = existingMap.get(vr.getId());
-            } else {
-                child = new Product();
-                child.setParent(parentProduct);
-                child.setIsRemoved(false);
-            }
-
-            child.setCategory(category);
-            child.setName(vr.getName() != null && !vr.getName().isBlank() ? vr.getName().trim() : parentProduct.getName());
-            child.setBarcode(blankToNull(vr.getBarcode()));
-
-            if (vr.getSku() != null && !vr.getSku().isBlank()) {
-                child.setSku(vr.getSku().trim());
-            } else if (child.getSku() == null || child.getSku().isBlank()) {
-                String parentSku = parentProduct.getSku() != null ? parentProduct.getSku() : "SP" + parentProduct.getId();
-                String slug = vr.getName() != null ? vr.getName().replaceAll("[^a-zA-Z0-9-]", "").toUpperCase() : String.valueOf(System.currentTimeMillis());
-                child.setSku(parentSku + "-" + slug);
-            }
-
-            BigDecimal cost = nullToZero(vr.getCostPrice());
-            BigDecimal sell = nullToZero(vr.getSellingPrice());
-            if (cost.compareTo(BigDecimal.ZERO) == 0 && parentProduct.getCostPrice() != null) {
-                cost = parentProduct.getCostPrice();
-            }
-            if (sell.compareTo(BigDecimal.ZERO) == 0 && parentProduct.getSellingPrice() != null) {
-                sell = parentProduct.getSellingPrice();
-            }
-
-            child.setCostPrice(cost);
-            child.setSellingPrice(sell);
-            child.setStatus(vr.getStatus() != null ? vr.getStatus() : parentProduct.getStatus());
-            child.setDescription(parentProduct.getDescription());
-            child.setSeasonTag(parentProduct.getSeasonTag());
-
-            child = productRepository.save(child);
-            keptIds.add(child.getId());
-
-            productUnitRepository.deleteByProductId(child.getId());
-            productAttributeRepository.deleteByProductId(child.getId());
-            replaceUnits(child, parentUnits);
-            replaceAttributes(child, vr.getAttributes());
-        }
-
-        // Soft delete child variants that were removed in UI
-        for (Product existing : existingChildren) {
-            if (!keptIds.contains(existing.getId())) {
-                existing.setIsRemoved(true);
-                productRepository.save(existing);
-            }
-        }
     }
 }

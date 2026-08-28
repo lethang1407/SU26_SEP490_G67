@@ -3,9 +3,9 @@ package project.be_sep490_g67.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import project.be_sep490_g67.dto.request.ReconciliationSubmitRequest;
-import project.be_sep490_g67.dto.response.ReconciliationSummaryResponse;
-import project.be_sep490_g67.dto.response.ReconciliationTransactionResponse;
+import project.be_sep490_g67.dto.ReconciliationSubmitDTO;
+import project.be_sep490_g67.dto.ReconciliationSummaryResponse;
+import project.be_sep490_g67.dto.ReconciliationTransactionDTO;
 import project.be_sep490_g67.entity.DebtPayment;
 import project.be_sep490_g67.entity.SalesOrder;
 import project.be_sep490_g67.repository.DebtPaymentRepository;
@@ -88,7 +88,7 @@ public class ReconciliationService {
                 .subtract(exchangeCredit.bank());
 
         // 4. Build combined transaction timeline from SalesOrder and DebtPayment
-        List<ReconciliationTransactionResponse> transactions = buildTransactionTimeline(startOfDay, endOfDay);
+        List<ReconciliationTransactionDTO> transactions = buildTransactionTimeline(startOfDay, endOfDay);
 
         return ReconciliationSummaryResponse.builder()
                 .date(targetDate)
@@ -112,12 +112,83 @@ public class ReconciliationService {
     }
 
     @Transactional(readOnly = true)
-    public ReconciliationSummaryResponse submitReconciliation(ReconciliationSubmitRequest dto) {
+    public ReconciliationSummaryResponse submitReconciliation(ReconciliationSubmitDTO dto) {
         return getSummary(dto.getDate(), null);
     }
 
-    private List<ReconciliationTransactionResponse> buildTransactionTimeline(Instant start, Instant end) {
-        List<ReconciliationTransactionResponse> list = new ArrayList<>();
+    /** Hàng trả cấn sang đơn đổi, tách theo quỹ mà nó đang bị cộng nhầm vào. */
+    private record ExchangeCreditSplit(BigDecimal cash, BigDecimal bank) {
+    }
+
+    /** Phép trừ trong JPQL có thể trả về kiểu số khác BigDecimal tùy dialect. */
+    private static BigDecimal toBigDecimal(Object value) {
+        if (value == null) return BigDecimal.ZERO;
+        if (value instanceof BigDecimal decimal) return decimal;
+        return BigDecimal.valueOf(((Number) value).doubleValue());
+    }
+
+    private static boolean isBankMethod(String paymentMethod) {
+        return "BANK".equalsIgnoreCase(paymentMethod)
+                || "BANK_TRANSFER".equalsIgnoreCase(paymentMethod)
+                || "TRANSFER".equalsIgnoreCase(paymentMethod);
+    }
+
+    /**
+     * Chia giá trị hàng trả cấn sang đơn đổi thành phần nằm trong quỹ tiền mặt và phần
+     * nằm trong quỹ ngân hàng.
+     *
+     * <p>Đơn đổi mặc định thừa hưởng hình thức thanh toán của đơn gốc, trừ khi khách bù
+     * thêm bằng chuyển khoản thì đơn đổi được đánh dấu TRANSFER — nên tra hình thức của
+     * chính đơn đổi mới đúng.
+     *
+     * <p>Một đơn gốc bị đổi nhiều lần trong cùng ngày và các lần đó khác hình thức thanh
+     * toán là trường hợp hiếm mà dữ liệu không phân biệt được; khi đó lấy đơn đổi đầu
+     * tiên. Tổng vẫn đúng, chỉ có thể lệch giữa hai quỹ.
+     */
+    private ExchangeCreditSplit splitExchangeCredit(Instant startOfDay, Instant endOfDay) {
+        List<Object[]> credits =
+                returnOrderRepository.findExchangeCreditByOriginalOrderBetween(startOfDay, endOfDay);
+        if (credits.isEmpty()) {
+            return new ExchangeCreditSplit(BigDecimal.ZERO, BigDecimal.ZERO);
+        }
+
+        List<Integer> originalOrderIds = credits.stream()
+                .map(row -> (Integer) row[0])
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (originalOrderIds.isEmpty()) {
+            return new ExchangeCreditSplit(BigDecimal.ZERO, BigDecimal.ZERO);
+        }
+
+        Map<Integer, String> methodByOriginalOrder = new HashMap<>();
+        for (Object[] row : salesOrderRepository.findExchangeOrderPaymentMethods(
+                originalOrderIds, startOfDay, endOfDay)) {
+            methodByOriginalOrder.putIfAbsent((Integer) row[0], (String) row[1]);
+        }
+
+        BigDecimal cash = BigDecimal.ZERO;
+        BigDecimal bank = BigDecimal.ZERO;
+        for (Object[] row : credits) {
+            BigDecimal amount = toBigDecimal(row[1]);
+            if (amount.signum() <= 0) continue;
+
+            // Không tìm được đơn đổi thì khoản này chưa từng vào quỹ nào — bỏ qua còn hơn
+            // trừ nhầm vào két và tạo ra chênh lệch ảo cho thu ngân.
+            String method = methodByOriginalOrder.get((Integer) row[0]);
+            if (method == null) continue;
+
+            if (isBankMethod(method)) {
+                bank = bank.add(amount);
+            } else {
+                cash = cash.add(amount);
+            }
+        }
+        return new ExchangeCreditSplit(cash, bank);
+    }
+
+    private List<ReconciliationTransactionDTO> buildTransactionTimeline(Instant start, Instant end) {
+        List<ReconciliationTransactionDTO> list = new ArrayList<>();
 
         // 1. Sales orders from SalesOrder
         List<SalesOrder> orders = salesOrderRepository.findOrdersBetween(start, end);
@@ -127,7 +198,7 @@ public class ReconciliationService {
 
             BigDecimal displayAmount = Boolean.TRUE.equals(o.getIsDebt()) ? o.getTotalAmount() : (o.getPaidAmount() != null ? o.getPaidAmount() : o.getTotalAmount());
 
-            list.add(ReconciliationTransactionResponse.builder()
+            list.add(ReconciliationTransactionDTO.builder()
                     .time(TIME_FORMATTER.format(o.getCreatedAt()))
                     .code(o.getOrderCode())
                     .category(o.getOriginalSalesOrderId() != null ? "Hóa đơn đổi hàng" : "Bán hàng")
@@ -143,7 +214,7 @@ public class ReconciliationService {
         List<DebtPayment> debtPayments = debtPaymentRepository.findActiveTodayPaymentsWithOrderAndCustomer(start, end);
         for (DebtPayment dp : debtPayments) {
             String method = "BANK".equalsIgnoreCase(dp.getPaymentMethod()) || "BANK_TRANSFER".equalsIgnoreCase(dp.getPaymentMethod()) ? "Chuyển khoản" : "Tiền mặt";
-            list.add(ReconciliationTransactionResponse.builder()
+            list.add(ReconciliationTransactionDTO.builder()
                     .time(TIME_FORMATTER.format(dp.getCreatedAt()))
                     .code(dp.getPaymentCode() != null ? dp.getPaymentCode() : ("TP-" + dp.getId()))
                     .category("Thu nợ khách hàng (" + (dp.getSalesOrder() != null ? dp.getSalesOrder().getOrderCode() : "") + ")")
@@ -155,7 +226,7 @@ public class ReconciliationService {
                     .build());
         }
 
-        list.sort(Comparator.comparing(ReconciliationTransactionResponse::getTime).reversed());
+        list.sort(Comparator.comparing(ReconciliationTransactionDTO::getTime).reversed());
         return list;
     }
 }

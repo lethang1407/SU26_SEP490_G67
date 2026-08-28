@@ -11,16 +11,16 @@ import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.request.UpsertProductRequest;
 import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
+import project.be_sep490_g67.dto.response.ProductDetailDTO;
+import project.be_sep490_g67.dto.response.ProductListItemDTO;
+import project.be_sep490_g67.service.ProductCommandService;
+import project.be_sep490_g67.service.ProductListService;
 import project.be_sep490_g67.dto.response.ProductBarcodeResponse;
 import project.be_sep490_g67.dto.response.ProductDetailResponse;
-import project.be_sep490_g67.dto.response.ProductLegacyDetailResponse;
-import project.be_sep490_g67.dto.response.ProductListItemResponse;
 import project.be_sep490_g67.dto.response.ProductListResponse;
 import project.be_sep490_g67.dto.response.ProductPosInfoResponse;
 import project.be_sep490_g67.dto.response.ProductSearchResponse;
 import project.be_sep490_g67.dto.response.PriceHistoryResponse;
-import project.be_sep490_g67.service.ProductCommandService;
-import project.be_sep490_g67.service.ProductListService;
 import project.be_sep490_g67.service.ProductService;
 
 import java.util.List;
@@ -83,54 +83,54 @@ public class ProductController {
     }
 
     @GetMapping("/list")
-    public ApiResponse<PageResponse<ProductListItemResponse>> getProducts(
+    public ApiResponse<PageResponse<ProductListItemDTO>> getProducts(
             @RequestParam(defaultValue = "hot") String facet,
             @RequestParam(required = false) Integer categoryId,
             @RequestParam(required = false) String keyword,
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "10") int size
     ) {
-        PageResponse<ProductListItemResponse> result =
+        PageResponse<ProductListItemDTO> result =
                 productListService.getProductPage(facet, categoryId, keyword, page, size);
-        return ApiResponse.<PageResponse<ProductListItemResponse>>builder()
+        return ApiResponse.<PageResponse<ProductListItemDTO>>builder()
                 .result(result)
                 .message("Lấy danh sách sản phẩm thành công")
                 .build();
     }
 
-    @GetMapping("/{id}")
-    public ApiResponse<ProductDetailResponse> getProduct(@PathVariable Integer id) {
-        return ApiResponse.<ProductDetailResponse>builder()
-                .result(productCommandService.getById(id))
-                .message("Lấy chi tiết sản phẩm thành công")
-                .build();
-    }
+   @GetMapping("/{id}")
+   public ApiResponse<ProductDetailDTO> getProduct(@PathVariable Integer id) {
+       return ApiResponse.<ProductDetailDTO>builder()
+               .result(productCommandService.getById(id))
+               .message("Lấy chi tiết sản phẩm thành công")
+               .build();
+   }
 
     @PostMapping
-    public ApiResponse<ProductDetailResponse> createProduct(@Valid @RequestBody UpsertProductRequest request) {
-        return ApiResponse.<ProductDetailResponse>builder()
+    public ApiResponse<ProductDetailDTO> createProduct(@Valid @RequestBody UpsertProductRequest request) {
+        return ApiResponse.<ProductDetailDTO>builder()
                 .result(productCommandService.create(request))
                 .message("Tạo sản phẩm thành công")
                 .build();
     }
 
     @PutMapping("/{id}")
-    public ApiResponse<ProductDetailResponse> updateProduct(
+    public ApiResponse<ProductDetailDTO> updateProduct(
             @PathVariable Integer id,
             @Valid @RequestBody UpsertProductRequest request
     ) {
-        return ApiResponse.<ProductDetailResponse>builder()
+        return ApiResponse.<ProductDetailDTO>builder()
                 .result(productCommandService.update(id, request))
                 .message("Cập nhật sản phẩm thành công")
                 .build();
     }
 
     @PostMapping(value = "/{id}/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ApiResponse<ProductDetailResponse.ImageResponse> uploadImage(
+    public ApiResponse<ProductDetailDTO.ImageDTO> uploadImage(
             @PathVariable Integer id,
             @RequestParam("file") MultipartFile file
     ) {
-        return ApiResponse.<ProductDetailResponse.ImageResponse>builder()
+        return ApiResponse.<ProductDetailDTO.ImageDTO>builder()
                 .result(productCommandService.uploadImage(id, file))
                 .message("Tải ảnh thành công")
                 .build();
@@ -145,8 +145,8 @@ public class ProductController {
     }
 
     @GetMapping("/{productId}/legacy-detail")
-    ApiResponse<ProductLegacyDetailResponse> getProductById(@PathVariable Integer productId) {
-        return ApiResponse.<ProductLegacyDetailResponse>builder()
+    ApiResponse<ProductDetailResponse> getProductById(@PathVariable Integer productId) {
+        return ApiResponse.<ProductDetailResponse>builder()
                 .result(productService.getProductById(productId))
                 .build();
     }

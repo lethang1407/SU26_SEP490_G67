@@ -578,7 +578,7 @@ export default function ProductEditForm({
               <div className="add-product-fields add-product-fields--two-col">
                 <div className="add-product-field">
                   <label className="add-product-field__label" htmlFor="edit-product-sku">
-                    Mã sản phẩm
+                    Mã sản phẩm (SKU)
                   </label>
                   <input
                     id="edit-product-sku"
@@ -626,6 +626,20 @@ export default function ProductEditForm({
                 {errors.categoryId ? (
                   <p className="add-product-field__error">{errors.categoryId}</p>
                 ) : null}
+              </div>
+
+              <div className="add-product-field">
+                <label className="add-product-field__label" htmlFor="edit-product-desc">
+                  Mô tả ngắn
+                </label>
+                <textarea
+                  id="edit-product-desc"
+                  name="description"
+                  className="add-product-field__textarea"
+                  rows={4}
+                  value={form.description}
+                  onChange={handleChange}
+                />
               </div>
             </div>
           </section>
@@ -957,26 +971,6 @@ export default function ProductEditForm({
             </div>
             {errors.image ? <p className="add-product-field__error">{errors.image}</p> : null}
           </section>
-
-          <section className="add-product-card">
-            <header className="add-product-card__header">
-              <h2 className="add-product-card__title">Mô tả sản phẩm</h2>
-            </header>
-            <div className="add-product-fields">
-              <div className="add-product-field">
-                <textarea
-                  id="edit-product-desc"
-                  name="description"
-                  className="add-product-field__textarea"
-                  rows={5}
-                  value={form.description}
-                  onChange={handleChange}
-                  placeholder="Nhập thông tin mô tả chi tiết sản phẩm, công dụng, xuất xứ, hướng dẫn bảo quản…"
-                  style={{ width: '100%', minHeight: 110, fontSize: 13.5, lineHeight: 1.6 }}
-                />
-              </div>
-            </div>
-          </section>
         </div>
 
         <aside className="add-product-aside">
@@ -1038,8 +1032,9 @@ export default function ProductEditForm({
               <div className="edit-product-margin">
                 <span className="edit-product-margin__label">Biên độ lợi nhuận</span>
                 <span
-                  className={`edit-product-margin__value${margin == null ? '' : margin >= 0 ? ' is-positive' : ' is-negative'
-                    }`}
+                  className={`edit-product-margin__value${
+                    margin == null ? '' : margin >= 0 ? ' is-positive' : ' is-negative'
+                  }`}
                 >
                   {margin == null ? (
                     '—'
@@ -1054,51 +1049,36 @@ export default function ProductEditForm({
             </div>
           </section>
 
-          {(product?.id || initialData?.id) && (
-            <section className="add-product-card">
-              <header className="add-product-card__header">
-                <h2 className="add-product-card__title">Trạng thái kinh doanh</h2>
-              </header>
+          <section className="add-product-card">
+            <header className="add-product-card__header">
+              <h2 className="add-product-card__title">Trạng thái kinh doanh</h2>
+            </header>
 
-              <div className="edit-product-status" role="radiogroup" aria-label="Trạng thái kinh doanh">
-                {form.status === 'new' && (
-                  <label className="edit-product-status__option is-checked">
-                    <input
-                      type="radio"
-                      name="status"
-                      value="new"
-                      checked={form.status === 'new'}
-                      onChange={handleChange}
-                    />
-                    <span className="edit-product-status__radio" aria-hidden="true" />
-                    <span>🆕 Sản phẩm mới</span>
-                  </label>
-                )}
-                <label className={`edit-product-status__option${form.status === 'active' ? ' is-checked' : ''}`}>
-                  <input
-                    type="radio"
-                    name="status"
-                    value="active"
-                    checked={form.status === 'active'}
-                    onChange={handleChange}
-                  />
-                  <span className="edit-product-status__radio" aria-hidden="true" />
-                  <span>🟢 Đang kinh doanh</span>
-                </label>
-                <label className={`edit-product-status__option${form.status === 'inactive' ? ' is-checked' : ''}`}>
-                  <input
-                    type="radio"
-                    name="status"
-                    value="inactive"
-                    checked={form.status === 'inactive'}
-                    onChange={handleChange}
-                  />
-                  <span className="edit-product-status__radio" aria-hidden="true" />
-                  <span>⛔ Ngừng kinh doanh</span>
-                </label>
-              </div>
-            </section>
-          )}
+            <div className="edit-product-status" role="radiogroup" aria-label="Trạng thái kinh doanh">
+              <label className={`edit-product-status__option${form.status === 'active' ? ' is-checked' : ''}`}>
+                <input
+                  type="radio"
+                  name="status"
+                  value="active"
+                  checked={form.status === 'active'}
+                  onChange={handleChange}
+                />
+                <span className="edit-product-status__radio" aria-hidden="true" />
+                <span>Đang bán</span>
+              </label>
+              <label className={`edit-product-status__option${form.status === 'inactive' ? ' is-checked' : ''}`}>
+                <input
+                  type="radio"
+                  name="status"
+                  value="inactive"
+                  checked={form.status === 'inactive'}
+                  onChange={handleChange}
+                />
+                <span className="edit-product-status__radio" aria-hidden="true" />
+                <span>Ngừng kinh doanh</span>
+              </label>
+            </div>
+          </section>
         </aside>
       </div>
     </form>

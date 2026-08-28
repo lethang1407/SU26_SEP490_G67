@@ -5,10 +5,12 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @Builder
-public class ImportHistoryRowResponse {
+public class ImportHistoryRowDTO {
     private Integer id;
     private String orderCode;
     private Instant importedAt;

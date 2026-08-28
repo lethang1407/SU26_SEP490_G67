@@ -4,8 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import project.be_sep490_g67.dto.request.ReconciliationSubmitRequest;
-import project.be_sep490_g67.dto.response.ReconciliationSummaryResponse;
+import project.be_sep490_g67.dto.ReconciliationSubmitDTO;
+import project.be_sep490_g67.dto.ReconciliationSummaryResponse;
 import project.be_sep490_g67.service.ReconciliationService;
 
 import java.math.BigDecimal;
@@ -27,7 +27,7 @@ public class ReconciliationController {
     }
 
     @PostMapping
-    public ResponseEntity<ReconciliationSummaryResponse> submitReconciliation(@RequestBody ReconciliationSubmitRequest dto) {
+    public ResponseEntity<ReconciliationSummaryResponse> submitReconciliation(@RequestBody ReconciliationSubmitDTO dto) {
         return ResponseEntity.ok(reconciliationService.submitReconciliation(dto));
     }
 }

@@ -68,7 +68,7 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public ProductLegacyDetailResponse getProductById(Integer productId) {
+    public ProductDetailResponse getProductById(Integer productId) {
         Product product = findActiveProduct(productId);
         int stock = loadStock(product.getId());
         List<ProductUnit> units = productUnitRepository
@@ -80,7 +80,7 @@ public class ProductService {
     }
 
     @Transactional
-    public ProductLegacyDetailResponse createProduct(CreateProductRequest request, String actorUsername) {
+    public ProductDetailResponse createProduct(CreateProductRequest request, String actorUsername) {
         Category category = resolveCategory(request.getCategory());
         String barcode = normalizeBarcode(request.getBarcode());
         validateBarcodeUnique(barcode, null);
@@ -112,7 +112,7 @@ public class ProductService {
     }
 
     @Transactional
-    public ProductLegacyDetailResponse updateProduct(
+    public ProductDetailResponse updateProduct(
             Integer productId,
             UpdateProductRequest request,
             String actorUsername) {

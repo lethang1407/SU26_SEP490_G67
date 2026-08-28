@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Download, Upload } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import AdminHeader from '../../../components/ui/header-footer/Header';
-import ProductTabNav from '../../product/components/ProductTabNav';
 import CategoryTable from '../components/CategoryTable';
 import CategoryPagination from '../components/CategoryPagination';
 import CategoryFormModal from '../components/CategoryFormModal';
@@ -16,7 +14,6 @@ import '../../../css/AdminDashboard.css';
 import '../../../css/Category.css';
 
 export default function CategoryListPage() {
-  const navigate = useNavigate();
   const [keyword, setKeyword] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [sort, setSort] = useState(CATEGORY_SORT.NAME_ASC);
@@ -30,16 +27,6 @@ export default function CategoryListPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('create');
   const [editing, setEditing] = useState(null);
-
-  const handleTabChange = (tabKey) => {
-    if (tabKey === 'products') {
-      navigate('/admin/products');
-    } else if (tabKey === 'categories') {
-      navigate('/admin/products?tab=categories');
-    } else if (tabKey === 'units') {
-      navigate('/admin/products?tab=units');
-    }
-  };
 
   const loadList = useCallback(async () => {
     setLoading(true);
@@ -157,36 +144,15 @@ export default function CategoryListPage() {
       <AdminHeader />
       <main className="admin-main">
           <div className="dashboard-container cat-page">
-            {/* ─── Top Tabs Bar ─── */}
-            <ProductTabNav activeTab="categories" onTabChange={handleTabChange} />
-
             <header className="cat-page__header">
               <div>
-                <h1 className="cat-page__title">Danh sách nhóm hàng hóa</h1>
+                <h1 className="cat-page__title">Danh mục sản phẩm</h1>
                 <p className="cat-page__subtitle">{subtitle}</p>
               </div>
-              <div className="cat-page__actions">
-                <button
-                  type="button"
-                  className="cat-btn cat-btn--outline-green"
-                  onClick={() => alert('Đang xuất danh sách nhóm hàng hóa ra Excel...')}
-                >
-                  <Download size={15} />
-                  Xuất Excel
-                </button>
-                <button
-                  type="button"
-                  className="cat-btn cat-btn--outline-gray"
-                  onClick={() => alert('Tính năng Nhập từ Excel đang được cập nhật!')}
-                >
-                  <Upload size={15} />
-                  Nhập từ Excel
-                </button>
-                <button type="button" className="cat-btn cat-btn--primary" onClick={openCreate}>
-                  <Plus size={16} />
-                  Thêm nhóm hàng hóa
-                </button>
-              </div>
+              <button type="button" className="cat-btn cat-btn--primary" onClick={openCreate}>
+                <Plus size={16} />
+                Thêm danh mục
+              </button>
             </header>
 
             <div className="cat-toolbar">
@@ -194,7 +160,7 @@ export default function CategoryListPage() {
                 <Search size={16} />
                 <input
                   type="search"
-                  placeholder="Tìm kiếm theo tên hoặc mã nhóm…"
+                  placeholder="Tìm theo tên danh mục…"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   aria-label="Tìm danh mục"

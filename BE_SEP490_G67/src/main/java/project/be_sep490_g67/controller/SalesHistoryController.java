@@ -7,9 +7,9 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.response.ApiResponse;
-import project.be_sep490_g67.dto.response.HourlyRevenueResponse;
+import project.be_sep490_g67.dto.response.HourRevenueResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
-import project.be_sep490_g67.dto.response.SalesHistoryRowResponse;
+import project.be_sep490_g67.dto.response.SalesHistoryRowDTO;
 import project.be_sep490_g67.dto.response.SalesHistorySummaryResponse;
 import project.be_sep490_g67.service.SalesHistoryService;
 
@@ -25,7 +25,7 @@ public class SalesHistoryController {
     SalesHistoryService salesHistoryService;
 
     @GetMapping
-    public ApiResponse<PageResponse<SalesHistoryRowResponse>> list(
+    public ApiResponse<PageResponse<SalesHistoryRowDTO>> list(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) String keyword,
@@ -34,17 +34,17 @@ public class SalesHistoryController {
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "5") int size
     ) {
-        return ApiResponse.<PageResponse<SalesHistoryRowResponse>>builder()
+        return ApiResponse.<PageResponse<SalesHistoryRowDTO>>builder()
                 .result(salesHistoryService.list(from, to, keyword, productId, status, page, size))
                 .message("Lấy lịch sử bán hàng thành công")
                 .build();
     }
 
     @GetMapping("/hourly")
-    public ApiResponse<List<HourlyRevenueResponse>> hourly(
+    public ApiResponse<List<HourRevenueResponse>> hourly(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
     ) {
-        return ApiResponse.<List<HourlyRevenueResponse>>builder()
+        return ApiResponse.<List<HourRevenueResponse>>builder()
                 .result(salesHistoryService.hourlyRevenue(date))
                 .message("Lấy doanh thu theo giờ thành công")
                 .build();

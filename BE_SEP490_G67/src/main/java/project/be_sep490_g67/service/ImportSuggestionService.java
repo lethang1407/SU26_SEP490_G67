@@ -7,8 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.be_sep490_g67.dto.request.ImportSuggestRequest;
-import project.be_sep490_g67.dto.response.ImportSuggestionResponse;
-import project.be_sep490_g67.dto.response.GroupedSuggestionResponse;
+import project.be_sep490_g67.dto.response.ImportSuggestionDTO;
+import project.be_sep490_g67.dto.response.GroupedSuggestionDTO;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.entity.Category;
 import project.be_sep490_g67.entity.Product;
@@ -35,9 +35,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.text.Normalizer;
 import java.util.Objects;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -61,7 +59,7 @@ public class ImportSuggestionService {
     SupplierRepository supplierRepository;
 
     @Transactional(readOnly = true)
-    public List<ImportSuggestionResponse> getSuggestions(ImportSuggestRequest request) {
+    public List<ImportSuggestionDTO> getSuggestions(ImportSuggestRequest request) {
         if (request == null || request.getProductIds() == null || request.getProductIds().isEmpty()) {
             return Collections.emptyList();
         }
@@ -110,7 +108,7 @@ public class ImportSuggestionService {
         // productId -> supplierId -> last cost
         Map<Integer, Map<Integer, BigDecimal>> lastCosts = loadLastCosts(request.getProductIds());
 
-        List<ImportSuggestionResponse> result = new ArrayList<>();
+        List<ImportSuggestionDTO> result = new ArrayList<>();
         for (Product p : products) {
             result.add(buildSuggestion(
                     p, from, to, overrides.get(p.getId()), suppliersByCategory, lastCosts));
@@ -135,7 +133,7 @@ public class ImportSuggestionService {
         return map;
     }
 
-    ImportSuggestionResponse buildSuggestion(
+    ImportSuggestionDTO buildSuggestion(
             Product p,
             Instant from,
             Instant to,
@@ -152,10 +150,10 @@ public class ImportSuggestionService {
         int onHand = onHandRaw == null ? 0 : onHandRaw.intValue();
 
         BigDecimal fallbackCost = p.getCostPrice() != null ? p.getCostPrice() : BigDecimal.ZERO;
-        List<ImportSuggestionResponse.SupplierOption> options = buildSupplierOptions(
+        List<ImportSuggestionDTO.SupplierOption> options = buildSupplierOptions(
                 p, suppliersByCategory, lastCosts.getOrDefault(p.getId(), Map.of()), fallbackCost);
 
-        ImportSuggestionResponse.SupplierOption selected = pickDefaultOption(p, options);
+        ImportSuggestionDTO.SupplierOption selected = pickDefaultOption(p, options);
         int leadDays = selected != null && selected.getLeadTimeDays() != null
                 ? selected.getLeadTimeDays()
                 : DEFAULT_LEAD_DAYS;
@@ -193,7 +191,7 @@ public class ImportSuggestionService {
                 suggestedQty
         );
 
-        return ImportSuggestionResponse.builder()
+        return ImportSuggestionDTO.builder()
                 .productId(p.getId())
                 .productName(p.getName())
                 .parentId(p.getParent() != null ? p.getParent().getId() : null)
@@ -215,34 +213,15 @@ public class ImportSuggestionService {
                 .coverSourceLabel(cover.label)
                 .costPerUnit(costPerUnit)
                 .onHand(onHand)
-                .minStock(p.getMinStock() == null ? 0 : p.getMinStock())
-                .sold14Days((int) soldQty)
                 .avgDailyRate(avgDaily)
-                .unitName(resolveUnitName(p))
                 .supplierOptions(options)
                 .units(buildUnitOptions(p))
                 .build();
     }
 
-    private String resolveUnitName(Product p) {
+    List<ImportSuggestionDTO.UnitOption> buildUnitOptions(Product p) {
         if (p.getProductUnits() == null || p.getProductUnits().isEmpty()) {
-            return "Cái";
-        }
-        return p.getProductUnits().stream()
-                .filter(u -> u.getUnitBase() != null && u.getUnitBase().compareTo(BigDecimal.ONE) == 0)
-                .map(ProductUnit::getName)
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse(p.getProductUnits().stream()
-                        .map(ProductUnit::getName)
-                        .filter(Objects::nonNull)
-                        .findFirst()
-                        .orElse("Cái"));
-    }
-
-    List<ImportSuggestionResponse.UnitOption> buildUnitOptions(Product p) {
-        if (p.getProductUnits() == null || p.getProductUnits().isEmpty()) {
-            return List.of(ImportSuggestionResponse.UnitOption.builder()
+            return List.of(ImportSuggestionDTO.UnitOption.builder()
                     .id(null)
                     .name("sp")
                     .unitBase(BigDecimal.ONE)
@@ -258,7 +237,7 @@ public class ImportSuggestionService {
                 .map(u -> {
                     BigDecimal base = u.getUnitBase() == null ? BigDecimal.ONE : u.getUnitBase();
                     boolean isBase = base.compareTo(BigDecimal.ONE) == 0;
-                    return ImportSuggestionResponse.UnitOption.builder()
+                    return ImportSuggestionDTO.UnitOption.builder()
                             .id(u.getId())
                             .name(u.getName() != null ? u.getName() : "sp")
                             .unitBase(base)
@@ -268,7 +247,7 @@ public class ImportSuggestionService {
                 .toList();
     }
 
-    List<ImportSuggestionResponse.SupplierOption> buildSupplierOptions(
+    List<ImportSuggestionDTO.SupplierOption> buildSupplierOptions(
             Product p,
             Map<Integer, List<Supplier>> suppliersByCategory,
             Map<Integer, BigDecimal> costsBySupplier,
@@ -296,10 +275,10 @@ public class ImportSuggestionService {
             return List.of();
         }
 
-        List<ImportSuggestionResponse.SupplierOption> options = new ArrayList<>();
+        List<ImportSuggestionDTO.SupplierOption> options = new ArrayList<>();
         for (Supplier s : unique.values()) {
             BigDecimal cost = costsBySupplier.getOrDefault(s.getId(), fallbackCost);
-            options.add(ImportSuggestionResponse.SupplierOption.builder()
+            options.add(ImportSuggestionDTO.SupplierOption.builder()
                     .id(s.getId())
                     .name(s.getName())
                     .leadTimeDays(s.getLeadTimeDays() != null ? s.getLeadTimeDays() : DEFAULT_LEAD_DAYS)
@@ -314,7 +293,7 @@ public class ImportSuggestionService {
                         : o.getCostPerUnit()))
                 .ifPresent(cheapest -> {
                     BigDecimal price = cheapest.getCostPerUnit();
-                    for (ImportSuggestionResponse.SupplierOption o : options) {
+                    for (ImportSuggestionDTO.SupplierOption o : options) {
                         if (o.getCostPerUnit() != null && o.getCostPerUnit().compareTo(price) == 0) {
                             o.setCheapest(true);
                         }
@@ -322,21 +301,21 @@ public class ImportSuggestionService {
                 });
 
         options.sort(Comparator
-                .comparing(ImportSuggestionResponse.SupplierOption::getCheapest, Comparator.nullsLast(Comparator.reverseOrder()))
-                .thenComparing(ImportSuggestionResponse.SupplierOption::getName, Comparator.nullsLast(String::compareToIgnoreCase)));
+                .comparing(ImportSuggestionDTO.SupplierOption::getCheapest, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(ImportSuggestionDTO.SupplierOption::getName, Comparator.nullsLast(String::compareToIgnoreCase)));
 
         return options;
     }
 
-    ImportSuggestionResponse.SupplierOption pickDefaultOption(
-            Product p, List<ImportSuggestionResponse.SupplierOption> options) {
+    ImportSuggestionDTO.SupplierOption pickDefaultOption(
+            Product p, List<ImportSuggestionDTO.SupplierOption> options) {
         if (options == null || options.isEmpty()) {
             return null;
         }
         Category c = p.getCategory();
         if (c != null && c.getDefaultSupplier() != null) {
             Integer defId = c.getDefaultSupplier().getId();
-            for (ImportSuggestionResponse.SupplierOption o : options) {
+            for (ImportSuggestionDTO.SupplierOption o : options) {
                 if (Objects.equals(o.getId(), defId)) {
                     return o;
                 }
@@ -373,7 +352,7 @@ public class ImportSuggestionService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<GroupedSuggestionResponse> getGroupedSuggestions(
+    public PageResponse<GroupedSuggestionDTO> getGroupedSuggestions(
             String facet, Integer categoryId, String keyword, int page, int size
     ) {
         List<Product> allActive = productRepository.findAllActive();
@@ -413,13 +392,13 @@ public class ImportSuggestionService {
             }
         }
 
-        Map<Integer, ImportSuggestionResponse> suggestionMap = new HashMap<>();
+        Map<Integer, ImportSuggestionDTO> suggestionMap = new HashMap<>();
         Map<Integer, Double> coverDaysLeftMap = new HashMap<>();
         Map<Integer, String> facetStatusMap = new HashMap<>();
 
         for (Product p : allActive) {
             if (p.getParent() != null || !childrenMap.containsKey(p.getId())) {
-                ImportSuggestionResponse sug = buildSuggestion(p, from, to, null, suppliersByCategory, lastCosts);
+                ImportSuggestionDTO sug = buildSuggestion(p, from, to, null, suppliersByCategory, lastCosts);
                 suggestionMap.put(p.getId(), sug);
 
                 int onHand = sug.getOnHand() != null ? sug.getOnHand() : 0;
@@ -441,15 +420,15 @@ public class ImportSuggestionService {
             }
         }
 
-        List<GroupedSuggestionResponse> resultList = new ArrayList<>();
+        List<GroupedSuggestionDTO> resultList = new ArrayList<>();
 
         for (Product r : rootProducts) {
             List<Product> children = childrenMap.get(r.getId());
             if (children == null || children.isEmpty()) {
-                ImportSuggestionResponse sug = suggestionMap.get(r.getId());
+                ImportSuggestionDTO sug = suggestionMap.get(r.getId());
                 if (sug == null) continue;
 
-                GroupedSuggestionResponse dto = GroupedSuggestionResponse.builder()
+                GroupedSuggestionDTO dto = GroupedSuggestionDTO.builder()
                         .id(r.getId())
                         .name(r.getName())
                         .sku(r.getSku())
@@ -476,7 +455,7 @@ public class ImportSuggestionService {
                     groupedByPrimary.computeIfAbsent(primaryVal, k -> new ArrayList<>()).add(child);
                 }
 
-                List<GroupedSuggestionResponse.VariantGroupResponse> variantGroups = new ArrayList<>();
+                List<GroupedSuggestionDTO.VariantGroupDTO> variantGroups = new ArrayList<>();
                 int totalOnHand = 0;
                 BigDecimal totalAvgDaily = BigDecimal.ZERO;
 
@@ -484,12 +463,12 @@ public class ImportSuggestionService {
                     String primaryVal = entry.getKey();
                     List<Product> colorGroup = entry.getValue();
 
-                    List<GroupedSuggestionResponse.VariantItemResponse> sizes = new ArrayList<>();
+                    List<GroupedSuggestionDTO.VariantItemDTO> sizes = new ArrayList<>();
                     int groupOnHand = 0;
                     BigDecimal groupAvgDaily = BigDecimal.ZERO;
 
                     for (Product c : colorGroup) {
-                        ImportSuggestionResponse sug = suggestionMap.get(c.getId());
+                        ImportSuggestionDTO sug = suggestionMap.get(c.getId());
                         if (sug == null) continue;
 
                         groupOnHand += sug.getOnHand() != null ? sug.getOnHand() : 0;
@@ -497,7 +476,7 @@ public class ImportSuggestionService {
 
                         BigDecimal childAvgDaily = sug.getAvgDailyRate() != null ? sug.getAvgDailyRate() : BigDecimal.ZERO;
                         String formattedChildName = formatChildName(r, c, primaryVal);
-                        GroupedSuggestionResponse.VariantItemResponse sizeDto = GroupedSuggestionResponse.VariantItemResponse.builder()
+                        GroupedSuggestionDTO.VariantItemDTO sizeDto = GroupedSuggestionDTO.VariantItemDTO.builder()
                                 .id(c.getId())
                                 .name(formattedChildName)
                                 .primaryAttrValue(primaryVal)
@@ -529,7 +508,7 @@ public class ImportSuggestionService {
                     totalAvgDaily = totalAvgDaily.add(groupAvgDaily);
 
                     Product representative = colorGroup.get(0);
-                    GroupedSuggestionResponse.VariantGroupResponse varGroup = GroupedSuggestionResponse.VariantGroupResponse.builder()
+                    GroupedSuggestionDTO.VariantGroupDTO varGroup = GroupedSuggestionDTO.VariantGroupDTO.builder()
                             .primaryAttrValue(primaryVal)
                             .name(r.getName() + " - " + primaryVal)
                             .sku(sizes.size() == 1 ? sizes.get(0).getSku() : "(" + sizes.size() + " mã)")
@@ -574,7 +553,7 @@ public class ImportSuggestionService {
                 else if (hasSeason) groupFacet = "season";
                 else if (hasStop) groupFacet = "stop";
 
-                GroupedSuggestionResponse dto = GroupedSuggestionResponse.builder()
+                GroupedSuggestionDTO dto = GroupedSuggestionDTO.builder()
                         .id(r.getId())
                         .name(r.getName())
                         .sku(r.getSku() != null ? r.getSku() : "(" + children.size() + " phân loại)")
@@ -597,7 +576,7 @@ public class ImportSuggestionService {
             }
         }
 
-        List<GroupedSuggestionResponse> filteredList = resultList.stream()
+        List<GroupedSuggestionDTO> filteredList = resultList.stream()
                 .filter(g -> {
                     if (categoryId == null) return true;
                     if (g.getIsGroup()) {
@@ -610,29 +589,26 @@ public class ImportSuggestionService {
                 })
                 .filter(g -> {
                     if (keyword == null || keyword.isBlank()) return true;
-                    String[] words = normalizeVietnamese(keyword).split("\\s+");
+                    String[] words = keyword.trim().toLowerCase(Locale.ROOT).split("\\s+");
                     for (String word : words) {
                         boolean wordMatched = false;
-                        String gNameNorm = normalizeVietnamese(g.getName());
-                        String gSkuNorm = normalizeVietnamese(g.getSku());
-                        String gBarcodeNorm = normalizeVietnamese(g.getBarcode());
-                        if (gNameNorm.contains(word) || gSkuNorm.contains(word) || gBarcodeNorm.contains(word)) {
+                        if (g.getName().toLowerCase(Locale.ROOT).contains(word)
+                                || (g.getSku() != null && g.getSku().toLowerCase(Locale.ROOT).contains(word))
+                                || (g.getBarcode() != null && g.getBarcode().toLowerCase(Locale.ROOT).contains(word))) {
                             wordMatched = true;
                         }
                         if (!wordMatched && g.getIsGroup()) {
                             List<Product> children = childrenMap.get(g.getId());
                             if (children != null) {
                                 for (Product c : children) {
-                                    String cNameNorm = normalizeVietnamese(c.getName());
-                                    String cSkuNorm = normalizeVietnamese(c.getSku());
-                                    String cBarcodeNorm = normalizeVietnamese(c.getBarcode());
-                                    if (cNameNorm.contains(word) || cSkuNorm.contains(word) || cBarcodeNorm.contains(word)) {
+                                    if (c.getName().toLowerCase(Locale.ROOT).contains(word)
+                                            || (c.getSku() != null && c.getSku().toLowerCase(Locale.ROOT).contains(word))
+                                            || (c.getBarcode() != null && c.getBarcode().toLowerCase(Locale.ROOT).contains(word))) {
                                         wordMatched = true;
                                         break;
                                     }
                                     for (var attr : c.getProductAttributes()) {
-                                        String attrValNorm = normalizeVietnamese(attr.getValue());
-                                        if (attrValNorm.contains(word)) {
+                                        if (attr.getValue() != null && attr.getValue().toLowerCase(Locale.ROOT).contains(word)) {
                                             wordMatched = true;
                                             break;
                                         }
@@ -661,10 +637,9 @@ public class ImportSuggestionService {
         int total = filteredList.size();
         int fromIdx = Math.min(page * size, total);
         int toIdx = Math.min(fromIdx + size, total);
-        List<GroupedSuggestionResponse> content = filteredList.subList(fromIdx, toIdx);
-        fillOpenPoForSuggestions(content);
+        List<GroupedSuggestionDTO> content = filteredList.subList(fromIdx, toIdx);
 
-        return PageResponse.<GroupedSuggestionResponse>builder()
+        return PageResponse.<GroupedSuggestionDTO>builder()
                 .content(content)
                 .page(page)
                 .size(safeSize(size))
@@ -672,84 +647,6 @@ public class ImportSuggestionService {
                 .totalPages(size == 0 ? 0 : (int) Math.ceil((double) total / size))
                 .build();
     }
-
-    void fillOpenPoForSuggestions(List<GroupedSuggestionResponse> content) {
-        if (content == null || content.isEmpty()) {
-            return;
-        }
-        List<Integer> allProductIds = new ArrayList<>();
-        for (GroupedSuggestionResponse g : content) {
-            if (g.getId() != null) {
-                allProductIds.add(g.getId());
-            }
-            if (Boolean.TRUE.equals(g.getIsGroup()) && g.getVariantGroups() != null) {
-                for (GroupedSuggestionResponse.VariantGroupResponse vg : g.getVariantGroups()) {
-                    if (vg.getSizes() != null) {
-                        for (GroupedSuggestionResponse.VariantItemResponse sz : vg.getSizes()) {
-                            if (sz.getId() != null) {
-                                allProductIds.add(sz.getId());
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if (allProductIds.isEmpty()) {
-            return;
-        }
-
-        List<Object[]> rows = importOrderDetailRepository.findDraftOpenPoRows(allProductIds);
-        Map<Integer, OpenPoInfo> byProduct = new HashMap<>();
-        for (Object[] row : rows) {
-            Integer productId = (Integer) row[0];
-            if (byProduct.containsKey(productId)) {
-                continue; // newest first
-            }
-            byProduct.put(productId, new OpenPoInfo(
-                    (Integer) row[1],
-                    (String) row[2],
-                    row[3] == null ? 0 : ((Number) row[3]).intValue()
-            ));
-        }
-
-        for (GroupedSuggestionResponse g : content) {
-            OpenPoInfo selfInfo = byProduct.get(g.getId());
-            if (selfInfo != null) {
-                g.setOpenPoId(selfInfo.orderId());
-                g.setOpenPoCode(selfInfo.orderCode());
-                g.setOpenPoQty(selfInfo.qty());
-            }
-            if (Boolean.TRUE.equals(g.getIsGroup()) && g.getVariantGroups() != null) {
-                String groupFirstOpenPoCode = null;
-                Integer groupFirstOpenPoId = null;
-                int groupTotalOpenPoQty = 0;
-                for (GroupedSuggestionResponse.VariantGroupResponse vg : g.getVariantGroups()) {
-                    if (vg.getSizes() != null) {
-                        for (GroupedSuggestionResponse.VariantItemResponse sz : vg.getSizes()) {
-                            OpenPoInfo szInfo = byProduct.get(sz.getId());
-                            if (szInfo != null) {
-                                sz.setOpenPoId(szInfo.orderId());
-                                sz.setOpenPoCode(szInfo.orderCode());
-                                sz.setOpenPoQty(szInfo.qty());
-                                if (groupFirstOpenPoCode == null) {
-                                    groupFirstOpenPoCode = szInfo.orderCode();
-                                    groupFirstOpenPoId = szInfo.orderId();
-                                }
-                                groupTotalOpenPoQty += szInfo.qty();
-                            }
-                        }
-                    }
-                }
-                if (groupFirstOpenPoCode != null && g.getOpenPoCode() == null) {
-                    g.setOpenPoId(groupFirstOpenPoId);
-                    g.setOpenPoCode(groupFirstOpenPoCode);
-                    g.setOpenPoQty(groupTotalOpenPoQty);
-                }
-            }
-        }
-    }
-
-    record OpenPoInfo(Integer orderId, String orderCode, int qty) {}
 
     private int safeSize(int size) {
         return size <= 0 ? 10 : size;
@@ -866,20 +763,9 @@ public class ImportSuggestionService {
     }
 
     String resolveImg(Product p) {
-        if (p == null) return null;
-        if (p.getProductImages() != null && !p.getProductImages().isEmpty()) {
+        if (p != null && p.getProductImages() != null && !p.getProductImages().isEmpty()) {
             return p.getProductImages().iterator().next().getUrl();
         }
-        if (p.getParent() != null && p.getParent().getProductImages() != null && !p.getParent().getProductImages().isEmpty()) {
-            return p.getParent().getProductImages().iterator().next().getUrl();
-        }
         return null;
-    }
-
-    private static String normalizeVietnamese(String text) {
-        if (text == null) return "";
-        String nfd = Normalizer.normalize(text, Normalizer.Form.NFD);
-        Pattern pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
-        return pattern.matcher(nfd).replaceAll("").replace('đ', 'd').replace('Đ', 'd').toLowerCase(Locale.ROOT).trim();
     }
 }

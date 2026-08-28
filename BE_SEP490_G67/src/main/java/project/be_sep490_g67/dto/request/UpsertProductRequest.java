@@ -53,9 +53,6 @@ public class UpsertProductRequest {
     @Valid
     private List<AttributeRequest> attributes = new ArrayList<>();
 
-    @Valid
-    private List<VariantRequest> variants = new ArrayList<>();
-
     @Data
     public static class UnitRequest {
         @NotBlank
@@ -79,17 +76,5 @@ public class UpsertProductRequest {
 
         @NotBlank
         private String value;
-    }
-
-    @Data
-    public static class VariantRequest {
-        private Integer id;
-        private String name;
-        private String sku;
-        private String barcode;
-        private BigDecimal costPrice;
-        private BigDecimal sellingPrice;
-        private String status;
-        private List<AttributeRequest> attributes = new ArrayList<>();
     }
 }

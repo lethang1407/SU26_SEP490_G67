@@ -1,90 +1,47 @@
 package project.be_sep490_g67.dto.response;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
+import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 @Builder
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class ProductDetailResponse {
-    private Integer id;
-    private Integer parentId;
-    private String parentName;
-    private String name;
-    private String sku;
-    private String barcode;
-    private Integer categoryId;
-    private String categoryName;
-    private String brand;
-    private String description;
-    private String status;
-    private BigDecimal costPrice;
-    private BigDecimal sellingPrice;
-    private BigDecimal vatPercent;
-    private String seasonTag;
-    private Integer coverDaysOverride;
-    private Integer categoryCoverDays;
-    private String supplierName;
-    private String productImg;
-    private String baseUnitName;
 
-    @Builder.Default
-    private List<UnitResponse> units = new ArrayList<>();
+    Integer id;
 
-    @Builder.Default
-    private List<AttributeResponse> attributes = new ArrayList<>();
+    Integer parentId;
 
-    @Builder.Default
-    private List<ImageResponse> images = new ArrayList<>();
+    String parentName;
 
-    @Builder.Default
-    private List<VariantResponse> variants = new ArrayList<>();
+    String code;
 
-    @Data
-    @Builder
-    public static class VariantResponse {
-        private Integer id;
-        private String name;
-        private String sku;
-        private String barcode;
-        private BigDecimal costPrice;
-        private BigDecimal sellingPrice;
-        private String status;
-        @Builder.Default
-        private List<AttributeResponse> attributes = new ArrayList<>();
-    }
+    String name;
 
-    @Data
-    @Builder
-    public static class UnitResponse {
-        private Integer id;
-        private String name;
-        private BigDecimal unitBase;
-        private BigDecimal sellingPrice;
-        @JsonProperty("isBase")
-        private boolean isBase;
-    }
+    String barcode;
 
-    @Data
-    @Builder
-    public static class AttributeResponse {
-        private Integer id;
-        private String name;
-        private String value;
-    }
+    String category;
 
-    @Data
-    @Builder
-    public static class ImageResponse {
-        private Integer id;
-        private String url;
-        private String publicId;
-        @JsonProperty("isMain")
-        private boolean isMain;
-        private Integer sortOrder;
-    }
+    String description;
+
+    BigDecimal importPrice;
+
+    BigDecimal sellPrice;
+
+    Integer stock;
+
+    Integer minStock;
+
+    String businessStatus;
+
+    ProductBaseUnitResponse baseUnit;
+
+    List<ProductConversionUnitResponse> conversionUnits;
+
+    List<ProductAttributeResponse> attributes;
 }

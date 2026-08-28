@@ -29,9 +29,6 @@ function mapProduct(product) {
         sellingPrice: Number(product.sellingPrice) || 0,
         // Gợi ý theo ĐVT cơ bản; createLine sẽ nhân unitBase
         importPrice: lastCostPerBase,
-        openPoId: product.openPoId || null,
-        openPoCode: product.openPoCode || null,
-        openPoQty: product.openPoQty || 0,
     };
 }
 
@@ -144,9 +141,7 @@ export default function ImportOrderProductSearch({ onSelect }) {
                                                 handleSelect(product);
                                             }}
                                         >
-                                            <span className="ioc-search__item-name">
-                                                {product.name}
-                                            </span>
+                                            <span className="ioc-search__item-name">{product.name}</span>
                                             <span className="ioc-search__item-meta">{product.code}</span>
                                         </button>
                                     </li>

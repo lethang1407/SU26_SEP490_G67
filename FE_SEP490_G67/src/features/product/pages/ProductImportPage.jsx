@@ -1,15 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, Search, MoreHorizontal, QrCode, ScanLine, ShoppingCart, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Plus, Search } from 'lucide-react';
 import AdminHeader from '../../../components/ui/header-footer/Header';
-
+import ProductFacet from '../components/ProductFacet';
 import ProductImportTable from '../components/ProductImportTable';
 import ImportPanel from '../components/ImportPanel';
-import ProductStockCardModal from '../components/ProductStockCardModal';
-import UnitConversionModal from '../components/UnitConversionModal';
-import ProductEditModal from '../components/ProductEditModal';
-import QuickBarcodeScanModal from '../components/QuickBarcodeScanModal';
-import DraftPoWarningModal from '../components/DraftPoWarningModal';
+import ProductDetailDrawer from '../components/ProductDetailDrawer';
 import { productsApi } from '../api';
 import { importOrderApi } from '../api/importOrderApi';
 import { categoriesApi } from '../../category/api';
@@ -34,33 +30,44 @@ function resolveOrderDate(item, ov) {
   if (timing !== 'lead') {
     return new Date().toISOString().slice(0, 10);
   }
-  const days = Number(ov?.leadTimeDays ?? item.leadTimeDays ?? 3) || 3;
+  const lead = Number(ov?.leadTimeDays ?? item.leadTimeDays ?? 3);
   const d = new Date();
-  d.setDate(d.getDate() + days);
+  d.setDate(d.getDate() + Math.max(lead, 0));
   return d.toISOString().slice(0, 10);
 }
 
-function confirmOpenPoAdd(openEntries) {
-  if (!openEntries.length) return true;
-  const lines = openEntries.map(
-    (e) => `• ${e.name} (Đơn DRAFT: ${e.code})`,
-  );
+function confirmOpenPoAdd(entries) {
+  if (!entries.length) return true;
+  const sample = entries
+    .slice(0, 3)
+    .map((e) => `${e.name || `#${e.id}`} (${e.code})`)
+    .join(', ');
+  const more = entries.length > 3 ? ` và ${entries.length - 3} SP khác` : '';
   return window.confirm(
-    `Các sản phẩm sau đang có đơn DRAFT mở:\n\n${lines.join('\n')}\n\nBạn có chắc muốn thêm tiếp vào đơn này?`,
+    `Các sản phẩm sau đang nằm trên phiếu tạm DRAFT: ${sample}${more}.\nVẫn thêm vào đơn mới?`,
   );
 }
 
 function validateLines(panelItems, overrides) {
   const errors = [];
+  if (!panelItems.length) {
+    errors.push('Chưa có sản phẩm nào để tạo đơn.');
+    return errors;
+  }
+
   panelItems.forEach((item) => {
     const ov = overrides[item.productId] || {};
-    const supplierId = ov.supplierId ?? item.supplierId;
-    const qty = Number(ov.quantity ?? item.suggestedQty) || 0;
+    const unitBase = Number(ov.unitBase ?? 1) || 1;
     const packQty = ov.quantity ?? item.suggestedQty;
-    const name = item.productName || `SP #${item.productId}`;
+    const qty = Math.round(Number(packQty || 0) * unitBase);
+    const supplierId = ov.supplierId ?? item.supplierId;
+    const name = item.productName || `#${item.productId}`;
 
-    if (!supplierId) {
-      errors.push(`Chưa chọn nhà cung cấp cho “${name}”.`);
+    if (!item.productId) {
+      errors.push(`Thiếu mã sản phẩm: ${name}`);
+    }
+    if (!supplierId || Number(supplierId) <= 0) {
+      errors.push(`Chưa có nhà cung cấp hợp lệ cho “${name}”.`);
     }
     if (packQty == null || Number(packQty) <= 0 || qty <= 0) {
       errors.push(`Số lượng phải > 0 cho “${name}”.`);
@@ -71,13 +78,8 @@ function validateLines(panelItems, overrides) {
 }
 
 export default function ProductImportPage() {
-  const navigate = useNavigate();
   const [facet, setFacet] = useState('all');
-  const [searchName, setSearchName] = useState('');
-  const [debouncedSearchName, setDebouncedSearchName] = useState('');
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [createModalInitialBarcode, setCreateModalInitialBarcode] = useState('');
-  const [isBarcodeScanModalOpen, setIsBarcodeScanModalOpen] = useState(false);
+  const [keyword, setKeyword] = useState('');
   const [categoryId, setCategoryId] = useState(null);
   const [categories, setCategories] = useState([]);
   const [page, setPage] = useState(0);
@@ -85,73 +87,23 @@ export default function ProductImportPage() {
   const [products, setProducts] = useState([]);
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-
-  // Persistent State for Draft Order Panel
-  const [selectedIds, setSelectedIds] = useState(() => {
-    try {
-      const saved = localStorage.getItem('pi_draft_selected_ids');
-      return saved ? new Set(JSON.parse(saved)) : new Set();
-    } catch {
-      return new Set();
-    }
-  });
-  const [panelItems, setPanelItems] = useState(() => {
-    try {
-      const saved = localStorage.getItem('pi_draft_panel_items');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [overrides, setOverrides] = useState(() => {
-    try {
-      const saved = localStorage.getItem('pi_draft_overrides');
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
-
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [panelItems, setPanelItems] = useState([]);
+  const [overrides, setOverrides] = useState({});
   const [step, setStep] = useState('setup');
   const [creating, setCreating] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
-  const [stockCardProduct, setStockCardProduct] = useState(null);
-  const [unitModalProduct, setUnitModalProduct] = useState(null);
-  const [editModalProduct, setEditModalProduct] = useState(null);
+  const [detailProduct, setDetailProduct] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [openPoById, setOpenPoById] = useState(() => ({}));
   const [supplierFallback, setSupplierFallback] = useState([]);
   const [isOrderPanelOpen, setIsOrderPanelOpen] = useState(false);
-  const [draftPoWarning, setDraftPoWarning] = useState({
-    isOpen: false,
-    items: [],
-    pendingIds: [],
-  });
 
   const selectedIdsRef = useRef(selectedIds);
   selectedIdsRef.current = selectedIds;
   const panelIdsRef = useRef(new Set());
   panelIdsRef.current = new Set(panelItems.map((p) => p.productId));
-
-  // Sync draft order to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem('pi_draft_selected_ids', JSON.stringify(Array.from(selectedIds)));
-    } catch { }
-  }, [selectedIds]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('pi_draft_panel_items', JSON.stringify(panelItems));
-    } catch { }
-  }, [panelItems]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('pi_draft_overrides', JSON.stringify(overrides));
-    } catch { }
-  }, [overrides]);
   const detailRequestRef = useRef(0);
 
   const openDetail = useCallback(async (listItem) => {
@@ -164,24 +116,17 @@ export default function ProductImportPage() {
       setDetailProduct({
         ...listItem,
         ...detail,
-        onHand: detail.stock ?? detail.onHand ?? listItem.onHand ?? 0,
-        supplierName:
-          detail.supplierName ||
-          detail.supplier ||
-          listItem.supplierName ||
-          '',
-        leadTimeDays: detail.leadTimeDays ?? listItem.leadTimeDays ?? 3,
-        safetyStock: detail.safetyStock ?? listItem.safetyStock ?? 0,
-        pendingPoQty: detail.pendingPoQty ?? listItem.pendingPoQty ?? 0,
-        avgDailyRate:
-          detail.avgDailySalesRate ??
-          detail.avgDailyRate ??
-          listItem.avgDailyRate ??
-          0,
-        units: Array.isArray(detail.units) ? detail.units : listItem.units,
+        avgDailyRate: listItem.avgDailyRate,
+        avgWeeklyRate: listItem.avgWeeklyRate,
+        onHand: listItem.onHand,
+        coverDaysLeft: listItem.coverDaysLeft,
+        facetStatus: listItem.facetStatus,
+        unitName: detail.baseUnitName || listItem.unitName,
+        supplierName: detail.supplierName || listItem.supplierName,
+        categoryCoverDays: listItem.categoryCoverDays ?? detail.categoryCoverDays,
       });
-    } catch {
-      // keep basic item
+    } catch (err) {
+      console.error(err);
     }
   }, []);
 
@@ -190,15 +135,11 @@ export default function ProductImportPage() {
     setDetailProduct(null);
   };
 
-  const loadCategories = useCallback(() => {
+  useEffect(() => {
     categoriesApi
       .getAllCategories()
       .then((list) => setCategories(Array.isArray(list) ? list : []))
       .catch(() => setCategories([]));
-  }, []);
-
-  useEffect(() => {
-    loadCategories();
     suppliersApi
       .getSuppliers({ page: 0, size: 200 })
       .then((pageRes) => {
@@ -214,16 +155,7 @@ export default function ProductImportPage() {
         );
       })
       .catch(() => setSupplierFallback([]));
-  }, [loadCategories]);
-
-  // Debounce product name search input by 300ms
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchName(searchName.trim());
-      setPage(0);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchName]);
+  }, []);
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
@@ -232,7 +164,7 @@ export default function ProductImportPage() {
       const result = await productsApi.getProducts({
         facet,
         categoryId: typeof categoryId === 'number' ? categoryId : undefined,
-        keyword: debouncedSearchName || undefined,
+        keyword: keyword || undefined,
         page,
         size: PAGE_SIZE,
       });
@@ -243,51 +175,14 @@ export default function ProductImportPage() {
       setOpenPoById((prev) => {
         const next = { ...prev };
         content.forEach((p) => {
-          if (p.openPoCode || p.openPoId) {
+          if (p.openPoCode) {
             next[p.id] = {
-              id: p.id,
-              orderId: p.openPoId,
               code: p.openPoCode,
               qty: p.openPoQty,
               name: p.name,
-              unitName: p.unitName,
             };
           } else {
             delete next[p.id];
-          }
-          if (Array.isArray(p.children)) {
-            p.children.forEach((c) => {
-              if (c.openPoCode || c.openPoId) {
-                next[c.id] = {
-                  id: c.id,
-                  orderId: c.openPoId,
-                  code: c.openPoCode,
-                  qty: c.openPoQty,
-                  name: c.name,
-                  unitName: c.unitName || p.unitName,
-                };
-              } else if (c.id) {
-                delete next[c.id];
-              }
-            });
-          }
-          if (p.isGroup && Array.isArray(p.variantGroups)) {
-            p.variantGroups.forEach((vg) => {
-              (vg.sizes || []).forEach((sz) => {
-                if (sz.openPoCode || sz.openPoId) {
-                  next[sz.id] = {
-                    id: sz.id,
-                    orderId: sz.openPoId,
-                    code: sz.openPoCode,
-                    qty: sz.openPoQty,
-                    name: sz.name,
-                    unitName: sz.unitName || p.unitName,
-                  };
-                } else if (sz.id) {
-                  delete next[sz.id];
-                }
-              });
-            });
           }
         });
         return next;
@@ -299,81 +194,15 @@ export default function ProductImportPage() {
       setTotalPages(1);
       setErrorMsg(
         err?.response?.data?.message ||
-        'Không tải được danh sách sản phẩm. Kiểm tra kết nối API.',
+          'Không tải được danh sách sản phẩm. Kiểm tra kết nối API.',
       );
     } finally {
       setLoading(false);
     }
-  }, [facet, categoryId, debouncedSearchName, page]);
+  }, [facet, categoryId, keyword, page]);
 
   useEffect(() => {
     loadProducts();
-  }, [loadProducts]);
-
-  // Global Hardware Barcode Scanner listener on product page
-  useEffect(() => {
-    let buffer = '';
-    let lastKeyTime = Date.now();
-
-    const handleGlobalScan = async (e) => {
-      // Don't capture when typing inside an input/textarea or when modals are open
-      if (document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
-        return;
-      }
-      if (isCreateModalOpen || editModalProduct || stockCardProduct || unitModalProduct || isBarcodeScanModalOpen) {
-        return;
-      }
-      if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(e.key)) return;
-
-      const currentTime = Date.now();
-      if (currentTime - lastKeyTime > 50) {
-        buffer = '';
-      }
-
-      if (e.key === 'Enter') {
-        const code = buffer.trim();
-        if (code.length >= 3) {
-          e.preventDefault();
-          buffer = '';
-          try {
-            const found = await productsApi.getByBarcode(code);
-            if (found && found.id) {
-              setEditModalProduct(found);
-              setSuccessMsg(`Đã nhận diện sản phẩm: ${found.name}`);
-            } else {
-              setCreateModalInitialBarcode(code);
-              setIsCreateModalOpen(true);
-              setSuccessMsg(`Mã vạch "${code}" chưa có trong kho. Bạn có thể tạo mới ngay!`);
-            }
-          } catch {
-            setCreateModalInitialBarcode(code);
-            setIsCreateModalOpen(true);
-            setSuccessMsg(`Mã vạch "${code}" chưa có trong kho. Bạn có thể tạo mới ngay!`);
-          }
-        }
-      } else if (e.key.length === 1) {
-        buffer += e.key;
-      }
-
-      lastKeyTime = currentTime;
-    };
-
-    window.addEventListener('keydown', handleGlobalScan);
-    return () => window.removeEventListener('keydown', handleGlobalScan);
-  }, [isCreateModalOpen, editModalProduct, stockCardProduct, unitModalProduct, isBarcodeScanModalOpen]);
-
-  const handleDeleteProduct = useCallback(async (product) => {
-    if (!product?.id) return;
-    const confirmed = window.confirm(`Bạn có chắc chắn muốn xóa sản phẩm "${product.name}"?`);
-    if (!confirmed) return;
-
-    try {
-      await productsApi.delete(product.id);
-      setSuccessMsg(`Đã xóa sản phẩm "${product.name}" thành công.`);
-      loadProducts();
-    } catch {
-      setErrorMsg(`Không thể xóa sản phẩm "${product.name}". Vui lòng thử lại sau.`);
-    }
   }, [loadProducts]);
 
   useEffect(() => {
@@ -402,28 +231,24 @@ export default function ProductImportPage() {
     };
   }, []);
 
-  const removeFromPanel = useCallback((rawIds) => {
-    const arr = Array.isArray(rawIds) ? rawIds.flat(Infinity) : [rawIds];
-    const removeSet = new Set();
-    arr.forEach((id) => {
-      if (id != null) {
-        removeSet.add(Number(id));
-        removeSet.add(String(id));
-      }
-    });
+  useEffect(() => {
+    if (!detailProduct) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setDetailProduct(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [detailProduct]);
 
+  const removeFromPanel = useCallback((ids) => {
+    const removeSet = new Set(ids);
     setPanelItems((prev) => {
-      const remaining = prev.filter(
-        (p) =>
-          !removeSet.has(Number(p.productId || p.id)) &&
-          !removeSet.has(String(p.productId || p.id)),
-      );
+      const remaining = prev.filter((p) => !removeSet.has(p.productId));
       if (remaining.length === 0) {
         setIsOrderPanelOpen(false);
       }
       return remaining;
     });
-
     setOverrides((prev) => {
       const next = { ...prev };
       removeSet.forEach((id) => {
@@ -431,14 +256,9 @@ export default function ProductImportPage() {
       });
       return next;
     });
-
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      removeSet.forEach((id) => {
-        next.delete(id);
-        next.delete(Number(id));
-        next.delete(String(id));
-      });
+      removeSet.forEach((id) => next.delete(id));
       selectedIdsRef.current = next;
       if (next.size === 0) {
         setIsOrderPanelOpen(false);
@@ -458,21 +278,10 @@ export default function ProductImportPage() {
           .filter((id) => openPoById[id] && !panelIdsRef.current.has(id))
           .map((id) => ({
             id,
-            orderId: openPoById[id].orderId,
             name: openPoById[id].name,
             code: openPoById[id].code,
-            qty: openPoById[id].qty,
-            unitName: openPoById[id].unitName,
           }));
-
-        if (openEntries.length > 0) {
-          setDraftPoWarning({
-            isOpen: true,
-            items: openEntries,
-            pendingIds: want,
-          });
-          return;
-        }
+        if (!confirmOpenPoAdd(openEntries)) return;
       }
 
       setSelectedIds((prev) => {
@@ -548,7 +357,7 @@ export default function ProductImportPage() {
         });
         setErrorMsg(
           err?.response?.data?.message ||
-          'Không lấy được gợi ý nhập hàng. Kiểm tra API / quyền truy cập.',
+            'Không lấy được gợi ý nhập hàng. Kiểm tra API / quyền truy cập.',
         );
       } finally {
         setSuggesting(false);
@@ -578,17 +387,11 @@ export default function ProductImportPage() {
     const pageIds = [];
     products.forEach((p) => {
       if (p.isGroup) {
-        if (Array.isArray(p.children) && p.children.length > 0) {
-          p.children.forEach((c) => {
-            if (c.id) pageIds.push(c.id);
+        (p.variantGroups || []).forEach((vg) => {
+          (vg.sizes || []).forEach((sz) => {
+            if (sz.id) pageIds.push(sz.id);
           });
-        } else if (Array.isArray(p.variantGroups)) {
-          p.variantGroups.forEach((vg) => {
-            (vg.sizes || []).forEach((sz) => {
-              if (sz.id) pageIds.push(sz.id);
-            });
-          });
-        }
+        });
       } else {
         if (p.id) pageIds.push(p.id);
       }
@@ -601,29 +404,6 @@ export default function ProductImportPage() {
     }
   };
 
-  const handleConfirmDraftAdd = () => {
-    const ids = draftPoWarning.pendingIds;
-    setDraftPoWarning({ isOpen: false, items: [], pendingIds: [] });
-    if (ids && ids.length) {
-      addToPanel(ids, { skipOpenPoConfirm: true });
-    }
-  };
-
-  const handleCancelDraftAdd = () => {
-    const affectedIds = new Set(draftPoWarning.items.map((i) => i.id));
-    const cleanIds = (draftPoWarning.pendingIds || []).filter((id) => !affectedIds.has(id));
-    setDraftPoWarning({ isOpen: false, items: [], pendingIds: [] });
-    if (cleanIds.length > 0) {
-      addToPanel(cleanIds, { skipOpenPoConfirm: true });
-    }
-  };
-
-  const handleOpenDraftPo = (orderId) => {
-    if (orderId) {
-      navigate(`/admin/warehouse/import/${orderId}/edit`);
-    }
-  };
-
   const clearAllSelection = () => {
     selectedIdsRef.current = new Set();
     setSelectedIds(new Set());
@@ -632,11 +412,6 @@ export default function ProductImportPage() {
     setStep('setup');
     setErrorMsg('');
     setIsOrderPanelOpen(false);
-    try {
-      localStorage.removeItem('pi_draft_selected_ids');
-      localStorage.removeItem('pi_draft_panel_items');
-      localStorage.removeItem('pi_draft_overrides');
-    } catch { }
   };
 
   const handleCreate = async () => {
@@ -685,16 +460,8 @@ export default function ProductImportPage() {
     setCreating(true);
     try {
       const created = await importOrderApi.createOrders(lines);
-      clearAllSelection();
-      setIsOrderPanelOpen(false);
-
-      if (Array.isArray(created) && created.length > 0 && created[0]?.id) {
-        const firstPoId = created[0].id;
-        navigate(`/admin/warehouse/import/${firstPoId}/edit`);
-        return;
-      }
-
       const codes = (created || []).map((o) => o.orderCode).filter(Boolean);
+      clearAllSelection();
       setSuccessMsg(
         codes.length
           ? `Đã tạo ${codes.length} đơn nhập: ${codes.join(', ')}.`
@@ -705,7 +472,7 @@ export default function ProductImportPage() {
       console.error(err);
       setErrorMsg(
         err?.response?.data?.message ||
-        'Không tạo được đơn nhập. Kiểm tra NCC, số lượng và API.',
+          'Không tạo được đơn nhập. Kiểm tra NCC, số lượng và API.',
       );
     } finally {
       setCreating(false);
@@ -725,281 +492,146 @@ export default function ProductImportPage() {
   );
 
   return (
-    <div className="admin-content">
-      <AdminHeader />
-      <main className="admin-main product-import-page">
-        <div className="pi-main">
-          <div className="pi-content">
-            <section className="pi-results" id="piResults">
-              {/* ─── Unified Card Header ─── */}
-              <div className="pi-card-head">
-                <div className="pi-card-title-wrap">
-                  <h1 className="pi-card-title">Danh sách hàng hóa</h1>
-                  {showStatusNote ? (
-                    <span
-                      className={`page-note${errorMsg ? ' page-note--error' : ''}${successMsg && !errorMsg ? ' page-note--ok' : ''}`}
-                      style={{ margin: 0, padding: '4px 10px' }}
-                    >
-                      {errorMsg || successMsg}
-                    </span>
-                  ) : null}
-                </div>
-
-                <div className="pi-head-actions">
-                  {(selectedIds.size > 0 || panelItems.length > 0) && (
-                    <div className="pi-head-action-group">
-                      <button
-                        type="button"
-                        className="pi-btn-action pi-btn-action--secondary"
-                        onClick={() => setIsOrderPanelOpen(true)}
-                        style={{ border: 'none', background: 'transparent', boxShadow: 'none' }}
-                      >
-                        <ShoppingCart size={16} />
-                        Đơn chuẩn bị ({panelItems.length || selectedIds.size})
-                      </button>
-                      <button
-                        type="button"
-                        className="pi-btn-clear-selection"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          clearAllSelection();
-                        }}
-                        title="Bỏ chọn tất cả và xóa đơn chuẩn bị"
-                        aria-label="Bỏ chọn tất cả"
-                      >
-                        <X size={15} />
-                      </button>
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    className="pi-btn-action pi-btn-action--primary"
-                    onClick={() => {
-                      setCreateModalInitialBarcode('');
-                      setIsCreateModalOpen(true);
-                    }}
+      <div className="admin-content">
+        <AdminHeader />
+        <main
+          className={`admin-main product-import-page ${detailProduct ? 'detail-open' : ''}`}
+        >
+          <div className="pi-main">
+            <div className="pi-head">
+              <div>
+                <h1>Danh sách sản phẩm</h1>
+                {showStatusNote ? (
+                  <div
+                    className={`page-note${errorMsg ? ' page-note--error' : ''}${successMsg && !errorMsg ? ' page-note--ok' : ''}`}
                   >
-                    <Plus size={16} />
-                    Thêm hàng hóa
-                  </button>
-                </div>
-              </div>
-
-              {/* ─── Unified Card Filter Toolbar ─── */}
-              <div className="pi-card-filter-toolbar">
-                {/* Ô tìm kiếm theo tên hàng hóa tích hợp nút quét mã vạch */}
-                <div className="pi-filter-search">
-                  <Search size={14} />
-                  <input
-                    placeholder="Tìm kiếm theo tên hàng hóa…"
-                    value={searchName}
-                    onChange={(e) => setSearchName(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="pi-search-barcode-btn"
-                    onClick={() => setIsBarcodeScanModalOpen(true)}
-                    title="Quét mã vạch barcode"
-                    aria-label="Quét mã vạch"
-                  >
-                    <ScanLine size={15} />
-                  </button>
-                </div>
-
-                {/* Dropdown 1: Danh mục (Đẩy lên trước) */}
-                <select
-                  className={`pi-filter-select${categoryId !== null ? ' is-active' : ''}`}
-                  value={categoryId ?? ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setCategoryId(val === '' ? null : Number(val));
-                    setPage(0);
-                  }}
-                >
-                  <option value="">-- Danh mục --</option>
-                  {categoryOptions.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-
-                {/* Dropdown 2: Tình trạng hàng hóa / Tồn kho */}
-                <select
-                  className={`pi-filter-select${facet !== 'all' ? ' is-active' : ''}`}
-                  value={facet}
-                  onChange={(e) => handleFacetChange(e.target.value)}
-                  title="Lọc theo tình trạng hàng hóa"
-                >
-                  <option value="all">-- Tình trạng (Tất cả) --</option>
-                  <option value="new">🆕 Mới tạo (cần nhập lần đầu)</option>
-                  <option value="hot">🔴 Hết hàng – Bán chạy (cần nhập ngay)</option>
-                  <option value="warn">🟠 Cảnh báo sắp hết hàng</option>
-                  <option value="ok">🟢 Đang kinh doanh (tồn an toàn)</option>
-                  <option value="season">🟣 Hàng mùa vụ</option>
-                  <option value="slow">⚪ Hết hàng – Ít bán</option>
-                  <option value="stop">⛔ Ngừng kinh doanh</option>
-                </select>
-
-                {/* Nút Xóa lọc sát lề phải */}
-                {(facet !== 'all' || categoryId !== null || searchName) && (
-                  <div className="pi-filter-actions-right">
-                    <button
-                      type="button"
-                      className="pi-filter-clear"
-                      onClick={() => {
-                        setFacet('all');
-                        setCategoryId(null);
-                        setSearchName('');
-                        setPage(0);
-                        setSuccessMsg('');
-                      }}
-                    >
-                      ✕ Xóa lọc
-                    </button>
+                    {errorMsg || successMsg}
                   </div>
-                )}
+                ) : null}
               </div>
+              <Link
+                to="/admin/products/create"
+                className="btn btn-primary d-inline-flex align-items-center gap-1"
+                style={{
+                  backgroundColor: '#004AC6',
+                  borderColor: '#004AC6',
+                  color: '#ffffff',
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  textDecoration: 'none',
+                  boxShadow: '0 2px 4px rgba(0,74,198,0.15)',
+                }}
+              >
+                <Plus size={18} />
+                Thêm sản phẩm mới
+              </Link>
+            </div>
 
-              <ProductImportTable
-                items={products}
-                loading={loading}
-                selectedIds={selectedIds}
-                onToggle={handleToggle}
-                onToggleAll={handleToggleAll}
-                onDeleteProduct={handleDeleteProduct}
-                onManageUnits={(p) => setUnitModalProduct(p)}
-                onEditProduct={(p) => setEditModalProduct(p)}
-                onViewStockCard={(p) => setStockCardProduct(p)}
-                onOpenDraftPo={handleOpenDraftPo}
-                page={page}
-                totalPages={totalPages}
-                totalElements={totalElements}
-                onPageChange={setPage}
+            <div className="pi-content">
+              <ProductFacet
+                facet={facet}
+                onFacetChange={handleFacetChange}
+                categories={categoryOptions}
+                categoryId={categoryId}
+                onCategoryChange={(id) => {
+                  setCategoryId(id);
+                  setPage(0);
+                }}
               />
-            </section>
-          </div>
 
-          {(selectedIds.size > 0 || panelItems.length > 0) && !isOrderPanelOpen && (
-            <div className="floating-btn-wrap show">
+              <section className={`pi-results ${isOrderPanelOpen ? 'compact' : ''}`} id="piResults">
+                <div className="pi-zone-head">Danh sách sản phẩm</div>
+                <div className="pi-search">
+                  <div className="pi-search-inner">
+                    <Search size={16} />
+                    <input
+                      placeholder="Tìm tên, SKU, mã vạch…"
+                      value={keyword}
+                      onChange={(e) => {
+                        setKeyword(e.target.value);
+                        setPage(0);
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <ProductImportTable
+                  items={products}
+                  loading={loading}
+                  facet={facet}
+                  selectedIds={selectedIds}
+                  detailProductId={detailProduct?.id ?? null}
+                  isOrderPanelOpen={isOrderPanelOpen}
+                  onToggle={handleToggle}
+                  onToggleAll={handleToggleAll}
+                  onOpenDetail={openDetail}
+                  page={page}
+                  totalPages={totalPages}
+                  totalElements={totalElements}
+                  onPageChange={setPage}
+                />
+              </section>
+
+              <ImportPanel
+                isOpen={isOrderPanelOpen}
+                panelItems={panelItems}
+                overrides={overrides}
+                step={step}
+                suggesting={suggesting}
+                supplierFallback={supplierFallback}
+                onChangeQty={(id, quantity) =>
+                  setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], quantity } }))
+                }
+                onChangeCover={(id, coverDays) =>
+                  setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], coverDays } }))
+                }
+                onChangeSupplier={(id, supplier) =>
+                  setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], ...supplier } }))
+                }
+                onChangeOrderTiming={(id, orderTiming) =>
+                  setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], orderTiming } }))
+                }
+                onChangeUnit={(id, unitPatch) =>
+                  setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], ...unitPatch } }))
+                }
+                onRemove={(id) => removeFromPanel([id])}
+                onPreview={() => {
+                  const errs = validateLines(panelItems, overrides);
+                  if (errs.length) {
+                    setErrorMsg(errs.join('\n'));
+                    return;
+                  }
+                  setErrorMsg('');
+                  setStep('preview');
+                }}
+                onBackSetup={() => setStep('setup')}
+                onCreate={handleCreate}
+                onClose={() => setIsOrderPanelOpen(false)}
+                creating={creating}
+              />
+            </div>
+
+            {selectedIds.size > 0 && !isOrderPanelOpen && (
               <button
                 type="button"
-                className="floating-btn-main"
+                className="floating-btn show"
                 onClick={() => {
                   setIsOrderPanelOpen(true);
+                  setDetailProduct(null);
                 }}
               >
-                <ShoppingCart size={18} />
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 11l3 3L22 4" />
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                </svg>
                 Xem đơn chuẩn bị
-                <span className="floating-badge">{panelItems.length || selectedIds.size}</span>
+                <span className="floating-badge">{selectedIds.size}</span>
               </button>
-              <div className="floating-btn-divider" />
-              <button
-                type="button"
-                className="floating-btn-clear"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  clearAllSelection();
-                }}
-                title="Bỏ chọn tất cả và xóa đơn chuẩn bị"
-                aria-label="Bỏ chọn tất cả"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Pop-up Chuẩn bị đơn nhập hàng */}
-        <ImportPanel
-          isOpen={isOrderPanelOpen}
-          panelItems={panelItems}
-          overrides={overrides}
-          suggesting={suggesting}
-          supplierFallback={supplierFallback}
-          onChangeQty={(id, quantity) =>
-            setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], quantity } }))
-          }
-          onChangeCover={(id, coverDays) =>
-            setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], coverDays } }))
-          }
-          onChangeSupplier={(id, supplier) =>
-            setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], ...supplier } }))
-          }
-          onChangeOrderTiming={(id, orderTiming) =>
-            setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], orderTiming } }))
-          }
-          onChangeUnit={(id, unitPatch) =>
-            setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], ...unitPatch } }))
-          }
-          onRemove={(id) => removeFromPanel(id)}
-          onCreate={handleCreate}
-          onClose={() => setIsOrderPanelOpen(false)}
-          creating={creating}
-        />
-
-        {/* Pop-up Thẻ kho & Lịch sử giá */}
-        <ProductStockCardModal
-          isOpen={Boolean(stockCardProduct)}
-          onClose={() => setStockCardProduct(null)}
-          product={stockCardProduct}
-        />
-
-        {/* Pop-up Quản lý quy đổi đơn vị (Image 1) */}
-        <UnitConversionModal
-          isOpen={Boolean(unitModalProduct)}
-          onClose={() => setUnitModalProduct(null)}
-          product={unitModalProduct}
-          onUnitUpdated={() => {
-            loadProducts();
-          }}
-        />
-
-        {/* Pop-up Cập nhật hàng hóa (Image 2) */}
-        <ProductEditModal
-          isOpen={Boolean(editModalProduct)}
-          onClose={() => setEditModalProduct(null)}
-          product={editModalProduct}
-          onProductUpdated={() => {
-            loadProducts();
-            setSuccessMsg('Đã cập nhật thông tin sản phẩm thành công.');
-          }}
-        />
-
-        {/* Pop-up Thêm mới hàng hóa */}
-        <ProductEditModal
-          isOpen={isCreateModalOpen}
-          onClose={() => {
-            setIsCreateModalOpen(false);
-            setCreateModalInitialBarcode('');
-          }}
-          product={createModalInitialBarcode ? { barcode: createModalInitialBarcode } : null}
-          onProductUpdated={() => {
-            loadProducts();
-            setSuccessMsg('Đã tạo hàng hóa mới thành công.');
-          }}
-        />
-
-        {/* Pop-up Quét mã vạch Barcode */}
-        <QuickBarcodeScanModal
-          isOpen={isBarcodeScanModalOpen}
-          onClose={() => setIsBarcodeScanModalOpen(false)}
-          onScanNewProduct={(scannedCode) => {
-            setCreateModalInitialBarcode(scannedCode);
-            setIsCreateModalOpen(true);
-          }}
-          onScanExistingProduct={(foundProduct) => {
-            setEditModalProduct(foundProduct);
-          }}
-        />
-
-        {/* Pop-up Cảnh báo sản phẩm đang có đơn DRAFT */}
-        <DraftPoWarningModal
-          isOpen={draftPoWarning.isOpen}
-          items={draftPoWarning.items}
-          onConfirmAdd={handleConfirmDraftAdd}
-          onCancel={handleCancelDraftAdd}
-          onOpenDraftPo={handleOpenDraftPo}
-        />
-      </main>
-    </div>
+            )}
+          </div>
+        </main>
+      </div>
   );
 }

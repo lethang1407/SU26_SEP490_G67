@@ -11,7 +11,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class GroupedSuggestionResponse {
+public class GroupedSuggestionDTO {
     Integer id;
     String name;
     String sku;
@@ -32,19 +32,14 @@ public class GroupedSuggestionResponse {
 
     Boolean isGroup;
 
-    // Open DRAFT Import Order (Phiếu tạm) info if exists
-    Integer openPoId;
-    String openPoCode;
-    Integer openPoQty;
-
-    List<VariantGroupResponse> variantGroups;
+    List<VariantGroupDTO> variantGroups;
 
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class VariantGroupResponse {
+    public static class VariantGroupDTO {
         String primaryAttrValue; // e.g. "Vàng"
         String name; // e.g. "Dép tổ ong siêu nhẹ đại của thanh - Màu Vàng"
         String sku; // e.g. "SP000003..." or "(2 mã)"
@@ -54,7 +49,7 @@ public class GroupedSuggestionResponse {
         Integer onHand;
         BigDecimal avgDailyRate;
 
-        List<VariantItemResponse> sizes;
+        List<VariantItemDTO> sizes;
     }
 
     @Data
@@ -62,7 +57,7 @@ public class GroupedSuggestionResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class VariantItemResponse {
+    public static class VariantItemDTO {
         Integer id; // actual product ID
         String name;
         String primaryAttrValue;
@@ -86,12 +81,7 @@ public class GroupedSuggestionResponse {
         String coverSourceLabel;
         BigDecimal costPerUnit;
 
-        // Open DRAFT Import Order (Phiếu tạm) info if exists
-        Integer openPoId;
-        String openPoCode;
-        Integer openPoQty;
-
-        List<ImportSuggestionResponse.SupplierOption> supplierOptions;
-        List<ImportSuggestionResponse.UnitOption> units;
+        List<ImportSuggestionDTO.SupplierOption> supplierOptions;
+        List<ImportSuggestionDTO.UnitOption> units;
     }
 }
