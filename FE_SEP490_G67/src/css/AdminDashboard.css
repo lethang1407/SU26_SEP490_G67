@@ -78,15 +78,7 @@
     color: #64748b;
     flex-shrink: 0;
 }
-
-.admin-dashboard-page .admin-header {
-    height: 48px;
-    padding: 0 28px;
-    background: #ffffff;
-    border-bottom: 1px solid #f1f5f9;
-    box-shadow: none;
-}
-
+/* 
 .admin-dashboard-page .header-btn {
     width: 32px;
     height: 32px;
@@ -104,7 +96,7 @@
 .admin-dashboard-page .header-btn:hover {
     background: #f1f5f9;
     color: #0f172a;
-}
+} */
 
 
 
