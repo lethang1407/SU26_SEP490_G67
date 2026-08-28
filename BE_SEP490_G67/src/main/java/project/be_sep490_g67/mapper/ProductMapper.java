@@ -33,7 +33,7 @@ public class ProductMapper {
                 .build();
     }
 
-    public ProductDetailResponse toDetailResponse(
+    public ProductLegacyDetailResponse toDetailResponse(
             Product product,
             int stock,
             List<ProductUnit> units,
@@ -45,7 +45,7 @@ public class ProductMapper {
                 .toList();
 
         Product parent = product.getParent();
-        return ProductDetailResponse.builder()
+        return ProductLegacyDetailResponse.builder()
                 .id(product.getId())
                 .parentId(parent != null ? parent.getId() : null)
                 .parentName(parent != null ? parent.getName() : null)
