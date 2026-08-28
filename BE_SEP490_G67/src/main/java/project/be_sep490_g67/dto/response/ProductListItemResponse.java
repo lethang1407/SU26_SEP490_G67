@@ -5,13 +5,14 @@ import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class ProductListItemDTO {
+public class ProductListItemResponse {
     Integer id;
     Integer parentId;
     String parentName;
@@ -42,6 +43,5 @@ public class ProductListItemDTO {
     Integer openPoId;
     String openPoCode;
     Integer openPoQty;
-    java.util.List<ProductListItemDTO> children;
+    List<ProductListItemResponse> children;
 }
-

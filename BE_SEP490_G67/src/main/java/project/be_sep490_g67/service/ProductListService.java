@@ -7,7 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.be_sep490_g67.dto.response.PageResponse;
-import project.be_sep490_g67.dto.response.ProductListItemDTO;
+import project.be_sep490_g67.dto.response.ProductListItemResponse;
 import project.be_sep490_g67.entity.Category;
 import project.be_sep490_g67.entity.Product;
 import project.be_sep490_g67.entity.ProductUnit;
@@ -51,7 +51,7 @@ public class ProductListService {
     SupplierRepository supplierRepository;
 
     @Transactional(readOnly = true)
-    public PageResponse<ProductListItemDTO> getProductPage(
+    public PageResponse<ProductListItemResponse> getProductPage(
             String facet,
             Integer categoryId,
             String keyword,
@@ -83,9 +83,9 @@ public class ProductListService {
             }
         }
 
-        List<ProductListItemDTO> mapped = new ArrayList<>();
+        List<ProductListItemResponse> mapped = new ArrayList<>();
         for (Product p : all) {
-            ProductListItemDTO dto = toListItem(p, from, to, newThreshold, fallbackSupplierByCategory);
+            ProductListItemResponse dto = toListItem(p, from, to, newThreshold, fallbackSupplierByCategory);
             if (matchesFacet(dto, facetKey, newThreshold)) {
                 mapped.add(dto);
             }
@@ -96,11 +96,11 @@ public class ProductListService {
         int total = mapped.size();
         int fromIdx = Math.min(page * size, total);
         int toIdx = Math.min(fromIdx + size, total);
-        List<ProductListItemDTO> content = mapped.subList(fromIdx, toIdx);
+        List<ProductListItemResponse> content = mapped.subList(fromIdx, toIdx);
 
         fillOpenPo(content);
 
-        return PageResponse.<ProductListItemDTO>builder()
+        return PageResponse.<ProductListItemResponse>builder()
                 .content(content)
                 .page(page)
                 .size(size)
@@ -111,20 +111,20 @@ public class ProductListService {
 
     /** Toàn bộ SP khớp facet/filter — dùng xuất Excel (không phân trang). */
     @Transactional(readOnly = true)
-    public List<ProductListItemDTO> listAllForExport(String facet, Integer categoryId, String keyword) {
-        PageResponse<ProductListItemDTO> page = getProductPage(facet, categoryId, keyword, 0, Integer.MAX_VALUE);
+    public List<ProductListItemResponse> listAllForExport(String facet, Integer categoryId, String keyword) {
+        PageResponse<ProductListItemResponse> page = getProductPage(facet, categoryId, keyword, 0, Integer.MAX_VALUE);
         return page.getContent() == null ? List.of() : page.getContent();
     }
 
-    void fillOpenPo(List<ProductListItemDTO> content) {
+    void fillOpenPo(List<ProductListItemResponse> content) {
         if (content == null || content.isEmpty()) {
             return;
         }
         List<Integer> ids = new ArrayList<>();
-        for (ProductListItemDTO dto : content) {
+        for (ProductListItemResponse dto : content) {
             if (dto.getId() != null) ids.add(dto.getId());
             if (dto.getChildren() != null) {
-                for (ProductListItemDTO c : dto.getChildren()) {
+                for (ProductListItemResponse c : dto.getChildren()) {
                     if (c.getId() != null) ids.add(c.getId());
                 }
             }
@@ -142,7 +142,7 @@ public class ProductListService {
                     row[3] == null ? 0 : ((Number) row[3]).intValue()
             ));
         }
-        for (ProductListItemDTO dto : content) {
+        for (ProductListItemResponse dto : content) {
             OpenPoInfo info = byProduct.get(dto.getId());
             if (info != null) {
                 dto.setOpenPoId(info.orderId());
@@ -150,7 +150,7 @@ public class ProductListService {
                 dto.setOpenPoQty(info.qty());
             }
             if (dto.getChildren() != null) {
-                for (ProductListItemDTO c : dto.getChildren()) {
+                for (ProductListItemResponse c : dto.getChildren()) {
                     OpenPoInfo cInfo = byProduct.get(c.getId());
                     if (cInfo != null) {
                         c.setOpenPoId(cInfo.orderId());
@@ -160,7 +160,7 @@ public class ProductListService {
                 }
                 // If parent has no open PO of its own, check if any child has one
                 if (dto.getOpenPoId() == null) {
-                    for (ProductListItemDTO c : dto.getChildren()) {
+                    for (ProductListItemResponse c : dto.getChildren()) {
                         if (c.getOpenPoId() != null) {
                             dto.setOpenPoId(c.getOpenPoId());
                             dto.setOpenPoCode(c.getOpenPoCode());
@@ -175,7 +175,7 @@ public class ProductListService {
 
     record OpenPoInfo(Integer orderId, String orderCode, int qty) {}
 
-    ProductListItemDTO toListItem(
+    ProductListItemResponse toListItem(
             Product p,
             Instant from,
             Instant to,
@@ -262,7 +262,7 @@ public class ProductListService {
             }
         }
 
-        List<ProductListItemDTO> childDtos = null;
+        List<ProductListItemResponse> childDtos = null;
         if (isGroup) {
             childDtos = new ArrayList<>();
             for (Product c : children) {
@@ -271,7 +271,7 @@ public class ProductListService {
         }
 
         Product parent = p.getParent();
-        return ProductListItemDTO.builder()
+        return ProductListItemResponse.builder()
                 .id(p.getId())
                 .parentId(parent != null ? parent.getId() : null)
                 .parentName(parent != null ? parent.getName() : null)
@@ -302,7 +302,7 @@ public class ProductListService {
                 .build();
     }
 
-    ProductListItemDTO toChildListItem(
+    ProductListItemResponse toChildListItem(
             Product c,
             Instant from,
             Instant to,
@@ -352,7 +352,7 @@ public class ProductListService {
                         : null);
 
         Product parent = c.getParent();
-        return ProductListItemDTO.builder()
+        return ProductListItemResponse.builder()
                 .id(c.getId())
                 .parentId(parent != null ? parent.getId() : null)
                 .parentName(parent != null ? parent.getName() : null)
@@ -435,7 +435,7 @@ public class ProductListService {
         return DEFAULT_LEAD_DAYS;
     }
 
-    boolean matchesFacet(ProductListItemDTO dto, String facet, Instant newThreshold) {
+    boolean matchesFacet(ProductListItemResponse dto, String facet, Instant newThreshold) {
         if ("all".equals(facet)) return true;
         if ("new".equals(facet)) {
             return dto.getCreatedAt() != null && dto.getCreatedAt().isAfter(newThreshold)
@@ -444,27 +444,27 @@ public class ProductListService {
         return facet.equals(dto.getFacetStatus());
     }
 
-    Comparator<ProductListItemDTO> buildComparator(String facet) {
-        Comparator<ProductListItemDTO> secondary = Comparator.comparing(
-                ProductListItemDTO::getName, Comparator.nullsLast(String::compareToIgnoreCase));
+    Comparator<ProductListItemResponse> buildComparator(String facet) {
+        Comparator<ProductListItemResponse> secondary = Comparator.comparing(
+                ProductListItemResponse::getName, Comparator.nullsLast(String::compareToIgnoreCase));
         return switch (facet) {
             case "new" -> Comparator.comparing(
-                    ProductListItemDTO::getCreatedAt,
+                    ProductListItemResponse::getCreatedAt,
                     Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(secondary);
             case "hot" -> Comparator.comparing(
-                    ProductListItemDTO::getAvgDailyRate,
+                    ProductListItemResponse::getAvgDailyRate,
                     Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(secondary);
             case "warn" -> Comparator.comparing(
-                    ProductListItemDTO::getCoverDaysLeft,
+                    ProductListItemResponse::getCoverDaysLeft,
                     Comparator.nullsLast(Comparator.naturalOrder())).thenComparing(secondary);
             case "slow" -> Comparator.comparing(
-                    ProductListItemDTO::getAvgDailyRate,
+                    ProductListItemResponse::getAvgDailyRate,
                     Comparator.nullsLast(Comparator.naturalOrder())).thenComparing(secondary);
             case "stop" -> secondary;
             case "all" -> {
                 // Group by facet priority: new -> hot -> warn -> ok -> season -> slow -> stop
                 List<String> order = List.of("new", "hot", "warn", "ok", "season", "slow", "stop");
-                yield Comparator.comparingInt((ProductListItemDTO dto) -> {
+                yield Comparator.comparingInt((ProductListItemResponse dto) -> {
                     int idx = order.indexOf(dto.getFacetStatus());
                     return idx < 0 ? order.size() : idx;
                 }).thenComparing((dto1, dto2) -> {
@@ -490,7 +490,7 @@ public class ProductListService {
                 });
             }
             default -> Comparator.comparing(
-                    ProductListItemDTO::getAvgDailyRate,
+                    ProductListItemResponse::getAvgDailyRate,
                     Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(secondary);
         };
     }

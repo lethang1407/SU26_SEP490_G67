@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import project.be_sep490_g67.dto.request.UpsertProductRequest;
-import project.be_sep490_g67.dto.response.ProductDetailDTO;
+import project.be_sep490_g67.dto.response.ProductDetailResponse;
 import project.be_sep490_g67.entity.*;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
@@ -34,7 +34,7 @@ public class ProductCommandService {
     SupplierRepository supplierRepository;
 
     @Transactional
-    public ProductDetailDTO create(UpsertProductRequest request) {
+    public ProductDetailResponse create(UpsertProductRequest request) {
         validateRequest(request, null);
         Category category = categoryRepository.findById(request.getCategoryId())
                 .filter(c -> !Boolean.TRUE.equals(c.getIsRemoved()))
@@ -62,12 +62,12 @@ public class ProductCommandService {
     }
 
     @Transactional(readOnly = true)
-    public ProductDetailDTO getById(Integer id) {
+    public ProductDetailResponse getById(Integer id) {
         return toDetail(id);
     }
 
     @Transactional
-    public ProductDetailDTO update(Integer id, UpsertProductRequest request) {
+    public ProductDetailResponse update(Integer id, UpsertProductRequest request) {
         Product product = productRepository.findByIdAndIsRemovedFalse(id)
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
         validateRequest(request, id);
@@ -92,7 +92,7 @@ public class ProductCommandService {
     }
 
     @Transactional
-    public ProductDetailDTO.ImageDTO uploadImage(Integer productId, MultipartFile file) {
+    public ProductDetailResponse.ImageResponse uploadImage(Integer productId, MultipartFile file) {
         Product product = productRepository.findByIdAndIsRemovedFalse(productId)
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
@@ -114,7 +114,7 @@ public class ProductCommandService {
             productRepository.save(product);
         }
 
-        return ProductDetailDTO.ImageDTO.builder()
+        return ProductDetailResponse.ImageResponse.builder()
                 .id(image.getId())
                 .url(image.getUrl())
                 .publicId(image.getPublicId())
@@ -241,7 +241,7 @@ public class ProductCommandService {
         }
     }
 
-    private ProductDetailDTO toDetail(Integer id) {
+    private ProductDetailResponse toDetail(Integer id) {
         Product product = productRepository.findDetailById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
@@ -287,9 +287,9 @@ public class ProductCommandService {
         }
 
         List<Product> childProducts = productRepository.findByParent_IdAndIsRemovedFalse(id);
-        List<ProductDetailDTO.VariantDTO> variantDTOs = childProducts.stream().map(cp -> {
+        List<ProductDetailResponse.VariantResponse> variantDTOs = childProducts.stream().map(cp -> {
             List<ProductAttribute> childAttrs = productAttributeRepository.findByProductIdAndIsRemovedFalse(cp.getId());
-            return ProductDetailDTO.VariantDTO.builder()
+            return ProductDetailResponse.VariantResponse.builder()
                     .id(cp.getId())
                     .name(cp.getName())
                     .sku(cp.getSku())
@@ -297,7 +297,7 @@ public class ProductCommandService {
                     .costPrice(cp.getCostPrice())
                     .sellingPrice(cp.getSellingPrice())
                     .status(cp.getStatus())
-                    .attributes(childAttrs.stream().map(ca -> ProductDetailDTO.AttributeDTO.builder()
+                    .attributes(childAttrs.stream().map(ca -> ProductDetailResponse.AttributeResponse.builder()
                             .id(ca.getId())
                             .name(ca.getAttribute() != null ? ca.getAttribute().getName() : null)
                             .value(ca.getValue())
@@ -306,7 +306,7 @@ public class ProductCommandService {
         }).toList();
 
         Product parent = product.getParent();
-        return ProductDetailDTO.builder()
+        return ProductDetailResponse.builder()
                 .id(product.getId())
                 .parentId(parent != null ? parent.getId() : null)
                 .parentName(parent != null ? parent.getName() : null)
@@ -326,20 +326,20 @@ public class ProductCommandService {
                 .supplierName(supplierName)
                 .productImg(mainImgUrl)
                 .baseUnitName(baseUnitName)
-                .units(units.stream().map(u -> ProductDetailDTO.UnitDTO.builder()
+                .units(units.stream().map(u -> ProductDetailResponse.UnitResponse.builder()
                         .id(u.getId())
                         .name(u.getName())
                         .unitBase(u.getUnitBase())
                         .sellingPrice(u.getSellingPrice())
                         .isBase(u.getUnitBase() != null && u.getUnitBase().compareTo(BigDecimal.ONE) == 0)
                         .build()).toList())
-                .attributes(attrs.stream().map(a -> ProductDetailDTO.AttributeDTO.builder()
+                .attributes(attrs.stream().map(a -> ProductDetailResponse.AttributeResponse.builder()
                         .id(a.getId())
                         .name(a.getAttribute() != null ? a.getAttribute().getName() : null)
                         .value(a.getValue())
                         .build()).toList())
                 .variants(variantDTOs)
-                .images(images.stream().map(img -> ProductDetailDTO.ImageDTO.builder()
+                .images(images.stream().map(img -> ProductDetailResponse.ImageResponse.builder()
                         .id(img.getId())
                         .url(img.getUrl())
                         .publicId(img.getPublicId())

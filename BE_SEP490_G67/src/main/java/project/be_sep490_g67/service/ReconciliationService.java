@@ -3,9 +3,9 @@ package project.be_sep490_g67.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import project.be_sep490_g67.dto.ReconciliationSubmitDTO;
-import project.be_sep490_g67.dto.ReconciliationSummaryDTO;
-import project.be_sep490_g67.dto.ReconciliationTransactionDTO;
+import project.be_sep490_g67.dto.request.ReconciliationSubmitRequest;
+import project.be_sep490_g67.dto.response.ReconciliationSummaryResponse;
+import project.be_sep490_g67.dto.response.ReconciliationTransactionResponse;
 import project.be_sep490_g67.entity.DebtPayment;
 import project.be_sep490_g67.entity.SalesOrder;
 import project.be_sep490_g67.repository.DebtPaymentRepository;
@@ -31,7 +31,7 @@ public class ReconciliationService {
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm dd/MM").withZone(VN_ZONE);
 
     @Transactional(readOnly = true)
-    public ReconciliationSummaryDTO getSummary(LocalDate date, BigDecimal openingCashInput) {
+    public ReconciliationSummaryResponse getSummary(LocalDate date, BigDecimal openingCashInput) {
         LocalDate targetDate = date != null ? date : LocalDate.now(VN_ZONE);
         Instant startOfDay = targetDate.atStartOfDay(VN_ZONE).toInstant();
         Instant endOfDay = targetDate.plusDays(1).atStartOfDay(VN_ZONE).toInstant();
@@ -68,9 +68,9 @@ public class ReconciliationService {
         BigDecimal theoreticalBank = bankSales.add(bankDebtCollected);
 
         // 4. Build combined transaction timeline from SalesOrder and DebtPayment
-        List<ReconciliationTransactionDTO> transactions = buildTransactionTimeline(startOfDay, endOfDay);
+        List<ReconciliationTransactionResponse> transactions = buildTransactionTimeline(startOfDay, endOfDay);
 
-        return ReconciliationSummaryDTO.builder()
+        return ReconciliationSummaryResponse.builder()
                 .date(targetDate)
                 .openingCash(openingCash)
                 .cashSales(cashSales)
@@ -91,12 +91,12 @@ public class ReconciliationService {
     }
 
     @Transactional(readOnly = true)
-    public ReconciliationSummaryDTO submitReconciliation(ReconciliationSubmitDTO dto) {
+    public ReconciliationSummaryResponse submitReconciliation(ReconciliationSubmitRequest dto) {
         return getSummary(dto.getDate(), null);
     }
 
-    private List<ReconciliationTransactionDTO> buildTransactionTimeline(Instant start, Instant end) {
-        List<ReconciliationTransactionDTO> list = new ArrayList<>();
+    private List<ReconciliationTransactionResponse> buildTransactionTimeline(Instant start, Instant end) {
+        List<ReconciliationTransactionResponse> list = new ArrayList<>();
 
         // 1. Sales orders from SalesOrder
         List<SalesOrder> orders = salesOrderRepository.findOrdersBetween(start, end);
@@ -106,7 +106,7 @@ public class ReconciliationService {
 
             BigDecimal displayAmount = Boolean.TRUE.equals(o.getIsDebt()) ? o.getTotalAmount() : (o.getPaidAmount() != null ? o.getPaidAmount() : o.getTotalAmount());
 
-            list.add(ReconciliationTransactionDTO.builder()
+            list.add(ReconciliationTransactionResponse.builder()
                     .time(TIME_FORMATTER.format(o.getCreatedAt()))
                     .code(o.getOrderCode())
                     .category(o.getOriginalSalesOrderId() != null ? "Hóa đơn đổi hàng" : "Bán hàng")
@@ -122,7 +122,7 @@ public class ReconciliationService {
         List<DebtPayment> debtPayments = debtPaymentRepository.findActiveTodayPaymentsWithOrderAndCustomer(start, end);
         for (DebtPayment dp : debtPayments) {
             String method = "BANK".equalsIgnoreCase(dp.getPaymentMethod()) || "BANK_TRANSFER".equalsIgnoreCase(dp.getPaymentMethod()) ? "Chuyển khoản" : "Tiền mặt";
-            list.add(ReconciliationTransactionDTO.builder()
+            list.add(ReconciliationTransactionResponse.builder()
                     .time(TIME_FORMATTER.format(dp.getCreatedAt()))
                     .code(dp.getPaymentCode() != null ? dp.getPaymentCode() : ("TP-" + dp.getId()))
                     .category("Thu nợ khách hàng (" + (dp.getSalesOrder() != null ? dp.getSalesOrder().getOrderCode() : "") + ")")
@@ -134,7 +134,7 @@ public class ReconciliationService {
                     .build());
         }
 
-        list.sort(Comparator.comparing(ReconciliationTransactionDTO::getTime).reversed());
+        list.sort(Comparator.comparing(ReconciliationTransactionResponse::getTime).reversed());
         return list;
     }
 }

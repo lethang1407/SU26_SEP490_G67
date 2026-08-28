@@ -12,7 +12,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class ImportSuggestionDTO {
+public class ImportSuggestionResponse {
     Integer productId;
     String productName;
     Integer parentId;

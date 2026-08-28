@@ -5,10 +5,10 @@ import lombok.experimental.FieldDefaults;
 import lombok.AccessLevel;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import project.be_sep490_g67.dto.response.HourlyRevenueDTO;
+import project.be_sep490_g67.dto.response.HourlyRevenueResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
-import project.be_sep490_g67.dto.response.SalesHistoryRowDTO;
-import project.be_sep490_g67.dto.response.SalesHistorySummaryDTO;
+import project.be_sep490_g67.dto.response.SalesHistoryRowResponse;
+import project.be_sep490_g67.dto.response.SalesHistorySummaryResponse;
 import project.be_sep490_g67.entity.ProductUnit;
 import project.be_sep490_g67.entity.SalesOrderDetail;
 import project.be_sep490_g67.entity.User;
@@ -41,7 +41,7 @@ public class SalesHistoryService {
     private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     @Transactional(readOnly = true)
-    public PageResponse<SalesHistoryRowDTO> list(
+    public PageResponse<SalesHistoryRowResponse> list(
             LocalDate from,
             LocalDate to,
             String keyword,
@@ -59,7 +59,7 @@ public class SalesHistoryService {
         Map<Integer, String> staffNames = loadStaffNames(rows);
         Map<Integer, String> unitNames = loadUnitNames(rows);
 
-        List<SalesHistoryRowDTO> mapped = rows.stream()
+        List<SalesHistoryRowResponse> mapped = rows.stream()
                 .map(d -> toRow(d, staffNames, unitNames))
                 .toList();
 
@@ -76,7 +76,7 @@ public class SalesHistoryService {
      * huỷ, không phân biệt hình thức thanh toán, nên đơn nợ vào ngay lúc lập đơn.
      */
     @Transactional(readOnly = true)
-    public List<HourlyRevenueDTO> hourlyRevenue(LocalDate date) {
+    public List<HourlyRevenueResponse> hourlyRevenue(LocalDate date) {
         LocalDate target = date != null ? date : LocalDate.now(ZONE);
         Instant from = target.atStartOfDay(ZONE).toInstant();
         Instant to = target.plusDays(1).atStartOfDay(ZONE).toInstant();
@@ -100,9 +100,9 @@ public class SalesHistoryService {
             orderIdsByHour.computeIfAbsent(hour, k -> new HashSet<>()).add(d.getSalesOrder().getId());
         }
 
-        List<HourlyRevenueDTO> result = new ArrayList<>(24);
+        List<HourlyRevenueResponse> result = new ArrayList<>(24);
         for (int hour = 0; hour < 24; hour++) {
-            result.add(HourlyRevenueDTO.builder()
+            result.add(HourlyRevenueResponse.builder()
                     .hour(hour)
                     .label(String.format("%02dh", hour))
                     .revenue(revenueByHour.getOrDefault(hour, BigDecimal.ZERO))
@@ -113,7 +113,7 @@ public class SalesHistoryService {
     }
 
     @Transactional(readOnly = true)
-    public SalesHistorySummaryDTO summary(LocalDate from, LocalDate to, Integer productId) {
+    public SalesHistorySummaryResponse summary(LocalDate from, LocalDate to, Integer productId) {
         InstantRange range = resolveRange(from, to);
         List<SalesOrderDetail> rows = salesOrderDetailRepository.findHistoryRows(
                 range.from(), range.to(), productId, null, null);
@@ -133,9 +133,9 @@ public class SalesHistoryService {
         BigDecimal totalProfit = calcProfit(active);
 
         YearMonth ym = YearMonth.from(LocalDate.now(ZONE));
-        List<SalesHistorySummaryDTO.WeekDTO> weeks = buildWeeks(active, ym);
+        List<SalesHistorySummaryResponse.WeekResponse> weeks = buildWeeks(active, ym);
 
-        SalesHistorySummaryDTO.SalesHistorySummaryDTOBuilder builder = SalesHistorySummaryDTO.builder()
+        SalesHistorySummaryResponse.SalesHistorySummaryResponseBuilder builder = SalesHistorySummaryResponse.builder()
                 .monthLabel("tháng " + ym.getMonthValue())
                 .todayLabel("Hôm nay: " + LocalDate.now(ZONE).format(DateTimeFormatter.ofPattern("dd/MM/yyyy")))
                 .totalQty(totalQty)
@@ -194,7 +194,7 @@ public class SalesHistoryService {
         return profit.setScale(2, RoundingMode.HALF_UP);
     }
 
-    private SalesHistoryRowDTO toRow(
+    private SalesHistoryRowResponse toRow(
             SalesOrderDetail d,
             Map<Integer, String> staffNames,
             Map<Integer, String> unitNames
@@ -206,7 +206,7 @@ public class SalesHistoryService {
                 ? order.getCustomer().getFullName()
                 : "Khách lẻ";
 
-        return SalesHistoryRowDTO.builder()
+        return SalesHistoryRowResponse.builder()
                 .id(d.getId())
                 .invoiceCode(order.getOrderCode())
                 .soldAt(order.getCreatedAt())
@@ -252,10 +252,10 @@ public class SalesHistoryService {
         return map;
     }
 
-    private List<SalesHistorySummaryDTO.WeekDTO> buildWeeks(List<SalesOrderDetail> rows, YearMonth ym) {
+    private List<SalesHistorySummaryResponse.WeekResponse> buildWeeks(List<SalesOrderDetail> rows, YearMonth ym) {
         LocalDate monthStart = ym.atDay(1);
         LocalDate monthEnd = ym.atEndOfMonth();
-        List<SalesHistorySummaryDTO.WeekDTO> weeks = new ArrayList<>();
+        List<SalesHistorySummaryResponse.WeekResponse> weeks = new ArrayList<>();
         LocalDate cursor = monthStart;
         int weekIdx = 1;
         LocalDate today = LocalDate.now(ZONE);
@@ -282,7 +282,7 @@ public class SalesHistoryService {
                     .map(d -> d.getLineTotal() == null ? BigDecimal.ZERO : d.getLineTotal())
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            weeks.add(SalesHistorySummaryDTO.WeekDTO.builder()
+            weeks.add(SalesHistorySummaryResponse.WeekResponse.builder()
                     .id("w" + weekIdx)
                     .weekLabel("Tuần " + weekIdx)
                     .dateRange(wStart.format(DateTimeFormatter.ofPattern("dd/MM"))

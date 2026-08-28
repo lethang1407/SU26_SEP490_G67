@@ -4,33 +4,36 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
 @Data
 @Builder
-public class ImportHistorySummaryDTO {
+public class SalesHistorySummaryResponse {
     private String monthLabel;
     private String todayLabel;
     private long totalQty;
     private long totalOrders;
-    private BigDecimal totalCost;
+    private BigDecimal totalRevenue;
+    private BigDecimal totalProfit;
 
     @Builder.Default
-    private List<WeekDTO> weeks = new ArrayList<>();
+    private List<WeekResponse> weeks = new ArrayList<>();
 
-    /** Present when productId filter is set */
     private Integer productId;
     private String productName;
+    private String shortName;
     private String sku;
     private String unitName;
-    private Instant lastImportedAt;
-    private BigDecimal avgUnitPrice;
+    private String image;
+    private long onHand;
+    private long sold30d;
+    private BigDecimal revenue30d;
+    private BigDecimal profit30d;
 
     @Data
     @Builder
-    public static class WeekDTO {
+    public static class WeekResponse {
         private String id;
         private String weekLabel;
         private String dateRange;
