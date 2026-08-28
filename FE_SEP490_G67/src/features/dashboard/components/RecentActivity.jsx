@@ -1,62 +1,43 @@
-const activities = [
-    {
-        id: 1,
-        time: '14:32',
-        type: 'Bán hàng',
-        customer: 'Khách lẻ',
-        user: 'Lan Nguyễn',
-        amount: '+ 125.000đ',
-        amountType: 'income',
-    },
-    {
-        id: 2,
-        time: '14:15',
-        type: 'Bán nợ',
-        customer: 'Cô Lan',
-        user: 'Lan Nguyễn',
-        amount: '+ 45.000đ',
-        amountType: 'warning',
-    },
-    {
-        id: 3,
-        time: '13:40',
-        type: 'Nhập hàng',
-        customer: 'Đại lý bia',
-        user: 'Đức Thắng',
-        amount: '- 850.000đ',
-        amountType: 'expense',
-    },
-    {
-        id: 4,
-        time: '13:10',
-        type: 'Hủy hóa đơn',
-        customer: 'HD00128',
-        user: 'Đức Thắng',
-        amount: '65.000đ',
-        amountType: 'alert-expense',
-        alert: true,
-    },
-    {
-        id: 5,
-        time: '12:45',
-        type: 'Bán hàng',
-        customer: 'Khách lẻ',
-        user: 'Lan Nguyễn',
-        amount: '+ 210.000đ',
-        amountType: 'income',
-    },
-    {
-        id: 6,
-        time: '12:10',
-        type: 'Bán hàng',
-        customer: 'Chú Tư',
-        user: 'Lan Nguyễn',
-        amount: '+ 55.000đ',
-        amountType: 'income',
-    },
-];
+import { useEffect, useState } from 'react';
+import { dashboardApi } from '@/features/dashboard/api/dashboardApi';
+
+const ACTIVITY_LIMIT = 8;
+
+const formatTime = (value) => {
+    if (!value) return 'N/A';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+};
+
+const formatAmount = (amount) =>
+    `${new Intl.NumberFormat('vi-VN').format(Math.abs(amount ?? 0))}đ`;
 
 export default function RecentActivity() {
+    const [activities, setActivities] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        (async () => {
+            try {
+                const rows = await dashboardApi.getRecentActivities({ limit: ACTIVITY_LIMIT });
+                if (!cancelled) {
+                    setActivities(rows);
+                    setError(null);
+                }
+            } catch {
+                if (!cancelled) setError('Không tải được hoạt động gần đây.');
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, []);
+
     return (
         <section className="dashboard-card dashboard-card--compact recent-activity-card">
             <div className="dashboard-card_header">
@@ -66,41 +47,47 @@ export default function RecentActivity() {
                 <table className="recent-tx_table recent-tx_table--overview">
                     <thead>
                         <tr>
-                            <th className="text-left">Giờ</th>
+                            <th className="text-left">Thời gian</th>
                             <th className="text-left">Hoạt động</th>
                             <th className="text-left">Người thực hiện</th>
-                            <th className="text-right">Số tiền</th>
+                            <th className="text-right">Giá trị</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {activities.map((activity) => (
-                            <tr
-                                key={activity.id}
-                                className={activity.alert ? 'recent-tx_row--alert' : undefined}
-                            >
-                                <td className="recent-tx_time">{activity.time}</td>
+                        {loading && (
+                            <tr>
+                                <td colSpan={4} className="text-center">Đang tải...</td>
+                            </tr>
+                        )}
+                        {!loading && error && (
+                            <tr>
+                                <td colSpan={4} className="text-center">{error}</td>
+                            </tr>
+                        )}
+                        {!loading && !error && activities.length === 0 && (
+                            <tr>
+                                <td colSpan={4} className="text-center">Chưa có hoạt động nào.</td>
+                            </tr>
+                        )}
+                        {!loading && !error && activities.map((activity) => (
+                            <tr key={activity.id}>
+                                <td className="recent-tx_time">{formatTime(activity.at)}</td>
                                 <td>
                                     <div className="recent-tx_activity">
-                                        <span className="recent-tx_activity-type">
-                                            {activity.alert && <span className="recent-tx_alert-dot">● </span>}
+                                        <span className={`recent-tx_activity-type recent-tx_activity-type--${activity.tone}`}>
                                             {activity.type}
                                         </span>
-                                        <span className="recent-tx_activity-customer">{activity.customer}</span>
+                                        <span className="recent-tx_activity-customer">{activity.partner}</span>
                                     </div>
                                 </td>
                                 <td className="recent-tx_user">{activity.user}</td>
-                                <td className={`recent-tx_amount recent-tx_amount--${activity.amountType}`}>
-                                    {activity.amount}
+                                <td className={`recent-tx_amount recent-tx_amount--${activity.tone}`}>
+                                    {formatAmount(activity.amount)}
                                 </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
-            </div>
-            <div className="recent-activity-card_footer-wrap">
-                <button className="recent-activity-card_footer" type="button">
-                    Xem lịch sử đầy đủ
-                </button>
             </div>
         </section>
     );

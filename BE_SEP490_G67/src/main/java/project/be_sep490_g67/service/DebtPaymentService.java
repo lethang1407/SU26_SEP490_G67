@@ -9,6 +9,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import project.be_sep490_g67.constants.StaffConstants;
 import project.be_sep490_g67.dto.request.BatchDebtPaymentRequest;
 import project.be_sep490_g67.dto.request.DebtPaymentRequest;
 import project.be_sep490_g67.dto.response.*;
@@ -73,6 +74,10 @@ public class DebtPaymentService {
                 .distinct()
                 .count();
 
+        List<DebtPayment> todaysPayments = debtPaymentRepository
+                .findActiveTodayPaymentsWithOrderAndCustomer(startOfDay, endOfDay);
+        TodayCollectionBreakdown todayCollection = buildTodayCollectionBreakdown(todaysPayments);
+
         return CustomerDebtOverviewResponse.builder()
                 .totalDebt(customerRepository.getTotalDebt())
                 .debtCustomerCount(customerRepository.countInDebtCustomers())
@@ -82,10 +87,100 @@ public class DebtPaymentService {
                                 endOfDay
                         )
                 )
+                .todayPayingCustomerCount(todayCollection.payingCustomerCount())
+                .todayFullSettlementCount(todayCollection.fullSettlementCount())
+                .todayPartialPaymentCount(todayCollection.partialPaymentCount())
                 .totalDebtSalesCount(todaysDebtSales.size())
                 .uniqueCustomersInDebtCount(uniqueCustomersInDebtCount)
                 .totalDebtAmountIncurredToday(totalDebtAmountIncurredToday)
                 .newDebtCustomerAlert(buildNewDebtCustomerAlert())
+                .staffDebtSalesAlert(buildStaffDebtSalesAlert(todaysDebtSales))
+                .build();
+    }
+
+    /**
+     * Số khách đã trả nợ hôm nay và cách các hóa đơn được trả: trả hết hay mới trả một phần.
+     * Đếm theo hóa đơn chứ không theo phiếu thu — khách trả một hóa đơn làm nhiều lần trong
+     * ngày vẫn chỉ là một khoản nợ được xử lý.
+     */
+    private TodayCollectionBreakdown buildTodayCollectionBreakdown(List<DebtPayment> todaysPayments) {
+        Map<Integer, SalesOrder> ordersPaidToday = new LinkedHashMap<>();
+        Set<Integer> payingCustomerIds = new HashSet<>();
+
+        for (DebtPayment payment : todaysPayments) {
+            SalesOrder salesOrder = payment.getSalesOrder();
+            if (salesOrder == null) continue;
+            ordersPaidToday.putIfAbsent(salesOrder.getId(), salesOrder);
+            Customer customer = salesOrder.getCustomer();
+            if (customer != null) payingCustomerIds.add(customer.getId());
+        }
+
+        long fullSettlementCount = ordersPaidToday.values().stream()
+                .filter(order -> calculateRemainingDebtAmount(order).compareTo(BigDecimal.ZERO) <= 0)
+                .count();
+
+        return new TodayCollectionBreakdown(
+                payingCustomerIds.size(),
+                fullSettlementCount,
+                ordersPaidToday.size() - fullSettlementCount);
+    }
+
+    private record TodayCollectionBreakdown(long payingCustomerCount,
+                                            long fullSettlementCount,
+                                            long partialPaymentCount) {
+    }
+
+    /**
+     * Đơn ghi nợ trong ngày do thu ngân lập cho khách đã có hồ sơ trong hệ thống.
+     * Khách đã có hồ sơ nên không rơi vào {@code buildNewDebtCustomerAlert}.
+     * Lọc trên danh sách đơn nợ hôm nay đã tải sẵn ở {@code getDebtOverview}, nên
+     * không phát sinh thêm truy vấn đơn hàng.
+     */
+    private StaffDebtSalesAlertResponse buildStaffDebtSalesAlert(List<SalesOrder> todaysDebtSales) {
+        if (todaysDebtSales.isEmpty()) {
+            return StaffDebtSalesAlertResponse.builder()
+                    .count(0)
+                    .totalRemainingDebt(BigDecimal.ZERO)
+                    .build();
+        }
+
+        Set<Integer> staffIds = new HashSet<>(
+                userRepository.findActiveNonAdminUserIds(StaffConstants.ADMIN_ROLE_NAME));
+
+        // Đơn thiếu createdBy (dữ liệu cũ) không quy được cho ai nên không tính là của
+        // nhân viên. Đơn không gắn khách thì không có hồ sơ công nợ để chủ cửa hàng rà lại.
+        List<SalesOrder> staffDebtSales = todaysDebtSales.stream()
+                .filter(order -> order.getCreatedBy() != null
+                        && staffIds.contains(order.getCreatedBy())
+                        && order.getCustomer() != null)
+                .toList();
+
+        if (staffDebtSales.isEmpty()) {
+            return StaffDebtSalesAlertResponse.builder()
+                    .count(0)
+                    .totalRemainingDebt(BigDecimal.ZERO)
+                    .build();
+        }
+
+        BigDecimal totalRemainingDebt = staffDebtSales.stream()
+                .map(this::calculateRemainingDebtAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // Query nguồn đã ORDER BY createdAt DESC nên phần tử đầu là đơn mới nhất.
+        SalesOrder latest = staffDebtSales.get(0);
+        // Bộ lọc trên đã loại đơn không có khách nên khách ở đây chắc chắn tồn tại.
+        Customer latestCustomer = latest.getCustomer();
+
+        return StaffDebtSalesAlertResponse.builder()
+                .count(staffDebtSales.size())
+                .totalRemainingDebt(totalRemainingDebt)
+                .latestOrderId(latest.getId())
+                .latestOrderCode(latest.getOrderCode())
+                .latestCustomerId(latestCustomer.getId())
+                .latestCustomerName(latestCustomer.getFullName())
+                .latestRemainingDebt(calculateRemainingDebtAmount(latest))
+                .latestStaffName(resolveUserFullName(latest.getCreatedBy()))
+                .latestCreatedAt(latest.getCreatedAt())
                 .build();
     }
 

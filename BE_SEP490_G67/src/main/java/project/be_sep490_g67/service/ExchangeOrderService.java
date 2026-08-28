@@ -399,21 +399,21 @@ public class ExchangeOrderService {
      * hoặc hiện trên màn hình, nên chúng được trả về nguyên vẹn thay vì để phía gọi tự suy lại.
      */
     public record DebtSettlement(
-            /** Nợ còn lại của hóa đơn gốc trước khi quyết toán. */
+            // Nợ còn lại của hóa đơn gốc trước khi quyết toán.
             BigDecimal remainingBefore,
-            /** Phần giá trị hàng trả được trừ thẳng vào nợ hóa đơn gốc. */
+            // Phần giá trị hàng trả được trừ thẳng vào nợ hóa đơn gốc.
             BigDecimal debtOffset,
-            /** Phần credit dùng để trả cho hàng đổi ra. */
+            // Phần credit dùng để trả cho hàng đổi ra.
             BigDecimal exchangeCredit,
-            /** Tiền mặt hoàn cho khách. */
+            // Tiền mặt hoàn cho khách.
             BigDecimal cashRefund,
-            /** Tiền khách bù thêm ngay tại quầy cho hàng đổi đắt hơn — chỉ với đơn thường. */
+            // Tiền khách bù thêm ngay tại quầy cho hàng đổi đắt hơn — chỉ với đơn thường.
             BigDecimal cashCollect,
-            /** Phần chênh được ghi nợ trên đơn đổi — chỉ với đơn còn nợ. */
+            // Phần chênh được ghi nợ trên đơn đổi — chỉ với đơn còn nợ.
             BigDecimal newDebtOnExchange,
-            /** Tiền khách chủ động trả thêm cho nợ cũ tại màn đổi trả. */
+            // Tiền khách chủ động trả thêm cho nợ cũ tại màn đổi trả.
             BigDecimal debtPaymentCollected,
-            /** Nợ của hóa đơn gốc sau khi đã cấn trừ và thu thêm. */
+            // Nợ của hóa đơn gốc sau khi đã cấn trừ và thu thêm.
             BigDecimal remainingAfter) {
     }
 

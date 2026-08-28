@@ -74,6 +74,9 @@ function createTab(id = 1) {
         qtyInputs: {},
         paymentMethod: 'cash',
         note: '',
+        // Nội dung chuyển khoản thuộc về từng hóa đơn, không phải màn hình: hai tab
+        // cùng chuyển khoản mà chung một mã thì tiền về không biết vào đơn nào.
+        transferReference: buildPaymentReference(),
     };
 }
 
@@ -213,10 +216,14 @@ const POSScreen = () => {
     const [printError, setPrintError] = useState(null);
 
     // Nội dung chuyển khoản in trên mã QR của đơn đang bán. Sinh sẵn ngay từ lúc mở
-    // đơn và giữ nguyên tới lúc ghi sổ: số tiền trên mã đổi theo giỏ hàng, nhưng
-    // chuỗi này thì không — đổi giữa chừng là khách chuyển với nội dung này còn hóa
-    // đơn ghi nội dung khác, mất luôn đường đối soát.
-    const [transferReference, setTransferReference] = useState(buildPaymentReference);
+    // đơn và giữ nguyên tới lúc ghi sổ. Nằm trong tab để mỗi hóa đơn giữ mã riêng —
+    // làm mới tab này không được đụng vào mã đang hiện trên QR của tab kia.
+    const transferReference = activeTab.transferReference ?? '';
+    const setTransferReference = useCallback((value) => {
+        setTabs(prev => prev.map(t =>
+            t.id === activeTabId ? { ...t, transferReference: value } : t
+        ));
+    }, [activeTabId]);
 
 
     const addProductToCart = useCallback((product, posInfo) => {
@@ -239,7 +246,7 @@ const POSScreen = () => {
             name: product.name,
             units,
             productUnitId: defaultUnit?.id ?? null,
-            unit: defaultUnit?.name ?? '—',
+            unit: defaultUnit?.name ?? 'N/A',
             locations,
             pickKeys: defaultLoc ? [pickKey(defaultLoc)] : [],
             stockTotal: posInfo?.availableQuantity ?? null,
@@ -504,7 +511,7 @@ const POSScreen = () => {
     const { bank, loading: bankLoading, error: bankError } = useStorePaymentInfo();
 
     const transferBlockedReason = !isTransferMode ? null
-        : cartItems.length === 0 ? 'Thêm sản phẩm vào giỏ để hiện mã QR chuyển khoản.'
+        : cartItems.length === 0 ? 'Thêm sản phẩm vào giỏ hàng.'
             : locationBlocked ? 'Chưa chọn vị trí lấy hàng hoặc các vị trí đã chọn không đủ số lượng.'
                 : amountDue <= 0 ? 'Đơn hàng chưa có số tiền cần thu.'
                     : null;

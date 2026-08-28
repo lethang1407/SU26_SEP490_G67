@@ -1,65 +1,35 @@
-import { useEffect, useRef, useState } from 'react';
-import QRCode from 'qrcode';
-import {
-    AlertCircle, CheckCircle2, Loader, RefreshCcw, Copy, Check, QrCode,
-} from 'lucide-react';
+import { useState } from 'react';
+import { AlertCircle, Copy, Check, QrCode, Loader } from 'lucide-react';
 import { formatVnd } from '../utils/money';
-
-const STATUS_TEXT = {
-    PROCESSING: 'Ngân hàng đang xử lý giao dịch…',
-    PAID: 'Đã nhận đủ tiền',
-    UNDERPAID: 'Khách chuyển thiếu tiền',
-    CANCELLED: 'Giao dịch đã bị hủy',
-    EXPIRED: 'Mã QR đã hết hạn',
-    FAILED: 'Giao dịch thất bại',
-};
-
-/** Trạng thái không còn cứu được: phải dựng mã mới. */
-const DEAD_STATUSES = ['CANCELLED', 'EXPIRED', 'FAILED'];
-
-const QR_SIZE = 180;
+import { buildVietQrUrl, hasBankAccount } from '../utils/vietqr';
 
 /**
- * Mã QR chuyển khoản, nằm thẳng trong cột thanh toán của POS.
- *Hiện ngay khi thu ngân chọn "Chuyển khoản".
+ * Mã VietQR chuyển khoản, nằm thẳng trong cột thanh toán của POS.
  */
 export default function TransferQrPanel({
-    session,
-    opening = false,
-    error = null,
+    bank,
+    bankLoading = false,
+    bankError = null,
+    amount = 0,
+    reference = null,
     blockedReason = null,
-    stale = false,
-    settling = false,
-    settleError = null,
-    throttled = false,
-    onRebuild,
-    onRetrySettle,
 }) {
-    const canvasRef = useRef(null);
-    const [renderError, setRenderError] = useState(null);
-    const [copied, setCopied] = useState(false);
+    const [copied, setCopied] = useState(null);
+    // Nhớ ĐƯỜNG DẪN đã hỏng chứ không phải cờ hỏng/không: đổi số tiền là đổi ảnh,
+    // ảnh mới phải được thử lại chứ đừng để lần hỏng trước khóa luôn khung QR.
+    const [failedUrl, setFailedUrl] = useState(null);
 
-    const status = session?.status ?? null;
-    const isDead = DEAD_STATUSES.includes(status);
-    const isPaid = status === 'PAID';
-    const rebuilding = opening || stale;
+    const qrUrl = buildVietQrUrl(bank, amount, reference);
+    const imageFailed = failedUrl != null && failedUrl === qrUrl;
 
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas || !session?.qrCode) return;
-        QRCode.toCanvas(canvas, session.qrCode, { width: QR_SIZE, margin: 1 })
-            .then(() => setRenderError(null))
-            .catch(() => setRenderError('Không tạo được mã QR. Dùng số tài khoản bên dưới.'));
-    }, [session?.qrCode]);
-
-    const handleCopyAccount = async () => {
-        if (!session?.accountNumber) return;
+    const handleCopy = async (value, field) => {
+        if (!value) return;
         try {
-            await navigator.clipboard.writeText(session.accountNumber);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
+            await navigator.clipboard.writeText(value);
+            setCopied(field);
+            setTimeout(() => setCopied(null), 1500);
         } catch {
-            // Trình duyệt chặn clipboard
+            // Trình duyệt chặn clipboard: số vẫn hiện trên màn hình để đọc tay.
         }
     };
 
@@ -74,26 +44,28 @@ export default function TransferQrPanel({
         );
     }
 
-    if (!session) {
+    if (bankLoading) {
         return (
             <div className="transfer-qr-block">
-                {error ? (
-                    <>
-                        <div className="transfer-qr-note transfer-qr-note--error">
-                            <AlertCircle size={16} />
-                            <span>{error}</span>
-                        </div>
-                        <button className="transfer-qr-inline-btn" onClick={onRebuild}>
-                            <RefreshCcw size={14} />
-                            Thử lại
-                        </button>
-                    </>
-                ) : (
-                    <div className="transfer-qr-placeholder">
-                        <Loader size={20} className="transfer-qr-spin" />
-                        <span>Đang tạo mã QR…</span>
-                    </div>
-                )}
+                <div className="transfer-qr-placeholder">
+                    <Loader size={20} className="transfer-qr-spin" />
+                    <span>Đang tải thông tin chuyển khoản…</span>
+                </div>
+            </div>
+        );
+    }
+
+    if (bankError || !hasBankAccount(bank)) {
+        return (
+            <div className="transfer-qr-block">
+                <div className="transfer-qr-note transfer-qr-note--warn">
+                    <AlertCircle size={16} />
+                    <span>
+                        {bankError
+                            ?? 'Cửa hàng chưa khai báo tài khoản ngân hàng. '
+                            + 'Vào Thông tin cửa hàng để thêm số tài khoản nhận chuyển khoản.'}
+                    </span>
+                </div>
             </div>
         );
     }
@@ -105,109 +77,71 @@ export default function TransferQrPanel({
                 Quét mã để chuyển khoản
             </div>
 
-            <div className={`transfer-qr-canvas-wrap${isPaid ? ' is-paid' : ''}${isDead || rebuilding ? ' is-dead' : ''}`}>
-                <canvas ref={canvasRef} className="transfer-qr-canvas" />
-                {(isPaid || isDead || rebuilding) && (
-                    <div className="transfer-qr-canvas-veil">
-                        {isPaid && <CheckCircle2 size={48} className="transfer-qr-veil-ok" />}
-                        {!isPaid && isDead && <AlertCircle size={48} className="transfer-qr-veil-bad" />}
-                        {!isPaid && !isDead && rebuilding && (
-                            <div className="transfer-qr-veil-text">
-                                <Loader size={20} className="transfer-qr-spin" />
-                                <span>Đang cập nhật<br />số tiền mới…</span>
-                            </div>
-                        )}
+            <div className="transfer-qr-canvas-wrap">
+                {imageFailed ? (
+                    <div className="transfer-qr-canvas-fallback">
+                        <AlertCircle size={22} />
+                        <span>Không tải được ảnh mã QR.<br />Đọc số tài khoản bên dưới cho khách.</span>
                     </div>
+                ) : (
+                    <img
+                        className="transfer-qr-image"
+                        src={qrUrl}
+                        alt="Mã VietQR chuyển khoản"
+                        onError={() => setFailedUrl(qrUrl)}
+                    />
                 )}
             </div>
 
             <div className="transfer-qr-amount-line">
                 <span>Số tiền trên mã</span>
-                <strong>{formatVnd(Number(session.amount ?? 0))}</strong>
+                <strong>{formatVnd(Math.round(Number(amount) || 0))}</strong>
             </div>
 
-            {renderError && (
-                <div className="transfer-qr-note transfer-qr-note--warn">{renderError}</div>
-            )}
-
             <div className="transfer-qr-bank">
-                {session.accountName && (
+                {bank.bankAccountName && (
                     <div className="transfer-qr-bank-row">
                         <span>Chủ tài khoản</span>
-                        <strong>{session.accountName}</strong>
+                        <strong>{bank.bankAccountName}</strong>
                     </div>
                 )}
-                {session.accountNumber && (
+                <div className="transfer-qr-bank-row">
+                    <span>Số tài khoản</span>
+                    <strong className="transfer-qr-account">
+                        {bank.bankAccountNo}
+                        <button
+                            type="button"
+                            className="transfer-qr-copy"
+                            onClick={() => handleCopy(bank.bankAccountNo, 'account')}
+                            title="Sao chép số tài khoản"
+                        >
+                            {copied === 'account' ? <Check size={13} /> : <Copy size={13} />}
+                        </button>
+                    </strong>
+                </div>
+                {reference && (
                     <div className="transfer-qr-bank-row">
-                        <span>Số tài khoản</span>
+                        <span>Nội dung</span>
                         <strong className="transfer-qr-account">
-                            {session.accountNumber}
+                            {reference}
                             <button
                                 type="button"
                                 className="transfer-qr-copy"
-                                onClick={handleCopyAccount}
-                                title="Sao chép số tài khoản"
+                                onClick={() => handleCopy(reference, 'reference')}
+                                title="Sao chép nội dung chuyển khoản"
                             >
-                                {copied ? <Check size={13} /> : <Copy size={13} />}
+                                {copied === 'reference' ? <Check size={13} /> : <Copy size={13} />}
                             </button>
                         </strong>
                     </div>
                 )}
-                {session.description && (
-                    <div className="transfer-qr-bank-row">
-                        <span>Nội dung</span>
-                        <strong>{session.description}</strong>
-                    </div>
-                )}
             </div>
 
-            {/* Hiển thị trạng thái mặc định khi customer quét QR */}
-            {(settling || STATUS_TEXT[status]) && (
-                <div className={`transfer-qr-status transfer-qr-status--${(status ?? 'pending').toLowerCase()}`}>
-                    {isPaid && <CheckCircle2 size={15} />}
-                    {isDead && <AlertCircle size={15} />}
-                    <span>{settling ? 'Đã nhận tiền, đang ghi sổ…' : STATUS_TEXT[status]}</span>
-                </div>
-            )}
-
-            {throttled && !isPaid && !isDead && (
-                <div className="transfer-qr-note transfer-qr-note--warn">
-                    <AlertCircle size={16} />
-                    <span>Cổng thanh toán đang bận. Giao dịch của khách vẫn được ghi nhận.</span>
-                </div>
-            )}
-
-            {status === 'UNDERPAID' && (
-                <div className="transfer-qr-note transfer-qr-note--warn">
-                    <AlertCircle size={16} />
-                    <span>Khách chuyển thiếu. Đề nghị khách chuyển bổ sung, hoặc đổi sang hình thức khác.</span>
-                </div>
-            )}
-
-            {settleError && (
-                <div className="transfer-qr-note transfer-qr-note--error">
-                    <AlertCircle size={16} />
-                    <span>{settleError}</span>
-                </div>
-            )}
-
-            {settleError && isPaid && (
-                <button
-                    className="transfer-qr-inline-btn transfer-qr-inline-btn--primary"
-                    onClick={onRetrySettle}
-                    disabled={settling}
-                >
-                    {settling ? 'ĐANG XỬ LÝ…' : 'GHI SỔ LẠI'}
-                </button>
-            )}
-
-            {isDead && (
-                <button className="transfer-qr-inline-btn transfer-qr-inline-btn--primary" onClick={onRebuild}>
-                    <RefreshCcw size={14} />
-                    Tạo mã QR mới
-                </button>
-            )}
-
+            {/* Nói thẳng ranh giới trách nhiệm: máy không biết tiền đã về hay chưa. */}
+            <div className="transfer-qr-note transfer-qr-note--hint">
+                <AlertCircle size={16} />
+                <span>Hãy kiểm tra trước khi xác nhận.</span>
+            </div>
         </div>
     );
 }

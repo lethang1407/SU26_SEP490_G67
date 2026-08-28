@@ -62,6 +62,22 @@ public class StoreConfig extends BaseEntity {
     private Integer returnHoldRedDays;
 
     /**
+     * Sàn để tách "cần xem xét" khỏi "bán chậm" ở widget quyết định nhập hàng.
+     * Bán dưới mức này trong kỳ thì tồn thấp cũng không thúc nhập.
+     * Đơn vị: đơn vị cơ sở của sản phẩm.
+     */
+    @ColumnDefault("5")
+    @Column(name = "slow_moving_sold_units", nullable = false)
+    private Integer slowMovingSoldUnits;
+
+    /**
+     * Số dòng widget quyết định nhập hàng hiện trên dashboard.
+     */
+    @ColumnDefault("5")
+    @Column(name = "restock_advice_preview_limit", nullable = false)
+    private Integer restockAdvicePreviewLimit;
+
+    /**
      * Tài khoản thụ hưởng in lên ảnh VietQR ở màn hình bán hàng.
      */
     @Column(name = "bank_id", length = 20)
