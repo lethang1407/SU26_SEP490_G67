@@ -261,10 +261,10 @@ public class CustomerService {
         boolean isInDebt = c.getTotalDebt().compareTo(BigDecimal.ZERO) > 0;
 
         if (isInDebt) {
-            // 1. Đang nợ, có đơn quá hạn, được phép nợ
-            if (c.getIsOverdue() && c.getAllowDebt()) return 6;
-            // 2. Đang nợ, chưa quá hạn, không được phép nợ
-            if (!c.getIsOverdue() && !c.getAllowDebt()) return 5;
+            // 1. Đang nợ, chưa quá hạn, không được phép nợ
+            if (!c.getIsOverdue() && !c.getAllowDebt()) return 6;
+            // 2. Đang nợ, có đơn quá hạn, được phép nợ
+            if (c.getIsOverdue() && c.getAllowDebt()) return 5;
             // 3. Đang nợ, chưa quá hạn, được phép nợ
             if (!c.getIsOverdue() && c.getAllowDebt()) return 4;
             // 4. Đang nợ, có đơn quá hạn, không được phép nợ

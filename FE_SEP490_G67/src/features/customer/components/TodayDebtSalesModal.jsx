@@ -120,77 +120,77 @@ export default function TodayDebtSalesModal({ show, onHide }) {
           ) : !data || data.length === 0 ? (
             <tr>
               <td colSpan="9" className="text-center text-muted p-4">
-                Không có đơn bán nợ nào phát sinh trong hôm nay.
+                Không có đơn ghi nợ nào phát sinh trong hôm nay.
               </td>
             </tr>
           ) : (() => {
-              let globalIndex = 0;
-              return data.map((customerGroup) => {
-                const isExpanded = expandedGroups.includes(customerGroup.customerId);
-                const hasMultipleItems = customerGroup.debtSalesDetails.length > 1;
-                const itemsToShow = isExpanded ? customerGroup.debtSalesDetails : customerGroup.debtSalesDetails.slice(0, 1);
+            let globalIndex = 0;
+            return data.map((customerGroup) => {
+              const isExpanded = expandedGroups.includes(customerGroup.customerId);
+              const hasMultipleItems = customerGroup.debtSalesDetails.length > 1;
+              const itemsToShow = isExpanded ? customerGroup.debtSalesDetails : customerGroup.debtSalesDetails.slice(0, 1);
 
-                const rows = itemsToShow.map((item, itemIndex) => {
-                  globalIndex++;
-                  const isFirstItemInGroup = itemIndex === 0;
-                  return (
-                    <tr
-                      key={item.id}
-                      className={customerGroup.isCheckDebtUnstable ? "debt-unstable-row" : ""}
-                    >
-                      <td>{globalIndex}</td>
-                      <td className="text-primary fw-medium" style={{ cursor: "pointer" }} onClick={() => handleOrderClick(customerGroup.customerId, item.id)} title={`Xem chi tiết đơn ${item.orderCode}`}>
-                        {item.orderCode}
+              const rows = itemsToShow.map((item, itemIndex) => {
+                globalIndex++;
+                const isFirstItemInGroup = itemIndex === 0;
+                return (
+                  <tr
+                    key={item.id}
+                    className={customerGroup.isCheckDebtUnstable ? "debt-unstable-row" : ""}
+                  >
+                    <td>{globalIndex}</td>
+                    <td className="text-primary fw-medium" style={{ cursor: "pointer" }} onClick={() => handleOrderClick(customerGroup.customerId, item.id)} title={`Xem chi tiết đơn ${item.orderCode}`}>
+                      {item.orderCode}
+                    </td>
+                    {isFirstItemInGroup && <td style={{ verticalAlign: 'top', cursor: 'pointer' }} rowSpan={itemsToShow.length} onClick={() => handleCustomerClick(customerGroup.customerId)} title={`Xem chi tiết khách hàng ${customerGroup.customerName}`}>
+                      {customerGroup.customerName}
+                    </td>}
+                    <td className="text-end fw-bold">{formatCurrency(item.totalAmount)}</td>
+                    <td className="text-end fw-bold text-success">{formatCurrency(item.amountPaid)}</td>
+                    <td className="text-end fw-bold text-danger">{formatCurrency(item.amountRemaining)}</td>
+                    <td>{formatDate(item.orderDate)}</td>
+                    <td>{item.createdBy}</td>
+                    {isFirstItemInGroup && (
+                      <td style={{ verticalAlign: 'top' }} rowSpan={itemsToShow.length}>
+                        {customerGroup.isCheckDebtUnstable && (
+                          <Button
+                            variant="outline-primary"
+                            size="sm"
+                            onClick={() => handleProcessUnstableDebt(customerGroup.customerId)}
+                          >
+                            Đã xử lý
+                          </Button>
+                        )}
                       </td>
-                      {isFirstItemInGroup && <td style={{ verticalAlign: 'top', cursor: 'pointer' }} rowSpan={itemsToShow.length} onClick={() => handleCustomerClick(customerGroup.customerId)} title={`Xem chi tiết khách hàng ${customerGroup.customerName}`}>
-                        {customerGroup.customerName}
-                      </td>}
-                      <td className="text-end fw-bold">{formatCurrency(item.totalAmount)}</td>
-                      <td className="text-end fw-bold text-success">{formatCurrency(item.amountPaid)}</td>
-                      <td className="text-end fw-bold text-danger">{formatCurrency(item.amountRemaining)}</td>
-                      <td>{formatDate(item.orderDate)}</td>
-                      <td>{item.createdBy}</td>
-                      {isFirstItemInGroup && (
-                        <td style={{ verticalAlign: 'top' }} rowSpan={itemsToShow.length}>
-                          {customerGroup.isCheckDebtUnstable && (
-                            <Button
-                              variant="outline-primary"
-                              size="sm"
-                              onClick={() => handleProcessUnstableDebt(customerGroup.customerId)}
-                            >
-                              Đã xử lý
-                            </Button>
-                          )}
-                        </td>
-                      )}
-                    </tr>
-                  );
-                });
-
-                if (hasMultipleItems) {
-                  rows.push(
-                    <tr key={`expand-button-${customerGroup.customerId}`}>
-                      <td colSpan="9" className="text-center p-1" style={{ borderTop: 'none' }}>
-                        <Button
-                          variant="link"
-                          size="sm"
-                          onClick={() => toggleGroup(customerGroup.customerId)}
-                          className="d-flex align-items-center justify-content-center w-100"
-                        >
-                          {isExpanded ? (
-                            <><FiChevronUp className="me-1" /> Thu gọn</>
-                          ) : (
-                            <><FiChevronDown className="me-1" /> Xem thêm {customerGroup.debtSalesDetails.length - 1} đơn hàng khác</>
-                          )}
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                }
-
-                return rows;
+                    )}
+                  </tr>
+                );
               });
-            })()}
+
+              if (hasMultipleItems) {
+                rows.push(
+                  <tr key={`expand-button-${customerGroup.customerId}`}>
+                    <td colSpan="9" className="text-center p-1" style={{ borderTop: 'none' }}>
+                      <Button
+                        variant="link"
+                        size="sm"
+                        onClick={() => toggleGroup(customerGroup.customerId)}
+                        className="d-flex align-items-center justify-content-center w-100"
+                      >
+                        {isExpanded ? (
+                          <><FiChevronUp className="me-1" /> Thu gọn</>
+                        ) : (
+                          <><FiChevronDown className="me-1" /> Xem thêm {customerGroup.debtSalesDetails.length - 1} đơn hàng khác</>
+                        )}
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              }
+
+              return rows;
+            });
+          })()}
         </tbody>
       </Table>
     );
@@ -199,7 +199,7 @@ export default function TodayDebtSalesModal({ show, onHide }) {
   return (
     <Modal show={show} onHide={onHide} size="xl" centered>
       <Modal.Header closeButton>
-        <Modal.Title>Các đơn bán nợ phát sinh hôm nay</Modal.Title>
+        <Modal.Title>Các đơn ghi nợ phát sinh hôm nay</Modal.Title>
       </Modal.Header>
       <Modal.Body>{renderContent()}</Modal.Body>
       <Modal.Footer>

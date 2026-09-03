@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.be_sep490_g67.constants.ImportOrderConstants;
 import project.be_sep490_g67.dto.request.CreateDraftFromSuggestRequest;
-import project.be_sep490_g67.constants.ProductConstants;
 import project.be_sep490_g67.dto.request.CreateImportOrderRequest;
 import project.be_sep490_g67.dto.response.ImportOrderDetailResponse;
 import project.be_sep490_g67.dto.response.ImportOrderResponseDTO;
@@ -77,6 +76,7 @@ public class ImportOrderService {
     public ImportOrderListItemResponse createImportOrder(CreateImportOrderRequest request) {
         String orderStatus = normalizeCreateOrderStatus(request.getOrderStatus());
         boolean isImported = ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(orderStatus);
+        requireInvoiceImageIfImported(isImported, request.getInvoiceImage());
         Supplier supplier = resolveSupplier(request.getSupplierId(), isImported);
 
         List<CreateImportOrderRequest.LineItem> requestLines =
@@ -144,9 +144,7 @@ public class ImportOrderService {
 
         BigDecimal recordedPaid = BigDecimal.ZERO;
         if (isImported) {
-            for (ImportOrderDetail detail : details) {
-                createStockForDetail(saved, detail, buildBatchCode(saved, detail));
-            }
+            createStocksForImportedDetails(saved, details);
             if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
                 createInitialPayment(saved, supplier, paidAmount, request.getPaymentMethod());
                 recordedPaid = paidAmount;
@@ -175,6 +173,7 @@ public class ImportOrderService {
 
         String orderStatus = normalizeCreateOrderStatus(request.getOrderStatus());
         boolean isImported = ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(orderStatus);
+        requireInvoiceImageIfImported(isImported, request.getInvoiceImage());
         Supplier supplier = resolveSupplier(request.getSupplierId(), isImported);
 
         List<CreateImportOrderRequest.LineItem> requestLines =
@@ -242,9 +241,7 @@ public class ImportOrderService {
 
         BigDecimal recordedPaid = BigDecimal.ZERO;
         if (isImported) {
-            for (ImportOrderDetail detail : details) {
-                createStockForDetail(saved, detail, buildBatchCode(saved, detail));
-            }
+            createStocksForImportedDetails(saved, details);
             if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
                 createInitialPayment(saved, supplier, paidAmount, request.getPaymentMethod());
                 recordedPaid = paidAmount;
@@ -354,7 +351,7 @@ public class ImportOrderService {
                 : statusFilter.toUpperCase();
 
         List<ImportOrder> orders = importOrderRepository.searchBySupplier(supplierId, safeSearch);
-        return toPagedResponse(orders, page, size, safePaymentStatus);
+        return toPagedResponse(orders, page, size, safePaymentStatus, true);
     }
 
     @Transactional(readOnly = true)
@@ -484,6 +481,8 @@ public class ImportOrderService {
         }
 
         List<ImportOrderResponseDTO> created = new ArrayList<>();
+        LocalDate today = LocalDate.now();
+        int nextOrderSeq = nextOrderSequence(today);
 
         for (Map.Entry<Integer, List<CreateDraftFromSuggestRequest.OrderLine>> entry : bySupplier.entrySet()) {
             Supplier supplier = supplierRepository.findByIdAndIsRemovedFalse(entry.getKey())
@@ -491,7 +490,7 @@ public class ImportOrderService {
 
             ImportOrder order = new ImportOrder();
             order.setSupplier(supplier);
-            order.setOrderCode(generateOrderCode());
+            order.setOrderCode(ImportOrderConstants.formatOrderCode(today, nextOrderSeq++));
             order.setReceivedDate(null);
             order.setOrderStatus(ImportOrderConstants.ORDER_STATUS_DRAFT);
             order.setNote("Tạo từ màn gợi ý nhập hàng");
@@ -558,6 +557,11 @@ public class ImportOrderService {
 
     private PageResponse<ImportOrderListItemResponse> toPagedResponse(
             List<ImportOrder> orders, int page, int size, String paymentStatusFilter) {
+        return toPagedResponse(orders, page, size, paymentStatusFilter, false);
+    }
+
+    private PageResponse<ImportOrderListItemResponse> toPagedResponse(
+            List<ImportOrder> orders, int page, int size, String paymentStatusFilter, boolean debtFirst) {
 
         Map<Integer, BigDecimal> paidPerOrder = supplierPaymentRepository.sumPaidAmountGroupByImportOrder()
                 .stream()
@@ -570,6 +574,11 @@ public class ImportOrderService {
                 .toList();
 
         List<ImportOrderListItemResponse> filtered = filterByPaymentStatus(allItems, paymentStatusFilter);
+        if (debtFirst) {
+            filtered = new ArrayList<>(filtered);
+            filtered.sort(Comparator.comparingInt(item ->
+                    ImportOrderConstants.PAYMENT_STATUS_DEBT.equals(item.getStatus()) ? 0 : 1));
+        }
 
         int totalElements = filtered.size();
         int totalPages = Math.max(1, (int) Math.ceil((double) totalElements / size));
@@ -721,6 +730,12 @@ public class ImportOrderService {
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
     }
 
+    private void requireInvoiceImageIfImported(boolean isImported, String invoiceImage) {
+        if (isImported && (invoiceImage == null || invoiceImage.isBlank())) {
+            throw new AppException(ErrorCode.IMPORT_INVOICE_REQUIRED);
+        }
+    }
+
     private String normalizeCreateOrderStatus(String orderStatus) {
         if (orderStatus == null || orderStatus.isBlank()) {
             throw new AppException(ErrorCode.INVALID_IMPORT_ORDER_STATUS);
@@ -840,16 +855,20 @@ public class ImportOrderService {
     }
 
     /**
-     * Mã lô theo dòng hàng: L + ddMMyy + 4 số cuối mã NCC + 4 số cuối mã SP.
-     * Ví dụ: L050826-0001-1244
+     * Mỗi dòng hàng = 1 lô: L + ddMMyy + "-" + STT trong ngày (vd L210826-01).
      */
-    private String buildBatchCode(ImportOrder order, ImportOrderDetail detail) {
+    private void createStocksForImportedDetails(ImportOrder order, List<ImportOrderDetail> details) {
         LocalDate date = order.getReceivedDate() != null ? order.getReceivedDate() : LocalDate.now();
-        Supplier supplier = order.getSupplier();
-        Product product = detail.getProduct();
-        String supplierCode = supplier != null ? supplier.getSupplierCode() : "";
-        String productCode = ProductConstants.formatProductCode(product != null ? product.getId() : null);
-        return ImportOrderConstants.formatBatchCode(date, supplierCode, productCode);
+        int nextSeq = nextBatchSequence(date);
+        for (ImportOrderDetail detail : details) {
+            createStockForDetail(order, detail, ImportOrderConstants.formatBatchCode(date, nextSeq++));
+        }
+    }
+
+    private int nextBatchSequence(LocalDate date) {
+        Integer max = stockBatchRepository.findMaxBatchSequenceByDayPrefix(
+                ImportOrderConstants.batchDayPrefix(date));
+        return (max != null ? max : 0) + 1;
     }
 
     private void createStockForDetail(ImportOrder order, ImportOrderDetail detail, String batchCode) {
@@ -908,19 +927,17 @@ public class ImportOrderService {
         supplierPaymentRepository.save(payment);
     }
 
+    /** Mã phiếu: NH + ddMMyy + "-" + STT trong ngày (vd NH210826-01). */
     private String generateOrderCode() {
-        String prefix = ImportOrderConstants.ORDER_CODE_PREFIX;
-        int seqLength = ImportOrderConstants.ORDER_CODE_SEQ_LENGTH;
+        LocalDate date = LocalDate.now();
+        return ImportOrderConstants.formatOrderCode(date, nextOrderSequence(date));
+    }
 
-        int nextSeq = importOrderRepository.findLatestNhOrderCode()
-                .map(code -> Integer.parseInt(code.substring(prefix.length())) + 1)
-                .orElse(0);
-
-        if (nextSeq > 999_999) {
-            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
-        }
-
-        return prefix + String.format("%0" + seqLength + "d", nextSeq);
+    private int nextOrderSequence(LocalDate date) {
+        importOrderRepository.flush();
+        Integer max = importOrderRepository.findMaxOrderSequenceByDayPrefix(
+                ImportOrderConstants.orderDayPrefix(date));
+        return (max != null ? max : 0) + 1;
     }
 
     private String generatePaymentCode() {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useBlocker, useNavigate, useParams } from 'react-router-dom';
+import { useBlocker, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import SupplierAddNewModal from '../../supplier/components/SupplierAddNewModal';
@@ -179,8 +179,12 @@ function toApiPayload(orderStatus, {
 export default function CreateImportOrderPage() {
     const navigate = useNavigate();
     const { id: editIdParam } = useParams();
+    const [searchParams] = useSearchParams();
     const editId = editIdParam ? Number(editIdParam) : null;
     const isEditMode = Number.isInteger(editId) && editId > 0;
+    // Dashboard mời "Nhập hàng" cho một SP cụ thể thì mở màn này với SP đó có sẵn.
+    const preselectProductId = Number(searchParams.get('productId')) || null;
+    const preselectQuery = searchParams.get('q') || '';
 
     const [lines, setLines] = useState([]);
     const [supplier, setSupplier] = useState(null);
@@ -240,6 +244,10 @@ export default function CreateImportOrderPage() {
         });
     };
 
+    const importItemCount = useMemo(
+        () => lines.filter((line) => !line.isPromotion).length,
+        [lines],
+    );
     const totalAmount = useMemo(
         () =>
             lines.reduce((sum, line) => {
@@ -391,10 +399,10 @@ export default function CreateImportOrderPage() {
                 const mappedLines = (detail.items || []).map(mapDetailLine);
                 const selected = detail.supplierId
                     ? {
-                          id: detail.supplierId,
-                          supplierCode: detail.supplierCode,
-                          name: detail.supplierName,
-                      }
+                        id: detail.supplierId,
+                        supplierCode: detail.supplierCode,
+                        name: detail.supplierName,
+                    }
                     : null;
                 const nextNote = detail.note || '';
                 const nextInvoice = detail.invoiceImage || '';
@@ -543,6 +551,26 @@ export default function CreateImportOrderPage() {
         });
     };
 
+    const preselectAppliedRef = useRef(false);
+    useEffect(() => {
+        if (isEditMode || !preselectProductId || !preselectQuery) return;
+        if (preselectAppliedRef.current) return;
+        preselectAppliedRef.current = true;
+
+        let cancelled = false;
+        (async () => {
+            try {
+                const results = await importOrdersApi.searchProducts(preselectQuery);
+                const match = (results || []).find((item) => item.id === preselectProductId);
+                if (!cancelled && match) handleSelectProduct(match);
+            } catch {
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [isEditMode, preselectProductId, preselectQuery]);
+
     const handleChangeLine = (key, patch) => {
         setLines((prev) => {
             const current = prev.find((line) => line.key === key);
@@ -566,11 +594,11 @@ export default function CreateImportOrderPage() {
                         .map((line) =>
                             line.key === sibling.key
                                 ? {
-                                      ...line,
-                                      quantity:
-                                          (Number(line.quantity) || 0) +
-                                          (Number(current.quantity) || 0),
-                                  }
+                                    ...line,
+                                    quantity:
+                                        (Number(line.quantity) || 0) +
+                                        (Number(current.quantity) || 0),
+                                }
                                 : line,
                         );
                 }
@@ -909,127 +937,160 @@ export default function CreateImportOrderPage() {
 
     return (
         <div className="admin-content">
-            
-                <AdminHeader />
-                <main className="admin-main admin-main--ioc-create">
-                    <div className="dashboard-container ioc-page ioc-page--create">
-                        <header className="ioc-page__header ioc-page__header--compact">
-                            <button
-                                type="button"
-                                className="ioc-page__back"
-                                title="Quay lại danh sách"
-                                onClick={() => navigate('/admin/warehouse/import')}
-                            >
-                                <ArrowLeft size={18} />
-                            </button>
-                            <h1 className="ioc-page__title">
-                                {isEditMode ? 'Mở lại phiếu tạm' : 'Nhập hàng'}
-                            </h1>
-                        </header>
 
-                        {loadingDetail ? (
-                            <p className="supplier-detail-empty-text">Đang tải phiếu tạm...</p>
-                        ) : (
-                            <div className="ioc-layout">
-                                <section className="ioc-main">
-                                    <ImportOrderProductSearch onSelect={handleSelectProduct} />
-                                    <section className="ioc-section ioc-section--import">
-                                        <header className="ioc-section__head">
-                                            <div>
-                                                <h2 className="ioc-section__title">I. Hàng nhập</h2>
-                                            </div>
-                                        </header>
-                                        <ImportOrderLineTable
-                                            lines={displayLines}
-                                            onChangeLine={handleChangeLine}
-                                            onRemoveLine={handleRemoveLine}
-                                        />
-                                    </section>
+            <AdminHeader />
+            <main className="admin-main admin-main--ioc-create">
+                <div className="dashboard-container ioc-page ioc-page--create">
+                    <header className="ioc-page__header ioc-page__header--compact">
+                        <button
+                            type="button"
+                            className="ioc-page__back"
+                            title="Quay lại danh sách"
+                            onClick={() => navigate('/admin/warehouse/import')}
+                        >
+                            <ArrowLeft size={18} />
+                        </button>
+                        <h1 className="ioc-page__title">
+                            {isEditMode ? 'Mở lại phiếu tạm' : 'Nhập hàng'}
+                        </h1>
+                    </header>
 
-                                    <ImportOrderReturnSection
-                                        supplier={supplier}
-                                        lines={pendingReturnLines}
-                                        selectedLineKeys={selectedReturnLineKeys}
-                                        loading={loadingReturns}
-                                        onToggleLine={handleToggleReturnLine}
-                                        onToggleAll={handleToggleAllReturnLines}
-                                        onChangeMethod={handleChangeReturnMethod}
+                    {loadingDetail ? (
+                        <p className="supplier-detail-empty-text">Đang tải phiếu tạm...</p>
+                    ) : (
+                        <div className="ioc-layout">
+                            <section className="ioc-main">
+                                <ImportOrderProductSearch onSelect={handleSelectProduct} />
+                                <section className="ioc-section ioc-section--import">
+                                    <header className="ioc-section__head">
+                                        <div>
+                                            <h2 className="ioc-section__title">I. Hàng nhập</h2>
+                                        </div>
+                                    </header>
+                                    <ImportOrderLineTable
+                                        lines={displayLines}
+                                        onChangeLine={handleChangeLine}
+                                        onRemoveLine={handleRemoveLine}
                                     />
                                 </section>
 
-                                <ImportOrderCreateSidebar
+                                <ImportOrderReturnSection
                                     supplier={supplier}
-                                    suppliers={suppliers}
-                                    suppliersLoading={loadingSuppliers}
-                                    note={note}
-                                    invoiceImageUrl={invoiceImageUrl}
-                                    invoiceImageName={invoiceImageName}
-                                    uploadingInvoiceImage={uploadingInvoiceImage}
-                                    totalAmount={totalAmount}
-                                    discountAmount={safeDiscount}
-                                    returnDeductionAmount={returnDeductionAmount}
-                                    amountDue={amountDue}
-                                    supplierRefundAmount={supplierRefundAmount}
-                                    paidAmount={safePaidAmount}
-                                    debtAmount={debtAmount}
-                                    submitting={submitting || uploadingInvoiceImage}
-                                    onSelectSupplier={setSupplier}
-                                    onClearSupplier={() => setSupplier(null)}
-                                    onOpenAddSupplier={() => {
-                                        setAddSupplierError('');
-                                        setIsAddSupplierOpen(true);
-                                    }}
-                                    onNoteChange={setNote}
-                                    onInvoiceImageChange={handleInvoiceImageChange}
-                                    onClearInvoiceImage={handleClearInvoiceImage}
-                                    onDiscountAmountChange={handleDiscountAmountChange}
-                                    onPaidAmountChange={handlePaidAmountChange}
-                                    onSaveDraft={() => submitOrder(ORDER_STATUS.DRAFT)}
-                                    onComplete={handleComplete}
-                                    showCancelDraft={isEditMode}
-                                    onCancelDraft={handleCancelDraft}
+                                    lines={pendingReturnLines}
+                                    selectedLineKeys={selectedReturnLineKeys}
+                                    loading={loadingReturns}
+                                    onToggleLine={handleToggleReturnLine}
+                                    onToggleAll={handleToggleAllReturnLines}
+                                    onChangeMethod={handleChangeReturnMethod}
                                 />
-                            </div>
-                        )}
+                            </section>
 
-                        <ImportOrderAlertModal
-                            open={alertModal.open}
-                            title={alertModal.title}
-                            message={alertModal.message}
-                            confirmLabel="Đồng ý"
-                            cancelLabel={alertModal.cancelLabel}
-                            onClose={closeAlertModal}
-                            onConfirm={alertModal.onConfirm}
-                        />
-
-                        <ImportOrderAlertModal
-                            open={leaveGuardOpen}
-                            title="Phiếu nhập chưa được lưu"
-                            message="Bạn đang nhập hàng dở. Nếu thoát bây giờ, những gì vừa chọn (nhà cung cấp, mặt hàng, số lượng, giá…) sẽ mất và phải nhập lại từ đầu."
-                            cancelLabel="Tiếp tục nhập"
-                            dangerLabel="Thoát, không cần giữ"
-                            confirmLabel={submitting ? 'Đang lưu...' : 'Lưu tạm rồi thoát'}
-                            confirmDisabled={submitting || uploadingInvoiceImage}
-                            dangerDisabled={submitting}
-                            onClose={handleStayOnPage}
-                            onDanger={handleLeaveWithoutSave}
-                            onConfirm={handleSaveDraftAndLeave}
-                        />
-
-                        <SupplierAddNewModal
-                            open={isAddSupplierOpen}
-                            onClose={() => {
-                                if (!addingSupplier) {
-                                    setIsAddSupplierOpen(false);
+                            <ImportOrderCreateSidebar
+                                supplier={supplier}
+                                suppliers={suppliers}
+                                suppliersLoading={loadingSuppliers}
+                                note={note}
+                                invoiceImageUrl={invoiceImageUrl}
+                                invoiceImageName={invoiceImageName}
+                                uploadingInvoiceImage={uploadingInvoiceImage}
+                                totalAmount={totalAmount}
+                                importItemCount={importItemCount}
+                                discountAmount={safeDiscount}
+                                returnDeductionAmount={returnDeductionAmount}
+                                amountDue={amountDue}
+                                supplierRefundAmount={supplierRefundAmount}
+                                paidAmount={safePaidAmount}
+                                debtAmount={debtAmount}
+                                submitting={submitting || uploadingInvoiceImage}
+                                onSelectSupplier={setSupplier}
+                                onClearSupplier={() => setSupplier(null)}
+                                onOpenAddSupplier={() => {
                                     setAddSupplierError('');
-                                }
-                            }}
-                            onSubmit={handleAddSupplier}
-                            submitting={addingSupplier}
-                            submitError={addSupplierError}
-                        />
-                    </div>
-                </main>
-            </div>
+                                    setIsAddSupplierOpen(true);
+                                }}
+                                onNoteChange={setNote}
+                                onInvoiceImageChange={handleInvoiceImageChange}
+                                onClearInvoiceImage={handleClearInvoiceImage}
+                                onDiscountAmountChange={handleDiscountAmountChange}
+                                onPaidAmountChange={handlePaidAmountChange}
+                                onSaveDraft={() => submitOrder(ORDER_STATUS.DRAFT)}
+                                onComplete={handleComplete}
+                                showCancelDraft={isEditMode}
+                                onCancelDraft={handleCancelDraft}
+                            />
+                        </div>
+                    )}
+                    <ImportOrderCreateSidebar
+                        supplier={supplier}
+                        suppliers={suppliers}
+                        suppliersLoading={loadingSuppliers}
+                        note={note}
+                        invoiceImageUrl={invoiceImageUrl}
+                        invoiceImageName={invoiceImageName}
+                        uploadingInvoiceImage={uploadingInvoiceImage}
+                        totalAmount={totalAmount}
+                        discountAmount={safeDiscount}
+                        returnDeductionAmount={returnDeductionAmount}
+                        amountDue={amountDue}
+                        supplierRefundAmount={supplierRefundAmount}
+                        paidAmount={safePaidAmount}
+                        debtAmount={debtAmount}
+                        submitting={submitting || uploadingInvoiceImage}
+                        onSelectSupplier={setSupplier}
+                        onClearSupplier={() => setSupplier(null)}
+                        onOpenAddSupplier={() => {
+                            setAddSupplierError('');
+                            setIsAddSupplierOpen(true);
+                        }}
+                        onNoteChange={setNote}
+                        onInvoiceImageChange={handleInvoiceImageChange}
+                        onClearInvoiceImage={handleClearInvoiceImage}
+                        onDiscountAmountChange={handleDiscountAmountChange}
+                        onPaidAmountChange={handlePaidAmountChange}
+                        onSaveDraft={() => submitOrder(ORDER_STATUS.DRAFT)}
+                        onComplete={handleComplete}
+                        showCancelDraft={isEditMode}
+                        onCancelDraft={handleCancelDraft}
+                    />
+                </div>
+
+                <ImportOrderAlertModal
+                    open={alertModal.open}
+                    title={alertModal.title}
+                    message={alertModal.message}
+                    confirmLabel="Đồng ý"
+                    cancelLabel={alertModal.cancelLabel}
+                    onClose={closeAlertModal}
+                    onConfirm={alertModal.onConfirm}
+                />
+
+                <ImportOrderAlertModal
+                    open={leaveGuardOpen}
+                    title="Phiếu nhập chưa được lưu"
+                    message="Bạn đang nhập hàng dở. Nếu thoát bây giờ, những gì vừa chọn (nhà cung cấp, mặt hàng, số lượng, giá…) sẽ mất và phải nhập lại từ đầu."
+                    cancelLabel="Tiếp tục nhập"
+                    dangerLabel="Thoát, không cần giữ"
+                    confirmLabel={submitting ? 'Đang lưu...' : 'Lưu tạm rồi thoát'}
+                    confirmDisabled={submitting || uploadingInvoiceImage}
+                    dangerDisabled={submitting}
+                    onClose={handleStayOnPage}
+                    onDanger={handleLeaveWithoutSave}
+                    onConfirm={handleSaveDraftAndLeave}
+                />
+
+                <SupplierAddNewModal
+                    open={isAddSupplierOpen}
+                    onClose={() => {
+                        if (!addingSupplier) {
+                            setIsAddSupplierOpen(false);
+                            setAddSupplierError('');
+                        }
+                    }}
+                    onSubmit={handleAddSupplier}
+                    submitting={addingSupplier}
+                    submitError={addSupplierError}
+                />
+            </main >
+        </div >
     );
 }

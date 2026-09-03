@@ -6,7 +6,6 @@
     font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Chừa chỗ cho sidebar fixed; thu về 0 khi slide out */
 .admin-content {
     flex: 1;
     display: flex;
@@ -35,7 +34,7 @@
     max-width: none;
     width: 100%;
     margin: 0;
-    padding: 5px 0 40px;
+    padding: 12px 28px 40px;
 }
 
 .dashboard-container--full {
@@ -88,15 +87,7 @@
     color: #64748b;
     flex-shrink: 0;
 }
-
-.admin-dashboard-page .admin-header {
-    height: 48px;
-    padding: 0;
-    background: #ffffff;
-    border-bottom: 1px solid #f1f5f9;
-    box-shadow: none;
-}
-
+/*
 .admin-dashboard-page .header-btn {
     width: 32px;
     height: 32px;
@@ -114,7 +105,7 @@
 .admin-dashboard-page .header-btn:hover {
     background: #f1f5f9;
     color: #0f172a;
-}
+} */
 
 
 
@@ -123,7 +114,7 @@
 }
 
 .admin-dashboard-page .dashboard-overview {
-    padding: 5px 0 40px;
+    padding: 12px 28px 40px;
     font-family: Arial, Helvetica, sans-serif;
 }
 
@@ -136,14 +127,14 @@
     margin-bottom: 20px;
 }
 
-.admin-dashboard-page .db-page-header_title {
+/* .admin-dashboard-page .db-page-header_title {
     font-size: 30px;
     line-height: 1.15;
     font-weight: 800;
     color: #0f172a;
     margin: 0 0 4px;
     letter-spacing: -0.2px;
-}
+} */
 
 .admin-dashboard-page .db-page-header_subtitle {
     color: #64748b;
@@ -346,6 +337,15 @@
     background-color: #f59e0b;
 }
 
+/* Hiển thị màu xanh cho khách nợ mới */
+.attention-summary--info {
+    color: #0284c7;
+}
+
+.attention-summary--info .attention-summary_dot {
+    background-color: #7dd3fc;
+}
+
 .attention-card_body {
     display: flex;
     flex-direction: column;
@@ -371,6 +371,11 @@
 .attention-item--amber {
     background: #fefce8;
     border-color: #fde68a;
+}
+
+.attention-item--info {
+    background: #f0f9ff;
+    border-color: #bae6fd;
 }
 
 .attention-item_name {
@@ -408,6 +413,28 @@
     font-size: 12px;
     font-weight: 500;
     line-height: 1.25;
+}
+
+.attention-item--info .attention-item_subdetail {
+    color: #0369a1;
+}
+
+.attention-card_more {
+    margin-top: 6px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* Cảnh báo phiếu nháp để lâu - đậm hơn các dòng phụ khác trong thẻ. */
+.attention-item_alert {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+    color: #dc2626;
+    font-size: 12px;
+    font-weight: 700;
 }
 
 .attention-card_link {
@@ -448,9 +475,9 @@
 }
 
 .metric-card_label {
-    color: #64748b;
-    font-size: 13px;
-    font-weight: 600;
+    color: #475569;
+    font-size: 16px;
+    font-weight: 500;
     line-height: 1.25;
     margin-bottom: 6px;
 }
@@ -459,7 +486,7 @@
     color: #0f172a;
     font-size: 26px;
     line-height: 1.1;
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0;
     white-space: nowrap;
     margin-bottom: 6px;
@@ -469,11 +496,36 @@
     color: #f59e0b;
 }
 
+/* Chú thích hoàn trả trên thẻ doanh thu. Nằm ngay dưới con số vì nó giải thích
+   cách con số đó được tính, khác với .metric-card_note bị đẩy xuống đáy thẻ. */
+.metric-card_badge {
+    align-self: flex-start;
+    max-width: 100%;
+    border-radius: 999px;
+    padding: 2px 8px;
+    margin-bottom: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.metric-card_badge--refund {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1d4ed8;
+}
+
+.metric-card_badge--muted {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #64748b;
+}
+
 .metric-card_note {
     margin-top: auto;
-    color: #64748b;
-    font-size: 13px;
-    font-weight: 500;
+    color: #404d5f;
+    font-size: 14px;
+    font-weight: 400;
     line-height: 1.3;
 }
 
@@ -490,7 +542,7 @@
     align-items: center;
     gap: 4px;
     color: #d97706;
-    font-size: 12.5px;
+    font-size: 12px;
     font-weight: 700;
     line-height: 1.2;
 }
@@ -504,8 +556,8 @@
     margin-top: 1px;
     padding-left: 16px;
     color: #d97706;
-    font-size: 12px;
-    font-weight: 500;
+    font-size: 11.5px;
+    font-weight: 400;
     line-height: 1.2;
 }
 
@@ -587,80 +639,225 @@
     font-size: 13.5px;
 }
 
-.review-badge {
-    display: inline-flex;
+
+
+/* Bảng này có ô hai dòng (tên + SKU, nhãn + lý do) nên canh trên và nới hàng,
+   khác các bảng một dòng dùng chung .inv-table. */
+.admin-dashboard-page .inv-table--review tbody td {
+    padding: 14px 6px;
+    vertical-align: top;
+}
+
+.admin-dashboard-page .inv-table--review tbody tr:hover {
+    background: #f8fafc;
+}
+
+/* --- Header widget: tiêu đề + pill đếm + link xem tất cả ---------------- */
+.restock-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.restock-header_title-row {
+    display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 5px;
-    min-width: 64px;
-    padding: 4px 8px;
-    border-radius: 4px;
-    text-align: center;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
-.review-badge--danger {
-    color: #dc2626;
-    background: #ffe4e6;
+.restock-header_pill {
+    padding: 2px 9px;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
 }
 
-.review-badge--neutral {
+.restock-header_subtitle {
+    margin: 4px 0 0;
+    color: #64748b;
+    font-size: 12.5px;
+    line-height: 1.4;
+}
+
+.restock-view-all {
+    flex-shrink: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #2563eb;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.restock-view-all:hover {
+    text-decoration: underline;
+}
+
+/* --- Ba ô thống kê ------------------------------------------------------ */
+.restock-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.restock-stat {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #ffffff;
+}
+
+.restock-stat_label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     color: #475569;
-    background: #e8eefb;
+    font-size: 12.5px;
+    font-weight: 500;
 }
 
-.review-badge_dot {
-    width: 5px;
-    height: 5px;
+.restock-stat_dot {
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     flex-shrink: 0;
 }
 
-.review-badge--danger .review-badge_dot {
-    background: #dc2626;
+.restock-stat_dot--danger {
+    background: #ef4444;
 }
 
-.review-badge--neutral .review-badge_dot {
+.restock-stat_dot--warning {
+    background: #f59e0b;
+}
+
+.restock-stat_dot--neutral {
     background: #94a3b8;
 }
 
-.review-badge_text {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    font-size: 12px;
+.restock-stat_value {
+    margin-top: 4px;
+    color: #0f172a;
+    font-size: 22px;
     font-weight: 700;
-    line-height: 1.15;
+    line-height: 1.1;
+}
+
+/* --- Cột sản phẩm ------------------------------------------------------- */
+.admin-dashboard-page .inv-table_sku {
+    margin-top: 2px;
+    color: #94a3b8;
+    font-size: 11.5px;
+    font-weight: 400;
+}
+
+.admin-dashboard-page .inv-table_stock {
+    color: #0f172a;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.admin-dashboard-page .inv-table_empty {
+    padding: 24px 6px;
+    color: #94a3b8;
+    font-size: 13px;
+    text-align: center;
+}
+
+/* --- Cột đánh giá: nhãn có màu, không dùng chấm ------------------------- */
+.review-label {
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.review-label--danger {
+    color: #dc2626;
+}
+
+.review-label--warning {
+    color: #d97706;
+}
+
+.review-label--neutral {
+    color: #64748b;
+}
+
+.review-reason {
+    margin-top: 3px;
+    max-width: 260px;
+    color: #64748b;
+    font-size: 11.5px;
+    font-weight: 400;
+    line-height: 1.35;
 }
 
 .admin-dashboard-page .inv-table_action {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
-    border: none;
-    border-radius: 4px;
-    background: transparent;
+    min-width: 92px;
+    padding: 7px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #ffffff;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.25;
+    white-space: nowrap;
     cursor: pointer;
-    transition: background 0.15s, color 0.15s;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
+/* Hai lối ra của cột "Quyết định": "Xem" được tô nổi vì đó là hành động dẫn tới
+   thông tin đầy đủ; "Bỏ qua" cố ý nhạt hơn vì nó chỉ tắt nhắc nhở trong ngày. */
 .admin-dashboard-page .inv-table_action--order {
-    color: #2563eb;
-}
-
-.admin-dashboard-page .inv-table_action--order:hover {
+    border-color: #bfdbfe;
     background: #eff6ff;
     color: #1d4ed8;
 }
 
+.admin-dashboard-page .inv-table_action--order:hover {
+    border-color: #93c5fd;
+    background: #dbeafe;
+}
+
 .admin-dashboard-page .inv-table_action--more {
-    color: #94a3b8;
+    color: #475569;
 }
 
 .admin-dashboard-page .inv-table_action--more:hover {
     background: #f8fafc;
-    color: #64748b;
+    color: #0f172a;
+}
+
+.admin-dashboard-page .inv-table_action:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.admin-dashboard-page .inv-table_decision {
+    display: inline-flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+/* Hai nút cạnh nhau nên không cần bề ngang của một CTA đơn lẻ. */
+.admin-dashboard-page .inv-table_decision .inv-table_action {
+    min-width: 64px;
+    padding: 7px 10px;
 }
 
 /* Alignment utilities */
@@ -786,19 +983,51 @@
     white-space: nowrap;
 }
 
-.admin-dashboard-page .recent-tx_amount--income {
+.admin-dashboard-page .recent-tx_table tbody td.recent-tx_amount--income {
     color: #16a34a;
 }
 
-.admin-dashboard-page .recent-tx_amount--warning {
+.admin-dashboard-page .recent-tx_table tbody td.recent-tx_amount--warning {
     color: #f59e0b;
 }
 
-.admin-dashboard-page .recent-tx_amount--expense {
+/* Nhập hàng là dòng tiền ra bình thường -> xanh dương */
+.admin-dashboard-page .recent-tx_table tbody td.recent-tx_amount--import {
+    color: #2563eb;
+}
+
+/* Đổi/trả: trung tính, tách khỏi cả tiền vào lẫn tiền ra */
+.admin-dashboard-page .recent-tx_table tbody td.recent-tx_amount--return {
+    color: #7c3aed;
+}
+
+/* Đỏ chỉ dùng cho giao dịch bất thường (hủy, lệch, thất bại) */
+.admin-dashboard-page .recent-tx_table tbody td.recent-tx_amount--expense {
     color: #ef4444;
 }
 
-.admin-dashboard-page .recent-tx_amount--alert-expense {
+.admin-dashboard-page .recent-tx_table tbody td.recent-tx_amount--alert-expense {
+    color: #ef4444;
+}
+
+/* Tên hoạt động ăn màu theo dòng tiền; dòng phụ bên dưới vẫn để xám */
+.admin-dashboard-page td .recent-tx_activity-type--income {
+    color: #16a34a;
+}
+
+.admin-dashboard-page td .recent-tx_activity-type--warning {
+    color: #f59e0b;
+}
+
+.admin-dashboard-page td .recent-tx_activity-type--import {
+    color: #2563eb;
+}
+
+.admin-dashboard-page td .recent-tx_activity-type--return {
+    color: #7c3aed;
+}
+
+.admin-dashboard-page td .recent-tx_activity-type--expense {
     color: #ef4444;
 }
 
@@ -873,6 +1102,13 @@
     font-size: 14px;
     font-weight: 700;
     color: #0f172a;
+}
+
+/* Dòng phụ trong tooltip: giải thích con số chính, không tranh chấp với nó. */
+.chart-tooltip_value--muted {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #64748b;
 }
 
 /* Responsive queries */

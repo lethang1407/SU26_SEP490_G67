@@ -25,7 +25,6 @@ import ExchangeOrderRedirect from '../../features/pos-screen/components/Exchange
 import CustomerDebtPage from '../../features/customer/pages/CustomerDebtPage';
 import CustomerDetailPage from '../../features/customer/pages/CustomerDetailPage';
 import SalesOrderDetailPage from '../../features/sales-order/pages/SalesOrderDetailPage';
-import OrderReconciliationPage from '../../features/sales-order/pages/OrderReconciliationPage';
 import ApiPermissionsPage from '../../features/permission/pages/ApiPermissionsPage';
 import WarehouseReportPage from '../../features/warehouse-report/pages/WarehouseReportPage';
 import ProtectedRoute from './ProtectedRoute';
@@ -138,10 +137,6 @@ const adminRoutes = [
     {
         path: '/admin/orders/:orderId',
         element: <ProtectedRoute><SalesOrderDetailPage /></ProtectedRoute>,
-    },
-    {
-        path: '/admin/orders/reconciliation',
-        element: <ProtectedRoute><OrderReconciliationPage /></ProtectedRoute>,
     },
     {
         path: '/admin/customer/:customerId',

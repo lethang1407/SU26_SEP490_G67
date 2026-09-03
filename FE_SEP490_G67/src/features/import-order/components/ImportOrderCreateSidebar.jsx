@@ -32,6 +32,7 @@ export default function ImportOrderCreateSidebar({
     paidAmount,
     debtAmount,
     submitting,
+    importItemCount = 0,
     onSelectSupplier,
     onClearSupplier,
     onOpenAddSupplier,
@@ -201,7 +202,7 @@ export default function ImportOrderCreateSidebar({
 
             <div className="ioc-sidebar__summary">
                 <div className="ioc-sidebar__summary-row">
-                    <span>Tổng hàng nhập</span>
+                    <span>Tổng hàng nhập{importItemCount > 0 ? ` (${importItemCount})` : ''}</span>
                     <strong>{formatCurrency(totalAmount)}</strong>
                 </div>
 
@@ -274,10 +275,7 @@ export default function ImportOrderCreateSidebar({
             </div>
 
             <div className="ioc-sidebar__field">
-                <div className="ioc-sidebar__label-row">
-                    <label className="ioc-sidebar__label">Ảnh hóa đơn</label>
-                    <span className="ioc-sidebar__label-optional">Không bắt buộc</span>
-                </div>
+                <label className="ioc-sidebar__label">Ảnh hóa đơn</label>
                 {invoiceImageUrl ? (
                     <div className="ioc-sidebar__invoice-preview">
                         <a

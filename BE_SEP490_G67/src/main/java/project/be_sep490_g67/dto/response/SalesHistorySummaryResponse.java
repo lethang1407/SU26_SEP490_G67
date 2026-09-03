@@ -9,13 +9,28 @@ import java.util.List;
 
 @Data
 @Builder
-public class SalesHistorySummaryDTO {
+public class SalesHistorySummaryResponse {
     private String monthLabel;
     private String todayLabel;
     private long totalQty;
     private long totalOrders;
     private BigDecimal totalRevenue;
     private BigDecimal totalProfit;
+
+    /**
+     * Tổng giá trị hàng khách trả lại trong kỳ. Luôn >= 0.
+     */
+    private BigDecimal refundAmount;
+
+    /**
+     * Số phiếu đổi/trả lập trong kỳ.
+     */
+    private long returnOrderCount;
+
+    /**
+     * Doanh thu sau khi trừ hàng trả
+     */
+    private BigDecimal netRevenue;
 
     @Builder.Default
     private List<WeekDTO> weeks = new ArrayList<>();

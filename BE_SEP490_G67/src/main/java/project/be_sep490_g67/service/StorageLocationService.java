@@ -27,6 +27,7 @@ import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.BatchLocationRepository;
 import project.be_sep490_g67.repository.ProductUnitRepository;
 import project.be_sep490_g67.repository.StockBatchRepository;
+import project.be_sep490_g67.repository.StockMovementRepository;
 import project.be_sep490_g67.repository.StorageLocationRepository;
 import project.be_sep490_g67.utils.StockBatchUtils;
 
@@ -44,6 +45,7 @@ public class StorageLocationService {
     StockBatchRepository stockBatchRepository;
     ProductUnitRepository productUnitRepository;
     StorageZoneService storageZoneService;
+    StockMovementRepository stockMovementRepository;
 
     @Transactional(readOnly = true)
     public List<StorageLocationResponse> getAllLocations() {
@@ -299,11 +301,16 @@ public class StorageLocationService {
                                 && batchLocation.getQuantity() > 0);
     }
 
+    /**
+     * Số chưa xếp kệ = tồn thực theo sổ cái (cộng/trừ movements) trừ phần đã gán ô.
+     * Không dùng {@code quantityIn - placed} vì bán hàng chỉ trừ {@code batch_locations}
+     * mà không trừ {@code quantityIn}, khiến hàng vừa bán bị tính nhầm vào “chưa xếp”.
+     */
     private int getUnplacedQuantity(StockBatch batch) {
-        int quantityIn = batch.getQuantityIn() != null ? batch.getQuantityIn() : 0;
+        int remaining = stockMovementRepository.sumQuantityDeltaByBatchId(batch.getId());
         Integer placed = batchLocationRepository.sumQuantityByBatchId(batch.getId());
         int placedQty = placed != null ? placed : 0;
-        return Math.max(0, quantityIn - placedQty);
+        return Math.max(0, remaining - placedQty);
     }
 
     private StorageLocationResponse toResponse(StorageLocation location) {

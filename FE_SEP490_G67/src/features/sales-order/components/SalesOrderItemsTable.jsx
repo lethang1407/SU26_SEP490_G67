@@ -31,7 +31,7 @@ export default function SalesOrderItemsTable({ items = [] }) {
                             <tr key={`${item.productId}-${index}`}>
                                 <td>{index + 1}</td>
                                 <td>{item.name}</td>
-                                <td>{item.unitName || '—'}</td>
+                                <td>{item.unitName || 'N/A'}</td>
                                 <td className="text-right">{item.quantity ?? 0}</td>
                                 <td className="text-right">{formatCurrency(item.unitPrice)}</td>
                                 <td className="text-right">{formatCurrency(item.discountAmount)}</td>

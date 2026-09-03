@@ -73,13 +73,15 @@ public interface ImportOrderRepository extends JpaRepository<ImportOrder, Intege
             """)
     Optional<ImportOrder> findActiveByIdForUpdate(@Param("id") Integer id);
 
-    /** Mã dạng NH###### — lấy mã lớn nhất để +1 (zero-pad nên sort string = sort số). */
+    /**
+     * Số thứ tự lớn nhất trong ngày cho mã phiếu dạng NHddMMyy-xx (một dấu '-').
+     * dayPrefix ví dụ: NH210826. Bỏ qua mã cũ NH000001.
+     */
     @Query(value = """
-            SELECT order_code
+            SELECT MAX(CAST(SUBSTRING(order_code, LOCATE('-', order_code) + 1) AS UNSIGNED))
             FROM import_orders
-            WHERE order_code REGEXP '^NH[0-9]{6}$'
-            ORDER BY order_code DESC
-            LIMIT 1
+            WHERE order_code LIKE CONCAT(:dayPrefix, '-%')
+              AND order_code NOT LIKE CONCAT(:dayPrefix, '-%-%')
             """, nativeQuery = true)
-    Optional<String> findLatestNhOrderCode();
+    Integer findMaxOrderSequenceByDayPrefix(@Param("dayPrefix") String dayPrefix);
 }

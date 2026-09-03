@@ -78,18 +78,13 @@ export default function AdminHeader({ user, activePage }) {
                     <span className="notification-badge">3</span>
                 </button>
 
-                {/* Help */}
-                <button className="header-btn" aria-label="Trợ giúp" type="button">
-                    <CircleHelp size={18} />
-                </button>
-
                 <div className="header-divider" />
 
                 {/* User info + avatar + dropdown */}
                 <div className="header-user" ref={dropdownRef}>
-                    <div className="header-user__info">
-                        <span className="header-user__name">{displayName}</span>
-                        <span className="header-user__role">{displayRole}</span>
+                    <div className="header-user_info">
+                        <span className="header-user_name">{displayName}</span>
+                        <span className="header-user_role">{displayRole}</span>
                     </div>
                     <button
                         className={`header-btn header-btn--profile${activePage === 'profile' ? ' header-btn--active' : ''}`}
@@ -102,19 +97,19 @@ export default function AdminHeader({ user, activePage }) {
 
                     {isDropdownOpen && (
                         <div className="user-dropdown">
-                            <div className="user-dropdown__header">
-                                <span className="user-dropdown__name">{displayName}</span>
+                            <div className="user-dropdown_header">
+                                <span className="user-dropdown_name">{displayName}</span>
                             </div>
-                            <div className="user-dropdown__divider" />
+                            <div className="user-dropdown_divider" />
                             {dropdownItems.map((item) => {
                                 if (!item.show) return null;
                                 if (item.type === 'divider') {
-                                    return <div key={item.id} className="user-dropdown__divider" />;
+                                    return <div key={item.id} className="user-dropdown_divider" />;
                                 }
                                 return (
                                     <button
                                         key={item.id}
-                                        className={`user-dropdown__item ${item.className || ''}`}
+                                        className={`user-dropdown_item ${item.className || ''}`}
                                         onClick={item.onClick}
                                     >
                                         {item.icon}

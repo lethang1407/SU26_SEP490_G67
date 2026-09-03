@@ -1,22 +1,18 @@
-import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
-import ImportOrderExpandPanel from './ImportOrderExpandPanel';
 import { ORDER_STATUS, ORDER_STATUS_LABEL } from '../constants';
 import { formatCurrency, formatDate, formatDateTime } from '../utils/importOrderUtils';
-
-const COLUMN_COUNT = 5;
 
 export default function ImportOrderTable({
     items,
     loading,
-    expandedId,
-    onToggleExpand,
-    onDraftCancelled,
+    startIndex = 1,
+    emptyMessage = 'Không tìm thấy phiếu nhập hàng phù hợp.',
+    onOpenDetail,
 }) {
     if (loading) {
         return (
             <div className="supplier-table-card supplier-table-card--empty">
-                <p>Đang tải danh sách đơn nhập hàng...</p>
+                <p>Đang tải danh sách phiếu nhập hàng...</p>
             </div>
         );
     }
@@ -24,7 +20,7 @@ export default function ImportOrderTable({
     if (items.length === 0) {
         return (
             <div className="supplier-table-card supplier-table-card--empty">
-                <p>Không tìm thấy đơn nhập hàng phù hợp.</p>
+                <p>{emptyMessage}</p>
             </div>
         );
     }
@@ -35,9 +31,10 @@ export default function ImportOrderTable({
                 <table className="supplier-table import-order-table">
                     <thead>
                         <tr>
+                            <th className="supplier-table__stt">STT</th>
                             <th>Mã nhập hàng</th>
                             <th title="Phiếu đã nhập: ngày nhập kho. Phiếu tạm: ngày lập phiếu.">
-                                Ngày
+                                Thời gian
                             </th>
                             <th>Nhà cung cấp</th>
                             <th>Tổng tiền</th>
@@ -45,75 +42,61 @@ export default function ImportOrderTable({
                         </tr>
                     </thead>
                     <tbody>
-                        {items.map((order) => {
+                        {items.map((order, index) => {
                             const totalCost = Number(order.totalCost) || 0;
                             const isDraft = order.orderStatus === ORDER_STATUS.DRAFT;
-                            const isExpanded = expandedId === order.id;
-                            // Đã nhập → ngày nhập kho; phiếu tạm → ngày/giờ tạo phiếu
+                            const stt = startIndex + index;
                             const dateLabel = !isDraft && order.receivedDate
                                 ? formatDate(order.receivedDate)
                                 : formatDateTime(order.receivedAt || order.createdAt);
 
                             return (
-                                <Fragment key={order.id}>
-                                    <tr
-                                        className={`supplier-table__row import-order-table__row--expandable ${
-                                            isExpanded ? 'supplier-table__row--expanded' : ''
-                                        }`}
-                                        onClick={() => onToggleExpand?.(order.id)}
-                                        aria-expanded={isExpanded}
-                                    >
-                                        <td className="supplier-table__code-text">
-                                            {isDraft ? (
-                                                <Link
-                                                    to={`/admin/warehouse/import/${order.id}/edit`}
-                                                    className="import-order-table__code-link"
-                                                    title="Mở lại phiếu tạm để sửa"
-                                                    onClick={(event) => event.stopPropagation()}
-                                                >
-                                                    {order.orderCode}
-                                                </Link>
-                                            ) : (
-                                                <span className="import-order-table__code-text">
-                                                    {order.orderCode}
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td
-                                            className="supplier-table__nowrap"
-                                            title={
-                                                !isDraft && order.receivedDate
-                                                    ? 'Ngày nhập kho'
-                                                    : 'Ngày lập phiếu tạm'
-                                            }
-                                        >
-                                            {dateLabel}
-                                        </td>
-                                        <td className="supplier-table__name" title={order.supplierName || undefined}>
-                                            {order.supplierName || '—'}
-                                        </td>
-                                        <td className="supplier-table__nowrap">
-                                            <div>{formatCurrency(isDraft ? 0 : totalCost)}</div>
-                                        </td>
-                                        <td>
-                                            <span
-                                                className={`import-order-status import-order-status--${order.orderStatus?.toLowerCase()}`}
+                                <tr
+                                    key={order.id}
+                                    className="supplier-table__row import-order-table__row--clickable"
+                                    onClick={() => onOpenDetail?.(order.id)}
+                                >
+                                    <td className="supplier-table__stt">{stt}</td>
+                                    <td className="supplier-table__code-text">
+                                        {isDraft ? (
+                                            <Link
+                                                to={`/admin/warehouse/import/${order.id}/edit`}
+                                                className="import-order-table__code-link"
+                                                title="Mở lại phiếu tạm để sửa"
+                                                onClick={(event) => event.stopPropagation()}
                                             >
-                                                {ORDER_STATUS_LABEL[order.orderStatus] || order.orderStatus}
+                                                {order.orderCode}
+                                            </Link>
+                                        ) : (
+                                            <span className="import-order-table__code-text">
+                                                {order.orderCode}
                                             </span>
-                                        </td>
-                                    </tr>
-                                    {isExpanded && (
-                                        <tr className="supplier-table__expand-row">
-                                            <td colSpan={COLUMN_COUNT} className="supplier-table__expand-cell">
-                                                <ImportOrderExpandPanel
-                                                    orderId={order.id}
-                                                    onDraftCancelled={onDraftCancelled}
-                                                />
-                                            </td>
-                                        </tr>
-                                    )}
-                                </Fragment>
+                                        )}
+                                    </td>
+                                    <td
+                                        className="supplier-table__nowrap"
+                                        title={
+                                            !isDraft && order.receivedDate
+                                                ? 'Ngày nhập kho'
+                                                : 'Ngày lập phiếu tạm'
+                                        }
+                                    >
+                                        {dateLabel}
+                                    </td>
+                                    <td className="supplier-table__name" title={order.supplierName || undefined}>
+                                        {order.supplierName || '—'}
+                                    </td>
+                                    <td className="supplier-table__nowrap">
+                                        <div>{formatCurrency(isDraft ? 0 : totalCost)}</div>
+                                    </td>
+                                    <td>
+                                        <span
+                                            className={`import-order-status import-order-status--${order.orderStatus?.toLowerCase()}`}
+                                        >
+                                            {ORDER_STATUS_LABEL[order.orderStatus] || order.orderStatus}
+                                        </span>
+                                    </td>
+                                </tr>
                             );
                         })}
                     </tbody>

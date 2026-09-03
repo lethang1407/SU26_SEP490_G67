@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
     ResponsiveContainer,
-    LineChart,
-    Line,
+    BarChart,
+    Bar,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -10,7 +10,7 @@ import {
 } from 'recharts';
 import { dashboardApi } from '@/features/dashboard/api/dashboardApi';
 
-/** YYYY-MM-DD theo giờ máy — API nhận LocalDate, không phải Instant. */
+/** YYYY-MM-DD theo LocalDate. */
 const toIsoDate = (d) => {
     const pad = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -23,15 +23,19 @@ const EMPTY_HOURS = Array.from({ length: 24 }, (_, hour) => ({
 }));
 
 function formatVND(value) {
-    if (value >= 1000000) return `${(value / 1000000).toFixed(0)}M`;
-    if (value >= 1000) return `${(value / 1000).toFixed(0)}k`;
+    const sign = value < 0 ? '-' : '';
+    const abs = Math.abs(value);
+    if (abs >= 1000000) return `${sign}${(abs / 1000000).toFixed(0)}M`;
+    if (abs >= 1000) return `${sign}${(abs / 1000).toFixed(0)}₫`;
     return value;
 }
 
 const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
 
-    const orderCount = payload[0].payload?.orderCount;
+    const row = payload[0].payload ?? {};
+    const orderCount = row.orderCount;
+    const refund = Number(row.refundAmount ?? 0);
 
     return (
         <div className="chart-tooltip">
@@ -39,10 +43,18 @@ const CustomTooltip = ({ active, payload, label }) => {
             <div className="chart-tooltip_row">
                 <span className="chart-tooltip_dot" style={{ background: '#2563eb' }} />
                 <p className="chart-tooltip_value">
-                    {new Intl.NumberFormat('vi-VN').format(payload[0].value)}đ
+                    {new Intl.NumberFormat('vi-VN').format(payload[0].value)}₫
                     {orderCount ? ` · ${orderCount} hóa đơn` : ''}
                 </p>
             </div>
+            {refund > 0 && (
+                <div className="chart-tooltip_row">
+                    <span className="chart-tooltip_dot" style={{ background: '#94a3b8' }} />
+                    <p className="chart-tooltip_value chart-tooltip_value--muted">
+                        Đã trừ hoàn trả -{new Intl.NumberFormat('vi-VN').format(refund)}₫
+                    </p>
+                </div>
+            )}
         </div>
     );
 };
@@ -61,11 +73,12 @@ export default function RevenueTrendChart() {
                     rows.map((row) => ({
                         hour: row.label,
                         revenue: Number(row.revenue ?? 0),
+                        refundAmount: Number(row.refundAmount ?? 0),
                         orderCount: row.orderCount ?? 0,
                     })),
                 );
             } catch {
-                // Biểu đồ chỉ là chỉ số hiển thị: lỗi tải thì giữ đường 0, không chặn dashboard.
+                // Biểu đồ chỉ là chỉ số hiển thị: lỗi tải thì giữ cột 0, không chặn dashboard.
             }
         })();
         return () => {
@@ -81,7 +94,7 @@ export default function RevenueTrendChart() {
 
             <div className="chart-card_body sales-chart-card_body">
                 <ResponsiveContainer width="100%" height={180}>
-                    <LineChart data={salesByHour} margin={{ top: 10, right: 12, left: -20, bottom: 0 }}>
+                    <BarChart data={salesByHour} margin={{ top: 10, right: 12, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                         <XAxis
                             dataKey="hour"
@@ -89,7 +102,6 @@ export default function RevenueTrendChart() {
                             tickLine={false}
                             tick={{ fill: '#94a3b8', fontSize: 10 }}
                             dy={6}
-                            // 24 khung giờ mà nhãn nào cũng vẽ thì chồng chữ, chỉ ghi 3 giờ một lần.
                             interval={2}
                         />
                         <YAxis
@@ -97,20 +109,20 @@ export default function RevenueTrendChart() {
                             tickLine={false}
                             tick={{ fill: '#94a3b8', fontSize: 10 }}
                             tickFormatter={formatVND}
-                            // Trục tự co theo dữ liệu. Trần cứng 500k sẽ cắt mất đỉnh
-                            // của những giờ bán chạy, biểu đồ trông như đang đi ngang.
-                            domain={[0, 'auto']}
+                            // Trục tự co theo dữ liệu. Giữ mốc 0 làm đáy trong ngày bán
+                            // bình thường, chỉ hạ xuống khi có khung giờ âm vì hoàn trả
+                            // vượt doanh thu bán trong giờ đó.
+                            domain={[(dataMin) => Math.min(0, dataMin), 'auto']}
                         />
-                        <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#bfdbfe' }} />
-                        <Line
-                            type="monotone"
+                        <Tooltip content={<CustomTooltip />} cursor={{ fill: '#eff6ff' }} />
+                        <Bar
                             dataKey="revenue"
-                            stroke="#2563eb"
-                            strokeWidth={2}
-                            dot={false}
+                            fill="#2563eb"
+                            radius={[3, 3, 0, 0]}
+                            maxBarSize={18}
                             name="Doanh thu theo giờ"
                         />
-                    </LineChart>
+                    </BarChart>
                 </ResponsiveContainer>
             </div>
             <div className="chart-legend chart-legend--center">

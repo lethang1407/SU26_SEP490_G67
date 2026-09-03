@@ -148,7 +148,7 @@ export default function ExchangeOrderPicker() {
                                             key={order.id}
                                             className={`hist-row exchange-picker-row${overdue ? ' exchange-picker-row--blocked' : ''}`}
                                             title={overdue
-                                                ? 'Đơn nợ đã quá hạn trả — không thể đổi/trả'
+                                                ? 'Đơn nợ đã quá hạn trả - không thể đổi/trả'
                                                 : undefined}
                                             onClick={overdue
                                                 ? undefined
@@ -176,7 +176,7 @@ export default function ExchangeOrderPicker() {
                                                         )}
                                                     </>
                                                 ) : (
-                                                    <span className="exchange-picker-nodebt">—</span>
+                                                    <span className="exchange-picker-nodebt">N/A</span>
                                                 )}
                                             </td>
                                             <td>
@@ -188,7 +188,7 @@ export default function ExchangeOrderPicker() {
                                                         className="hist-action-btn"
                                                         disabled={overdue}
                                                         title={overdue
-                                                            ? 'Đơn nợ quá hạn — không thể đổi/trả'
+                                                            ? 'Đơn nợ quá hạn - không thể đổi/trả'
                                                             : 'Đổi/trả hóa đơn này'}
                                                     >
                                                         <ChevronRight size={16} />

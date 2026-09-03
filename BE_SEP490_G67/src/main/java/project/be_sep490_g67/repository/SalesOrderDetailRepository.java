@@ -13,15 +13,15 @@ import java.util.List;
 public interface SalesOrderDetailRepository extends JpaRepository<SalesOrderDetail, Integer> {
 
     @Query("""
-        SELECT COALESCE(SUM(d.quantity), 0)
-        FROM SalesOrderDetail d
-        JOIN d.salesOrder o
-        WHERE d.product.id = :productId
-          AND (d.isRemoved = false OR d.isRemoved IS NULL)
-          AND (o.isRemoved = false OR o.isRemoved IS NULL)
-          AND o.createdAt >= :from
-          AND o.createdAt < :to
-        """)
+            SELECT COALESCE(SUM(d.quantity), 0)
+            FROM SalesOrderDetail d
+            JOIN d.salesOrder o
+            WHERE d.product.id = :productId
+              AND (d.isRemoved = false OR d.isRemoved IS NULL)
+              AND (o.isRemoved = false OR o.isRemoved IS NULL)
+              AND o.createdAt >= :from
+              AND o.createdAt < :to
+            """)
     Long sumQtyByProductAndDateRange(
             @Param("productId") Integer productId,
             @Param("from") Instant from,
@@ -68,4 +68,44 @@ public interface SalesOrderDetailRepository extends JpaRepository<SalesOrderDeta
     List<Object[]> sumSoldQuantityByProductsSince(
             @Param("productIds") List<Integer> productIds,
             @Param("since") Instant since);
+
+    /**
+     * Sản lượng bán của từng SP kể từ {@code since}, QUY VỀ ĐƠN VỊ CƠ SỞ.
+     *
+     * Khác {@link #sumSoldQuantityByProductsSince}: query kia cộng thẳng
+     * {@code quantity} nên 1 thùng và 1 lon đều đếm là 1. Query này nhân với
+     * {@code unitBase} trước khi cộng, nên so được với tồn kho và {@code min_stock}
+     * (cả hai đều tính bằng đơn vị cơ sở).
+     *
+     * Đơn đã huỷ bị loại. Mỗi phần tử: [productId, sản lượng theo đơn vị cơ sở].
+     */
+    @Query("""
+            SELECT sod.product.id,
+                   COALESCE(SUM(sod.quantity * COALESCE(sod.productUnit.unitBase, 1)), 0)
+            FROM SalesOrderDetail sod
+            WHERE sod.product.id IN :productIds
+              AND sod.isRemoved = false
+              AND sod.salesOrder.isRemoved = false
+              AND sod.salesOrder.orderStatus <> 'CANCELLED'
+              AND sod.salesOrder.createdAt >= :since
+            GROUP BY sod.product.id
+            """)
+    List<Object[]> sumSoldBaseQuantityByProductsSince(
+            @Param("productIds") List<Integer> productIds,
+            @Param("since") Instant since);
+
+    /**
+     * Lần bán gần nhất của từng SP, để phân biệt "bán ít" với "sản phẩm trong khoảng thời gian nhất định ko ai mua".
+     * Mỗi phần tử: [productId, thời điểm bán gần nhất].
+     */
+    @Query("""
+            SELECT sod.product.id, MAX(sod.salesOrder.createdAt)
+            FROM SalesOrderDetail sod
+            WHERE sod.product.id IN :productIds
+              AND sod.isRemoved = false
+              AND sod.salesOrder.isRemoved = false
+              AND sod.salesOrder.orderStatus <> 'CANCELLED'
+            GROUP BY sod.product.id
+            """)
+    List<Object[]> findLastSoldAtByProducts(@Param("productIds") List<Integer> productIds);
 }

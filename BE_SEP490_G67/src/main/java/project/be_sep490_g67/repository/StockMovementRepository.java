@@ -17,6 +17,7 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, In
         SELECT COALESCE(SUM(sm.quantityDelta), 0)
         FROM StockMovement sm
         WHERE sm.stockBatch.id = :batchId
+          AND (sm.isRemoved = false OR sm.isRemoved IS NULL)
         """)
     int sumQuantityDeltaByBatchId(@Param("batchId") Integer batchId);
 

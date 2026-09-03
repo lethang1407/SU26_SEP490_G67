@@ -35,12 +35,17 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
             SELECT sb FROM StockBatch sb
             JOIN FETCH sb.product p
             WHERE sb.isRemoved = false
-              AND COALESCE(sb.quantityIn, 0) > (
-                  SELECT COALESCE(SUM(bl.quantity), 0)
+              AND COALESCE((
+                  SELECT SUM(sm.quantityDelta)
+                  FROM StockMovement sm
+                  WHERE sm.stockBatch = sb
+                    AND (sm.isRemoved = false OR sm.isRemoved IS NULL)
+              ), 0) > COALESCE((
+                  SELECT SUM(bl.quantity)
                   FROM BatchLocation bl
-                  WHERE bl.batch.id = sb.id
+                  WHERE bl.batch = sb
                     AND bl.isRemoved = false
-              )
+              ), 0)
             ORDER BY sb.receivedDate ASC, sb.id ASC
             """)
     List<StockBatch> findUnplacedBatches();
@@ -163,13 +168,14 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
     List<Object[]> findExpiredWithRemainingQuantity(@Param("today") LocalDate today);
 
     /**
-     * Số thứ tự lớn nhất trong ngày cho mã lô dạng LddMMyy-xx.
-     * dayPrefix ví dụ: L050826
+     * Số thứ tự lớn nhất trong ngày cho mã lô dạng {prefix}-xx (một dấu '-').
+     * dayPrefix ví dụ: L210826 hoặc LODH210826. Bỏ qua mã cũ LddMMyy-NCC-SP.
      */
     @Query(value = """
             SELECT MAX(CAST(SUBSTRING(batch_code, LOCATE('-', batch_code) + 1) AS UNSIGNED))
             FROM stock_batches
             WHERE batch_code LIKE CONCAT(:dayPrefix, '-%')
+              AND batch_code NOT LIKE CONCAT(:dayPrefix, '-%-%')
             """, nativeQuery = true)
     Integer findMaxBatchSequenceByDayPrefix(@Param("dayPrefix") String dayPrefix);
 

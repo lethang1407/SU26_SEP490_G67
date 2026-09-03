@@ -134,11 +134,11 @@ export default function SalesOrderHistoryModal({ onClose, onExchange, mode = 'ex
                                 </button>
                             ))}
                         </div>
-
+                        {/* 
                         <button className="hist-reset-btn" onClick={handleResetFilters} title="Xóa bộ lọc">
                             <RotateCcw size={14} />
                             Xóa bộ lọc
-                        </button>
+                        </button> */}
 
                         {dateFilter === 'custom' && (
                             <div className="hist-custom-dates">

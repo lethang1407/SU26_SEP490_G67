@@ -23,6 +23,7 @@ import project.be_sep490_g67.entity.ImportReturn;
 import project.be_sep490_g67.entity.ImportReturnDetail;
 import project.be_sep490_g67.entity.InventoryCheck;
 import project.be_sep490_g67.entity.Product;
+import project.be_sep490_g67.entity.ProductUnit;
 import project.be_sep490_g67.entity.StockBatch;
 import project.be_sep490_g67.entity.StockMovement;
 import project.be_sep490_g67.entity.Supplier;
@@ -813,8 +814,21 @@ public class ImportReturnService {
                 .batchCode(batch != null ? batch.getBatchCode() : null)
                 .returnReason(detail.getReturnReason())
                 .lineStatus(detail.getLineStatus())
+                .unitName(resolveUnitName(product))
                 .attached(attached)
                 .build();
+    }
+
+    private String resolveUnitName(Product product) {
+        if (product == null || product.getProductUnits() == null || product.getProductUnits().isEmpty()) {
+            return null;
+        }
+        for (ProductUnit unit : product.getProductUnits()) {
+            if (unit.getUnitBase() != null && unit.getUnitBase().compareTo(BigDecimal.ONE) == 0) {
+                return unit.getName();
+            }
+        }
+        return product.getProductUnits().iterator().next().getName();
     }
 
     private String resolveUserName(Integer userId) {

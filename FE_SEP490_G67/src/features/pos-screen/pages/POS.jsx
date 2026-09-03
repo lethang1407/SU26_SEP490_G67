@@ -74,6 +74,9 @@ function createTab(id = 1) {
         qtyInputs: {},
         paymentMethod: 'cash',
         note: '',
+        // Nội dung chuyển khoản thuộc về từng hóa đơn, không phải màn hình: hai tab
+        // cùng chuyển khoản mà chung một mã thì tiền về không biết vào đơn nào.
+        transferReference: buildPaymentReference(),
     };
 }
 
@@ -213,10 +216,14 @@ const POSScreen = () => {
     const [printError, setPrintError] = useState(null);
 
     // Nội dung chuyển khoản in trên mã QR của đơn đang bán. Sinh sẵn ngay từ lúc mở
-    // đơn và giữ nguyên tới lúc ghi sổ: số tiền trên mã đổi theo giỏ hàng, nhưng
-    // chuỗi này thì không — đổi giữa chừng là khách chuyển với nội dung này còn hóa
-    // đơn ghi nội dung khác, mất luôn đường đối soát.
-    const [transferReference, setTransferReference] = useState(buildPaymentReference);
+    // đơn và giữ nguyên tới lúc ghi sổ. Nằm trong tab để mỗi hóa đơn giữ mã riêng —
+    // làm mới tab này không được đụng vào mã đang hiện trên QR của tab kia.
+    const transferReference = activeTab.transferReference ?? '';
+    const setTransferReference = useCallback((value) => {
+        setTabs(prev => prev.map(t =>
+            t.id === activeTabId ? { ...t, transferReference: value } : t
+        ));
+    }, [activeTabId]);
 
 
     const addProductToCart = useCallback((product, posInfo) => {
@@ -235,7 +242,7 @@ const POSScreen = () => {
             name: product.name,
             units,
             productUnitId: defaultUnit?.id ?? null,
-            unit: defaultUnit?.name ?? '—',
+            unit: defaultUnit?.name ?? 'N/A',
             locations,
             // Không auto-pick → checkout FEFO; thu ngân vẫn chọn ô/lô khi cần
             pickKeys: [],
@@ -676,7 +683,7 @@ const POSScreen = () => {
                                                 {item.stockTotal != null && (
                                                     <div
                                                         className="cart-stock-line"
-                                                        title={`Tồn bán được: ${Number(item.stockTotal).toLocaleString('vi-VN')}`}
+                                                        title={`Quầy ${Number(item.stockSales ?? 0).toLocaleString('vi-VN')} · Kho ${Number(item.stockWarehouse ?? 0).toLocaleString('vi-VN')}`}
                                                     >
                                                         Tồn kho: {Number(item.stockTotal).toLocaleString('vi-VN')}
                                                     </div>
@@ -1024,7 +1031,7 @@ const POSScreen = () => {
                             <div className="scan-error-banner" style={{ marginTop: '12px', borderRadius: '4px' }}>
                                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <AlertCircle size={16} />
-                                    Các vị trí đã chọn không đủ số lượng.
+                                    Chưa chọn vị trí lấy hàng hoặc các vị trí đã chọn không đủ số lượng.
                                 </span>
                             </div>
                         )}

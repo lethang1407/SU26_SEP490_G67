@@ -64,7 +64,7 @@ export default function SalesOrderTable({ items, loading, error, onPrint }) {
                                 <td className="supplier-table__name" title={order.customerName || 'Khách lẻ'}>
                                     {order.customerName || 'Khách lẻ'}
                                 </td>
-                                <td>{order.staffName || '—'}</td>
+                                <td>{order.staffName || 'N/A'}</td>
                                 <td className="text-right supplier-table__debt">
                                     {formatCurrency(order.totalAmount)}
                                 </td>

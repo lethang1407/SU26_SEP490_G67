@@ -52,6 +52,16 @@ export const suppliersApi = {
         return response.result;
     },
 
+    createBatchPayment: async (supplierId, { importOrderIds, amount, paymentMethod, note }) => {
+        const response = await api.post(`/suppliers/${supplierId}/payments/batch`, {
+            importOrderIds,
+            amount,
+            paymentMethod,
+            note,
+        });
+        return response.result;
+    },
+
     getPaymentHistory: async (supplierId, { page = 0, size = 5, search = '', fromDate = '', toDate = '' } = {}) => {
         const params = { page, size };
         if (search && search.trim()) params.search = search.trim();
