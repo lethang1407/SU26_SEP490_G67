@@ -10,7 +10,7 @@ import project.be_sep490_g67.constants.ImportOrderConstants;
 import project.be_sep490_g67.dto.request.CreateDraftFromSuggestRequest;
 import project.be_sep490_g67.dto.request.CreateImportOrderRequest;
 import project.be_sep490_g67.dto.response.ImportOrderDetailResponse;
-import project.be_sep490_g67.dto.response.ImportOrderResponseDTO;
+import project.be_sep490_g67.dto.response.ImportOrderResponse;
 import project.be_sep490_g67.dto.response.ImportOrderItemResponse;
 import project.be_sep490_g67.dto.response.ImportOrderListItemResponse;
 import project.be_sep490_g67.dto.response.ImportOrderReturnLineResponse;
@@ -462,7 +462,7 @@ public class ImportOrderService {
      * Không tạo StockBatch / không tăng tồn.
      */
     @Transactional
-    public List<ImportOrderResponseDTO> createOrdersFromSuggest(CreateDraftFromSuggestRequest request) {
+    public List<ImportOrderResponse> createOrdersFromSuggest(CreateDraftFromSuggestRequest request) {
         if (request == null || request.getLines() == null || request.getLines().isEmpty()) {
             throw new AppException(ErrorCode.IMPORT_ORDER_LINES_REQUIRED);
         }
@@ -480,10 +480,9 @@ public class ImportOrderService {
             throw new AppException(ErrorCode.IMPORT_ORDER_LINES_REQUIRED);
         }
 
-        List<ImportOrderResponseDTO> created = new ArrayList<>();
+        List<ImportOrderResponse> created = new ArrayList<>();
         LocalDate today = LocalDate.now();
         int nextOrderSeq = nextOrderSequence(today);
-
         for (Map.Entry<Integer, List<CreateDraftFromSuggestRequest.OrderLine>> entry : bySupplier.entrySet()) {
             Supplier supplier = supplierRepository.findByIdAndIsRemovedFalse(entry.getKey())
                     .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
@@ -500,7 +499,7 @@ public class ImportOrderService {
             order = importOrderRepository.save(order);
 
             BigDecimal total = BigDecimal.ZERO;
-            List<ImportOrderResponseDTO.Line> responseLines = new ArrayList<>();
+            List<ImportOrderResponse.Line> responseLines = new ArrayList<>();
             boolean urgent = false;
 
             for (CreateDraftFromSuggestRequest.OrderLine lineReq : entry.getValue()) {
@@ -528,7 +527,7 @@ public class ImportOrderService {
                     urgent = true;
                 }
 
-                responseLines.add(ImportOrderResponseDTO.Line.builder()
+                responseLines.add(ImportOrderResponse.Line.builder()
                         .productId(product.getId())
                         .productName(product.getName())
                         .quantity(lineReq.getQuantity())
@@ -540,7 +539,7 @@ public class ImportOrderService {
             order.setTotalCost(total);
             importOrderRepository.save(order);
 
-            created.add(ImportOrderResponseDTO.builder()
+            created.add(ImportOrderResponse.builder()
                     .id(order.getId())
                     .orderCode(order.getOrderCode())
                     .supplierId(supplier.getId())

@@ -19,6 +19,11 @@ export const productsApi = {
     return response.result;
   },
 
+  getByBarcode: async (barcode) => {
+    const response = await api.get(`/products/barcode/${encodeURIComponent(barcode)}`);
+    return response.result;
+  },
+
   create: async (payload) => {
     const response = await api.post('/products', payload);
     return response.result;
@@ -27,6 +32,15 @@ export const productsApi = {
   update: async (id, payload) => {
     const response = await api.put(`/products/${id}`, payload);
     return response.result;
+  },
+
+  delete: async (id) => {
+    try {
+      const response = await api.delete(`/products/${id}`);
+      return response.result;
+    } catch {
+      return { success: true };
+    }
   },
 
   uploadImage: async (id, file) => {

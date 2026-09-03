@@ -50,18 +50,8 @@ export const menus = [
         id: "products",
         title: "Sản phẩm",
         icon: Package,
-        children: [
-            {
-                title: "Danh sách sản phẩm",
-                path: "/admin/products",
-                permission: "PRODUCT:VIEW"
-            },
-            {
-                title: "Danh mục",
-                path: "/admin/products/categories",
-                permission: "PRODUCT:VIEW"
-            }
-        ]
+        path: "/admin/products",
+        permission: "PRODUCT:VIEW"
     },
     {
         id: "warehouse",

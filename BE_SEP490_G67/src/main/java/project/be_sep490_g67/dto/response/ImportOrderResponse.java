@@ -11,7 +11,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class ImportOrderResponseDTO {
+public class ImportOrderResponse {
     Integer id;
     String orderCode;
     Integer supplierId;

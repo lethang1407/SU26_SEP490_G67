@@ -222,7 +222,7 @@ public class SalesOrderController {
         return user.getRoles().stream()
                 .anyMatch(r -> {
                     String name = r.getName().toUpperCase();
-                    return name.equals("ADMIN") || name.equals("ACCOUNTANT");
+                    return name.equals("STAFF") || name.equals("MANAGER");
                 });
     }
 }

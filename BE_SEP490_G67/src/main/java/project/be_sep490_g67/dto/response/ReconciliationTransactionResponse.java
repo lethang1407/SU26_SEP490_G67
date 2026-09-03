@@ -1,4 +1,4 @@
-package project.be_sep490_g67.dto;
+package project.be_sep490_g67.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ReconciliationTransactionDTO {
+public class ReconciliationTransactionResponse {
     private String time;
     private String code;
     private String category;

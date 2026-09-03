@@ -56,6 +56,35 @@
   background: #003da8;
 }
 
+.cat-page__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cat-btn--outline-green {
+  background: #ffffff;
+  border: 1.5px solid #10B981;
+  color: #059669;
+}
+
+.cat-btn--outline-green:hover:not(:disabled) {
+  background: #ECFDF5;
+  border-color: #059669;
+}
+
+.cat-btn--outline-gray {
+  background: #ffffff;
+  border: 1.5px solid #CBD5E1;
+  color: #475569;
+}
+
+.cat-btn--outline-gray:hover:not(:disabled) {
+  background: #F8FAFC;
+  border-color: #94A3B8;
+}
+
 .cat-btn--ghost {
   background: #f8f9fa;
 }
