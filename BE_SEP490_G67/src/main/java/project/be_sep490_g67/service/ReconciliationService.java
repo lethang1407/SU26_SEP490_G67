@@ -3,9 +3,9 @@ package project.be_sep490_g67.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import project.be_sep490_g67.dto.ReconciliationSubmitDTO;
-import project.be_sep490_g67.dto.ReconciliationSummaryResponse;
-import project.be_sep490_g67.dto.ReconciliationTransactionDTO;
+import project.be_sep490_g67.dto.request.ReconciliationSubmitRequest;
+import project.be_sep490_g67.dto.response.ReconciliationSummaryResponse;
+import project.be_sep490_g67.dto.response.ReconciliationTransactionResponse;
 import project.be_sep490_g67.entity.DebtPayment;
 import project.be_sep490_g67.entity.SalesOrder;
 import project.be_sep490_g67.repository.DebtPaymentRepository;
@@ -88,7 +88,7 @@ public class ReconciliationService {
                 .subtract(exchangeCredit.bank());
 
         // 4. Build combined transaction timeline from SalesOrder and DebtPayment
-        List<ReconciliationTransactionDTO> transactions = buildTransactionTimeline(startOfDay, endOfDay);
+        List<ReconciliationTransactionResponse> transactions = buildTransactionTimeline(startOfDay, endOfDay);
 
         return ReconciliationSummaryResponse.builder()
                 .date(targetDate)
@@ -112,7 +112,7 @@ public class ReconciliationService {
     }
 
     @Transactional(readOnly = true)
-    public ReconciliationSummaryResponse submitReconciliation(ReconciliationSubmitDTO dto) {
+    public ReconciliationSummaryResponse submitReconciliation(ReconciliationSubmitRequest dto) {
         return getSummary(dto.getDate(), null);
     }
 
@@ -187,8 +187,8 @@ public class ReconciliationService {
         return new ExchangeCreditSplit(cash, bank);
     }
 
-    private List<ReconciliationTransactionDTO> buildTransactionTimeline(Instant start, Instant end) {
-        List<ReconciliationTransactionDTO> list = new ArrayList<>();
+    private List<ReconciliationTransactionResponse> buildTransactionTimeline(Instant start, Instant end) {
+        List<ReconciliationTransactionResponse> list = new ArrayList<>();
 
         // 1. Sales orders from SalesOrder
         List<SalesOrder> orders = salesOrderRepository.findOrdersBetween(start, end);
@@ -198,7 +198,7 @@ public class ReconciliationService {
 
             BigDecimal displayAmount = Boolean.TRUE.equals(o.getIsDebt()) ? o.getTotalAmount() : (o.getPaidAmount() != null ? o.getPaidAmount() : o.getTotalAmount());
 
-            list.add(ReconciliationTransactionDTO.builder()
+            list.add(ReconciliationTransactionResponse.builder()
                     .time(TIME_FORMATTER.format(o.getCreatedAt()))
                     .code(o.getOrderCode())
                     .category(o.getOriginalSalesOrderId() != null ? "Hóa đơn đổi hàng" : "Bán hàng")
@@ -214,7 +214,7 @@ public class ReconciliationService {
         List<DebtPayment> debtPayments = debtPaymentRepository.findActiveTodayPaymentsWithOrderAndCustomer(start, end);
         for (DebtPayment dp : debtPayments) {
             String method = "BANK".equalsIgnoreCase(dp.getPaymentMethod()) || "BANK_TRANSFER".equalsIgnoreCase(dp.getPaymentMethod()) ? "Chuyển khoản" : "Tiền mặt";
-            list.add(ReconciliationTransactionDTO.builder()
+            list.add(ReconciliationTransactionResponse.builder()
                     .time(TIME_FORMATTER.format(dp.getCreatedAt()))
                     .code(dp.getPaymentCode() != null ? dp.getPaymentCode() : ("TP-" + dp.getId()))
                     .category("Thu nợ khách hàng (" + (dp.getSalesOrder() != null ? dp.getSalesOrder().getOrderCode() : "") + ")")
@@ -226,7 +226,7 @@ public class ReconciliationService {
                     .build());
         }
 
-        list.sort(Comparator.comparing(ReconciliationTransactionDTO::getTime).reversed());
+        list.sort(Comparator.comparing(ReconciliationTransactionResponse::getTime).reversed());
         return list;
     }
 }

@@ -1,4 +1,4 @@
-package project.be_sep490_g67.dto;
+package project.be_sep490_g67.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -46,5 +46,5 @@ public class ReconciliationSummaryResponse {
     private long cancelledOrdersCount;
     private long debtOrdersCount;
 
-    private List<ReconciliationTransactionDTO> transactions;
+    private List<ReconciliationTransactionResponse> transactions;
 }

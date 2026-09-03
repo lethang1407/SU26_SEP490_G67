@@ -33,7 +33,7 @@ public class SalesHistorySummaryResponse {
     private BigDecimal netRevenue;
 
     @Builder.Default
-    private List<WeekDTO> weeks = new ArrayList<>();
+    private List<WeekResponse> weeks = new ArrayList<>();
 
     private Integer productId;
     private String productName;
@@ -48,7 +48,7 @@ public class SalesHistorySummaryResponse {
 
     @Data
     @Builder
-    public static class WeekDTO {
+    public static class WeekResponse {
         private String id;
         private String weekLabel;
         private String dateRange;

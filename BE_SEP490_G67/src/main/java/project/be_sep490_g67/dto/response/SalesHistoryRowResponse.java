@@ -5,12 +5,10 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 
 @Data
 @Builder
-public class SalesHistoryRowDTO {
+public class SalesHistoryRowResponse {
     private Integer id;
     private String invoiceCode;
     private Instant soldAt;

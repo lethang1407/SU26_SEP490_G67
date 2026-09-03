@@ -51,7 +51,13 @@ public class InfobipService {
                 .build();
 
         try (Response response = client.newCall(request).execute()) {
-            return response.body().string();
+            String responseBody = response.body() != null ? response.body().string() : "";
+            if (!response.isSuccessful()) {
+                log.error("Infobip SMS API Error: HTTP {} - Body: {}", response.code(), responseBody);
+                throw new IOException("Infobip returned HTTP " + response.code() + ": " + responseBody);
+            }
+            log.info("Infobip SMS Sent Successfully: {}", responseBody);
+            return responseBody;
         }
     }
 }
