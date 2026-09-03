@@ -1020,38 +1020,6 @@ export default function CreateImportOrderPage() {
                             />
                         </div>
                     )}
-                    <ImportOrderCreateSidebar
-                        supplier={supplier}
-                        suppliers={suppliers}
-                        suppliersLoading={loadingSuppliers}
-                        note={note}
-                        invoiceImageUrl={invoiceImageUrl}
-                        invoiceImageName={invoiceImageName}
-                        uploadingInvoiceImage={uploadingInvoiceImage}
-                        totalAmount={totalAmount}
-                        discountAmount={safeDiscount}
-                        returnDeductionAmount={returnDeductionAmount}
-                        amountDue={amountDue}
-                        supplierRefundAmount={supplierRefundAmount}
-                        paidAmount={safePaidAmount}
-                        debtAmount={debtAmount}
-                        submitting={submitting || uploadingInvoiceImage}
-                        onSelectSupplier={setSupplier}
-                        onClearSupplier={() => setSupplier(null)}
-                        onOpenAddSupplier={() => {
-                            setAddSupplierError('');
-                            setIsAddSupplierOpen(true);
-                        }}
-                        onNoteChange={setNote}
-                        onInvoiceImageChange={handleInvoiceImageChange}
-                        onClearInvoiceImage={handleClearInvoiceImage}
-                        onDiscountAmountChange={handleDiscountAmountChange}
-                        onPaidAmountChange={handlePaidAmountChange}
-                        onSaveDraft={() => submitOrder(ORDER_STATUS.DRAFT)}
-                        onComplete={handleComplete}
-                        showCancelDraft={isEditMode}
-                        onCancelDraft={handleCancelDraft}
-                    />
                 </div>
 
                 <ImportOrderAlertModal
