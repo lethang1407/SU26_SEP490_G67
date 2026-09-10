@@ -44,6 +44,13 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
             @Param("locationId") Integer locationId);
 
     @Query("""
+            SELECT bl FROM BatchLocation bl
+            WHERE bl.batch.id = :batchId
+            ORDER BY CASE WHEN bl.isRemoved = false THEN 0 ELSE 1 END, bl.id ASC
+            """)
+    List<BatchLocation> findAllByBatchId(@Param("batchId") Integer batchId);
+
+    @Query("""
             SELECT COALESCE(SUM(bl.quantity), 0)
             FROM BatchLocation bl
             WHERE bl.batch.id = :batchId

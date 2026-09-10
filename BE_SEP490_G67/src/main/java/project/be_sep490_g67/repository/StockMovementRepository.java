@@ -23,6 +23,34 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, In
 
     @Query("""
         SELECT sm FROM StockMovement sm
+        WHERE sm.stockBatch.id = :batchId
+          AND sm.referenceType = :referenceType
+          AND sm.referenceId = :referenceId
+          AND sm.movementType = :movementType
+          AND (sm.isRemoved = false OR sm.isRemoved IS NULL)
+        """)
+    List<StockMovement> findActiveByBatchReferenceAndType(
+            @Param("batchId") Integer batchId,
+            @Param("referenceType") String referenceType,
+            @Param("referenceId") Integer referenceId,
+            @Param("movementType") String movementType
+    );
+
+    @Query("""
+        SELECT sm FROM StockMovement sm
+        WHERE sm.referenceType = :referenceType
+          AND sm.referenceId = :referenceId
+          AND sm.movementType = :movementType
+          AND (sm.isRemoved = false OR sm.isRemoved IS NULL)
+        """)
+    List<StockMovement> findActiveByReferenceAndType(
+            @Param("referenceType") String referenceType,
+            @Param("referenceId") Integer referenceId,
+            @Param("movementType") String movementType
+    );
+
+    @Query("""
+        SELECT sm FROM StockMovement sm
         JOIN FETCH sm.stockBatch sb
         JOIN FETCH sb.product p
         WHERE (sm.isRemoved = false OR sm.isRemoved IS NULL)

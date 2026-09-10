@@ -20,7 +20,7 @@ public final class WarehouseReportConstants {
             "RETURN",
             "RETURN_HOLD_IN",
             "IMPORT_RETURN_RESERVE",
-            "IMPORT_RETURN_RESTORE",
+            // IMPORT_RETURN_RESTORE không đưa vào báo cáo: chỉ là bút toán hoàn khi sửa nháp (đã chuyển sang soft-remove RESERVE)
             "CANCEL_BATCH"
     );
 
@@ -28,7 +28,7 @@ public final class WarehouseReportConstants {
             GROUP_IMPORT, List.of("IMPORT", "IMPORT_RETURN_EXCHANGE_IN"),
             GROUP_SALE, List.of("SALE"),
             GROUP_EXCHANGE_RETURN, List.of("RETURN", "RETURN_HOLD_IN"),
-            GROUP_SUPPLIER_RETURN, List.of("IMPORT_RETURN_RESERVE", "IMPORT_RETURN_RESTORE"),
+            GROUP_SUPPLIER_RETURN, List.of("IMPORT_RETURN_RESERVE"),
             GROUP_CANCEL, List.of("CANCEL_BATCH")
     );
 

@@ -739,8 +739,7 @@ function DetailBody({
                                                     })
                                                 }
                                             />
-                                        ) : isDone ||
-                                          detail.status === DOC_STATUS.COMPLETED ? (
+                                        ) : detail.status === DOC_STATUS.COMPLETED ? (
                                             formatMethod(line.method)
                                         ) : (
                                             <StyledSelect
