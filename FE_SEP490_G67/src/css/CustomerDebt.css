@@ -1,6 +1,6 @@
 /* --- Styling cho các cấp độ ưu tiên của khách hàng nợ --- */
 
-/* Cấp 1: Nợ Quá Hạn (Được phép) - Ưu tiên cao nhất */
+/* Cấp 1: Nợ lâu (Được phép) - Ưu tiên cao nhất */
 .priority-1 {
     background-color: #fff1f2 !important; /* Nền đỏ rất nhạt */
     border-left: 4px solid #ef4444; /* Viền đỏ đậm bên trái */
@@ -21,7 +21,7 @@
     background-color: #fef3c7 !important;
 }
 
-/* Cấp 3: Nợ Quá Hạn (Không được phép) - Nghiêm trọng */
+/* Cấp 3: Nợ lâu (Không được phép) - Nghiêm trọng */
 .priority-3 {
     background-color: #fee2e2 !important; /* Nền đỏ nhạt hơn Cấp 1 */
     border-left: 4px solid #b91c1c; /* Viền đỏ sẫm */
@@ -64,13 +64,13 @@ tr.priority-1, tr.priority-2, tr.priority-3, tr.priority-4, tr.priority-5, tr.pr
     text-decoration: line-through;
 }
 
-/* Lớp mới cho khách hàng nợ quá hạn và được phép nợ (chữ vàng) */
+/* Lớp mới cho khách hàng nợ lâu và được phép nợ (chữ vàng) */
 .overdue-allowed-field {
     color: rgba(181, 159, 14, 0.904) !important; /* Màu vàng cam để dễ đọc */
     font-weight: 600 !important;
 }
 
-/* Lớp mới cho khách hàng nợ quá hạn (nền vàng) */
+/* Lớp mới cho khách hàng nợ lâu (nền vàng) */
 .customer-row--overdue {
     background-color: #fffbeb !important;
 }

@@ -57,7 +57,7 @@ function withInventoryAttention(group, attention, actions) {
     const lanes = [
         {
             key: 'expired',
-            label: 'sản phẩm quá hạn',
+            label: 'sản phẩm hết hạn',
             lane: attention.expired,
             onClick: actions.openExpired,
         },

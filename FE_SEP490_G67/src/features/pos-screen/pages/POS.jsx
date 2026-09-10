@@ -445,7 +445,7 @@ const POSScreen = () => {
     const customerMeta = debtLevelMeta(customer);
     const customerSummary = debtSummaryText(customer);
     const customerOverdue = isOverdueCustomer(customer);
-    // Quá hạn chỉ cảnh báo, không chặn ghi nợ nữa.
+    // lâu chỉ cảnh báo, không chặn ghi nợ nữa.
     const overdueWarning = isDebtMode ? debtOverdueWarning(customer) : null;
 
     useEffect(() => {
@@ -847,7 +847,7 @@ const POSScreen = () => {
                                     <span className={`debt-dot ${customerMeta.cls}`} />
                                     <span className="cdc-name">{customer.fullName}</span>
                                     {customerOverdue && (
-                                        <Lock size={14} className="cdc-lock" aria-label="Khách đang nợ quá hạn" />
+                                        <Lock size={14} className="cdc-lock" aria-label="Khách đang nợ lâu" />
                                     )}
                                     <span className="cdc-level">{customerMeta.label}</span>
 

@@ -30,7 +30,7 @@ public class StoreConfig extends BaseEntity {
     @Column(name = "tax_code", length = 20)
     private String taxCode;
 
-    @ColumnDefault("10.00")
+    @ColumnDefault("1.50")
     @Column(name = "tax_rate", precision = 5, scale = 2)
     private BigDecimal taxRate;
 

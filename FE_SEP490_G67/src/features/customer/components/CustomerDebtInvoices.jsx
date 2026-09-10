@@ -53,7 +53,7 @@ const getStatusBadge = (status) => {
     case "UNPAID":
       return <Badge bg="danger">Chưa thanh toán</Badge>;
     case "OVERDUE":
-      return <Badge bg="danger">Quá hạn</Badge>;
+      return <Badge bg="danger">lâu</Badge>;
     case "IN_DEBT":
       return <Badge bg="warning">Đang nợ</Badge>;
     default:
