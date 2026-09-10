@@ -41,6 +41,23 @@ public class ProductDetailDTO {
     @Builder.Default
     private List<ImageDTO> images = new ArrayList<>();
 
+    @Builder.Default
+    private List<VariantDTO> variants = new ArrayList<>();
+
+    @Data
+    @Builder
+    public static class VariantDTO {
+        private Integer id;
+        private String name;
+        private String sku;
+        private String barcode;
+        private BigDecimal costPrice;
+        private BigDecimal sellingPrice;
+        private String status;
+        @Builder.Default
+        private List<AttributeDTO> attributes = new ArrayList<>();
+    }
+
     @Data
     @Builder
     public static class UnitDTO {
