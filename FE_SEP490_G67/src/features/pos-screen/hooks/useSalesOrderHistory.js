@@ -57,6 +57,7 @@ export function useSalesOrderHistory() {
             setTotal(data?.totalElements ?? 0);
             setTotalPages(data?.totalPages ?? 0);
         } catch (e) {
+            console.error("Failed to fetch sales order history:", e);
             setError('Không thể tải lịch sử đơn hàng');
         } finally {
             setLoading(false);

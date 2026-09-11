@@ -19,8 +19,8 @@ const SEVERITY_TONE = {
 };
 
 const formatCompactCurrency = (value) => {
-    if (value === null || value === undefined) return '0₫';
-    return `${new Intl.NumberFormat('vi-VN').format(value)}₫`;
+    if (value === null || value === undefined) return '0đ';
+    return `${new Intl.NumberFormat('vi-VN').format(value)}đ`;
 };
 
 const attentionGroups = [
@@ -231,8 +231,9 @@ export default function TodayProblems() {
             try {
                 const result = await getInventoryAttention();
                 if (!cancelled) setInventoryAttention(result ?? null);
-            } catch {
+            } catch (error) {
                 // Nếu lỗi tải không lấy được data thì để trống, không chặn dashboard
+                console.error("Failed to fetch inventory attention:", error);
             }
         })();
         return () => {
@@ -246,8 +247,9 @@ export default function TodayProblems() {
             try {
                 const overview = await getOverviewCustomer();
                 if (!cancelled) setDebtOverview(overview ?? null);
-            } catch {
+            } catch (error) {
                 // Nếu lỗi tải không lấy được data thì để trống, không chặn dashboard
+                console.error("Failed to fetch customer debt overview:", error);
             }
         })();
         return () => {
@@ -265,8 +267,9 @@ export default function TodayProblems() {
                     orderStatus: ORDER_STATUS_FILTER.DRAFT,
                 });
                 if (!cancelled) setDraftImportOrders(result ?? null);
-            } catch {
+            } catch (error) {
                 // Chỉ là chỉ số hiển thị: lỗi tải thì để trống, không chặn dashboard.
+                console.error("Failed to fetch draft import orders:", error);
             }
         })();
         return () => {

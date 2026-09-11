@@ -28,7 +28,8 @@ export default function RecentActivity() {
                     setActivities(rows);
                     setError(null);
                 }
-            } catch {
+            } catch (error) {
+                console.error("Failed to fetch recent activities:", error);
                 if (!cancelled) setError('Không tải được hoạt động gần đây.');
             } finally {
                 if (!cancelled) setLoading(false);

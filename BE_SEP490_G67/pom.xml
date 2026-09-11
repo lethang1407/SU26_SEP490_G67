@@ -126,6 +126,27 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+
+        <!-- ==== Integration test: MySQL thật qua Testcontainers ====
+             Test tích hợp POS chạy trên đúng schema production (dump gốc +
+             toàn bộ Flyway migration), không phải H2 giả lập: các câu native
+             query MySQL (INSERT IGNORE, b'0') và khoá bi quan PESSIMISTIC_WRITE
+             chỉ đúng trên MySQL. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-mysql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

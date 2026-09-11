@@ -9,17 +9,17 @@ import project.be_sep490_g67.dto.response.ExpiredBatchResponse;
 import project.be_sep490_g67.dto.response.InventoryAttentionResponse;
 import project.be_sep490_g67.dto.response.InventoryAttentionResponse.InventoryAttentionGroupResponse;
 import project.be_sep490_g67.dto.response.InventoryAttentionResponse.InventoryAttentionItemResponse;
+import project.be_sep490_g67.entity.AlertThresholdConfig;
 import project.be_sep490_g67.entity.Product;
 import project.be_sep490_g67.entity.ReturnOrderDetail;
 import project.be_sep490_g67.entity.StockBatch;
-import project.be_sep490_g67.entity.StoreConfig;
 import project.be_sep490_g67.enums.ItemCondition;
+import project.be_sep490_g67.repository.AlertThresholdConfigRepository;
 import project.be_sep490_g67.repository.BatchLocationRepository;
 import project.be_sep490_g67.repository.ProductRepository;
 import project.be_sep490_g67.repository.ReturnOrderDetailRepository;
 import project.be_sep490_g67.repository.SalesOrderDetailRepository;
 import project.be_sep490_g67.repository.StockBatchRepository;
-import project.be_sep490_g67.repository.StoreConfigRepository;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -58,11 +58,11 @@ public class InventoryAttentionService {
     ReturnOrderDetailRepository returnOrderDetailRepository;
     SalesOrderDetailRepository salesOrderDetailRepository;
     BatchLocationRepository batchLocationRepository;
-    StoreConfigRepository storeConfigRepository;
+    AlertThresholdConfigRepository alertThresholdConfigRepository;
 
     @Transactional(readOnly = true)
     public InventoryAttentionResponse getInventoryAttention() {
-        StoreConfig config = storeConfigRepository.findFirstByOrderByIdAsc().orElse(null);
+        AlertThresholdConfig config = alertThresholdConfigRepository.findFirstByOrderByIdAsc().orElse(null);
         LocalDate today = LocalDate.now(STORE_ZONE);
 
         InventoryAttentionGroupResponse expired = buildExpiredGroup(today);
@@ -139,7 +139,7 @@ public class InventoryAttentionService {
                 .build();
     }
 
-    private InventoryAttentionGroupResponse buildOutOfStockGroup(StoreConfig config) {
+    private InventoryAttentionGroupResponse buildOutOfStockGroup(AlertThresholdConfig config) {
         List<Object[]> rows = productRepository.findOutOfStockOrBelowMinimum();
 
         if (rows.isEmpty()) {
@@ -200,9 +200,10 @@ public class InventoryAttentionService {
 
     /**
      * Hàng đổi trả nằm chờ trong khu RT: mặc định vàng, càng để lâu càng lên cam rồi đỏ.
-     * Ngưỡng lấy từ store_config nên admin đổi được mà không cần deploy lại.
+     * Ngưỡng lấy từ alert_threshold_config; chưa có màn hình sửa nên đổi thì cập nhật
+     * thẳng trong DB, không cần deploy lại.
      */
-    private InventoryAttentionGroupResponse buildReturnHoldGroup(StoreConfig config) {
+    private InventoryAttentionGroupResponse buildReturnHoldGroup(AlertThresholdConfig config) {
         List<ReturnOrderDetail> waiting =
                 returnOrderDetailRepository.findAwaitingProcessing(NON_SELLABLE_CONDITIONS);
 

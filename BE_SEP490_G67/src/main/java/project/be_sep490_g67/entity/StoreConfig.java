@@ -38,45 +38,6 @@ public class StoreConfig extends BaseEntity {
     @Column(name = "currency", length = 10)
     private String currency;
 
-    @ColumnDefault("7")
-    @Column(name = "return_window_days")
-    private Integer returnWindowDays;
-
-    @ColumnDefault("30")
-    @Column(name = "high_volume_sold_units", nullable = false)
-    private Integer highVolumeSoldUnits;
-
-    @ColumnDefault("30")
-    @Column(name = "high_volume_window_days", nullable = false)
-    private Integer highVolumeWindowDays;
-
-    /**
-     * Hàng nằm chờ trong khu đổi trả quá số ngày này thì nâng từ vàng lên cam.
-     */
-    @ColumnDefault("7")
-    @Column(name = "return_hold_orange_days", nullable = false)
-    private Integer returnHoldOrangeDays;
-
-    @ColumnDefault("14")
-    @Column(name = "return_hold_red_days", nullable = false)
-    private Integer returnHoldRedDays;
-
-    /**
-     * Sàn để tách "cần xem xét" khỏi "bán chậm" ở widget quyết định nhập hàng.
-     * Bán dưới mức này trong kỳ thì tồn thấp cũng không thúc nhập.
-     * Đơn vị: đơn vị cơ sở của sản phẩm.
-     */
-    @ColumnDefault("5")
-    @Column(name = "slow_moving_sold_units", nullable = false)
-    private Integer slowMovingSoldUnits;
-
-    /**
-     * Số dòng widget quyết định nhập hàng hiện trên dashboard.
-     */
-    @ColumnDefault("5")
-    @Column(name = "restock_advice_preview_limit", nullable = false)
-    private Integer restockAdvicePreviewLimit;
-
     /**
      * Tài khoản thụ hưởng in lên ảnh VietQR ở màn hình bán hàng.
      */

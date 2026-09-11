@@ -28,8 +28,8 @@ public class StockDeductionService {
     private final StockBatchRepository stockBatchRepository;
 
     @Transactional
-    public Integer deductStock(Integer productId, Integer quantityNeed, Integer orderId, Integer userId) {
-        return deductStock(productId, quantityNeed, orderId, userId, null);
+    public void deductStock(Integer productId, Integer quantityNeed, Integer orderId, Integer userId) {
+        deductStock(productId, quantityNeed, orderId, userId, null);
     }
 
     /**
@@ -37,9 +37,9 @@ public class StockDeductionService {
      *                   toàn kho như cũ (client chưa cập nhật).
      */
     @Transactional
-    public Integer deductStock(Integer productId, Integer quantityNeed, Integer orderId,
-                               Integer userId, Integer locationId) {
-        return deductStockFromLocations(productId, quantityNeed, orderId, userId,
+    public void deductStock(Integer productId, Integer quantityNeed, Integer orderId,
+                            Integer userId, Integer locationId) {
+        deductStockFromLocations(productId, quantityNeed, orderId, userId,
                 locationId == null ? null : List.of(locationId));
     }
 
@@ -144,14 +144,14 @@ public class StockDeductionService {
     }
 
     /**
-     * Khi thu ngân đã chốt lô, báo rõ những lô đó còn bao nhiêu và còn bao
-     * nhiêu ở chỗ khác — để họ biết cần tick thêm lô chứ không phải hết hàng.
+     * Khi thu ngân đã chốt lô, báo rõ những lô đó còn bao nhiêu và còn bao nhiêu ở chỗ khác
      */
     private String buildShortageMessage(Integer productId, int quantityNeed, int totalAvailable,
                                         List<StockPick> picks, List<BatchLocation> availableList) {
         if (picks == null || picks.isEmpty()) {
-            return "Sản phẩm với ID: " + productId
-                    + " Không đủ tồn kho. Cần " + quantityNeed + ", nhưng chỉ còn " + totalAvailable;
+//            return "Sản phẩm với ID: " + productId
+//                    + " Không đủ tồn kho. Cần " + quantityNeed + ", nhưng chỉ còn " + totalAvailable;
+            return "Không đủ tồn kho";
         }
 
         String locationLabels = availableList.stream()
@@ -175,10 +175,12 @@ public class StockDeductionService {
 
         return "Vị trí " + locationLabels + " chỉ còn " + totalAvailable
                 + ", cần " + quantityNeed + ". Còn " + elsewhere
-                + " ở lô khác — tick thêm lô để lấy đủ hàng.";
+                + " ở lô khác - tick thêm lô để lấy đủ hàng.";
     }
 
-    /** Một lô đang nằm ở một ô. batchId null = FIFO mọi lô trong ô đó. */
+    /**
+     * Một lô đang nằm ở một ô. batchId null = FIFO mọi lô trong ô đó.
+     */
     public record StockPick(Integer locationId, Integer batchId) {
     }
 }

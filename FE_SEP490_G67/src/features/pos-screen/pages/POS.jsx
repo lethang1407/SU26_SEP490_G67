@@ -74,8 +74,6 @@ function createTab(id = 1) {
         qtyInputs: {},
         paymentMethod: 'cash',
         note: '',
-        // Nội dung chuyển khoản thuộc về từng hóa đơn, không phải màn hình: hai tab
-        // cùng chuyển khoản mà chung một mã thì tiền về không biết vào đơn nào.
         transferReference: buildPaymentReference(),
     };
 }
@@ -203,21 +201,12 @@ const POSScreen = () => {
     // Bán nợ: tiền khách đưa trước, để trống là nợ toàn bộ
     const [prepaidInput, setPrepaidInput] = useState('');
     const [dueDate, setDueDate] = useState(defaultDueDate);
-
     const [showQuickAdd, setShowQuickAdd] = useState(false);
     const [quickAddLoading, setQuickAddLoading] = useState(false);
     const [quickAddError, setQuickAddError] = useState(null);
-
     const [discountEditing, setDiscountEditing] = useState(false);
     const discountInputRef = useRef(null);
-
-    // Thanh toán xong nhưng không lấy được bản in. Đơn vẫn đã lưu, nên đây là
-    // cảnh báo in lại chứ không phải lỗi thanh toán.
     const [printError, setPrintError] = useState(null);
-
-    // Nội dung chuyển khoản in trên mã QR của đơn đang bán. Sinh sẵn ngay từ lúc mở
-    // đơn và giữ nguyên tới lúc ghi sổ. Nằm trong tab để mỗi hóa đơn giữ mã riêng —
-    // làm mới tab này không được đụng vào mã đang hiện trên QR của tab kia.
     const transferReference = activeTab.transferReference ?? '';
     const setTransferReference = useCallback((value) => {
         setTabs(prev => prev.map(t =>
@@ -267,7 +256,8 @@ const POSScreen = () => {
             const posInfo = await getProductPosInfo(product.id);
             setPosInfoError(null);
             addProductToCart(product, posInfo);
-        } catch {
+        } catch (error) {
+            console.error("Failed to fetch product POS info:", error);
             setPosInfoError(`Không tải được vị trí để hàng của "${product.name}". Vui lòng thử lại.`);
         }
     }, [addProductToCart]);
@@ -482,8 +472,9 @@ const POSScreen = () => {
         if (!invoice && orderId != null) {
             try {
                 invoice = await getInvoiceData(orderId);
-            } catch {
+            } catch (error) {
                 // Báo cho thu ngân ở dưới, đơn vẫn đã lưu thành công.
+                console.error("Failed to fetch invoice data after order:", error);
             }
         }
 
@@ -592,9 +583,7 @@ const POSScreen = () => {
                             <RefreshCcw size={20} />
                         </button>
                     )}
-                    <button className="icon-btn" onClick={() => navigate('/admin/dashboard')} title="Trang chủ POS">
-                        <Home size={24} />
-                    </button>
+                    <PosHeaderMenu />
                 </div>
             </header>
 
@@ -624,7 +613,7 @@ const POSScreen = () => {
                 </div>
             )}
 
-            {/* KHÔNG IN ĐƯỢC — đơn vẫn đã lưu */}
+            {/* KHÔNG IN ĐƯỢC - đơn vẫn đã lưu */}
             {printError && (
                 <div className="scan-error-banner">
                     <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -962,39 +951,6 @@ const POSScreen = () => {
                                 </span>
                             </div>
                         )}
-
-                        <div className="payment-methods">
-                            <span className="payment-methods-title">Hình thức thanh toán</span>
-                            <div className="methods-grid">
-                                {PAYMENT_METHODS.map(({ value, label }) => (
-                                    <label
-                                        key={value}
-                                        className={`method-label ${paymentMethod === value ? 'active' : ''}`}
-                                    >
-                                        <input
-                                            type="radio"
-                                            checked={paymentMethod === value}
-                                            onChange={() => setPaymentMethod(value)}
-                                        />
-                                        <span>{label}</span>
-                                    </label>
-                                ))}
-                            </div>
-
-                            {/* Mã QR hiện ngay khi chọn chuyển khoản; thu ngân xác nhận
-                                tiền đã về rồi bấm "Thanh toán" như đơn tiền mặt. */}
-                            {isTransferMode && (
-                                <TransferQrPanel
-                                    bank={bank}
-                                    bankLoading={bankLoading}
-                                    bankError={bankError}
-                                    amount={amountDue}
-                                    reference={transferReference}
-                                    blockedReason={transferBlockedReason}
-                                />
-                            )}
-                        </div>
-
                         {/* Ghi nợ */}
                         {isDebtMode && (
                             <div className="debt-form">
@@ -1017,24 +973,55 @@ const POSScreen = () => {
                                 </div>
                             </div>
                         )}
+                        <div className="payment-methods">
+                            <span className="payment-methods-title">Hình thức thanh toán</span>
+                            <div className="methods-grid">
+                                {PAYMENT_METHODS.map(({ value, label }) => (
+                                    <label
+                                        key={value}
+                                        className={`method-label ${paymentMethod === value ? 'active' : ''}`}
+                                    >
+                                        <input
+                                            type="radio"
+                                            checked={paymentMethod === value}
+                                            onChange={() => setPaymentMethod(value)}
+                                        />
+                                        <span>{label}</span>
+                                    </label>
+                                ))}
+                            </div>
+
+                            {isTransferMode && (
+                                <TransferQrPanel
+                                    bank={bank}
+                                    bankLoading={bankLoading}
+                                    bankError={bankError}
+                                    amount={amountDue}
+                                    reference={transferReference}
+                                    blockedReason={transferBlockedReason}
+                                />
+                            )}
+                        </div>
+
+
 
                         {isDebtMode && !customer && (
                             <div className="scan-error-banner" style={{ marginTop: '12px', borderRadius: '4px' }}>
                                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <AlertCircle size={16} />
-                                    Đơn nợ phải có khách hàng. Tìm theo số điện thoại hoặc thêm khách mới.
+                                    Tìm theo số điện thoại hoặc thêm khách mới để ghi công nợ.
                                 </span>
                             </div>
                         )}
 
-                        {locationBlocked && (
+                        {/* {locationBlocked && (
                             <div className="scan-error-banner" style={{ marginTop: '12px', borderRadius: '4px' }}>
                                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <AlertCircle size={16} />
-                                    Chưa chọn vị trí lấy hàng hoặc các vị trí đã chọn không đủ số lượng.
+                                    Chưa chọn vị trí lấy hàng hoặc các lô hàng không đủ số lượng.
                                 </span>
                             </div>
-                        )}
+                        )} */}
 
                         {/* Checkout error */}
                         {checkoutError && (

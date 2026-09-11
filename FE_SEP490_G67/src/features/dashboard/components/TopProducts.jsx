@@ -3,17 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { dismissRestockAdvice, getRestockAdvice } from '@/features/inventory/api/inventoryAttentionApi';
 import RestockAdviceModal from '@/features/inventory/components/RestockAdviceModal';
 
-/**
- * Widget "Sản phẩm cần xem xét nhập hàng".
- *
- * Dashboard hiển thị thông tin: BE đã lọc (chỉ SP tồn <= ngưỡng hoặc hết hàng), chuẩn
- * hoá đơn vị, phân loại và xếp hạng. Mọi ngưỡng nằm trong
- * store_config phía BE, không hard-code ở FE.
- *
- * Toàn bộ danh sách nằm ở trang danh sách sản phẩm, mời qua bằng link ở góc trên.
- */
-
-/** Ba mức đánh giá, dùng chung cho ô thống kê ở đầu widget và nhãn trong bảng. */
 const TONE_MODIFIER = {
     RED: 'danger',
     ORANGE: 'warning',
@@ -32,8 +21,9 @@ export default function TopProducts() {
         try {
             const result = await getRestockAdvice();
             if (mountedRef.current) setAdvice(result);
-        } catch {
+        } catch (error) {
             // lỗi tải thì hiện trạng thái rỗng
+            console.error("Failed to fetch restock advice:", error);
         } finally {
             if (mountedRef.current) setLoading(false);
         }
@@ -78,8 +68,9 @@ export default function TopProducts() {
             await dismissRestockAdvice(item.productId);
             setDetailItem(null);
             await loadAdvice();
-        } catch {
+        } catch (error) {
             // Bỏ qua thất bại thì giữ nguyên dòng
+            console.error("Failed to dismiss restock advice:", error);
         } finally {
             if (mountedRef.current) setDismissingId(null);
         }

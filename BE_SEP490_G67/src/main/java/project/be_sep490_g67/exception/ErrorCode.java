@@ -167,7 +167,6 @@ public enum ErrorCode {
     PAIRED_ITEM_NOT_FOUND(3304, "Không tìm thấy sản phẩm thay thế được ghép cặp", HttpStatus.BAD_REQUEST),
     PAIRED_ITEM_ALREADY_USED(3305, "Một sản phẩm thay thế chỉ được ghép với một dòng hàng trả", HttpStatus.BAD_REQUEST),
     EXCHANGE_EVEN_AMOUNT_MISMATCH(3306, "Đổi ngang giá yêu cầu hai bên bằng giá, vui lòng chọn đổi có chênh lệch", HttpStatus.BAD_REQUEST),
-    // 3307 (MANAGER_APPROVAL_REQUIRED) đã bỏ cùng lối phê duyệt người mang hàng — không cấp lại số này.
 
     // Item condition errors (34xx)
     ITEM_CONDITION_REQUIRED(3401, "Vui lòng chọn tình trạng hàng hóa cho từng dòng trả", HttpStatus.BAD_REQUEST),
@@ -188,6 +187,7 @@ public enum ErrorCode {
 
     // Notification errors (42xx)
     NOTIFICATION_NOT_FOUND(4201, "Không tìm thấy thông báo", HttpStatus.NOT_FOUND),
+    INVALID_NOTIFICATION_TYPE(4202, "Loại thông báo không hợp lệ", HttpStatus.BAD_REQUEST),
 
     // Thanh toán chuyển khoản (43xx)
     PAYMENT_METHOD_NOT_TRANSFER(4306, "Chỉ đơn thanh toán chuyển khoản mới có nội dung chuyển khoản", HttpStatus.BAD_REQUEST),
