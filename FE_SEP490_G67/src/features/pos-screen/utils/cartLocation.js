@@ -41,22 +41,21 @@ export function allocateQuantity(item) {
     return parts;
 }
 
+/** True khi chưa chọn ô/lô tường minh → checkout đi FEFO (không phải lỗi). */
 export const needsLocationPick = (item) => selectedPicks(item).length === 0;
 
 export const isLocationShort = (item) =>
     !needsLocationPick(item) && selectedQuantity(item) < toBaseUnits(item);
 
-export const hasLocationProblem = (item) =>
-    needsLocationPick(item) || isLocationShort(item);
-
-const zoneName = (loc) => (loc?.zoneType === 'SALES' ? 'Quầy' : 'Kho');
+/** Chỉ lỗi khi đã chọn ô nhưng không đủ SL. FEFO (không pick) là hợp lệ. */
+export const hasLocationProblem = (item) => isLocationShort(item);
 
 export function formatLocationShort(loc) {
     if (!loc) return null;
-    return `${zoneName(loc)} ${loc.label}`;
+    return loc.label || loc.zoneCode || String(loc.locationId);
 }
 
-/** Nhãn gọn trên nút chọn: "Quầy A1" hoặc "Quầy A1 +2 lô". */
+/** Nhãn gọn trên nút chọn; null → UI hiện 「Tự động (FEFO)」. */
 export function locationSummary(item) {
     const picked = selectedPicks(item);
     if (picked.length === 0) return null;
@@ -64,9 +63,22 @@ export function locationSummary(item) {
     return picked.length === 1 ? first : `${first} +${picked.length - 1} lô`;
 }
 
-/** Payload gửi BE: BE trừ đúng lô này, theo đúng thứ tự trong mảng. */
+/** Payload gửi BE: rỗng = FEFO; có phần tử = trừ đúng ô/lô đã chọn. */
 export const toStockPicks = (item) =>
     selectedPicks(item).map((loc) => ({
         locationId: loc.locationId,
         batchId: loc.batchId ?? null,
     }));
+
+/** Sắp dòng vị trí theo FEFO (HSD rồi ngày nhập). */
+export function sortLocationsByFefo(locations) {
+    return [...(locations ?? [])].sort((a, b) => {
+        const expA = a?.expiryDate ? Date.parse(a.expiryDate) : Number.POSITIVE_INFINITY;
+        const expB = b?.expiryDate ? Date.parse(b.expiryDate) : Number.POSITIVE_INFINITY;
+        if (expA !== expB) return expA - expB;
+        const recvA = a?.receivedDate ? Date.parse(a.receivedDate) : Number.POSITIVE_INFINITY;
+        const recvB = b?.receivedDate ? Date.parse(b.receivedDate) : Number.POSITIVE_INFINITY;
+        if (recvA !== recvB) return recvA - recvB;
+        return String(a?.label ?? '').localeCompare(String(b?.label ?? ''));
+    });
+}

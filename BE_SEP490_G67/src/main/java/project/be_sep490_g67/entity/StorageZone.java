@@ -27,7 +27,7 @@ public class StorageZone extends BaseEntity {
     @Column(name = "title", length = 200)
     private String title;
 
-    /** SALES | WAREHOUSE */
+    /** WAREHOUSE | RETURN_HOLD (SALES đã migrate → WAREHOUSE) */
     @ColumnDefault("'WAREHOUSE'")
     @Column(name = "zone_type", nullable = false, length = 20)
     private String zoneType;

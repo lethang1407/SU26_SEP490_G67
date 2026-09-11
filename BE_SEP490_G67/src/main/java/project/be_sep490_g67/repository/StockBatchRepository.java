@@ -35,12 +35,17 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
             SELECT sb FROM StockBatch sb
             JOIN FETCH sb.product p
             WHERE sb.isRemoved = false
-              AND COALESCE(sb.quantityIn, 0) > (
-                  SELECT COALESCE(SUM(bl.quantity), 0)
+              AND COALESCE((
+                  SELECT SUM(sm.quantityDelta)
+                  FROM StockMovement sm
+                  WHERE sm.stockBatch = sb
+                    AND (sm.isRemoved = false OR sm.isRemoved IS NULL)
+              ), 0) > COALESCE((
+                  SELECT SUM(bl.quantity)
                   FROM BatchLocation bl
-                  WHERE bl.batch.id = sb.id
+                  WHERE bl.batch = sb
                     AND bl.isRemoved = false
-              )
+              ), 0)
             ORDER BY sb.receivedDate ASC, sb.id ASC
             """)
     List<StockBatch> findUnplacedBatches();

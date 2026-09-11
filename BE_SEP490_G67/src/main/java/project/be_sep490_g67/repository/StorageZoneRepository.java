@@ -20,7 +20,7 @@ public interface StorageZoneRepository extends JpaRepository<StorageZone, Intege
             SELECT z FROM StorageZone z
             WHERE z.isRemoved = false OR z.isRemoved IS NULL
             ORDER BY
-                CASE WHEN z.zoneType = 'SALES' THEN 0 ELSE 1 END,
+                CASE WHEN z.zoneType = 'RETURN_HOLD' THEN 1 ELSE 0 END,
                 z.sortOrder ASC,
                 z.code ASC
             """)

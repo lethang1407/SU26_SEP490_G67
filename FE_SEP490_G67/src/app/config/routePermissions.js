@@ -52,6 +52,9 @@ export const ROUTE_PERMISSIONS = [
   // Customers & Debt
   { path: '/admin/customer/:customerId', permission: 'CUSTOMER:VIEW' },
   { path: '/admin/customer', permission: 'CUSTOMER:VIEW' },
+
+  // Reports
+  { path: '/admin/reports/warehouse', permission: 'WAREHOUSE:VIEW' },
 ];
 
 /**

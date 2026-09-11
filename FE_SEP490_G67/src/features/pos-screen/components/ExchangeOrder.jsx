@@ -314,10 +314,6 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
             const price = defaultUnit?.sellingPrice ?? product.sellingPrice ?? 0;
 
             const locations = (posInfo?.locations ?? []).filter((loc) => Number(loc.quantity ?? 0) > 0);
-            const defaultLoc = locations.find(
-                (loc) => loc.locationId === posInfo?.defaultLocationId
-                    && loc.batchId === posInfo?.defaultBatchId
-            ) ?? locations[0] ?? null;
 
             const newItem = {
                 productId: product.id,
@@ -329,11 +325,11 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                 price,
                 total: price,
                 locations,
-                pickKeys: defaultLoc ? [pickKey(defaultLoc)] : [],
+                pickKeys: [],
                 stockTotal: posInfo?.availableQuantity ?? null,
                 stockSales: posInfo?.salesZoneQuantity ?? null,
                 stockWarehouse: posInfo?.warehouseQuantity ?? null,
-                batchId: defaultLoc?.batchId ?? product.stockBatches?.[0]?.id ?? null,
+                batchId: product.stockBatches?.[0]?.id ?? null,
                 productUnitId: defaultUnit?.id ?? null
             };
             setExchangeItems(prev => [...prev, newItem]);
@@ -420,7 +416,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
         });
 
         if (exchangeItems.some(hasLocationProblem)) {
-            errors.exchangeItems = 'Chưa chọn vị trí lấy hàng hoặc các vị trí đã chọn không đủ số lượng.';
+            errors.exchangeItems = 'Các vị trí đã chọn không đủ số lượng.';
         }
 
         if (settlement.hasCashMovement && !refundMethod) {
@@ -527,7 +523,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                 : exchangeItems.length === 0
                     ? 'Chưa có hàng lấy mới nên không có số tiền nào để thu.'
                     : exchangeItems.some(hasLocationProblem)
-                        ? 'Chưa chọn vị trí lấy hàng hoặc các vị trí đã chọn không đủ số lượng.'
+                        ? 'Các vị trí đã chọn không đủ số lượng.'
                         : settlement.totalCashIn <= 0
                             ? 'Đơn đổi trả chưa có số tiền cần thu.'
                             : null;
@@ -844,7 +840,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                                                 {item.stockTotal != null && (
                                                     <div
                                                         className="cart-stock-line"
-                                                        title={`Quầy ${Number(item.stockSales ?? 0).toLocaleString('vi-VN')} · Kho ${Number(item.stockWarehouse ?? 0).toLocaleString('vi-VN')}`}
+                                                        title={`Tồn bán được: ${Number(item.stockTotal).toLocaleString('vi-VN')}`}
                                                     >
                                                         Tồn kho: {Number(item.stockTotal).toLocaleString('vi-VN')}
                                                     </div>

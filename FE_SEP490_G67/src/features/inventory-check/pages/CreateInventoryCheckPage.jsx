@@ -37,10 +37,22 @@ function lineKey(productId, stockBatchId) {
 
 function buildLineFromPreview(preview, stockBatchId = null) {
     const batches = preview.batches ?? [];
+    const units = (preview.units ?? []).map((unit) => ({
+        id: unit.id,
+        name: unit.name,
+        unitBase: Number(unit.unitBase ?? 1) || 1,
+        isBase: Boolean(unit.isBase) || Number(unit.unitBase ?? 1) === 1,
+    }));
+    const baseUnit =
+        units.find((unit) => unit.isBase) ||
+        units.find((unit) => Number(unit.unitBase) === 1) ||
+        (preview.unit
+            ? { id: null, name: preview.unit, unitBase: 1, isBase: true }
+            : { id: null, name: 'Cái', unitBase: 1, isBase: true });
     const selected = stockBatchId
         ? batches.find((b) => b.id === stockBatchId)
         : null;
-    const systemQty = selected
+    const systemQtyBase = selected
         ? (selected.quantity ?? 0)
         : (preview.systemQty ?? 0);
 
@@ -49,12 +61,15 @@ function buildLineFromPreview(preview, stockBatchId = null) {
         productId: preview.productId,
         productCode: preview.productCode,
         productName: preview.productName,
-        unit: preview.unit,
+        unit: baseUnit.name,
+        units,
+        selectedUnitId: baseUnit.id,
+        unitBase: baseUnit.unitBase,
         stockBatchId: stockBatchId ?? null,
         batchCode: selected?.batchCode ?? null,
         batches,
-        systemQty,
-        actualQty: systemQty,
+        systemQty: systemQtyBase,
+        actualQty: systemQtyBase,
         importPrice: selected?.costPerUnit ?? preview.importPrice ?? 0,
         note: '',
         supplierId: selected?.supplierId ?? null,
@@ -290,6 +305,34 @@ export default function CreateInventoryCheckPage() {
         );
     };
 
+    const handleUnitChange = (rowKey, nextUnitId) => {
+        setLines((prev) =>
+            prev.map((line) => {
+                if ((line.id ?? lineKey(line.productId, line.stockBatchId)) !== rowKey) {
+                    return line;
+                }
+                const units = line.units ?? [];
+                if (units.length === 0) return line;
+                const selected =
+                    units.find((unit) => String(unit.id) === String(nextUnitId)) ||
+                    units.find((unit) => unit.isBase) ||
+                    units[0];
+                const prevBase = Number(line.unitBase) || 1;
+                const nextBase = Number(selected.unitBase) || 1;
+                const systemBase = Math.round((Number(line.systemQty) || 0) * prevBase);
+                const actualBase = Math.round((Number(line.actualQty) || 0) * prevBase);
+                return {
+                    ...line,
+                    unit: selected.name,
+                    selectedUnitId: selected.id,
+                    unitBase: nextBase,
+                    systemQty: systemBase / nextBase,
+                    actualQty: actualBase / nextBase,
+                };
+            }),
+        );
+    };
+
     const handleActualQtyChange = (rowKey, value) => {
         setLines((prev) =>
             prev.map((line) =>
@@ -471,16 +514,16 @@ export default function CreateInventoryCheckPage() {
         const created = await createInventoryCheck({
             warehouse: 'Kho chính - CH01',
             note,
-            checkDate: checkDate || null,
+            checkDate: new Date().toISOString().slice(0, 10),
             lines: lines.map((line) => {
-                const actualQty = Number(line.actualQty);
+                const unitBase = Number(line.unitBase) || 1;
+                const actualQty = Math.round(Number(line.actualQty) * unitBase);
                 const returnedQty = getReturnedQtyForCheckLine(line, localReturnLines);
                 return {
                     productId: line.productId,
                     stockBatchId: line.stockBatchId ?? null,
-                    // Giữ SL thực tế trên phiếu (đã trừ trả/đổi để đối soát).
+                    // Persist in base unit.
                     actualQty,
-                    // Điều chỉnh tồn bỏ qua phần sẽ trừ bởi nháp trả/đổi — tránh trừ đôi.
                     stockAdjustQty: actualQty + returnedQty,
                     note: line.note || null,
                 };
@@ -612,15 +655,10 @@ export default function CreateInventoryCheckPage() {
                             </Alert>
                         )}
 
-                        <InventoryCheckSummaryPanel
-                            lines={lines}
-                            note={note}
-                            noteEditable
-                            onNoteChange={setNote}
-                            showNote
-                            showMeta
-                            checkDate={checkDate}
-                            checkerName={checkerName}
+                        <InventoryCheckAttentionPanel
+                            items={visibleAttention}
+                            loading={attentionLoading}
+                            onAddItem={handleAddAttentionItem}
                         />
 
                         <section className="inventory-check-search-section">
@@ -643,6 +681,7 @@ export default function CreateInventoryCheckPage() {
                                     onNoteChange={handleNoteChange}
                                     onRemoveLine={handleRemoveLine}
                                     onBatchChange={handleBatchChange}
+                                    onUnitChange={handleUnitChange}
                                     onExchangeBatch={(line) =>
                                         openReturnDraftModal(line, RETURN_DRAFT_MODE.EXCHANGE)
                                     }
@@ -653,10 +692,16 @@ export default function CreateInventoryCheckPage() {
                             </div>
 
                             <aside className="inventory-check-detail-sidebar">
-                                <InventoryCheckAttentionPanel
-                                    items={visibleAttention}
-                                    loading={attentionLoading}
-                                    onAddItem={handleAddAttentionItem}
+                                <InventoryCheckSummaryPanel
+                                    lines={lines}
+                                    note={note}
+                                    noteEditable
+                                    onNoteChange={setNote}
+                                    showNote
+                                    showMeta
+                                    checkDate={checkDate}
+                                    checkerName={checkerName}
+                                    plainDisplay
                                 />
                                 <InventoryCheckReturnDraftPanel
                                     draft={localDraftView}

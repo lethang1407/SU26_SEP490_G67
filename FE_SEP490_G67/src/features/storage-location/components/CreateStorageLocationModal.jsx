@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Form, Modal, Spinner } from 'react-bootstrap';
-import { createStorageLocation } from '../api';
-import { SHELF_SIZE_OPTIONS } from '../constants';
+import { ChevronDown } from 'lucide-react';
+import { createStorageLocation, fetchStorageZones } from '../api';
+import { SHELF_SIZE_OPTIONS, ZONE_TYPE, normalizeZoneType } from '../constants';
 import { buildLocationLabel } from '../utils/storageLocationUtils';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 
@@ -14,11 +15,119 @@ const EMPTY_FORM = {
     description: '',
 };
 
+function ZoneCombobox({ value, onChange, options, disabled }) {
+    const [open, setOpen] = useState(false);
+    const wrapRef = useRef(null);
+    const inputRef = useRef(null);
+
+    const filtered = useMemo(() => {
+        const q = String(value ?? '').trim().toUpperCase();
+        if (!q) return options;
+        return options.filter((zone) => zone.includes(q));
+    }, [options, value]);
+
+    useEffect(() => {
+        if (!open) return undefined;
+        const onDocMouseDown = (event) => {
+            if (wrapRef.current && !wrapRef.current.contains(event.target)) {
+                setOpen(false);
+            }
+        };
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape') setOpen(false);
+        };
+        document.addEventListener('mousedown', onDocMouseDown);
+        document.addEventListener('keydown', onKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', onDocMouseDown);
+            document.removeEventListener('keydown', onKeyDown);
+        };
+    }, [open]);
+
+    const selectZone = (zone) => {
+        onChange(zone);
+        setOpen(false);
+        inputRef.current?.focus();
+    };
+
+    return (
+        <div className="storage-zone-combobox" ref={wrapRef}>
+            <div className="storage-zone-combobox__control">
+                <Form.Control
+                    ref={inputRef}
+                    type="text"
+                    name="zone"
+                    value={value}
+                    disabled={disabled}
+                    onChange={(event) => {
+                        onChange(event.target.value);
+                        setOpen(true);
+                    }}
+                    onFocus={() => setOpen(true)}
+                    placeholder=""
+                    maxLength={50}
+                    required
+                    autoComplete="off"
+                    aria-autocomplete="list"
+                    aria-expanded={open}
+                    role="combobox"
+                />
+                <button
+                    type="button"
+                    className="storage-zone-combobox__toggle"
+                    disabled={disabled || options.length === 0}
+                    aria-label="Hiện danh sách kệ"
+                    tabIndex={-1}
+                    onClick={() => {
+                        setOpen((prev) => !prev);
+                        inputRef.current?.focus();
+                    }}
+                >
+                    <ChevronDown size={16} />
+                </button>
+            </div>
+
+            {open && (
+                <div className="storage-zone-combobox__panel" role="listbox">
+                    {filtered.length === 0 ? (
+                        <div className="storage-zone-combobox__empty">
+                            {options.length === 0
+                                ? 'Chưa có kệ nào — nhập mã kệ mới'
+                                : `Không khớp “${value}” — vẫn có thể dùng mã này`}
+                        </div>
+                    ) : (
+                        filtered.map((zone) => (
+                            <button
+                                key={zone}
+                                type="button"
+                                role="option"
+                                className={[
+                                    'storage-zone-combobox__option',
+                                    String(value).trim().toUpperCase() === zone
+                                        ? 'storage-zone-combobox__option--active'
+                                        : '',
+                                ]
+                                    .filter(Boolean)
+                                    .join(' ')}
+                                onMouseDown={(event) => event.preventDefault()}
+                                onClick={() => selectZone(zone)}
+                            >
+                                Kệ {zone}
+                            </button>
+                        ))
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function CreateStorageLocationModal({ show, onHide, onSuccess, existingZones = [] }) {
     const [formData, setFormData] = useState(EMPTY_FORM);
     const [labelTouched, setLabelTouched] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState(null);
+    const [apiZones, setApiZones] = useState([]);
 
     const suggestedLabel = useMemo(
         () =>
@@ -39,11 +148,35 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
         }
     }, [suggestedLabel, labelTouched]);
 
-    const zoneSuggestions = useMemo(() => {
-        const zones = new Set(existingZones.map((zone) => zone?.trim().toUpperCase()).filter(Boolean));
-        ['A', 'B', 'C'].forEach((zone) => zones.add(zone));
-        return [...zones].sort();
-    }, [existingZones]);
+    useEffect(() => {
+        if (!show) return undefined;
+        let cancelled = false;
+        fetchStorageZones()
+            .then((zones) => {
+                if (cancelled) return;
+                const codes = (zones ?? [])
+                    .filter((z) => normalizeZoneType(z?.zoneType) !== ZONE_TYPE.RETURN_HOLD)
+                    .map((z) => String(z?.code ?? '').trim().toUpperCase())
+                    .filter(Boolean);
+                setApiZones(codes);
+            })
+            .catch(() => {
+                if (!cancelled) setApiZones([]);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [show]);
+
+    const zoneOptions = useMemo(() => {
+        const zones = new Set();
+        existingZones.forEach((zone) => {
+            const code = String(zone ?? '').trim().toUpperCase();
+            if (code) zones.add(code);
+        });
+        apiZones.forEach((zone) => zones.add(zone));
+        return [...zones].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    }, [existingZones, apiZones]);
 
     const handleChange = (event) => {
         const { name, value } = event.target;
@@ -51,6 +184,10 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
             setLabelTouched(true);
         }
         setFormData((prev) => ({ ...prev, [name]: value }));
+    };
+
+    const handleZoneChange = (value) => {
+        setFormData((prev) => ({ ...prev, zone: value }));
     };
 
     const handleHide = () => {
@@ -128,21 +265,15 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
                             <Form.Label>
                                 Khu vực <span className="text-danger">*</span>
                             </Form.Label>
-                            <Form.Control
-                                type="text"
-                                name="zone"
-                                list="storage-location-zone-options"
+                            <ZoneCombobox
                                 value={formData.zone}
-                                onChange={handleChange}
-                                placeholder="A"
-                                maxLength={50}
-                                required
+                                onChange={handleZoneChange}
+                                options={zoneOptions}
+                                disabled={isSubmitting}
                             />
-                            <datalist id="storage-location-zone-options">
-                                {zoneSuggestions.map((zone) => (
-                                    <option key={zone} value={zone} />
-                                ))}
-                            </datalist>
+                            <Form.Text className="text-muted">
+                                Chọn kệ đã có hoặc nhập mã kệ mới.
+                            </Form.Text>
                         </Form.Group>
 
                         <Form.Group className="storage-location-modal__field" controlId="locationShelf">

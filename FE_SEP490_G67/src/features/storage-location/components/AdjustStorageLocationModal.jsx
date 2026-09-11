@@ -1,24 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Modal } from 'react-bootstrap';
-import { ChevronDown, GripVertical, Package, Search } from 'lucide-react';
+import { ChevronDown, CircleDot, GripVertical, Package, Search } from 'lucide-react';
 import {
     assignBatchToLocation,
     fetchStorageLocations,
     fetchUnplacedBatches,
     moveAllBatchesFromLocation,
     moveBatchLocation,
+    setStorageLocationFull,
     unassignBatchFromLocation,
 } from '../api';
 import {
     formatDate,
+    getAssignableZoneGroups,
     getLocationMetrics,
     getLocationProductPreview,
     getLocationStatus,
     groupLocationsByZone,
-    groupZoneGroupsByType,
     suggestLocationsForBatch,
 } from '../utils/storageLocationUtils';
-import { LOCATION_STATUS, ZONE_TYPE } from '../constants';
+import { LOCATION_STATUS } from '../constants';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import PlaceBatchQuantityModal from './PlaceBatchQuantityModal';
 import AlertNoticeModal from '../../../components/ui/AlertNoticeModal';
@@ -34,33 +35,7 @@ const PICK_MODE = {
     moveAll: 'moveAll',
 };
 
-const SALES_ZONE_ALERT_CODES = new Set([1057, 1058]);
-const PRODUCT_MISMATCH_ALERT_CODE = 1035;
 const UNPLACED_PAGE_SIZE_OPTIONS = [10, 20, 50];
-
-function isSalesZoneAlertError(error) {
-    const code = error?.response?.data?.code;
-    if (SALES_ZONE_ALERT_CODES.has(Number(code))) {
-        return true;
-    }
-    const message = String(error?.response?.data?.message ?? '');
-    return (
-        message.includes('khu bán') &&
-        (message.includes('1 lô') || message.includes('tách cùng một lô'))
-    );
-}
-
-function isProductMismatchAlertError(error) {
-    const code = Number(error?.response?.data?.code);
-    if (code === PRODUCT_MISMATCH_ALERT_CODE) {
-        return true;
-    }
-    const message = String(error?.response?.data?.message ?? '');
-    return (
-        message.includes('Mỗi ô khu kho chỉ chứa một loại sản phẩm') ||
-        message.includes('Ô khu kho đang chứa sản phẩm khác')
-    );
-}
 
 function cloneLocations(locations) {
     return (locations ?? []).map((location) => ({
@@ -81,12 +56,8 @@ function LocationTree({
     suggestedById = {},
 }) {
     const zoneGroups = useMemo(
-        () => groupLocationsByZone(draftLocations),
+        () => getAssignableZoneGroups(groupLocationsByZone(draftLocations)),
         [draftLocations],
-    );
-    const { sales, warehouse } = useMemo(
-        () => groupZoneGroupsByType(zoneGroups),
-        [zoneGroups],
     );
 
     const initialLocation = useMemo(
@@ -94,18 +65,13 @@ function LocationTree({
         [draftLocations, initialExpandLocationId],
     );
 
-    const [expandedTypes, setExpandedTypes] = useState(() => new Set());
     const [expandedZones, setExpandedZones] = useState(() => new Set());
 
     useEffect(() => {
-        if (!initialLocation) {
+        if (!initialLocation?.zone) {
             return;
         }
-        const typeKey = initialLocation.zoneType === ZONE_TYPE.SALES ? 'sales' : 'warehouse';
-        setExpandedTypes(new Set([typeKey]));
-        if (initialLocation.zone) {
-            setExpandedZones(new Set([initialLocation.zone]));
-        }
+        setExpandedZones(new Set([initialLocation.zone]));
     }, [initialLocation]);
 
     useEffect(() => {
@@ -114,7 +80,6 @@ function LocationTree({
             return;
         }
         const nextZones = new Set();
-        const nextTypes = new Set();
         draftLocations.forEach((location) => {
             if (!suggestedById[location.id]) {
                 return;
@@ -122,27 +87,11 @@ function LocationTree({
             if (location.zone) {
                 nextZones.add(location.zone);
             }
-            nextTypes.add(location.zoneType === ZONE_TYPE.SALES ? 'sales' : 'warehouse');
         });
         if (nextZones.size > 0) {
             setExpandedZones((prev) => new Set([...prev, ...nextZones]));
         }
-        if (nextTypes.size > 0) {
-            setExpandedTypes((prev) => new Set([...prev, ...nextTypes]));
-        }
     }, [suggestedById, draftLocations]);
-
-    const toggleType = (typeKey) => {
-        setExpandedTypes((prev) => {
-            const next = new Set(prev);
-            if (next.has(typeKey)) {
-                next.delete(typeKey);
-            } else {
-                next.add(typeKey);
-            }
-            return next;
-        });
-    };
 
     const toggleZone = (zone) => {
         setExpandedZones((prev) => {
@@ -156,145 +105,114 @@ function LocationTree({
         });
     };
 
-    const renderZoneGroups = (groups) =>
-        groups.map((group) => {
-            const zoneOpen = expandedZones.has(group.zone);
-            const floorCount = new Set(
-                (group.locations ?? [])
-                    .map((location) => String(location.shelf ?? '').trim())
-                    .filter(Boolean),
-            ).size;
-            return (
-                <div key={group.zone} className="storage-adjust-modal__zone-node">
-                    <button
-                        type="button"
-                        className="storage-adjust-modal__tree-toggle"
-                        onClick={() => toggleZone(group.zone)}
-                    >
-                        <ChevronDown
-                            size={16}
-                            className={
-                                zoneOpen
-                                    ? 'storage-adjust-modal__chevron storage-adjust-modal__chevron--open'
-                                    : 'storage-adjust-modal__chevron'
-                            }
-                        />
-                        <span>Kệ {group.zone}</span>
-                        <span className="storage-adjust-modal__tree-count">
-                            {floorCount > 0 ? `${floorCount} tầng · ` : ''}
-                            {group.locations.length} ô
-                        </span>
-                    </button>
-                    {zoneOpen && (
-                        <div className="storage-adjust-modal__zone-locations">
-                            {group.locations.map((location) => {
-                                const { batchCount, productCount } = getLocationMetrics(location);
-                                const preview = getLocationProductPreview(location, 1);
-                                const status = getLocationStatus(location);
-                                const isDropTarget = dragOverTarget === `loc-${location.id}`;
-                                const suggest = suggestedById[location.id];
-                                return (
-                                    <button
-                                        key={location.id}
-                                        type="button"
-                                        className={[
-                                            'storage-adjust-modal__location-item',
-                                            `storage-adjust-modal__location-item--${status}`,
-                                            selectedLocationId === location.id
-                                                ? 'storage-adjust-modal__location-item--active'
-                                                : '',
-                                            isDropTarget
-                                                ? 'storage-adjust-modal__location-item--drop'
-                                                : '',
-                                            suggest
-                                                ? 'storage-adjust-modal__location-item--suggest'
-                                                : '',
-                                        ]
-                                            .filter(Boolean)
-                                            .join(' ')}
-                                        disabled={isSaving}
-                                        onClick={() => onSelectLocation(location.id)}
-                                        onDragOver={(event) => {
-                                            event.preventDefault();
-                                            event.dataTransfer.dropEffect = 'move';
-                                            setDragOverTarget(`loc-${location.id}`);
-                                        }}
-                                        onDragLeave={() => {
-                                            setDragOverTarget((prev) =>
-                                                prev === `loc-${location.id}` ? null : prev,
-                                            );
-                                        }}
-                                        onDrop={(event) => onDropOnLocation(event, location.id)}
-                                    >
-                                        <span className="storage-adjust-modal__location-label">
-                                            {location.label}
-                                            {status === LOCATION_STATUS.FULL ? (
-                                                <span className="storage-adjust-modal__full-badge">
-                                                    Đầy
-                                                </span>
-                                            ) : null}
-                                            {suggest ? (
-                                                <span className="storage-adjust-modal__suggest-badge">
-                                                    Gợi ý · {suggest.reason}
-                                                </span>
-                                            ) : null}
-                                        </span>
-                                        <span className="storage-adjust-modal__location-meta">
-                                            {batchCount > 0
-                                                ? productCount > 1
-                                                    ? `${productCount} SP · ${batchCount} lô`
-                                                    : `${batchCount} lô · ${preview}`
-                                                : null}
-                                        </span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-            );
-        });
-
-    const renderTypeBlock = (typeKey, title, groups) => {
-        if (groups.length === 0) {
-            return null;
-        }
-        const open = expandedTypes.has(typeKey);
-        return (
-            <div className="storage-adjust-modal__type-node">
-                <button
-                    type="button"
-                    className="storage-adjust-modal__tree-toggle storage-adjust-modal__tree-toggle--type"
-                    onClick={() => toggleType(typeKey)}
-                >
-                    <ChevronDown
-                        size={16}
-                        className={
-                            open
-                                ? 'storage-adjust-modal__chevron storage-adjust-modal__chevron--open'
-                                : 'storage-adjust-modal__chevron'
-                        }
-                    />
-                    <span>{title}</span>
-                    <span className="storage-adjust-modal__tree-count">
-                        {groups.reduce((sum, g) => sum + g.locations.length, 0)} ô
-                    </span>
-                </button>
-                {open && (
-                    <div className="storage-adjust-modal__type-children">
-                        {renderZoneGroups(groups)}
-                    </div>
-                )}
-            </div>
-        );
-    };
-
     return (
         <div className="storage-adjust-modal__location-list">
-            {renderTypeBlock('sales', 'Khu bán hàng', sales)}
-            {renderTypeBlock('warehouse', 'Khu kho', warehouse)}
-            {sales.length === 0 && warehouse.length === 0 && (
+            {zoneGroups.length === 0 ? (
                 <div className="storage-adjust-modal__empty">Chưa có vị trí kệ.</div>
+            ) : (
+                zoneGroups.map((group) => {
+                    const zoneOpen = expandedZones.has(group.zone);
+                    const floorCount = new Set(
+                        (group.locations ?? [])
+                            .map((location) => String(location.shelf ?? '').trim())
+                            .filter(Boolean),
+                    ).size;
+                    return (
+                        <div key={group.zone} className="storage-adjust-modal__zone-node">
+                            <button
+                                type="button"
+                                className="storage-adjust-modal__tree-toggle"
+                                onClick={() => toggleZone(group.zone)}
+                            >
+                                <ChevronDown
+                                    size={16}
+                                    className={
+                                        zoneOpen
+                                            ? 'storage-adjust-modal__chevron storage-adjust-modal__chevron--open'
+                                            : 'storage-adjust-modal__chevron'
+                                    }
+                                />
+                                <span>Kệ {group.zone}</span>
+                                <span className="storage-adjust-modal__tree-count">
+                                    {floorCount > 0 ? `${floorCount} tầng · ` : ''}
+                                    {group.locations.length} ô
+                                </span>
+                            </button>
+                            {zoneOpen && (
+                                <div className="storage-adjust-modal__zone-locations">
+                                    {group.locations.map((location) => {
+                                        const { batchCount, productCount } =
+                                            getLocationMetrics(location);
+                                        const preview = getLocationProductPreview(location, 1);
+                                        const status = getLocationStatus(location);
+                                        const isDropTarget =
+                                            dragOverTarget === `loc-${location.id}`;
+                                        const suggest = suggestedById[location.id];
+                                        return (
+                                            <button
+                                                key={location.id}
+                                                type="button"
+                                                className={[
+                                                    'storage-adjust-modal__location-item',
+                                                    `storage-adjust-modal__location-item--${status}`,
+                                                    selectedLocationId === location.id
+                                                        ? 'storage-adjust-modal__location-item--active'
+                                                        : '',
+                                                    isDropTarget
+                                                        ? 'storage-adjust-modal__location-item--drop'
+                                                        : '',
+                                                    suggest
+                                                        ? 'storage-adjust-modal__location-item--suggest'
+                                                        : '',
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' ')}
+                                                disabled={isSaving}
+                                                onClick={() => onSelectLocation(location.id)}
+                                                onDragOver={(event) => {
+                                                    event.preventDefault();
+                                                    event.dataTransfer.dropEffect = 'move';
+                                                    setDragOverTarget(`loc-${location.id}`);
+                                                }}
+                                                onDragLeave={() => {
+                                                    setDragOverTarget((prev) =>
+                                                        prev === `loc-${location.id}`
+                                                            ? null
+                                                            : prev,
+                                                    );
+                                                }}
+                                                onDrop={(event) =>
+                                                    onDropOnLocation(event, location.id)
+                                                }
+                                            >
+                                                <span className="storage-adjust-modal__location-label">
+                                                    {location.label}
+                                                    {status === LOCATION_STATUS.FULL ? (
+                                                        <span className="storage-adjust-modal__full-badge">
+                                                            Đầy
+                                                        </span>
+                                                    ) : null}
+                                                    {suggest ? (
+                                                        <span className="storage-adjust-modal__suggest-badge">
+                                                            Gợi ý · {suggest.reason}
+                                                        </span>
+                                                    ) : null}
+                                                </span>
+                                                <span className="storage-adjust-modal__location-meta">
+                                                    {batchCount > 0
+                                                        ? productCount > 1
+                                                            ? `${productCount} SP · ${batchCount} lô`
+                                                            : `${batchCount} lô · ${preview}`
+                                                        : null}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })
             )}
         </div>
     );
@@ -328,20 +246,6 @@ export default function AdjustStorageLocationModal({
 
     const reportApiError = (error, fallback) => {
         const text = getApiErrorMessage(error, fallback);
-        if (isProductMismatchAlertError(error)) {
-            setAlertNotice({
-                title: 'Không thể chuyển kệ',
-                message: 'Không thể chuyển kệ.',
-            });
-            return;
-        }
-        if (isSalesZoneAlertError(error)) {
-            setAlertNotice({
-                title: 'Không thể xếp vào khu bán',
-                message: text,
-            });
-            return;
-        }
         setMessage({ type: 'error', text });
     };
 
@@ -793,6 +697,47 @@ export default function AdjustStorageLocationModal({
         });
     };
 
+    const handleToggleFull = async () => {
+        if (!selectedLocation || isSaving) {
+            return;
+        }
+        const nextFull = !selectedLocation.isFull;
+        if (nextFull && !(selectedLocation.contents ?? []).length) {
+            setMessage({
+                type: 'error',
+                text: 'Ô đang trống, không thể đánh dấu đầy.',
+            });
+            return;
+        }
+        setIsSaving(true);
+        setMessage(null);
+        try {
+            const updated = await setStorageLocationFull(selectedLocation.id, nextFull);
+            setDraftLocations((prev) =>
+                prev.map((item) =>
+                    item.id === updated.id
+                        ? {
+                              ...item,
+                              ...updated,
+                              contents: updated.contents ?? item.contents,
+                          }
+                        : item,
+                ),
+            );
+            setHasChanges(true);
+            setMessage({
+                type: 'success',
+                text: nextFull
+                    ? `Đã đánh dấu đầy ô ${selectedLocation.label}.`
+                    : `Đã bỏ đánh dấu đầy ô ${selectedLocation.label}.`,
+            });
+        } catch (error) {
+            reportApiError(error, 'Không thể cập nhật trạng thái đầy. Vui lòng thử lại.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     const startMoveOne = (item) => {
         if (!selectedLocation || !item) {
             return;
@@ -917,17 +862,42 @@ export default function AdjustStorageLocationModal({
                             <div className="storage-adjust-modal__content-header">
                                 <h3 className="storage-adjust-modal__section-title">
                                     {selectedLocation?.label || 'Chọn vị trí'}
+                                    {selectedLocation?.isFull ? (
+                                        <span className="storage-adjust-modal__full-badge">
+                                            Đầy
+                                        </span>
+                                    ) : null}
                                 </h3>
                                 {selectedLocation &&
-                                (selectedLocation.contents ?? []).length > 0 ? (
-                                    <button
-                                        type="button"
-                                        className="inventory-btn inventory-btn--secondary storage-adjust-modal__move-all-btn"
-                                        disabled={isSaving || Boolean(pickMode)}
-                                        onClick={startMoveAll}
-                                    >
-                                        Chuyển tất cả
-                                    </button>
+                                ((selectedLocation.contents ?? []).length > 0 ||
+                                    selectedLocation.isFull) ? (
+                                    <div className="storage-adjust-modal__header-actions">
+                                        <button
+                                            type="button"
+                                            className={`inventory-btn storage-adjust-modal__full-btn ${
+                                                selectedLocation.isFull
+                                                    ? 'inventory-btn--secondary'
+                                                    : 'inventory-btn--primary'
+                                            }`}
+                                            disabled={isSaving || Boolean(pickMode)}
+                                            onClick={handleToggleFull}
+                                        >
+                                            <CircleDot size={16} />
+                                            {selectedLocation.isFull
+                                                ? 'Bỏ đánh dấu đầy'
+                                                : 'Đánh dấu đầy'}
+                                        </button>
+                                        {(selectedLocation.contents ?? []).length > 0 ? (
+                                            <button
+                                                type="button"
+                                                className="inventory-btn inventory-btn--secondary storage-adjust-modal__move-all-btn"
+                                                disabled={isSaving || Boolean(pickMode)}
+                                                onClick={startMoveAll}
+                                            >
+                                                Chuyển tất cả
+                                            </button>
+                                        ) : null}
+                                    </div>
                                 ) : null}
                             </div>
                             {pickMode ? (
@@ -974,17 +944,9 @@ export default function AdjustStorageLocationModal({
                                 <>
                                     <p className="storage-adjust-modal__location-desc">
                                         Kệ {selectedLocation.zone}
-                                        {selectedLocation.zoneType === ZONE_TYPE.SALES
-                                            ? ' · Bán'
-                                            : ' · Kho'}{' '}
-                                        · Tầng {selectedLocation.shelf || '—'} · Ô{' '}
+                                        {' · '}Tầng {selectedLocation.shelf || '—'} · Ô{' '}
                                         {selectedLocation.bin || '—'}
                                     </p>
-                                    {selectedLocation.zoneType !== ZONE_TYPE.SALES ? (
-                                        <div className="storage-adjust-modal__rule-box">
-                                            Khu kho: lưu trữ các sản phẩm được nhập về trong cửa hàng
-                                        </div>
-                                    ) : null}
 
                                     {message && (
                                         <div

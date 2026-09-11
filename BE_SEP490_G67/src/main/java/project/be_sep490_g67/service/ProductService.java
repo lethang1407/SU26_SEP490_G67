@@ -534,27 +534,17 @@ public class ProductService {
                         .build())
                 .toList();
 
-        // Đã sắp xếp sẵn ở query: khu bán trước, rồi FIFO theo ngày nhập (null xuống
-        // cuối).
+        // Đã sắp FEFO (expiryDate ASC, receivedDate ASC); loại RETURN_HOLD.
         List<ProductPosInfoResponse.LocationStockInfo> locationInfos = batchLocationRepository
                 .findPosLinesByProductId(productId).stream()
                 .map(ProductService::toLocationStockInfo)
                 .toList();
 
-        int salesZoneQty = locationInfos.stream()
-                .filter(l -> SALES_ZONE_TYPE.equals(l.getZoneType()))
-                .mapToInt(ProductPosInfoResponse.LocationStockInfo::getQuantity)
-                .sum();
         int available = locationInfos.stream()
                 .mapToInt(ProductPosInfoResponse.LocationStockInfo::getQuantity)
                 .sum();
 
-        // Dòng khu bán đầu tiên là ô POS chọn sẵn; không có nghĩa là SP chưa ra quầy.
-        ProductPosInfoResponse.LocationStockInfo defaultLine = locationInfos.stream()
-                .filter(l -> SALES_ZONE_TYPE.equals(l.getZoneType()))
-                .findFirst()
-                .orElse(null);
-
+        // Không ép ô mặc định — checkout không gửi picks sẽ trừ theo FEFO toàn kho.
         return ProductPosInfoResponse.builder()
                 .id(product.getId())
                 .name(product.getName())
@@ -563,18 +553,16 @@ public class ProductService {
                 .description(product.getDescription())
                 .sellingPrice(product.getSellingPrice())
                 .availableQuantity(available)
-                .salesZoneQuantity(salesZoneQty)
-                .warehouseQuantity(available - salesZoneQty)
+                .salesZoneQuantity(0)
+                .warehouseQuantity(available)
                 .minStock(product.getMinStock())
                 .belowMinStock(product.getMinStock() != null && available <= product.getMinStock())
-                .defaultLocationId(defaultLine != null ? defaultLine.getLocationId() : null)
-                .defaultBatchId(defaultLine != null ? defaultLine.getBatchId() : null)
+                .defaultLocationId(null)
+                .defaultBatchId(null)
                 .units(unitInfos)
                 .locations(locationInfos)
                 .build();
     }
-
-    private static final String SALES_ZONE_TYPE = "SALES";
 
     private static ProductPosInfoResponse.LocationStockInfo toLocationStockInfo(BatchLocation bl) {
         StorageLocation location = bl.getLocation();

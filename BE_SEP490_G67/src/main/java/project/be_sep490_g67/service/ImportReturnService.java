@@ -438,11 +438,25 @@ public class ImportReturnService {
         if (!Objects.equals(detail.getImportReturn().getId(), header.getId())) {
             throw new AppException(ErrorCode.IMPORT_RETURN_DETAIL_NOT_FOUND);
         }
-        if (ImportReturnConstants.LINE_DONE.equals(detail.getLineStatus())) {
-            throw new AppException(ErrorCode.IMPORT_RETURN_LINE_ALREADY_DONE);
+
+        String oldMethod = ImportReturnConstants.normalizeMethod(detail.getMethod());
+        String newMethod = ImportReturnConstants.normalizeMethod(request.getMethod());
+        if (Objects.equals(oldMethod, newMethod)) {
+            return toDetail(header);
         }
 
-        detail.setMethod(ImportReturnConstants.normalizeMethod(request.getMethod()));
+        detail.setMethod(newMethod);
+
+        // Đồng bộ sổ kho: Đổi (EXCHANGE_IN) ↔ Trả (chỉ RESERVE) — không để tồn dòng nhập + thêm dòng xuất.
+        if (ImportReturnConstants.METHOD_EXCHANGE.equals(oldMethod)
+                && ImportReturnConstants.METHOD_RETURN.equals(newMethod)) {
+            voidExchangeIn(detail);
+        } else if (ImportReturnConstants.METHOD_RETURN.equals(oldMethod)
+                && ImportReturnConstants.METHOD_EXCHANGE.equals(newMethod)
+                && ImportReturnConstants.LINE_DONE.equals(detail.getLineStatus())) {
+            createExchangeBatch(detail, null, detail.getSettledImportOrder());
+        }
+
         importReturnDetailRepository.save(detail);
         return toDetail(header);
     }
@@ -545,32 +559,110 @@ public class ImportReturnService {
         stockMovementRepository.save(movement);
     }
 
+    /**
+     * Hoàn tồn khi xóa/sửa dòng đã reserve.
+     * Soft-remove movement RESERVE (và RESTORE cũ nếu có) thay vì tạo RESTORE mới —
+     * tránh báo cáo kho chồng nhiều dòng xuất/nhập cùng mã phiếu.
+     */
     private void restoreIfReserved(ImportReturnDetail detail) {
+        voidExchangeIn(detail);
+
         if (!Boolean.TRUE.equals(detail.getStockReserved())) {
             return;
         }
         StockBatch batch = detail.getStockBatch();
         if (batch == null) {
+            detail.setStockReserved(false);
             return;
         }
         batch = stockBatchRepository.findActiveWithProductById(batch.getId()).orElse(batch);
         int qty = detail.getQuantity() != null ? detail.getQuantity() : 0;
-        int current = batch.getQuantityIn() != null ? batch.getQuantityIn() : 0;
-        int next = current + qty;
-        batch.setQuantityIn(next);
-        stockBatchRepository.save(batch);
+        Integer returnId = detail.getImportReturn() != null ? detail.getImportReturn().getId() : null;
 
-        StockMovement movement = new StockMovement();
-        movement.setStockBatch(batch);
-        movement.setMovementType(ImportReturnConstants.MOVEMENT_RESTORE);
-        movement.setReferenceType(ImportReturnConstants.REFERENCE_TYPE);
-        movement.setReferenceId(detail.getImportReturn() != null ? detail.getImportReturn().getId() : null);
-        movement.setQuantityDelta(qty);
-        movement.setStockAfter(next);
-        movement.setIsRemoved(false);
-        stockMovementRepository.save(movement);
+        if (returnId != null && batch.getId() != null) {
+            softRemoveMovements(stockMovementRepository.findActiveByBatchReferenceAndType(
+                    batch.getId(),
+                    ImportReturnConstants.REFERENCE_TYPE,
+                    returnId,
+                    ImportReturnConstants.MOVEMENT_RESERVE));
+            // Dọn artifact cũ (trước đây restore tạo RESTORE thay vì void RESERVE)
+            softRemoveMovements(stockMovementRepository.findActiveByBatchReferenceAndType(
+                    batch.getId(),
+                    ImportReturnConstants.REFERENCE_TYPE,
+                    returnId,
+                    ImportReturnConstants.MOVEMENT_RESTORE));
+        }
+
+        int current = batch.getQuantityIn() != null ? batch.getQuantityIn() : 0;
+        batch.setQuantityIn(current + qty);
+        stockBatchRepository.save(batch);
+        restoreToBatchLocations(batch, qty);
 
         detail.setStockReserved(false);
+    }
+
+    private void voidExchangeIn(ImportReturnDetail detail) {
+        StockBatch exchange = detail.getExchangeBatch();
+        if (exchange == null) {
+            return;
+        }
+        Integer returnId = detail.getImportReturn() != null ? detail.getImportReturn().getId() : null;
+        Integer exchangeId = exchange.getId();
+        if (returnId != null && exchangeId != null) {
+            softRemoveMovements(stockMovementRepository.findActiveByBatchReferenceAndType(
+                    exchangeId,
+                    ImportReturnConstants.REFERENCE_TYPE,
+                    returnId,
+                    ImportReturnConstants.MOVEMENT_EXCHANGE_IN));
+        } else if (returnId != null) {
+            softRemoveMovements(stockMovementRepository.findActiveByReferenceAndType(
+                    ImportReturnConstants.REFERENCE_TYPE,
+                    returnId,
+                    ImportReturnConstants.MOVEMENT_EXCHANGE_IN));
+        }
+
+        if (exchangeId != null) {
+            stockBatchRepository.findById(exchangeId).ifPresent(eb -> {
+                eb.setQuantityIn(0);
+                eb.setIsRemoved(true);
+                stockBatchRepository.save(eb);
+                for (BatchLocation bl : batchLocationRepository.findAllByBatchId(eb.getId())) {
+                    bl.setQuantity(0);
+                    bl.setIsRemoved(true);
+                    batchLocationRepository.save(bl);
+                }
+            });
+        }
+        detail.setExchangeBatch(null);
+    }
+
+    private void softRemoveMovements(List<StockMovement> movements) {
+        if (movements == null || movements.isEmpty()) {
+            return;
+        }
+        for (StockMovement sm : movements) {
+            sm.setIsRemoved(true);
+            stockMovementRepository.save(sm);
+        }
+    }
+
+    /** Đưa lại số lượng đã trừ khỏi kệ khi reserve (kể cả ô đã soft-remove). */
+    private void restoreToBatchLocations(StockBatch batch, int qty) {
+        if (qty <= 0 || batch == null || batch.getId() == null) {
+            return;
+        }
+        List<BatchLocation> locations = batchLocationRepository.findAllByBatchId(batch.getId());
+        if (locations.isEmpty()) {
+            return;
+        }
+        BatchLocation target = locations.stream()
+                .filter(bl -> !Boolean.TRUE.equals(bl.getIsRemoved()))
+                .findFirst()
+                .orElse(locations.get(0));
+        int current = target.getQuantity() != null ? target.getQuantity() : 0;
+        target.setQuantity(current + qty);
+        target.setIsRemoved(false);
+        batchLocationRepository.save(target);
     }
 
     private void softRemoveAllLinesAndRestore(ImportReturn draft) {

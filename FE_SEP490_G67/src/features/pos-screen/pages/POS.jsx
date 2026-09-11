@@ -233,10 +233,6 @@ const POSScreen = () => {
             ?? units[0];
 
         const locations = (posInfo?.locations ?? []).filter((loc) => Number(loc.quantity ?? 0) > 0);
-        const defaultLoc = locations.find(
-            (loc) => loc.locationId === posInfo?.defaultLocationId
-                && loc.batchId === posInfo?.defaultBatchId
-        ) ?? locations[0] ?? null;
 
         const newItem = {
             // Một sản phẩm là một dòng giỏ
@@ -248,7 +244,8 @@ const POSScreen = () => {
             productUnitId: defaultUnit?.id ?? null,
             unit: defaultUnit?.name ?? 'N/A',
             locations,
-            pickKeys: defaultLoc ? [pickKey(defaultLoc)] : [],
+            // Không auto-pick → checkout FEFO; thu ngân vẫn chọn ô/lô khi cần
+            pickKeys: [],
             stockTotal: posInfo?.availableQuantity ?? null,
             stockSales: posInfo?.salesZoneQuantity ?? null,
             stockWarehouse: posInfo?.warehouseQuantity ?? null,
@@ -511,8 +508,8 @@ const POSScreen = () => {
     const { bank, loading: bankLoading, error: bankError } = useStorePaymentInfo();
 
     const transferBlockedReason = !isTransferMode ? null
-        : cartItems.length === 0 ? 'Thêm sản phẩm vào giỏ hàng.'
-            : locationBlocked ? 'Chưa chọn vị trí lấy hàng hoặc các vị trí đã chọn không đủ số lượng.'
+        : cartItems.length === 0 ? 'Thêm sản phẩm vào giỏ để hiện mã QR chuyển khoản.'
+            : locationBlocked ? 'Các vị trí đã chọn không đủ số lượng.'
                 : amountDue <= 0 ? 'Đơn hàng chưa có số tiền cần thu.'
                     : null;
 

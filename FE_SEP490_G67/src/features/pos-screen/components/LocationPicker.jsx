@@ -1,8 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, MapPin } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import {
-    allocateQuantity, formatLocationShort, locationSummary, needsLocationPick,
-    isLocationShort, pickKey, selectedKeys, selectedQuantity, toBaseUnits,
+    allocateQuantity,
+    formatLocationShort,
+    locationSummary,
+    isLocationShort,
+    pickKey,
+    selectedKeys,
+    selectedQuantity,
+    sortLocationsByFefo,
 } from '../utils/cartLocation';
 
 const fmt = (n) => Number(n ?? 0).toLocaleString('vi-VN');
@@ -35,9 +41,11 @@ export default function LocationPicker({ item, onToggle }) {
         };
     }, [open]);
 
-    const options = item.locations ?? [];
+    const options = useMemo(
+        () => sortLocationsByFefo(item.locations ?? []),
+        [item.locations],
+    );
     const pickedKeys = selectedKeys(item);
-    const mustPick = needsLocationPick(item);
     const short = isLocationShort(item);
     const parts = allocateQuantity(item);
     const takenAt = new Map(parts.map((p) => [p.key, p.quantity]));
@@ -47,15 +55,15 @@ export default function LocationPicker({ item, onToggle }) {
         <div className="loc-picker" ref={ref}>
             <button
                 type="button"
-                className={`loc-picker-btn${(mustPick || short) ? ' loc-picker-btn--warn' : ''}`}
+                className={`loc-picker-btn${short ? ' loc-picker-btn--warn' : ''}`}
                 onClick={toggleOpen}
                 disabled={options.length === 0}
                 title={options.length === 0
                     ? 'Sản phẩm chưa có hàng ở vị trí nào'
-                    : 'Chọn hàng để bán'}
+                    : 'Tự động FEFO hoặc chọn ô/lô'}
             >
                 <span className="loc-picker-label">
-                    {options.length === 0 ? 'Không có hàng' : (summary ?? 'Chọn vị trí')}
+                    {options.length === 0 ? 'Không có hàng' : (summary ?? 'Tự động (FEFO)')}
                 </span>
                 {options.length > 0 && <ChevronDown size={13} />}
             </button>
@@ -72,7 +80,11 @@ export default function LocationPicker({ item, onToggle }) {
                                     checked={pickedKeys.includes(key)}
                                     onChange={() => onToggle(key)}
                                 />
-                                <span className="loc-opt-name">{formatLocationShort(loc)}</span>
+                                <span className="loc-opt-name">
+                                    {formatLocationShort(loc)}
+                                    {loc.expiryDate ? ` · HSD ${loc.expiryDate.slice(0, 10)}` : ''}
+                                    {taken ? ` · lấy ${fmt(taken)}` : ''}
+                                </span>
                                 <span className="loc-opt-qty">còn {fmt(loc.quantity)}</span>
                             </label>
                         );
@@ -80,7 +92,6 @@ export default function LocationPicker({ item, onToggle }) {
                 </div>
             )}
 
-            {/* Chia hàng khi lấy từ nhiều chỗ, để thu ngân biết lấy bao nhiêu ở đâu */}
             {!open && parts.length > 1 && (
                 <div className="loc-picker-split">
                     {parts.map((p) => `${p.label}: ${fmt(p.quantity)}`).join(' · ')}
@@ -89,9 +100,6 @@ export default function LocationPicker({ item, onToggle }) {
 
             {options.length === 0 && (
                 <div className="location-msg">Sản phẩm chưa có hàng ở vị trí nào</div>
-            )}
-            {options.length > 0 && mustPick && (
-                <div className="location-msg">Chưa chọn vị trí lấy hàng</div>
             )}
             {short && (
                 <div className="location-msg">

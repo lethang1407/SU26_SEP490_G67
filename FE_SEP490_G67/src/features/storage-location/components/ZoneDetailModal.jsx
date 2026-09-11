@@ -1,8 +1,4 @@
-import { useEffect, useState } from 'react';
-import { Alert, Modal } from 'react-bootstrap';
-import { updateStorageZone } from '../api';
-import { ZONE_TYPE, ZONE_TYPE_OPTIONS } from '../constants';
-import { getApiErrorMessage } from '../../../utils/api-utils';
+import { Modal } from 'react-bootstrap';
 import StorageLocationCell from './StorageLocationCell';
 
 function ZoneSummaryPills({ stats }) {
@@ -32,46 +28,12 @@ export default function ZoneDetailModal({
     onHide,
     selectedLocationId,
     onSelectLocation,
-    onZoneUpdated,
 }) {
-    const [zoneType, setZoneType] = useState(ZONE_TYPE.WAREHOUSE);
-    const [isSavingType, setIsSavingType] = useState(false);
-    const [error, setError] = useState(null);
-
-    useEffect(() => {
-        if (!show || !zoneGroup) {
-            return;
-        }
-        setZoneType(
-            zoneGroup.zoneType === ZONE_TYPE.SALES ? ZONE_TYPE.SALES : ZONE_TYPE.WAREHOUSE,
-        );
-        setError(null);
-    }, [show, zoneGroup]);
-
     if (!show || !zoneGroup) {
         return null;
     }
 
     const floorGroups = zoneGroup.floors ?? zoneGroup.aisles ?? [];
-
-    const handleZoneTypeChange = async (nextType) => {
-        if (nextType === zoneType || isSavingType) {
-            return;
-        }
-        const previous = zoneType;
-        setZoneType(nextType);
-        setIsSavingType(true);
-        setError(null);
-        try {
-            await updateStorageZone(zoneGroup.zone, { zoneType: nextType });
-            onZoneUpdated?.();
-        } catch (saveError) {
-            setZoneType(previous);
-            setError(getApiErrorMessage(saveError, 'Không thể cập nhật loại khu.'));
-        } finally {
-            setIsSavingType(false);
-        }
-    };
 
     return (
         <Modal
@@ -85,51 +47,12 @@ export default function ZoneDetailModal({
                 <div className="storage-adjust-modal__header-main">
                     <Modal.Title>Kệ {zoneGroup.zone}</Modal.Title>
                     <div className="storage-zone-detail-modal__toolbar">
-                        <div
-                            className={[
-                                'storage-zone-type-switch',
-                                zoneType === ZONE_TYPE.SALES
-                                    ? 'storage-zone-type-switch--sales'
-                                    : 'storage-zone-type-switch--warehouse',
-                                isSavingType ? 'storage-zone-type-switch--saving' : '',
-                            ]
-                                .filter(Boolean)
-                                .join(' ')}
-                            role="group"
-                            aria-label="Loại khu"
-                        >
-                            <span className="storage-zone-type-switch__thumb" aria-hidden="true" />
-                            {ZONE_TYPE_OPTIONS.map((option) => {
-                                const isActive = zoneType === option.value;
-                                return (
-                                    <button
-                                        key={option.value}
-                                        type="button"
-                                        className={[
-                                            'storage-zone-type-switch__option',
-                                            isActive
-                                                ? 'storage-zone-type-switch__option--active'
-                                                : '',
-                                        ]
-                                            .filter(Boolean)
-                                            .join(' ')}
-                                        aria-pressed={isActive}
-                                        disabled={isSavingType}
-                                        onClick={() => handleZoneTypeChange(option.value)}
-                                    >
-                                        {option.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
                         <ZoneSummaryPills stats={zoneGroup.stats} />
                     </div>
                 </div>
             </Modal.Header>
 
             <Modal.Body className="storage-zone-detail-modal__body">
-                {error && <Alert variant="danger">{error}</Alert>}
-
                 {floorGroups.length === 0 ? (
                     <div className="storage-location-empty">
                         <p>Khu này chưa có ô kệ.</p>
@@ -137,24 +60,19 @@ export default function ZoneDetailModal({
                 ) : (
                     floorGroups.map((floorGroup) => {
                         const floorKey = floorGroup.floor ?? floorGroup.aisle ?? 'none';
-                        const floorLabel = floorGroup.floor ?? floorGroup.aisle;
+                        const locations = floorGroup.locations ?? [];
                         return (
-                            <div key={floorKey} className="storage-location-aisle">
-                                <div className="storage-location-aisle__label">
-                                    {floorLabel ? `Tầng ${floorLabel}` : 'Chưa gán tầng'}
-                                    <span className="storage-location-aisle__count">
-                                        {floorGroup.locations.length} ô
-                                    </span>
-                                </div>
-                                <div className="storage-location-aisle__map">
-                                    {floorGroup.locations.map((location) => (
+                            <div key={floorKey} className="storage-zone-detail-modal__floor">
+                                <h4 className="storage-zone-detail-modal__floor-title">
+                                    Tầng {floorKey}
+                                </h4>
+                                <div className="storage-location-zone__shelves">
+                                    {locations.map((location) => (
                                         <StorageLocationCell
                                             key={location.id}
                                             location={location}
                                             isSelected={selectedLocationId === location.id}
-                                            onSelect={(loc) => {
-                                                onSelectLocation?.(loc);
-                                            }}
+                                            onSelect={(loc) => onSelectLocation?.(loc)}
                                         />
                                     ))}
                                 </div>
