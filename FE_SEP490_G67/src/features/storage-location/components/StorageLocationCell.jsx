@@ -1,5 +1,5 @@
 import { AlertTriangle } from 'lucide-react';
-import { LOCATION_STATUS, LOCATION_STATUS_LABEL, ZONE_TYPE } from '../constants';
+import { LOCATION_STATUS, LOCATION_STATUS_LABEL } from '../constants';
 import {
     getLocationMetrics,
     getLocationProductPreview,
@@ -12,8 +12,7 @@ export default function StorageLocationCell({ location, isSelected, onSelect }) 
     const { batchCount, totalQty, productCount, product } = getLocationMetrics(location);
     const profile = getShelfProfile(location);
     const isEmpty = status === LOCATION_STATUS.EMPTY;
-    const isSales = location.zoneType === ZONE_TYPE.SALES;
-    const productPreview = getLocationProductPreview(location, isSales ? 2 : 1);
+    const productPreview = getLocationProductPreview(location, productCount > 1 ? 2 : 1);
     const fullProductTitle = (location.contents ?? [])
         .map((item) => item.productName)
         .filter(Boolean)
@@ -64,7 +63,7 @@ export default function StorageLocationCell({ location, isSelected, onSelect }) 
                             {productPreview}
                         </span>
                         <span className="storage-location-cell__qty">
-                            {isSales && productCount > 1
+                            {productCount > 1
                                 ? `${productCount} SP · ${batchCount} lô · ${totalQty} đv`
                                 : `${batchCount} lô · ${totalQty} ${product?.unit ?? 'đv'}`}
                         </span>

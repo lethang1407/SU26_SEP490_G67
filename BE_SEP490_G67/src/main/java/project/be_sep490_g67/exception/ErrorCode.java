@@ -56,7 +56,7 @@ public enum ErrorCode {
     STORAGE_LOCATION_EMPTY_CANNOT_MARK_FULL(1059, "Ô đang trống, không thể đánh dấu đầy", HttpStatus.BAD_REQUEST),
     STORAGE_LOCATION_NO_BATCHES_TO_MOVE(1080, "Ô nguồn không có hàng để chuyển", HttpStatus.BAD_REQUEST),
     STORAGE_ZONE_NOT_FOUND(1055, "Không tìm thấy khu", HttpStatus.NOT_FOUND),
-    INVALID_STORAGE_ZONE_TYPE(1056, "Loại khu không hợp lệ (SALES, WAREHOUSE)", HttpStatus.BAD_REQUEST),
+    INVALID_STORAGE_ZONE_TYPE(1056, "Loại khu không hợp lệ (WAREHOUSE)", HttpStatus.BAD_REQUEST),
     STORAGE_RETURN_HOLD_LOCKED(1081, "Không thể thay đổi hoặc tạo thêm vị trí trong khu chứa hàng đổi trả", HttpStatus.BAD_REQUEST),
     RETURN_HOLD_LOCATION_NOT_FOUND(1082, "Chưa có khu chứa hàng đổi trả trong kho", HttpStatus.INTERNAL_SERVER_ERROR),
     SALES_ZONE_PRODUCT_BATCH_EXISTS(1057, "Sản phẩm đã có một lô trên khu bán. Mỗi SP chỉ được 1 lô trên toàn khu bán", HttpStatus.BAD_REQUEST),

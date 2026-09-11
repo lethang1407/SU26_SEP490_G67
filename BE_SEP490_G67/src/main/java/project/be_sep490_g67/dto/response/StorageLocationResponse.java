@@ -27,7 +27,7 @@ public class StorageLocationResponse {
     String size;
     String description;
     Boolean isFull;
-    /** SALES | WAREHOUSE */
+    /** WAREHOUSE | RETURN_HOLD */
     String zoneType;
     List<StorageLocationContentResponse> contents;
 }

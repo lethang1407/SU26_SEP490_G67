@@ -128,13 +128,11 @@ export default function ProductInfoModal({ productId, onClose }) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {/* Mỗi dòng là một lô tại một ô - một ô kho có thể chứa
-                                        nhiều lô của cùng SP nên key phải gồm cả batchId. */}
                                     {info.locations.map((loc) => (
                                         <tr key={`${loc.locationId}-${loc.batchId}`}>
                                             <td>{loc.label}</td>
-                                            <td>{loc.zoneType === 'SALES' ? 'Quầy' : 'Kho'}</td>
-                                            <td>{loc.batchCode ?? 'N/A'}</td>
+                                            <td>{loc.zoneCode || '—'}</td>
+                                            <td>{loc.batchCode ?? '—'}</td>
                                             <td className="text-right">
                                                 {Number(loc.quantity ?? 0).toLocaleString('vi-VN')}
                                             </td>
@@ -146,7 +144,7 @@ export default function ProductInfoModal({ productId, onClose }) {
                             </table>
                         ) : (
                             <div className="batch-modal-empty">
-                                Không còn hàng trong kho bán.
+                                Không còn hàng trong kho.
                             </div>
                         )}
                     </div>

@@ -4,6 +4,7 @@ import {
     Search, X,
     RefreshCcw,
     History,
+    Home,
     RotateCcw,
     ClipboardList,
     Trash2,
@@ -33,7 +34,6 @@ import QuickAddCustomerModal from '../components/QuickAddCustomerModal';
 import SalesOrderHistoryModal from '../components/SalesOrderHistoryModal';
 import ExchangeOrder from '../components/ExchangeOrder';
 import TransferQrPanel from '../components/TransferQrPanel';
-import PosHeaderMenu from '../components/PosHeaderMenu';
 import { buildPaymentReference } from '../utils/vietqr';
 import { saveActiveCart, loadActiveCart } from '../utils/cartStorage';
 import { printInvoice } from '../utils/printInvoice';
@@ -222,10 +222,6 @@ const POSScreen = () => {
             ?? units[0];
 
         const locations = (posInfo?.locations ?? []).filter((loc) => Number(loc.quantity ?? 0) > 0);
-        const defaultLoc = locations.find(
-            (loc) => loc.locationId === posInfo?.defaultLocationId
-                && loc.batchId === posInfo?.defaultBatchId
-        ) ?? locations[0] ?? null;
 
         const newItem = {
             // Một sản phẩm là một dòng giỏ
@@ -237,7 +233,8 @@ const POSScreen = () => {
             productUnitId: defaultUnit?.id ?? null,
             unit: defaultUnit?.name ?? 'N/A',
             locations,
-            pickKeys: defaultLoc ? [pickKey(defaultLoc)] : [],
+            // Không auto-pick → checkout FEFO; thu ngân vẫn chọn ô/lô khi cần
+            pickKeys: [],
             stockTotal: posInfo?.availableQuantity ?? null,
             stockSales: posInfo?.salesZoneQuantity ?? null,
             stockWarehouse: posInfo?.warehouseQuantity ?? null,
@@ -374,7 +371,6 @@ const POSScreen = () => {
             setShowQuickAdd(false);
             clearCustomerResults();
         } catch (err) {
-            console.error("Failed to create quick customer:", err);
             const msg = err.response?.data?.message ?? 'Không thể thêm khách hàng. Vui lòng thử lại.';
             setQuickAddError(msg);
         } finally {
@@ -503,9 +499,10 @@ const POSScreen = () => {
     const { bank, loading: bankLoading, error: bankError } = useStorePaymentInfo();
 
     const transferBlockedReason = !isTransferMode ? null
-        : cartItems.length === 0 ? 'Thêm sản phẩm vào giỏ hàng.'
-            : amountDue <= 0 ? 'Đơn hàng chưa có số tiền cần thu.'
-                : null;
+        : cartItems.length === 0 ? 'Thêm sản phẩm vào giỏ để hiện mã QR chuyển khoản.'
+            : locationBlocked ? 'Các vị trí đã chọn không đủ số lượng.'
+                : amountDue <= 0 ? 'Đơn hàng chưa có số tiền cần thu.'
+                    : null;
 
     // Discount editing
     const handleDiscountEditToggle = () => {

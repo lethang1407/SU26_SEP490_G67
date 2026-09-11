@@ -52,9 +52,9 @@ export function useCheckout() {
             return 'Giỏ hàng trống. Vui lòng thêm sản phẩm.';
         }
 
-        const badLine = cartItems.find(hasLocationProblem);
-        if (badLine) {
-            return `"${badLine.name}": chưa chọn vị trí lấy hàng hoặc các lô hàng không đủ số lượng.`;
+        const shortLine = cartItems.find(hasLocationProblem);
+        if (shortLine) {
+            return `"${shortLine.name}": các vị trí đã chọn không đủ số lượng.`;
         }
 
         // Debt orders must have an attached customer

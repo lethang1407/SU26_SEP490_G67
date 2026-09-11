@@ -5,9 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.be_sep490_g67.entity.BatchLocation;
+import project.be_sep490_g67.entity.StockBatch;
 import project.be_sep490_g67.entity.StockMovement;
 import project.be_sep490_g67.exception.InsufficientStockException;
 import project.be_sep490_g67.repository.BatchLocationRepository;
+import project.be_sep490_g67.repository.StockBatchRepository;
 import project.be_sep490_g67.repository.StockMovementRepository;
 
 import java.time.Instant;
@@ -23,6 +25,7 @@ import java.util.stream.Collectors;
 public class StockDeductionService {
     private final BatchLocationRepository batchLocationRepository;
     private final StockMovementRepository stockMovementRepository;
+    private final StockBatchRepository stockBatchRepository;
 
     @Transactional
     public void deductStock(Integer productId, Integer quantityNeed, Integer orderId, Integer userId) {
@@ -87,9 +90,16 @@ public class StockDeductionService {
             bl.setUpdatedAt(Instant.now());
             batchLocationRepository.save(bl);
 
+            // Đồng bộ quantityIn với tồn thực — tránh “hàng vừa bán” bị tính vào chưa xếp kệ
+            StockBatch batch = bl.getBatch();
+            int quantityIn = batch.getQuantityIn() != null ? batch.getQuantityIn() : 0;
+            batch.setQuantityIn(Math.max(0, quantityIn - deduct));
+            batch.setUpdatedAt(Instant.now());
+            stockBatchRepository.save(batch);
+
             //Add stock movement
             StockMovement movement = StockMovement.builder()
-                    .stockBatch(bl.getBatch())
+                    .stockBatch(batch)
                     .batchLocation(bl)
                     .quantityDelta(-deduct)
                     .stockAfter(stockAfter)

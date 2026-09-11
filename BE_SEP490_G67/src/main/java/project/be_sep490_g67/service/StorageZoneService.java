@@ -64,17 +64,18 @@ public class StorageZoneService {
                 .orElse(StorageZoneType.WAREHOUSE);
     }
 
+    /** @deprecated Khu bán đã gộp vào WAREHOUSE; luôn false. */
+    @Deprecated
     @Transactional(readOnly = true)
     public boolean isSalesZone(String rawCode) {
-        return StorageZoneType.SALES.equals(resolveZoneType(rawCode));
+        return false;
     }
 
+    /** @deprecated Khu bán đã gộp vào WAREHOUSE; luôn false. */
+    @Deprecated
     @Transactional(readOnly = true)
     public boolean isSalesZone(StorageZone zone) {
-        if (zone == null || zone.getZoneType() == null) {
-            return false;
-        }
-        return StorageZoneType.SALES.equals(zone.getZoneType());
+        return false;
     }
 
     @Transactional(readOnly = true)
@@ -101,6 +102,8 @@ public class StorageZoneService {
             String type = StorageZoneType.normalize(request.getZoneType());
             if (StorageZoneType.RETURN_HOLD.equals(zone.getZoneType())) {
                 // Giữ nguyên loại khu chứa hàng đổi trả
+            } else if (StorageZoneType.RETURN_HOLD.equals(type)) {
+                throw new AppException(ErrorCode.INVALID_STORAGE_ZONE_TYPE);
             } else if (!StorageZoneType.isAssignableZoneType(type)) {
                 throw new AppException(ErrorCode.INVALID_STORAGE_ZONE_TYPE);
             } else {
