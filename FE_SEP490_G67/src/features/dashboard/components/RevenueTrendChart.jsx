@@ -10,7 +10,6 @@ import {
 } from 'recharts';
 import { dashboardApi } from '@/features/dashboard/api/dashboardApi';
 
-/** YYYY-MM-DD theo LocalDate. */
 const toIsoDate = (d) => {
     const pad = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -77,8 +76,8 @@ export default function RevenueTrendChart() {
                         orderCount: row.orderCount ?? 0,
                     })),
                 );
-            } catch {
-                // Biểu đồ chỉ là chỉ số hiển thị: lỗi tải thì giữ cột 0, không chặn dashboard.
+            } catch (error) {
+                console.error("Failed to fetch revenue trend:", error);
             }
         })();
         return () => {
@@ -109,9 +108,6 @@ export default function RevenueTrendChart() {
                             tickLine={false}
                             tick={{ fill: '#94a3b8', fontSize: 10 }}
                             tickFormatter={formatVND}
-                            // Trục tự co theo dữ liệu. Giữ mốc 0 làm đáy trong ngày bán
-                            // bình thường, chỉ hạ xuống khi có khung giờ âm vì hoàn trả
-                            // vượt doanh thu bán trong giờ đó.
                             domain={[(dataMin) => Math.min(0, dataMin), 'auto']}
                         />
                         <Tooltip content={<CustomTooltip />} cursor={{ fill: '#eff6ff' }} />

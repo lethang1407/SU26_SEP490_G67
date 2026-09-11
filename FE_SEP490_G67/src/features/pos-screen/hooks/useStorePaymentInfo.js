@@ -15,7 +15,8 @@ export function useStorePaymentInfo() {
             try {
                 const result = await getStorePaymentInfo();
                 if (!cancelled) setBank(result ?? null);
-            } catch {
+            } catch (error) {
+                console.error("Failed to fetch store payment info:", error);
                 if (!cancelled) {
                     setError('Không đọc được thông tin chuyển khoản của cửa hàng.');
                 }

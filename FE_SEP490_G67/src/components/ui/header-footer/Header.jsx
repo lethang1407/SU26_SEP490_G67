@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
-import { Bell, User, Store } from 'lucide-react';
+import { User, Store } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import NotificationBell from '../../../features/notification/components/NotificationBell';
 import { getProfile } from '../../../features/profile/api';
 import { PROFILE_ROUTES } from '../../../features/profile/constants';
 import { getRoleLabel } from '../../../features/profile/utils/profileUtils';
@@ -58,11 +59,8 @@ export default function AdminHeader({ user, activePage }) {
         <header className="admin-header">
             {/* Right: Actions */}
             <div className="header-actions">
-                {/* Bell – Thông báo */}
-                <button className="header-btn" aria-label="Thông báo" type="button">
-                    <Bell size={18} />
-                    <span className="notification-badge">3</span>
-                </button>
+                {/* Bell – Thông báo: nơi duy nhất hiển thị thông báo, có mặt ở mọi trang */}
+                <NotificationBell />
 
                 <div className="header-divider" />
 

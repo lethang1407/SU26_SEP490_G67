@@ -4,7 +4,6 @@ import { getOverviewCustomer } from '@/features/customer/api';
 import { importHistoryApi } from '@/features/importHistory/api/importHistoryApi';
 import { dashboardApi } from '@/features/dashboard/api/dashboardApi';
 
-/** YYYY-MM-DD theo giờ máy - API nhận LocalDate, không phải Instant. */
 const toIsoDate = (d) => {
     const pad = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -15,9 +14,6 @@ const formatCompactCurrency = (value) => {
     return `${new Intl.NumberFormat('vi-VN').format(value)}đ`;
 };
 
-/**
- * Chú thích hoàn trả cho thẻ doanh thu.
- */
 const buildRefundBadge = (salesSummary) => {
     const hasNetRevenue = salesSummary.netRevenue !== null && salesSummary.netRevenue !== undefined;
     const refund = Number(salesSummary.refundAmount ?? 0);
@@ -35,10 +31,6 @@ const buildRefundBadge = (salesSummary) => {
     };
 };
 
-/**
- * Chú thích cho thẻ tiền thu công nợ: bao nhiêu khách đã trả và các khoản nợ được
- * trả đủ hay mới trả một phần. Đếm khoản theo hóa đơn nợ, không theo phiếu thu.
- */
 const buildDebtCollectionNote = (overview) => {
     const customers = Number(overview.todayPayingCustomerCount ?? 0);
     const full = Number(overview.todayFullSettlementCount ?? 0);
@@ -98,8 +90,8 @@ export default function TodayStats() {
             try {
                 const overview = await getOverviewCustomer();
                 if (!cancelled) setDebtOverview(overview);
-            } catch {
-                // Thẻ công nợ chỉ là chỉ số hiển thị: lỗi tải thì giữ giá trị rỗng,
+            } catch (error) {
+                console.error("Failed to fetch customer debt overview:", error);
             }
         })();
         return () => {
@@ -114,8 +106,8 @@ export default function TodayStats() {
             try {
                 const result = await importHistoryApi.getSummary({ from: today, to: today });
                 if (!cancelled) setImportSummary(result ?? null);
-            } catch {
-                // Chỉ là chỉ số hiển thị: lỗi tải thì giữ dấu "-".
+            } catch (error) {
+                console.error("Failed to fetch import summary:", error);
             }
         })();
         return () => {
@@ -130,8 +122,8 @@ export default function TodayStats() {
             try {
                 const result = await dashboardApi.getSalesSummary({ from: today, to: today });
                 if (!cancelled) setSalesSummary(result ?? null);
-            } catch {
-                // chỉ số hiển thị: lỗi tải thì hiển thị n/a.
+            } catch (error) {
+                console.error("Failed to fetch sales summary:", error);
             }
         })();
         return () => {
@@ -146,8 +138,8 @@ export default function TodayStats() {
             try {
                 const result = await dashboardApi.getReconciliationSummary({ date: today });
                 if (!cancelled) setReconciliation(result ?? null);
-            } catch {
-                // chỉ số hiển thị: lỗi tải thì hiển thị n/a.
+            } catch (error) {
+                console.error("Failed to fetch reconciliation summary:", error);
             }
         })();
         return () => {
@@ -171,9 +163,6 @@ export default function TodayStats() {
             if (!reconciliation) return metric;
             const cash = Number(reconciliation.cashSales ?? 0);
             const bank = Number(reconciliation.bankSales ?? 0);
-            // Hai khoản phải trừ khỏi tiền thu: tiền mặt hoàn cho khách (đã ra khỏi két),
-            // và phần hàng trả cấn sang đơn đổi (đơn đổi ghi vào paidAmount nên đang nằm
-            // trong cash/bank ở trên, dù chưa bao giờ là tiền vào).
             const cashRefunded = Number(reconciliation.cashRefunded ?? 0);
             const exchangeCredit = Number(reconciliation.exchangeCreditApplied ?? 0);
             const deductions = [];

@@ -68,8 +68,6 @@ function StoreForm({ initialData, onUpdateSuccess }) {
         const newErrors = validateForm();
         const firstInvalid = Object.keys(newErrors)[0];
         if (firstInvalid) {
-            // Ô sai có thể nằm ở thẻ "Tài khoản nhận chuyển khoản" phía dưới màn hình:
-            // nếu chỉ lặng lẽ return thì người dùng bấm "Lưu thay đổi" mà không thấy gì xảy ra.
             setMessage({ type: 'danger', text: newErrors[firstInvalid] });
             document.querySelector(`[name="${firstInvalid}"]`)?.scrollIntoView({
                 behavior: 'smooth',
@@ -90,7 +88,7 @@ function StoreForm({ initialData, onUpdateSuccess }) {
             const updatedData = response.result;
 
             setIsEditing(false);
-            setShowConfirmModal(false); 
+            setShowConfirmModal(false);
             onUpdateSuccess(updatedData, response.message);
         } catch (error) {
             setMessage({ type: 'danger', text: getApiErrorMessage(error) });
@@ -101,7 +99,7 @@ function StoreForm({ initialData, onUpdateSuccess }) {
 
     const handleCancel = () => {
         setIsEditing(false);
-        setShowConfirmModal(false); 
+        setShowConfirmModal(false);
         setFormData(initialData);
         setMessage(null);
         setErrors({});
@@ -227,8 +225,6 @@ function StoreForm({ initialData, onUpdateSuccess }) {
                                 {VIETQR_BANKS.map(({ bin, name }) => (
                                     <option key={bin} value={bin}>{name} ({bin})</option>
                                 ))}
-                                {/* Ngân hàng đã lưu nhưng không có trong danh sách vẫn phải
-                                    hiện ra, nếu không mở form lên là mất luôn cấu hình cũ. */}
                                 {formData.bankId && !bankNameOf(formData.bankId) && (
                                     <option value={formData.bankId}>Mã {formData.bankId}</option>
                                 )}
@@ -257,10 +253,6 @@ function StoreForm({ initialData, onUpdateSuccess }) {
                                 readOnly={!isEditing}
                                 isInvalid={!!errors.bankAccountName}
                             />
-                            <Form.Text className="text-muted">
-                                Hiện trên mã QR để khách đối chiếu trước khi chuyển tiền.
-                                Viết hoa không dấu như ngân hàng in, ví dụ PHAM HUY THAI.
-                            </Form.Text>
                             <Form.Control.Feedback type="invalid">{errors.bankAccountName}</Form.Control.Feedback>
                         </Form.Group>
                     </Form>

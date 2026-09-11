@@ -68,5 +68,7 @@ public class ExchangeOrderDetailResponse {
         Boolean productReturnable;
         BigDecimal unitPrice;
         BigDecimal lineTotal;
+        /** Giá trị thực của dòng sau khi phân bổ giảm giá hóa đơn — cơ sở tính tiền hoàn. */
+        BigDecimal netLineTotal;
     }
 }

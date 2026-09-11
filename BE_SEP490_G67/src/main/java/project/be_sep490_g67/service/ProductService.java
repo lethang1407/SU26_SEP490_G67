@@ -174,13 +174,21 @@ public class ProductService {
                         .build())
                 .toList();
 
-        // Fetch available stock batches
-        List<StockBatch> batches = stockBatchRepository.findAvailableByProductId(product.getId());
-        List<ProductBarcodeResponse.StockBatchInfo> batchInfos = batches.stream()
+        // Tồn của từng lô phải là số BÁN ĐƯỢC, cộng theo từng ô và đã loại khu đổi trả
+        Map<Integer, Integer> sellableByBatch = new LinkedHashMap<>();
+        Map<Integer, StockBatch> batchById = new LinkedHashMap<>();
+        for (BatchLocation line : batchLocationRepository.findAvailableByProductId(product.getId())) {
+            StockBatch batch = line.getBatch();
+            batchById.putIfAbsent(batch.getId(), batch);
+            sellableByBatch.merge(batch.getId(),
+                    line.getQuantity() != null ? line.getQuantity() : 0, Integer::sum);
+        }
+
+        List<ProductBarcodeResponse.StockBatchInfo> batchInfos = batchById.values().stream()
                 .map(b -> ProductBarcodeResponse.StockBatchInfo.builder()
                         .id(b.getId())
                         .batchCode(StockBatchUtils.resolveBatchCode(b))
-                        .quantity(b.getQuantityIn())
+                        .quantity(sellableByBatch.get(b.getId()))
                         .expiryDate(b.getExpiryDate() != null ? b.getExpiryDate().toString()
                                 : null)
                         .build())

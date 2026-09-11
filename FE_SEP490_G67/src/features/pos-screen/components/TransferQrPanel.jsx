@@ -28,8 +28,9 @@ export default function TransferQrPanel({
             await navigator.clipboard.writeText(value);
             setCopied(field);
             setTimeout(() => setCopied(null), 1500);
-        } catch {
+        } catch (error) {
             // Trình duyệt chặn clipboard: số vẫn hiện trên màn hình để đọc tay.
+            console.error("Failed to copy transfer info to clipboard:", error);
         }
     };
 

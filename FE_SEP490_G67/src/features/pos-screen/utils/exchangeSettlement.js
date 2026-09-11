@@ -1,6 +1,15 @@
+export function refundForQty({ netLineTotal, quantityPurchased, alreadyReturned = 0, qty }) {
+    const net = Number(netLineTotal) || 0;
+    const purchased = Number(quantityPurchased) || 0;
+    if (purchased <= 0 || qty <= 0) return 0;
+    const share = (returned) =>
+        Math.round((net * Math.min(Math.max(returned, 0), purchased)) / purchased);
+    return share(alreadyReturned + qty) - share(alreadyReturned);
+}
+
 /**
  * @param {object} params
- * @param {number} params.returnAmount    V — tổng giá trị hàng khách trả về
+ * @param {number} params.returnAmount   V — tổng giá trị hàng khách trả về
  * @param {number} params.exchangeAmount  X — tổng giá trị hàng khách lấy đi
  * @param {number} params.debtRemaining   R — nợ còn lại của hóa đơn gốc
  * @param {boolean} params.isDebt         hóa đơn gốc là đơn bán nợ
@@ -24,18 +33,13 @@ export function previewSettlement({
     const exchangeCredit = Math.min(credit, X);
     const cashRefund = credit - exchangeCredit;
     const shortfall = X - exchangeCredit;
-
-    // Chỉ ghi nợ tiếp khi hóa đơn gốc THỰC SỰ còn nợ và hạn trả còn hiệu lực. Đơn nợ đã
-    // trả hết, hoặc đơn nợ cũ không có hạn, thì phần chênh phải thu tiền ngay — không tạo
-    // được một khoản nợ mà không định được hạn trả.
     const canExtendDebt = R > 0 && !!dueDate && new Date(dueDate).getTime() > Date.now();
 
     const newDebtOnExchange = canExtendDebt ? shortfall : 0;
     const cashCollect = canExtendDebt ? 0 : shortfall;
 
     const remainingAfterOffset = R - debtOffset;
-    // Tiền trả thêm bị chặn ở phần nợ CÒN LẠI SAU cấn trừ: hàng trả đã xóa bớt nợ rồi,
-    // nhận thêm quá số đó là nhận tiền cho một khoản không tồn tại.
+    // Tiền trả thêm bị chặn ở phần nợ CÒN LẠI SAU cấn trừ
     const maxDebtPayment = remainingAfterOffset;
     const appliedDebtPayment = Math.max(0, Math.min(Number(debtPayment) || 0, maxDebtPayment));
 

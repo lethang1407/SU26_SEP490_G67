@@ -163,6 +163,36 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
     List<Object[]> findExpiredWithRemainingQuantity(@Param("today") LocalDate today);
 
     /**
+     * Lô <b>sắp</b> hết hạn và vẫn còn hàng thật trên kệ — nguồn của cảnh báo cận date (F1).
+     *
+     * <p>Cố ý là bản sao của {@link #findExpiredWithRemainingQuantity} với vế ngày đổi
+     * thành khoảng [today, untilDate], KHÔNG dùng {@code findExpiringSoonWithStock} sẵn có:
+     * hàm đó đếm theo {@code quantityIn} (số đã nhập ban đầu, không trừ phần đã bán) nên
+     * một lô bán hết vẫn bị coi là còn hàng. Cảnh báo dựa trên số đó sẽ báo về những lô
+     * không còn tồn tại trên kệ, và người dùng sẽ học cách bỏ qua chuông.
+     *
+     * <p>Mỗi phần tử: [StockBatch, số lượng còn lại].
+     */
+    @Query("""
+            SELECT sb, COALESCE(SUM(bl.quantity), 0)
+            FROM StockBatch sb
+            JOIN sb.product p
+            JOIN BatchLocation bl ON bl.batch = sb AND bl.isRemoved = false
+            JOIN bl.location loc
+            JOIN loc.storageZone sz
+            WHERE sb.isRemoved = false
+              AND sz.zoneType <> 'RETURN_HOLD'
+              AND sb.expiryDate IS NOT NULL
+              AND sb.expiryDate >= :today
+              AND sb.expiryDate <= :untilDate
+            GROUP BY sb, p
+            HAVING COALESCE(SUM(bl.quantity), 0) > 0
+            ORDER BY sb.expiryDate ASC, sb.id ASC
+            """)
+    List<Object[]> findNearExpiryWithRemainingQuantity(@Param("today") LocalDate today,
+                                                       @Param("untilDate") LocalDate untilDate);
+
+    /**
      * Số thứ tự lớn nhất trong ngày cho mã lô dạng {prefix}-xx (một dấu '-').
      * dayPrefix ví dụ: L210826 hoặc LODH210826. Bỏ qua mã cũ LddMMyy-NCC-SP.
      */

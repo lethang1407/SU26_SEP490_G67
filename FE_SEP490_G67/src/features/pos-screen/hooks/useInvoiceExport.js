@@ -22,6 +22,7 @@ export default function useInvoiceExport() {
             setInvoiceData(data);
             return data;
         } catch (err) {
+            console.error("Failed to fetch invoice data for export:", err);
             const msg = err.response?.data?.message
                 ?? 'Không thể tải dữ liệu hóa đơn. Vui lòng thử lại.';
             setError(msg);

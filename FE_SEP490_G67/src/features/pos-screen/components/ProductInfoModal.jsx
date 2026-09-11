@@ -21,6 +21,7 @@ export default function ProductInfoModal({ productId, onClose }) {
                 const data = await getProductPosInfo(productId);
                 if (!cancelled) setInfo(data);
             } catch (err) {
+                console.error("Failed to fetch product POS info:", err);
                 if (!cancelled) setError(getApiErrorMessage(err, 'Không thể tải thông tin sản phẩm'));
             } finally {
                 if (!cancelled) setLoading(false);
