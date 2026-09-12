@@ -446,7 +446,7 @@ public class ImportOrderService {
                 ? totalCost.add(unbookedTrial).subtract(safePaid).max(BigDecimal.ZERO)
                 : BigDecimal.ZERO;
         String paymentStatus = isImported
-                ? resolvePaymentStatus(remainingDebt, hasOpenTrial)
+                ? resolvePaymentStatus(remainingDebt, hasOpenTrial, openTrialAmount)
                 : ImportOrderConstants.PAYMENT_STATUS_DONE;
 
         Supplier supplier = order.getSupplier();
@@ -600,8 +600,7 @@ public class ImportOrderService {
         List<ImportOrderListItemResponse> filtered = filterByPaymentStatus(allItems, paymentStatusFilter);
         if (debtFirst) {
             filtered = new ArrayList<>(filtered);
-            filtered.sort(Comparator.comparingInt(item ->
-                    ImportOrderConstants.PAYMENT_STATUS_DEBT.equals(item.getStatus()) ? 0 : 1));
+            filtered.sort(Comparator.comparingInt(item -> paymentSortRank(item.getStatus())));
         }
 
         int totalElements = filtered.size();
@@ -629,6 +628,9 @@ public class ImportOrderService {
             case ImportOrderConstants.PAYMENT_STATUS_DEBT -> items.stream()
                     .filter(item -> ImportOrderConstants.PAYMENT_STATUS_DEBT.equals(item.getStatus()))
                     .toList();
+            case ImportOrderConstants.PAYMENT_STATUS_PENDING_SETTLEMENT -> items.stream()
+                    .filter(item -> ImportOrderConstants.PAYMENT_STATUS_PENDING_SETTLEMENT.equals(item.getStatus()))
+                    .toList();
             case ImportOrderConstants.PAYMENT_STATUS_DONE -> items.stream()
                     .filter(item -> ImportOrderConstants.PAYMENT_STATUS_DONE.equals(item.getStatus()))
                     .toList();
@@ -655,7 +657,7 @@ public class ImportOrderService {
                 : BigDecimal.ZERO;
         boolean hasOpenTrial = isImported && trial.agreed().compareTo(BigDecimal.ZERO) > 0;
         String paymentStatus = isImported
-                ? resolvePaymentStatus(remainingDebt, hasOpenTrial)
+                ? resolvePaymentStatus(remainingDebt, hasOpenTrial, trial.agreed())
                 : ImportOrderConstants.PAYMENT_STATUS_DONE;
 
         return ImportOrderListItemResponse.builder()
@@ -705,13 +707,34 @@ public class ImportOrderService {
         return "ALL";
     }
 
-    private String resolvePaymentStatus(BigDecimal remainingDebt, boolean hasOpenTrial) {
-        if (hasOpenTrial) {
+    /**
+     * Hàng thường còn phải trả → Đang nợ.
+     * Hàng thường đã trả đủ, còn bán thử chưa chốt → Chờ quyết toán.
+     * Hết nợ và đã chốt thử → Hoàn thành.
+     */
+    private String resolvePaymentStatus(BigDecimal remainingDebt, boolean hasOpenTrial, BigDecimal openTrialAmount) {
+        BigDecimal remaining = remainingDebt != null ? remainingDebt : BigDecimal.ZERO;
+        BigDecimal trial = openTrialAmount != null ? openTrialAmount : BigDecimal.ZERO;
+        BigDecimal regularRemaining = remaining.subtract(trial).max(BigDecimal.ZERO);
+        if (regularRemaining.compareTo(BigDecimal.ZERO) > 0) {
             return ImportOrderConstants.PAYMENT_STATUS_DEBT;
         }
-        return remainingDebt != null && remainingDebt.compareTo(BigDecimal.ZERO) > 0
+        if (hasOpenTrial) {
+            return ImportOrderConstants.PAYMENT_STATUS_PENDING_SETTLEMENT;
+        }
+        return remaining.compareTo(BigDecimal.ZERO) > 0
                 ? ImportOrderConstants.PAYMENT_STATUS_DEBT
                 : ImportOrderConstants.PAYMENT_STATUS_DONE;
+    }
+
+    private int paymentSortRank(String status) {
+        if (ImportOrderConstants.PAYMENT_STATUS_DEBT.equals(status)) {
+            return 0;
+        }
+        if (ImportOrderConstants.PAYMENT_STATUS_PENDING_SETTLEMENT.equals(status)) {
+            return 1;
+        }
+        return 2;
     }
 
     private boolean isPromotionLine(ImportOrderDetail detail) {
@@ -790,13 +813,13 @@ public class ImportOrderService {
                 ? amountDue.add(unbookedTrial).subtract(paid).max(BigDecimal.ZERO)
                 : BigDecimal.ZERO;
         boolean hasOpenTrial = isImported && details != null && details.stream().anyMatch(this::isOpenTrialLine);
-        String paymentStatus = isImported
-                ? resolvePaymentStatus(remainingDebt, hasOpenTrial)
-                : ImportOrderConstants.PAYMENT_STATUS_DONE;
         BigDecimal openTrialAmount = details == null
                 ? BigDecimal.ZERO
                 : details.stream().filter(this::isOpenTrialLine).map(this::agreedLineAmount)
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
+        String paymentStatus = isImported
+                ? resolvePaymentStatus(remainingDebt, hasOpenTrial, openTrialAmount)
+                : ImportOrderConstants.PAYMENT_STATUS_DONE;
 
         return ImportOrderListItemResponse.builder()
                 .id(order.getId())

@@ -33,6 +33,12 @@
     color: #15803d;
 }
 
+.import-order-status--pending_settlement,
+.import-order-status--PENDING_SETTLEMENT {
+    background: #ccfbf1;
+    color: #0f766e;
+}
+
 .import-order-table__supplier-code {
     color: inherit;
     font-weight: 600;
@@ -1005,28 +1011,93 @@ a.supplier-btn {
     font-size: 12px;
 }
 
-.trial-settle-summary {
+.trial-settle-footer {
     display: flex;
-    justify-content: flex-end;
-    gap: 24px;
-    margin-top: 12px;
-    font-size: 14px;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 8px;
 }
 
-.trial-settle-pay {
+.trial-settle-footer__note {
+    flex: 1;
+    min-width: 0;
+    max-width: 360px;
+    margin: 0;
+}
+
+.trial-settle-paybox {
+    width: 300px;
+    flex-shrink: 0;
+    margin-top: 0;
+    margin-left: auto;
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.trial-settle-paybox__row {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 12px;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 13px;
+    color: #334155;
 }
 
-.trial-settle-pay input {
-    width: 140px;
-    padding: 6px 8px;
+.trial-settle-paybox__row strong {
+    color: #0f172a;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.trial-settle-paybox__row--pay {
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.trial-settle-paybox__input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #0f172a;
+    font-weight: 600;
+}
+
+.trial-settle-paybox__input input {
+    width: 120px;
+    padding: 6px 10px;
     border: 1px solid #cbd5e1;
-    border-radius: 6px;
+    border-radius: 8px;
     text-align: right;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.trial-settle-paybox__remain--clear {
+    color: #16a34a;
+    font-weight: 700;
+}
+
+.trial-settle-paybox__remain--debt {
+    color: #dc2626;
+    font-weight: 700;
+}
+
+@media (max-width: 720px) {
+    .trial-settle-footer {
+        flex-direction: column;
+    }
+
+    .trial-settle-footer__note,
+    .trial-settle-paybox {
+        width: 100%;
+        max-width: none;
+    }
 }
 
 .supplier-trial-card {

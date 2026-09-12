@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { importOrdersApi } from '../api';
 import { formatCurrency, formatMoneyInput, parseMoneyInput } from '../utils/importOrderUtils';
@@ -25,16 +25,19 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
     const [rows, setRows] = useState([]);
     const [paidAmount, setPaidAmount] = useState(0);
     const [note, setNote] = useState('');
+    const paidAmountTouchedRef = useRef(false);
 
     useEffect(() => {
         if (!open || !orderId) {
             setPreview(null);
             setRows([]);
             setError('');
+            paidAmountTouchedRef.current = false;
             return;
         }
         setLoading(true);
         setError('');
+        paidAmountTouchedRef.current = false;
         importOrdersApi
             .previewTrialSettlement(orderId)
             .then((result) => {
@@ -46,7 +49,6 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
                     decision: defaultDecision(line),
                 }));
                 setRows(nextRows);
-                setPaidAmount(0);
                 setNote('');
             })
             .catch((err) => {
@@ -68,10 +70,16 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
     const bookedOpenTrial = Number(preview?.bookedOpenTrialAmount) || 0;
     const currentRemaining = Number(preview?.remainingDebt) || 0;
     const debtAfterSettle = Math.max(currentRemaining - bookedOpenTrial + payableTotal, 0);
+    const maxPayNow = Math.min(payableTotal, debtAfterSettle);
+    const trialRemaining = Math.max(payableTotal - paidAmount, 0);
 
     useEffect(() => {
-        setPaidAmount((prev) => Math.min(Math.max(Number(prev) || 0, 0), debtAfterSettle));
-    }, [debtAfterSettle]);
+        if (!paidAmountTouchedRef.current) {
+            setPaidAmount(maxPayNow);
+            return;
+        }
+        setPaidAmount((prev) => Math.min(Math.max(Number(prev) || 0, 0), maxPayNow));
+    }, [maxPayNow]);
 
     if (!open) return null;
 
@@ -272,40 +280,51 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
                                 </table>
                             </div>
 
-                            <div className="trial-settle-summary">
-                                <span>Giá trị lô thử giữ / phải trả</span>
-                                <strong>{formatCurrency(payableTotal)}</strong>
-                            </div>
-                            <div className="trial-settle-summary">
-                                <span>Công nợ phiếu sau chốt</span>
-                                <strong>{formatCurrency(debtAfterSettle)}</strong>
-                            </div>
-                            <div className="trial-settle-pay">
-                                <label htmlFor="trial-paid-amount">Trả ngay</label>
-                                <input
-                                    id="trial-paid-amount"
-                                    type="text"
-                                    inputMode="numeric"
-                                    value={formatMoneyInput(paidAmount)}
-                                    onChange={(event) =>
-                                        setPaidAmount(
-                                            Math.min(debtAfterSettle, parseMoneyInput(event.target.value)),
-                                        )
-                                    }
+                            <div className="trial-settle-footer">
+                                <textarea
+                                    className="ioc-sidebar__textarea trial-settle-footer__note"
+                                    rows={3}
+                                    placeholder="Ghi chú quyết toán (không bắt buộc)"
+                                    value={note}
+                                    onChange={(event) => setNote(event.target.value)}
                                 />
-                                <span>đ</span>
+                                <div className="trial-settle-paybox">
+                                    <div className="trial-settle-paybox__row">
+                                        <span>Tiền lô thử phải trả</span>
+                                        <strong>{formatCurrency(payableTotal)}</strong>
+                                    </div>
+                                    <div className="trial-settle-paybox__row trial-settle-paybox__row--pay">
+                                        <label htmlFor="trial-paid-amount">Trả ngay</label>
+                                        <div className="trial-settle-paybox__input">
+                                            <input
+                                                id="trial-paid-amount"
+                                                type="text"
+                                                inputMode="numeric"
+                                                value={formatMoneyInput(paidAmount)}
+                                                onChange={(event) => {
+                                                    paidAmountTouchedRef.current = true;
+                                                    setPaidAmount(
+                                                        Math.min(maxPayNow, parseMoneyInput(event.target.value)),
+                                                    );
+                                                }}
+                                            />
+                                            <span>đ</span>
+                                        </div>
+                                    </div>
+                                    <div className="trial-settle-paybox__row">
+                                        <span>Còn nợ lô thử</span>
+                                        <strong
+                                            className={
+                                                trialRemaining > 0
+                                                    ? 'trial-settle-paybox__remain--debt'
+                                                    : 'trial-settle-paybox__remain--clear'
+                                            }
+                                        >
+                                            {formatCurrency(trialRemaining)}
+                                        </strong>
+                                    </div>
+                                </div>
                             </div>
-                            <p className="ioc-sidebar__upload-hint" style={{ textAlign: 'right' }}>
-                                Còn nợ sau quyết toán:{' '}
-                                {formatCurrency(Math.max(debtAfterSettle - paidAmount, 0))}
-                            </p>
-                            <textarea
-                                className="ioc-sidebar__textarea"
-                                rows={2}
-                                placeholder="Ghi chú quyết toán (không bắt buộc)"
-                                value={note}
-                                onChange={(event) => setNote(event.target.value)}
-                            />
                             {error ? (
                                 <p className="supplier-detail-empty-text" style={{ color: '#dc2626' }}>
                                     {error}

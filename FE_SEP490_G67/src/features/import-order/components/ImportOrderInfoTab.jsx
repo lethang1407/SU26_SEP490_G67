@@ -51,7 +51,9 @@ export default function ImportOrderInfoTab({
         .filter((item) => resolveLineType(item) !== 'PROMOTION')
         .reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
     const statusClass = String(order.orderStatus || '').toLowerCase();
-    const showDebtBadge = order.status === IMPORT_ORDER_STATUS.DEBT;
+    const showPaymentBadge =
+        order.status === IMPORT_ORDER_STATUS.DEBT
+        || order.status === IMPORT_ORDER_STATUS.PENDING_SETTLEMENT;
     const receivedLabel = order.receivedDate ? formatDate(order.receivedDate) : '—';
 
     return (
@@ -62,9 +64,9 @@ export default function ImportOrderInfoTab({
                     <span className={`import-order-status import-order-status--${statusClass}`}>
                         {ORDER_STATUS_LABEL[order.orderStatus] || order.orderStatus || '—'}
                     </span>
-                    {showDebtBadge ? (
-                        <span className="import-order-status import-order-status--debt">
-                            {IMPORT_ORDER_STATUS_LABEL[IMPORT_ORDER_STATUS.DEBT]}
+                    {showPaymentBadge ? (
+                        <span className={`import-order-status import-order-status--${String(order.status).toLowerCase()}`}>
+                            {IMPORT_ORDER_STATUS_LABEL[order.status]}
                         </span>
                     ) : null}
                 </div>
