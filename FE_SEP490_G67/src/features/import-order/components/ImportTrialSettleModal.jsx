@@ -9,12 +9,36 @@ function defaultDecision(line) {
     return Number(line.systemRemainingQty) > 0 ? 'PAY_SOLD_RETURN_REST' : 'PAY_SOLD_RETURN_REST';
 }
 
+function unitBaseOf(line) {
+    return Number(line.unitBase) > 0 ? Number(line.unitBase) : 1;
+}
+
+function receivedBaseOf(line) {
+    const fromApi = Number(line.receivedBaseQty);
+    if (Number.isFinite(fromApi) && fromApi > 0) return fromApi;
+    return Math.round((Number(line.receivedQty) || 0) * unitBaseOf(line));
+}
+
+function baseUnitOf(line) {
+    return line.baseUnitName || line.unitName || '';
+}
+
+function costPerBaseOf(line) {
+    return Math.round((Number(line.costPerUnit) || 0) / unitBaseOf(line));
+}
+
+function hasBaseUnitPrice(line) {
+    const baseUnit = baseUnitOf(line);
+    return unitBaseOf(line) !== 1 || (baseUnit && baseUnit !== line.unitName);
+}
+
 function payableOf(line, counted, unsellable, decision) {
-    const received = Number(line.receivedQty) || 0;
+    const receivedBase = receivedBaseOf(line);
+    const unitBase = unitBaseOf(line);
     const cost = Number(line.costPerUnit) || 0;
     const returnable = Math.max((Number(counted) || 0) - (Number(unsellable) || 0), 0);
-    const payableQty = decision === 'PAY_ALL_KEEP' ? received : Math.max(received - returnable, 0);
-    return payableQty * cost;
+    const payableQty = decision === 'PAY_ALL_KEEP' ? receivedBase : Math.max(receivedBase - returnable, 0);
+    return (payableQty * cost) / unitBase;
 }
 
 export default function ImportTrialSettleModal({ open, orderId, onClose, onSettled }) {
@@ -143,8 +167,9 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
                     ) : (
                         <>
                             <p className="ioc-sidebar__upload-hint" style={{ marginBottom: 12 }}>
-                                Đối chiếu với nhân viên NCC: tồn hệ thống là gợi ý từ lúc nhận đến nay.
-                                Hàng hỏng, chuột cắn, bóc dở không trả được — tính vào tiền phải trả.
+                                Đối chiếu với nhân viên NCC theo đơn vị cơ bản (chai/gói). Tồn hệ thống là gợi
+                                ý từ lúc nhận đến nay. Hàng hỏng, chuột cắn, bóc dở không trả được — tính vào
+                                tiền phải trả.
                             </p>
                             <div className="supplier-table-wrapper">
                                 <table className="trial-settle-table">
@@ -152,9 +177,9 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
                                         <tr>
                                             <th>Sản phẩm</th>
                                             <th className="trial-settle-table__num">Nhận</th>
-                                            <th className="trial-settle-table__num">Tồn HT</th>
+                                            <th className="trial-settle-table__num">Tồn hệ thống</th>
                                             <th className="trial-settle-table__num">Đã bán</th>
-                                            <th className="trial-settle-table__num">Đếm tay</th>
+                                            <th className="trial-settle-table__num">Thực tế</th>
                                             <th className="trial-settle-table__num">Hỏng</th>
                                             <th>Xử lý</th>
                                             <th className="trial-settle-table__num">Phải trả</th>
@@ -170,6 +195,8 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
                                                 decision: 'PAY_SOLD_RETURN_REST',
                                             };
                                             const remaining = Number(line.systemRemainingQty) || 0;
+                                            const receivedBase = receivedBaseOf(line);
+                                            const baseUnit = baseUnitOf(line);
                                             const counted = Math.min(
                                                 Math.max(Number(row.countedRemainingQty) || 0, 0),
                                                 remaining,
@@ -185,54 +212,113 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
                                                 unsellable,
                                                 row.decision,
                                             );
+                                            const showReceivedBase =
+                                                receivedBase !== Number(line.receivedQty)
+                                                || (baseUnit && baseUnit !== line.unitName);
                                             return (
                                                 <tr key={line.importOrderDetailId}>
                                                     <td>
-                                                        <div>{line.productName}</div>
-                                                        <div className="ioc-sidebar__upload-hint">
-                                                            {formatCurrency(line.costPerUnit)}
-                                                            {line.unitName ? ` / ${line.unitName}` : ''}
+                                                        <div
+                                                            className={
+                                                                hasBaseUnitPrice(line)
+                                                                    ? 'trial-settle-product'
+                                                                    : undefined
+                                                            }
+                                                        >
+                                                            <div className="trial-settle-product__name">
+                                                                {line.productName}
+                                                            </div>
+                                                            <div className="ioc-sidebar__upload-hint">
+                                                                {formatCurrency(line.costPerUnit)}
+                                                                {line.unitName ? ` / ${line.unitName}` : ''}
+                                                            </div>
+                                                            {hasBaseUnitPrice(line) ? (
+                                                                <div className="trial-settle-product__tip" role="tooltip">
+                                                                    <div>
+                                                                        {formatCurrency(line.costPerUnit)}
+                                                                        {line.unitName ? ` / ${line.unitName}` : ''}
+                                                                    </div>
+                                                                    <div>
+                                                                        {formatCurrency(costPerBaseOf(line))}
+                                                                        {baseUnit ? ` / ${baseUnit}` : ''}
+                                                                    </div>
+                                                                </div>
+                                                            ) : null}
                                                         </div>
                                                     </td>
                                                     <td className="trial-settle-table__num">
                                                         {line.receivedQty}
                                                         {line.unitName ? ` ${line.unitName}` : ''}
+                                                        {showReceivedBase ? (
+                                                            <span className="trial-settle-table__sub">
+                                                                = {receivedBase}
+                                                                {baseUnit ? ` ${baseUnit}` : ''}
+                                                            </span>
+                                                        ) : null}
                                                     </td>
-                                                    <td className="trial-settle-table__num">{remaining}</td>
+                                                    <td className="trial-settle-table__num">
+                                                        {remaining}
+                                                        {baseUnit ? (
+                                                            <span className="trial-settle-qty__unit"> {baseUnit}</span>
+                                                        ) : null}
+                                                    </td>
                                                     <td className="trial-settle-table__num">
                                                         {line.suggestedSoldQty}
+                                                        {baseUnit ? (
+                                                            <span className="trial-settle-qty__unit"> {baseUnit}</span>
+                                                        ) : null}
                                                     </td>
                                                     <td className="trial-settle-table__num">
-                                                        <input
-                                                            type="number"
-                                                            min={0}
-                                                            max={remaining}
-                                                            value={counted}
-                                                            onChange={(event) =>
-                                                                updateRow(line.importOrderDetailId, {
-                                                                    countedRemainingQty: Math.min(
-                                                                        remaining,
-                                                                        Math.max(0, Number(event.target.value) || 0),
-                                                                    ),
-                                                                })
-                                                            }
-                                                        />
+                                                        <span className="trial-settle-qty">
+                                                            <input
+                                                                type="number"
+                                                                min={0}
+                                                                max={remaining}
+                                                                value={counted}
+                                                                onChange={(event) =>
+                                                                    updateRow(line.importOrderDetailId, {
+                                                                        countedRemainingQty: Math.min(
+                                                                            remaining,
+                                                                            Math.max(
+                                                                                0,
+                                                                                Number(event.target.value) || 0,
+                                                                            ),
+                                                                        ),
+                                                                    })
+                                                                }
+                                                            />
+                                                            {baseUnit ? (
+                                                                <span className="trial-settle-qty__unit">
+                                                                    {baseUnit}
+                                                                </span>
+                                                            ) : null}
+                                                        </span>
                                                     </td>
                                                     <td className="trial-settle-table__num">
-                                                        <input
-                                                            type="number"
-                                                            min={0}
-                                                            max={counted}
-                                                            value={unsellable}
-                                                            onChange={(event) =>
-                                                                updateRow(line.importOrderDetailId, {
-                                                                    unsellableQty: Math.min(
-                                                                        counted,
-                                                                        Math.max(0, Number(event.target.value) || 0),
-                                                                    ),
-                                                                })
-                                                            }
-                                                        />
+                                                        <span className="trial-settle-qty">
+                                                            <input
+                                                                type="number"
+                                                                min={0}
+                                                                max={counted}
+                                                                value={unsellable}
+                                                                onChange={(event) =>
+                                                                    updateRow(line.importOrderDetailId, {
+                                                                        unsellableQty: Math.min(
+                                                                            counted,
+                                                                            Math.max(
+                                                                                0,
+                                                                                Number(event.target.value) || 0,
+                                                                            ),
+                                                                        ),
+                                                                    })
+                                                                }
+                                                            />
+                                                            {baseUnit ? (
+                                                                <span className="trial-settle-qty__unit">
+                                                                    {baseUnit}
+                                                                </span>
+                                                            ) : null}
+                                                        </span>
                                                     </td>
                                                     <td>
                                                         {returnable <= 0 ? (

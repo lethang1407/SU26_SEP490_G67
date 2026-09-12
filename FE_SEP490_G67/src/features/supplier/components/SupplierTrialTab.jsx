@@ -65,13 +65,50 @@ export default function SupplierTrialTab({ supplierId, refreshToken, onSettled }
                                 </button>
                             </div>
                             <ul className="supplier-trial-card__lines">
-                                {(order.lines || []).map((line) => (
+                                {(order.lines || []).map((line) => {
+                                    const unitBase = Number(line.unitBase) > 0 ? Number(line.unitBase) : 1;
+                                    const baseUnit = line.baseUnitName || line.unitName || '';
+                                    const showBasePrice =
+                                        unitBase !== 1 || (baseUnit && baseUnit !== line.unitName);
+                                    const costPerBase = Math.round((Number(line.costPerUnit) || 0) / unitBase);
+                                    return (
                                     <li key={line.importOrderDetailId}>
-                                        {line.productName}: nhận {line.receivedQty}
-                                        {line.unitName ? ` ${line.unitName}` : ''}, còn {line.systemRemainingQty}, đã bán{' '}
-                                        {line.suggestedSoldQty}
+                                        <span
+                                            className={showBasePrice ? 'trial-settle-product' : undefined}
+                                        >
+                                            <span className={showBasePrice ? 'trial-settle-product__name' : undefined}>
+                                                {line.productName}
+                                            </span>
+                                            {showBasePrice ? (
+                                                <span className="trial-settle-product__tip" role="tooltip">
+                                                    <span>
+                                                        {formatCurrency(line.costPerUnit)}
+                                                        {line.unitName ? ` / ${line.unitName}` : ''}
+                                                    </span>
+                                                    <span>
+                                                        {formatCurrency(costPerBase)}
+                                                        {baseUnit ? ` / ${baseUnit}` : ''}
+                                                    </span>
+                                                </span>
+                                            ) : null}
+                                        </span>
+                                        : nhận {line.receivedQty}
+                                        {line.unitName ? ` ${line.unitName}` : ''}
+                                        {Number(line.receivedBaseQty) > 0
+                                        && Number(line.receivedBaseQty) !== Number(line.receivedQty)
+                                            ? ` (= ${line.receivedBaseQty}${line.baseUnitName ? ` ${line.baseUnitName}` : ''})`
+                                            : ''}
+                                        , còn {line.systemRemainingQty}
+                                        {line.baseUnitName || line.unitName
+                                            ? ` ${line.baseUnitName || line.unitName}`
+                                            : ''}
+                                        , đã bán {line.suggestedSoldQty}
+                                        {line.baseUnitName || line.unitName
+                                            ? ` ${line.baseUnitName || line.unitName}`
+                                            : ''}
                                     </li>
-                                ))}
+                                    );
+                                })}
                             </ul>
                         </article>
                     ))}

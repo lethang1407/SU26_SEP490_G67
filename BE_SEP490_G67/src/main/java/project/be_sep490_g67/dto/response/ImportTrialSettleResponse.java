@@ -44,5 +44,6 @@ public class ImportTrialSettleResponse {
         Integer payableQty;
         BigDecimal payableAmount;
         String unitName;
+        String baseUnitName;
     }
 }

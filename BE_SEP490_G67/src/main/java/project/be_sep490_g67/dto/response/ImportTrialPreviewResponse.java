@@ -43,8 +43,16 @@ public class ImportTrialPreviewResponse {
         Integer productId;
         String productName;
         String unitName;
+        /** ĐVT cơ bản (chai/gói) — tồn, đã bán, đếm tay, hỏng. */
+        String baseUnitName;
+        BigDecimal unitBase;
+        /** Số lượng nhận theo ĐVT trên phiếu. */
         Integer receivedQty;
+        /** Số lượng nhận quy ra ĐVT cơ bản. */
+        Integer receivedBaseQty;
+        /** Tồn hệ thống theo ĐVT cơ bản. */
         Integer systemRemainingQty;
+        /** Đã bán theo ĐVT cơ bản. */
         Integer suggestedSoldQty;
         BigDecimal costPerUnit;
         String trialStatus;

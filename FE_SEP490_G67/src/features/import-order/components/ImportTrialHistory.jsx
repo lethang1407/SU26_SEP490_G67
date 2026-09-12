@@ -14,10 +14,10 @@ function resultOf(line) {
     const unsellable = Number(line.unsellableQty) || 0;
     const kept = Math.max((Number(line.countedRemainingQty) || 0) - unsellable, 0);
     const parts = [`Nhận ${received}${unit}`];
-    if (sold > 0) parts.push(`bán ${sold}`);
-    if (returned > 0) parts.push(`trả ${returned}`);
-    if (kept > 0 && returned <= 0) parts.push(`giữ ${kept}`);
-    if (unsellable > 0) parts.push(`hỏng ${unsellable}`);
+    if (sold > 0) parts.push(`bán ${sold}${unit}`);
+    if (returned > 0) parts.push(`trả ${returned}${unit}`);
+    if (kept > 0 && returned <= 0) parts.push(`giữ ${kept}${unit}`);
+    if (unsellable > 0) parts.push(`hỏng ${unsellable}${unit}`);
     return parts.join(', ');
 }
 

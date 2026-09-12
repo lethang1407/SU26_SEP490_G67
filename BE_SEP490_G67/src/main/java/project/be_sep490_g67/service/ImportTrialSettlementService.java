@@ -27,6 +27,7 @@ import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.BatchLocationRepository;
 import project.be_sep490_g67.repository.ImportOrderDetailRepository;
 import project.be_sep490_g67.repository.ImportOrderRepository;
+import project.be_sep490_g67.repository.ProductUnitRepository;
 import project.be_sep490_g67.repository.ImportTrialSettlementLineRepository;
 import project.be_sep490_g67.repository.ImportTrialSettlementRepository;
 import project.be_sep490_g67.repository.StockBatchRepository;
@@ -52,6 +53,7 @@ public class ImportTrialSettlementService {
 
     ImportOrderRepository importOrderRepository;
     ImportOrderDetailRepository importOrderDetailRepository;
+    ProductUnitRepository productUnitRepository;
     StockBatchRepository stockBatchRepository;
     StockMovementRepository stockMovementRepository;
     BatchLocationRepository batchLocationRepository;
@@ -194,24 +196,30 @@ public class ImportTrialSettlementService {
     }
 
     private ImportTrialPreviewResponse toPreview(ImportOrder order, List<ImportOrderDetail> openLines) {
+        Map<Integer, String> baseUnitNames = loadBaseUnitNames(openLines.stream()
+                .map(detail -> detail.getProduct() != null ? detail.getProduct().getId() : null)
+                .toList());
         List<ImportTrialPreviewResponse.Line> lines = new ArrayList<>();
         BigDecimal returnRestTotal = BigDecimal.ZERO;
         BigDecimal keepAllTotal = BigDecimal.ZERO;
         for (ImportOrderDetail detail : openLines) {
             Snapshot snap = snapshot(detail);
-            BigDecimal returnRest = money(snap.payableIfReturnRest(), snap.costPerUnit());
-            BigDecimal keepAll = money(snap.receivedQty(), snap.costPerUnit());
+            BigDecimal returnRest = moneyFromBase(snap.soldBase(), snap.costPerUnit(), snap.unitBase());
+            BigDecimal keepAll = moneyFromBase(snap.receivedBase(), snap.costPerUnit(), snap.unitBase());
             returnRestTotal = returnRestTotal.add(returnRest);
             keepAllTotal = keepAllTotal.add(keepAll);
-            ProductName names = productName(detail);
+            ProductName names = productName(detail, baseUnitNames);
             lines.add(ImportTrialPreviewResponse.Line.builder()
                     .importOrderDetailId(detail.getId())
                     .productId(detail.getProduct() != null ? detail.getProduct().getId() : null)
                     .productName(names.displayName())
                     .unitName(names.unitName())
+                    .baseUnitName(names.baseUnitName())
+                    .unitBase(snap.unitBase())
                     .receivedQty(snap.receivedQty())
-                    .systemRemainingQty(snap.remainingQty())
-                    .suggestedSoldQty(snap.soldQty())
+                    .receivedBaseQty(snap.receivedBase())
+                    .systemRemainingQty(snap.remainingBase())
+                    .suggestedSoldQty(snap.soldBase())
                     .costPerUnit(snap.costPerUnit())
                     .trialStatus(detail.getTrialStatus())
                     .estimatedPayableIfReturnRest(returnRest)
@@ -253,32 +261,27 @@ public class ImportTrialSettlementService {
         }
 
         Snapshot snap = snapshot(detail);
-        int counted = reqLine.getCountedRemainingQty() != null
+        int countedBase = reqLine.getCountedRemainingQty() != null
                 ? reqLine.getCountedRemainingQty()
-                : snap.remainingQty();
-        int unsellable = reqLine.getUnsellableQty() != null ? reqLine.getUnsellableQty() : 0;
-        if (counted < 0 || counted > snap.remainingQty() || unsellable < 0 || unsellable > counted) {
+                : snap.remainingBase();
+        int unsellableBase = reqLine.getUnsellableQty() != null ? reqLine.getUnsellableQty() : 0;
+        if (countedBase < 0 || countedBase > snap.remainingBase()
+                || unsellableBase < 0 || unsellableBase > countedBase) {
             throw new AppException(ErrorCode.TRIAL_QTY_INVALID);
         }
 
         ImportTrialDecision decision = ImportTrialDecision.from(reqLine.getDecision());
-        int returnable = counted - unsellable;
-        int returnedQty;
-        int payableQty;
+        int returnedBase;
+        int payableBase;
         if (decision == ImportTrialDecision.PAY_ALL_KEEP) {
-            returnedQty = 0;
-            payableQty = snap.receivedQty();
+            returnedBase = 0;
+            payableBase = snap.receivedBase();
         } else {
-            returnedQty = returnable;
-            payableQty = snap.receivedQty() - returnedQty;
+            returnedBase = countedBase - unsellableBase;
+            payableBase = snap.receivedBase() - returnedBase;
         }
 
-        int countedBase = Math.min(toBase(counted, detail.getProductUnit()), snap.remainingBase());
-        int unsellableBase = Math.min(toBase(unsellable, detail.getProductUnit()), countedBase);
         int missingBase = Math.max(snap.remainingBase() - countedBase, 0);
-        int returnedBase = decision == ImportTrialDecision.PAY_ALL_KEEP
-                ? 0
-                : Math.max(countedBase - unsellableBase, 0);
         int writeOffBase = unsellableBase + missingBase;
 
         StockBatch batch = stockBatchRepository
@@ -298,7 +301,7 @@ public class ImportTrialSettlementService {
             }
         }
 
-        BigDecimal payableAmount = money(payableQty, snap.costPerUnit());
+        BigDecimal payableAmount = moneyFromBase(payableBase, snap.costPerUnit(), snap.unitBase());
         detail.setLineTotal(payableAmount);
         detail.setTrialStatus(ImportTrialConstants.TRIAL_SETTLED);
         importOrderDetailRepository.save(detail);
@@ -308,31 +311,33 @@ public class ImportTrialSettlementService {
         savedLine.setImportOrderDetail(detail);
         savedLine.setStockBatch(batch);
         savedLine.setProduct(detail.getProduct());
-        savedLine.setReceivedQty(snap.receivedQty());
-        savedLine.setSystemRemainingQty(snap.remainingQty());
-        savedLine.setCountedRemainingQty(counted);
-        savedLine.setUnsellableQty(unsellable);
-        savedLine.setReturnedQty(returnedQty);
-        savedLine.setPayableQty(payableQty);
+        savedLine.setReceivedQty(snap.receivedBase());
+        savedLine.setSystemRemainingQty(snap.remainingBase());
+        savedLine.setCountedRemainingQty(countedBase);
+        savedLine.setUnsellableQty(unsellableBase);
+        savedLine.setReturnedQty(returnedBase);
+        savedLine.setPayableQty(payableBase);
         savedLine.setDecision(decision.name());
         savedLine.setCostPerUnit(snap.costPerUnit());
         savedLine.setPayableAmount(payableAmount);
         savedLine.setIsRemoved(false);
         settlementLineRepository.save(savedLine);
 
-        ProductName names = productName(detail);
+        ProductName names = productName(detail, loadBaseUnitNames(List.of(
+                detail.getProduct() != null ? detail.getProduct().getId() : null)));
         return new AppliedLine(payableAmount, ImportTrialSettleResponse.Line.builder()
                 .importOrderDetailId(detail.getId())
                 .productId(detail.getProduct() != null ? detail.getProduct().getId() : null)
                 .productName(names.displayName())
                 .decision(decision.name())
-                .receivedQty(snap.receivedQty())
-                .countedRemainingQty(counted)
-                .unsellableQty(unsellable)
-                .returnedQty(returnedQty)
-                .payableQty(payableQty)
+                .receivedQty(snap.receivedBase())
+                .countedRemainingQty(countedBase)
+                .unsellableQty(unsellableBase)
+                .returnedQty(returnedBase)
+                .payableQty(payableBase)
                 .payableAmount(payableAmount)
-                .unitName(names.unitName())
+                .unitName(names.baseUnitName())
+                .baseUnitName(names.baseUnitName())
                 .build());
     }
 
@@ -357,18 +362,20 @@ public class ImportTrialSettlementService {
     }
 
     private ImportTrialSettleResponse toHistoryResponse(ImportTrialSettlement settlement) {
-        List<ImportTrialSettleResponse.Line> lines;
-        if (settlement.getLines() == null) {
-            lines = List.of();
-        } else {
-            lines = settlement.getLines().stream()
-                    .filter(line -> !Boolean.TRUE.equals(line.getIsRemoved()))
-                    .sorted(Comparator.comparing(
-                            ImportTrialSettlementLine::getId,
-                            Comparator.nullsLast(Comparator.naturalOrder())))
-                    .map(this::toHistoryLine)
-                    .toList();
-        }
+        List<ImportTrialSettlementLine> sourceLines = settlement.getLines() == null
+                ? List.of()
+                : settlement.getLines().stream()
+                        .filter(line -> !Boolean.TRUE.equals(line.getIsRemoved()))
+                        .sorted(Comparator.comparing(
+                                ImportTrialSettlementLine::getId,
+                                Comparator.nullsLast(Comparator.naturalOrder())))
+                        .toList();
+        Map<Integer, String> baseUnitNames = loadBaseUnitNames(sourceLines.stream()
+                .map(this::productIdOf)
+                .toList());
+        List<ImportTrialSettleResponse.Line> lines = sourceLines.stream()
+                .map(line -> toHistoryLine(line, baseUnitNames))
+                .toList();
         ImportOrder order = settlement.getImportOrder();
         BigDecimal payable = settlement.getPayableAmount() != null ? settlement.getPayableAmount() : BigDecimal.ZERO;
         BigDecimal paid = settlement.getPaidAmount() != null ? settlement.getPaidAmount() : BigDecimal.ZERO;
@@ -384,15 +391,24 @@ public class ImportTrialSettlementService {
                 .build();
     }
 
-    private ImportTrialSettleResponse.Line toHistoryLine(ImportTrialSettlementLine line) {
+    private ImportTrialSettleResponse.Line toHistoryLine(
+            ImportTrialSettlementLine line,
+            Map<Integer, String> baseUnitNames) {
+        Integer productId = productIdOf(line);
         ProductName names = line.getImportOrderDetail() != null
-                ? productName(line.getImportOrderDetail())
+                ? productName(line.getImportOrderDetail(), baseUnitNames)
                 : new ProductName(
                         line.getProduct() != null ? line.getProduct().getName() : null,
-                        null);
+                        null,
+                        resolveBaseUnitName(productId, null, baseUnitNames));
+        boolean storedInBase = quantitiesStoredInBase(line);
+        String displayUnit = storedInBase ? names.baseUnitName() : names.unitName();
+        if (displayUnit == null || displayUnit.isBlank()) {
+            displayUnit = names.baseUnitName();
+        }
         return ImportTrialSettleResponse.Line.builder()
                 .importOrderDetailId(line.getImportOrderDetail() != null ? line.getImportOrderDetail().getId() : null)
-                .productId(line.getProduct() != null ? line.getProduct().getId() : null)
+                .productId(productId)
                 .productName(names.displayName())
                 .decision(line.getDecision())
                 .receivedQty(line.getReceivedQty())
@@ -401,13 +417,16 @@ public class ImportTrialSettlementService {
                 .returnedQty(line.getReturnedQty())
                 .payableQty(line.getPayableQty())
                 .payableAmount(line.getPayableAmount())
-                .unitName(names.unitName())
+                .unitName(displayUnit)
+                .baseUnitName(names.baseUnitName())
                 .build();
     }
 
     private Snapshot snapshot(ImportOrderDetail detail) {
         int receivedQty = detail.getQuantity() != null ? detail.getQuantity() : 0;
         BigDecimal cost = detail.getCostPerUnit() != null ? detail.getCostPerUnit() : BigDecimal.ZERO;
+        BigDecimal unitBase = resolveUnitBase(detail.getProductUnit());
+        int receivedBase = toBase(receivedQty, detail.getProductUnit());
         StockBatch batch = stockBatchRepository
                 .findFirstByImportOrderDetail_IdAndIsRemovedFalse(detail.getId())
                 .orElse(null);
@@ -415,11 +434,9 @@ public class ImportTrialSettlementService {
         if (batch != null) {
             remainingBase = Math.max(0, stockMovementRepository.sumQuantityDeltaByBatchId(batch.getId()));
         }
-        remainingBase = Math.min(remainingBase, toBase(receivedQty, detail.getProductUnit()));
-        int remainingQty = fromBase(remainingBase, detail.getProductUnit());
-        remainingQty = Math.min(remainingQty, receivedQty);
-        int soldQty = Math.max(receivedQty - remainingQty, 0);
-        return new Snapshot(receivedQty, remainingQty, remainingBase, soldQty, cost);
+        remainingBase = Math.min(remainingBase, receivedBase);
+        int soldBase = Math.max(receivedBase - remainingBase, 0);
+        return new Snapshot(receivedQty, receivedBase, remainingBase, soldBase, cost, unitBase);
     }
 
     private void deductFromBatch(StockBatch batch, int qtyBase, String movementType, Integer settlementId) {
@@ -481,14 +498,6 @@ public class ImportTrialSettlementService {
         return baseQty.setScale(0, RoundingMode.HALF_UP).intValue();
     }
 
-    private int fromBase(int baseQty, ProductUnit productUnit) {
-        BigDecimal unitBase = resolveUnitBase(productUnit);
-        if (unitBase.compareTo(BigDecimal.ZERO) <= 0) {
-            return baseQty;
-        }
-        return BigDecimal.valueOf(baseQty).divide(unitBase, 0, RoundingMode.DOWN).intValue();
-    }
-
     private BigDecimal resolveUnitBase(ProductUnit productUnit) {
         if (productUnit == null || productUnit.getUnitBase() == null
                 || productUnit.getUnitBase().compareTo(BigDecimal.ZERO) <= 0) {
@@ -497,15 +506,80 @@ public class ImportTrialSettlementService {
         return productUnit.getUnitBase();
     }
 
-    private BigDecimal money(int qty, BigDecimal costPerUnit) {
+    private BigDecimal moneyFromBase(int qtyBase, BigDecimal costPerUnit, BigDecimal unitBase) {
         BigDecimal cost = costPerUnit != null ? costPerUnit : BigDecimal.ZERO;
-        return cost.multiply(BigDecimal.valueOf(Math.max(qty, 0))).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal base = unitBase != null && unitBase.compareTo(BigDecimal.ZERO) > 0
+                ? unitBase
+                : BigDecimal.ONE;
+        return cost.multiply(BigDecimal.valueOf(Math.max(qtyBase, 0)))
+                .divide(base, 2, RoundingMode.HALF_UP);
     }
 
-    private ProductName productName(ImportOrderDetail detail) {
+    private Map<Integer, String> loadBaseUnitNames(List<Integer> productIds) {
+        List<Integer> ids = productIds == null
+                ? List.of()
+                : productIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<Integer, String> result = new LinkedHashMap<>();
+        for (ProductUnit unit : productUnitRepository.findByProduct_IdInAndIsRemovedFalse(ids)) {
+            if (unit.getProduct() == null || unit.getProduct().getId() == null) {
+                continue;
+            }
+            if (unit.getUnitBase() == null || unit.getUnitBase().compareTo(BigDecimal.ONE) != 0) {
+                continue;
+            }
+            if (unit.getName() == null || unit.getName().isBlank()) {
+                continue;
+            }
+            result.putIfAbsent(unit.getProduct().getId(), unit.getName().trim());
+        }
+        return result;
+    }
+
+    private ProductName productName(ImportOrderDetail detail, Map<Integer, String> baseUnitNames) {
         String productName = detail.getProduct() != null ? detail.getProduct().getName() : null;
         String unitName = detail.getProductUnit() != null ? detail.getProductUnit().getName() : null;
-        return new ProductName(productName, unitName);
+        Integer productId = detail.getProduct() != null ? detail.getProduct().getId() : null;
+        return new ProductName(productName, unitName, resolveBaseUnitName(productId, unitName, baseUnitNames));
+    }
+
+    private String resolveBaseUnitName(Integer productId, String importUnitName, Map<Integer, String> baseUnitNames) {
+        if (productId != null && baseUnitNames != null) {
+            String mapped = baseUnitNames.get(productId);
+            if (mapped != null && !mapped.isBlank()) {
+                return mapped;
+            }
+        }
+        if (importUnitName != null && !importUnitName.isBlank()) {
+            return importUnitName;
+        }
+        return "ĐVT";
+    }
+
+    private Integer productIdOf(ImportTrialSettlementLine line) {
+        if (line.getProduct() != null && line.getProduct().getId() != null) {
+            return line.getProduct().getId();
+        }
+        if (line.getImportOrderDetail() != null
+                && line.getImportOrderDetail().getProduct() != null) {
+            return line.getImportOrderDetail().getProduct().getId();
+        }
+        return null;
+    }
+
+    /**
+     * Bản ghi quyết toán mới lưu SL theo ĐVT cơ bản. Bản ghi cũ lưu SL theo ĐVT phiếu.
+     */
+    private boolean quantitiesStoredInBase(ImportTrialSettlementLine line) {
+        ImportOrderDetail detail = line.getImportOrderDetail();
+        if (detail == null || line.getReceivedQty() == null || detail.getQuantity() == null) {
+            return false;
+        }
+        int importQty = detail.getQuantity();
+        int baseQty = toBase(importQty, detail.getProductUnit());
+        return line.getReceivedQty() == baseQty && importQty != baseQty;
     }
 
     private String blankToNull(String value) {
@@ -517,16 +591,14 @@ public class ImportTrialSettlementService {
 
     private record Snapshot(
             int receivedQty,
-            int remainingQty,
+            int receivedBase,
             int remainingBase,
-            int soldQty,
-            BigDecimal costPerUnit) {
-        int payableIfReturnRest() {
-            return Math.max(receivedQty - remainingQty, 0);
-        }
+            int soldBase,
+            BigDecimal costPerUnit,
+            BigDecimal unitBase) {
     }
 
-    private record ProductName(String displayName, String unitName) {}
+    private record ProductName(String displayName, String unitName, String baseUnitName) {}
 
     private record AppliedLine(BigDecimal payableAmount, ImportTrialSettleResponse.Line response) {}
 }

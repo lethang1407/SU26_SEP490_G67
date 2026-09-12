@@ -39,10 +39,10 @@ public class SettleImportTrialRequest {
         @NotNull(message = "importOrderDetailId không được để trống")
         Integer importOrderDetailId;
 
-        /** Tồn đếm tay theo ĐVT trên phiếu. Null = dùng tồn hệ thống. */
+        /** Tồn đếm tay theo ĐVT cơ bản. Null = dùng tồn hệ thống. */
         Integer countedRemainingQty;
 
-        /** Hàng hỏng / chuột cắn / bóc dở — không trả được NCC. */
+        /** Hàng hỏng / chuột cắn / bóc dở theo ĐVT cơ bản — không trả được NCC. */
         Integer unsellableQty;
 
         /**
