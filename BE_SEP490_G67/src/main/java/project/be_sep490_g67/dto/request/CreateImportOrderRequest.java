@@ -31,6 +31,7 @@ public class CreateImportOrderRequest {
     /** URL ảnh hóa đơn / phiếu giao hàng (Cloudinary). Tùy chọn. */
     String invoiceImage;
 
+    /** Giảm giá theo đơn — chỉ trừ hàng nhập thường, không trừ hàng bán thử / KM. */
     @DecimalMin(value = "0.0", inclusive = true, message = "Giảm giá không được âm")
     BigDecimal discountAmount;
 

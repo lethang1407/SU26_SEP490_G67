@@ -108,9 +108,7 @@ public class ImportOrderService {
         BigDecimal discount = request.getDiscountAmount() != null
                 ? request.getDiscountAmount()
                 : BigDecimal.ZERO;
-        if (discount.compareTo(BigDecimal.ZERO) < 0 || discount.compareTo(goodsTotal) > 0) {
-            throw new AppException(ErrorCode.INVALID_IMPORT_DISCOUNT);
-        }
+        requireValidDiscount(discount, regularPayableAmount(details));
 
         MoneySplit money = splitMoney(goodsTotal, discount, importReturnService.returnDeductionOf(returnLines));
 
@@ -207,9 +205,7 @@ public class ImportOrderService {
         BigDecimal discount = request.getDiscountAmount() != null
                 ? request.getDiscountAmount()
                 : BigDecimal.ZERO;
-        if (discount.compareTo(BigDecimal.ZERO) < 0 || discount.compareTo(goodsTotal) > 0) {
-            throw new AppException(ErrorCode.INVALID_IMPORT_DISCOUNT);
-        }
+        requireValidDiscount(discount, regularPayableAmount(details));
 
         MoneySplit money = splitMoney(goodsTotal, discount, importReturnService.returnDeductionOf(returnLines));
 
@@ -965,6 +961,31 @@ public class ImportOrderService {
         return requestLines.stream().anyMatch(line ->
                 ImportLineType.from(line.getLineType(), line.getIsPromotion(), line.getIsTrial())
                         == ImportLineType.REGULAR);
+    }
+
+    private boolean isRegularLine(ImportOrderDetail detail) {
+        return detail != null
+                && !isPromotionLine(detail)
+                && !ImportTrialConstants.LINE_TRIAL.equals(detail.getLineType());
+    }
+
+    /** Trần giảm giá: chỉ hàng thường, không KM / bán thử. */
+    private BigDecimal regularPayableAmount(List<ImportOrderDetail> details) {
+        if (details == null || details.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        return details.stream()
+                .filter(this::isRegularLine)
+                .map(this::agreedLineAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private void requireValidDiscount(BigDecimal discount, BigDecimal regularPayable) {
+        BigDecimal safeDiscount = discount != null ? discount : BigDecimal.ZERO;
+        BigDecimal cap = regularPayable != null ? regularPayable : BigDecimal.ZERO;
+        if (safeDiscount.compareTo(BigDecimal.ZERO) < 0 || safeDiscount.compareTo(cap) > 0) {
+            throw new AppException(ErrorCode.INVALID_IMPORT_DISCOUNT);
+        }
     }
 
     private java.util.Set<Integer> loadAlreadyInStoreProductIds(List<Integer> productIds) {

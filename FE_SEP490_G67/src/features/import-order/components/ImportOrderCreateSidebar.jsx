@@ -34,6 +34,7 @@ export default function ImportOrderCreateSidebar({
     debtAmount,
     submitting,
     importItemCount = 0,
+    showDiscount = true,
     onSelectSupplier,
     onClearSupplier,
     onOpenAddSupplier,
@@ -216,19 +217,28 @@ export default function ImportOrderCreateSidebar({
                     </div>
                 ) : null}
 
-                <div className="ioc-sidebar__discount-row">
-                    <span>Giảm giá</span>
-                    <div className="ioc-sidebar__discount-input">
-                        <input
-                            type="text"
-                            inputMode="numeric"
-                            value={formatMoneyInput(discountAmount)}
-                            onChange={(event) => onDiscountAmountChange(parseMoneyInput(event.target.value))}
-                            aria-label="Giảm giá theo đơn (VND)"
-                        />
-                        <span className="ioc-sidebar__discount-unit">đ</span>
-                    </div>
-                </div>
+                {showDiscount ? (
+                    <>
+                        <div className="ioc-sidebar__discount-row">
+                            <span>Giảm giá</span>
+                            <div className="ioc-sidebar__discount-input">
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={formatMoneyInput(discountAmount)}
+                                    onChange={(event) => onDiscountAmountChange(parseMoneyInput(event.target.value))}
+                                    aria-label="Giảm giá theo đơn (VND)"
+                                />
+                                <span className="ioc-sidebar__discount-unit">đ</span>
+                            </div>
+                        </div>
+                        {openTrialAmount > 0 ? (
+                            <p className="ioc-sidebar__upload-hint">
+                                Giảm giá chỉ áp cho hàng nhập thường, không trừ vào hàng bán thử.
+                            </p>
+                        ) : null}
+                    </>
+                ) : null}
 
                 {returnDeductionAmount > 0 ? (
                     <div className="ioc-sidebar__summary-row ioc-sidebar__summary-row--return">

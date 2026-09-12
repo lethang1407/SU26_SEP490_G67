@@ -103,6 +103,14 @@ export function computeOpenTrialAmount(lines) {
     }, 0);
 }
 
+/** Trần giảm giá lúc nhập: chỉ hàng thường, không KM / bán thử. */
+export function computeRegularPayableAmount(lines) {
+    return (lines || []).reduce((sum, line) => {
+        if (resolveLineType(line) !== 'REGULAR') return sum;
+        return sum + (Number(line.quantity) || 0) * (Number(line.costPerUnit) || 0);
+    }, 0);
+}
+
 /** Đơn giá gợi ý = giá / ĐVT cơ bản × hệ số ĐVT đang chọn. */
 export function suggestCostForUnit(lastCostPerBase, unitBase) {
     const base = Number(lastCostPerBase) || 0;

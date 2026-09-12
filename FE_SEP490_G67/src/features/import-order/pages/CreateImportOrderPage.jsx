@@ -22,6 +22,7 @@ import {
     isNonPayableImportLine,
     computeGoodsTotal,
     computeOpenTrialAmount,
+    computeRegularPayableAmount,
 } from '../utils/importOrderUtils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Supplier.css';
@@ -280,7 +281,10 @@ export default function CreateImportOrderPage() {
     );
     const goodsAmount = useMemo(() => computeGoodsTotal(lines), [lines]);
     const openTrialAmount = useMemo(() => computeOpenTrialAmount(lines), [lines]);
-    const safeDiscount = Math.min(Math.max(Number(discountAmount) || 0, 0), payableAmount);
+    const regularPayableAmount = useMemo(() => computeRegularPayableAmount(lines), [lines]);
+    const safeDiscount = hasRegularPayable
+        ? Math.min(Math.max(Number(discountAmount) || 0, 0), regularPayableAmount)
+        : 0;
     const returnDeductionAmount = useMemo(
         () => selectedReturnDeduction(pendingReturnLines, selectedReturnLineKeys),
         [pendingReturnLines, selectedReturnLineKeys],
@@ -545,9 +549,21 @@ export default function CreateImportOrderPage() {
         setPaidAmount((prev) => Math.min(Math.max(Number(prev) || 0, 0), maxPaidAtImport));
     }, [amountDue, defaultPaidAmount, maxPaidAtImport]);
 
+    useEffect(() => {
+        setDiscountAmount((prev) =>
+            hasRegularPayable
+                ? Math.min(Math.max(Number(prev) || 0, 0), regularPayableAmount)
+                : 0,
+        );
+    }, [hasRegularPayable, regularPayableAmount]);
+
     const handleDiscountAmountChange = (value) => {
+        if (!hasRegularPayable) {
+            setDiscountAmount(0);
+            return;
+        }
         const parsed = Math.max(0, Number(value) || 0);
-        setDiscountAmount(Math.min(parsed, payableAmount));
+        setDiscountAmount(Math.min(parsed, regularPayableAmount));
     };
 
     const handlePaidAmountChange = (value) => {
@@ -1062,6 +1078,7 @@ export default function CreateImportOrderPage() {
                                 paidAmount={safePaidAmount}
                                 debtAmount={debtAmount}
                                 submitting={submitting || uploadingInvoiceImage}
+                                showDiscount={hasRegularPayable}
                                 onSelectSupplier={setSupplier}
                                 onClearSupplier={() => setSupplier(null)}
                                 onOpenAddSupplier={() => {
