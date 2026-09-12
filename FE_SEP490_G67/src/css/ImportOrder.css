@@ -21,6 +21,18 @@
     color: #15803d;
 }
 
+.import-order-status--debt,
+.import-order-status--DEBT {
+    background: #ffedd5;
+    color: #c2410c;
+}
+
+.import-order-status--done,
+.import-order-status--DONE {
+    background: #dcfce7;
+    color: #15803d;
+}
+
 .import-order-table__supplier-code {
     color: inherit;
     font-weight: 600;
@@ -421,6 +433,14 @@
 .import-order-expand__summary-row--grand strong {
     font-size: 16px;
     font-weight: 700;
+}
+
+.import-order-expand__summary-row--trial {
+    color: #0f766e;
+}
+
+.import-order-expand__summary-row--trial strong {
+    color: #0f766e;
 }
 
 .import-order-payment-tab__nowrap {
@@ -883,6 +903,187 @@ a.supplier-btn {
 .ioc-promo-chip--on:hover {
     border-color: #d97706;
     background: #fde68a;
+}
+
+.ioc-trial-chip:hover:not(:disabled) {
+    border-color: #5eead4;
+    color: #0f766e;
+    background: #f0fdfa;
+}
+
+.ioc-trial-chip--on {
+    border-color: #14b8a6;
+    background: #ccfbf1;
+    color: #0f766e;
+}
+
+.ioc-trial-chip--on:hover:not(:disabled) {
+    border-color: #0d9488;
+    background: #99f6e4;
+}
+
+.ioc-trial-chip:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.ioc-lines-table tbody tr.ioc-lines-table__row--trial td {
+    background: #f0fdfa;
+}
+
+.ioc-lines-table tbody tr.ioc-lines-table__row--trial:hover td {
+    background: #ccfbf1;
+}
+
+.ioc-lines-table__total--trial {
+    color: #0f766e;
+    font-weight: 600;
+}
+
+.import-order-expand__row--trial td {
+    background: #f0fdfa;
+}
+
+.import-order-expand__col-total--trial {
+    color: #0f766e;
+}
+
+.ioc-trial-badge {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: #ccfbf1;
+    border: 1px solid #5eead4;
+    color: #0f766e;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.trial-settle-modal {
+    max-width: 880px;
+    width: min(880px, calc(100vw - 32px));
+}
+
+.trial-settle-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.trial-settle-table th,
+.trial-settle-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+    vertical-align: top;
+}
+
+.trial-settle-table th {
+    color: #64748b;
+    font-weight: 600;
+    background: #f8fafc;
+}
+
+.trial-settle-table__num {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.trial-settle-table input[type='number'] {
+    width: 72px;
+    padding: 4px 6px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+}
+
+.trial-settle-decision {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+}
+
+.trial-settle-summary {
+    display: flex;
+    justify-content: flex-end;
+    gap: 24px;
+    margin-top: 12px;
+    font-size: 14px;
+}
+
+.trial-settle-pay {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.trial-settle-pay input {
+    width: 140px;
+    padding: 6px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    text-align: right;
+}
+
+.supplier-trial-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    background: #fff;
+}
+
+.supplier-trial-card__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.supplier-trial-card__code {
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.supplier-trial-card__meta {
+    font-size: 13px;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+
+.supplier-trial-card__lines {
+    margin: 0;
+    padding-left: 18px;
+    color: #334155;
+    font-size: 13px;
+}
+
+.import-trial-history {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.import-trial-history__card .import-order-expand__table-wrap {
+    margin-top: 8px;
+}
+
+.import-trial-history__totals {
+    text-align: right;
+    font-size: 13px;
+    color: #475569;
+    line-height: 1.5;
+}
+
+.supplier-trial-tab {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
 }
 
 .ioc-promo-badge {
@@ -1370,6 +1571,14 @@ a.supplier-btn {
 
 .ioc-sidebar__summary-row--return strong {
     color: #b45309;
+}
+
+.ioc-sidebar__summary-row--trial {
+    color: #0f766e;
+}
+
+.ioc-sidebar__summary-row--trial strong {
+    color: #0f766e;
 }
 
 .ioc-sidebar__discount-row {

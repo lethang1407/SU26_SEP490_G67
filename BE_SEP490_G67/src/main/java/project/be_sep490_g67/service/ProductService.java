@@ -627,15 +627,28 @@ public class ProductService {
                 .findByProduct_IdInAndIsRemovedFalse(productIds)
                 .stream()
                 .collect(Collectors.groupingBy(item -> item.getProduct().getId()));
+        java.util.Set<Integer> alreadyInStoreIds = loadAlreadyInStoreProductIds(productIds);
 
         return productList.stream()
                 .map(product -> toSearchResponse(
                         product,
-                        attributesByProduct.getOrDefault(product.getId(), List.of())))
+                        attributesByProduct.getOrDefault(product.getId(), List.of()),
+                        alreadyInStoreIds.contains(product.getId())))
                 .toList();
     }
 
-    private ProductSearchResponse toSearchResponse(Product product, List<ProductAttribute> attributes) {
+    private java.util.Set<Integer> loadAlreadyInStoreProductIds(List<Integer> productIds) {
+        java.util.Set<Integer> ids = new java.util.HashSet<>();
+        if (productIds == null || productIds.isEmpty()) {
+            return ids;
+        }
+        ids.addAll(importOrderDetailRepository.findImportedProductIds(productIds));
+        ids.addAll(stockBatchRepository.findProductIdsWithBatches(productIds));
+        return ids;
+    }
+
+    private ProductSearchResponse toSearchResponse(
+            Product product, List<ProductAttribute> attributes, boolean alreadyInStore) {
         BigDecimal costPrice = product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO;
         BigDecimal lastCostPerBase = stockBatchRepository
                 .findFirstByProduct_IdAndIsRemovedFalseOrderByReceivedDateDescIdDesc(product.getId())
@@ -665,6 +678,7 @@ public class ProductService {
                 .costPrice(costPrice)
                 .lastCostPerBase(lastCostPerBase)
                 .stockQuantity(stockQuantity)
+                .alreadyInStore(alreadyInStore)
                 .parentId(parent != null ? parent.getId() : null)
                 .parentName(parent != null ? parent.getName() : null)
                 .attributes(productMapper.toAttributeResponses(attributes))

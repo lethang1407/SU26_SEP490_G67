@@ -30,7 +30,7 @@ export default function ImportOrderListPage() {
     const [keyword, setKeyword] = useState('');
     const [debouncedKeyword, setDebouncedKeyword] = useState('');
     const [orderStatusFilter, setOrderStatusFilter] = useState(
-        location.state?.orderStatusFilter ?? null,
+        location.state?.orderStatusFilter ?? ORDER_STATUS_FILTER.ALL,
     );
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
@@ -41,9 +41,6 @@ export default function ImportOrderListPage() {
     const [successMessage, setSuccessMessage] = useState(null);
 
     const trimmedKeyword = debouncedKeyword.trim();
-    const hasDateFilter = Boolean(fromDate || toDate);
-    const hasActiveListQuery =
-        trimmedKeyword.length > 0 || orderStatusFilter != null || hasDateFilter;
     const appliedOrderStatus = orderStatusFilter ?? ORDER_STATUS_FILTER.ALL;
 
     useEffect(() => {
@@ -64,12 +61,6 @@ export default function ImportOrderListPage() {
     }, [keyword]);
 
     const fetchImportOrders = useCallback(() => {
-        if (!hasActiveListQuery) {
-            setData(EMPTY_PAGE);
-            setLoading(false);
-            return;
-        }
-
         setLoading(true);
         importOrdersApi
             .getImportOrders({
@@ -83,7 +74,7 @@ export default function ImportOrderListPage() {
             .then((result) => setData(result ?? EMPTY_PAGE))
             .catch(() => setData(EMPTY_PAGE))
             .finally(() => setLoading(false));
-    }, [hasActiveListQuery, page, trimmedKeyword, appliedOrderStatus, fromDate, toDate]);
+    }, [page, trimmedKeyword, appliedOrderStatus, fromDate, toDate]);
 
     useEffect(() => {
         fetchImportOrders();
@@ -151,14 +142,10 @@ export default function ImportOrderListPage() {
                     />
 
                     <ImportOrderTable
-                        items={hasActiveListQuery ? (data.content ?? []) : []}
-                        loading={hasActiveListQuery && loading}
+                        items={data.content ?? []}
+                        loading={loading}
                         startIndex={totalItems === 0 ? 1 : (page - 1) * PAGE_SIZE + 1}
-                        emptyMessage={
-                            hasActiveListQuery
-                                ? 'Không tìm thấy phiếu nhập hàng phù hợp.'
-                                : 'Nhập từ khóa tìm kiếm, chọn trạng thái hoặc khoảng ngày để hiển thị danh sách phiếu nhập hàng.'
-                        }
+                        emptyMessage="Không tìm thấy phiếu nhập hàng phù hợp."
                         onOpenDetail={handleOpenDetail}
                     />
 
@@ -169,20 +156,18 @@ export default function ImportOrderListPage() {
                         onDraftCancelled={handleDraftCancelled}
                     />
 
-                    {hasActiveListQuery ? (
-                        <SupplierPagination
-                            page={page}
-                            totalPages={data.totalPages ?? 1}
-                            startIndex={totalItems === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}
-                            endIndex={Math.min(page * PAGE_SIZE, totalItems)}
-                            totalItems={totalItems}
-                            onPageChange={(nextPage) => {
-                                setSelectedOrderId(null);
-                                setPage(nextPage);
-                            }}
-                            itemLabel="phiếu nhập"
-                        />
-                    ) : null}
+                    <SupplierPagination
+                        page={page}
+                        totalPages={data.totalPages ?? 1}
+                        startIndex={totalItems === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}
+                        endIndex={Math.min(page * PAGE_SIZE, totalItems)}
+                        totalItems={totalItems}
+                        onPageChange={(nextPage) => {
+                            setSelectedOrderId(null);
+                            setPage(nextPage);
+                        }}
+                        itemLabel="phiếu nhập"
+                    />
                 </div>
             </main>
         </div>

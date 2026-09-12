@@ -1517,6 +1517,11 @@
     color: #b45309;
 }
 
+.supplier-import-status--pending_settlement {
+    background: #ccfbf1;
+    color: #0f766e;
+}
+
 .supplier-table tbody td.supplier-payment-history__amount {
     font-weight: 700;
     white-space: nowrap;
@@ -1930,7 +1935,7 @@
 
 .supplier-payment-orders__item {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
     padding: 6px 4px;
     font-size: 13px;
@@ -1938,15 +1943,48 @@
     cursor: pointer;
 }
 
+.supplier-payment-orders__body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.supplier-payment-orders__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.supplier-payment-orders__hint {
+    font-size: 11px;
+    font-weight: 400;
+    color: #64748b;
+    line-height: 1.35;
+}
+
+.supplier-payment-max-hint {
+    margin: -6px 0 10px;
+}
+
 .supplier-payment-orders__item--all {
     font-weight: 600;
+    align-items: center;
     border-bottom: 1px solid #f1f5f9;
     margin-bottom: 4px;
+}
+
+.supplier-payment-orders__item--all input {
+    margin-top: 0;
 }
 
 .supplier-payment-orders__item input {
     width: 16px;
     height: 16px;
+    margin-top: 2px;
+    flex-shrink: 0;
     accent-color: #2563eb;
     cursor: pointer;
 }

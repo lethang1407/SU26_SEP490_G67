@@ -3,12 +3,14 @@ import { Pencil, Wallet } from 'lucide-react';
 import SupplierGeneralInfoTab from './SupplierGeneralInfoTab';
 import SupplierImportHistoryTable from './SupplierImportHistoryTable';
 import SupplierPaymentHistoryTable from './SupplierPaymentHistoryTable';
+import SupplierTrialTab from './SupplierTrialTab';
 import SupplierOrderDetailModal from './SupplierOrderDetailModal';
 import { suppliersApi } from '../api';
 
 const TABS = [
     { id: 'general', label: 'Thông tin chung' },
     { id: 'import', label: 'Lịch sử nhập hàng' },
+    { id: 'trial', label: 'Hàng bán thử' },
     { id: 'debt', label: 'Lịch sử thanh toán nợ' },
 ];
 
@@ -18,6 +20,7 @@ export default function SupplierDetailTabs({
     canPayDebt = false,
     onPayDebt,
     onEdit,
+    onTrialSettled,
 }) {
     const [activeTab, setActiveTab] = useState('general');
     const [viewingOrderId, setViewingOrderId] = useState(null);
@@ -80,6 +83,13 @@ export default function SupplierDetailTabs({
                         supplierId={supplier.id}
                         refreshToken={historyRefresh}
                         onViewDetail={(order) => setViewingOrderId(order.id)}
+                    />
+                )}
+                {activeTab === 'trial' && (
+                    <SupplierTrialTab
+                        supplierId={supplier.id}
+                        refreshToken={historyRefresh}
+                        onSettled={onTrialSettled}
                     />
                 )}
                 {activeTab === 'debt' && (

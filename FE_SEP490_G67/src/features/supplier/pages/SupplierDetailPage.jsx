@@ -162,6 +162,10 @@ export default function SupplierDetailPage() {
                         <SupplierDetailTabs
                             supplier={supplier}
                             refreshToken={refreshToken}
+                            onTrialSettled={() => {
+                                fetchSupplier({ silent: true });
+                                setRefreshToken((token) => token + 1);
+                            }}
                         />
 
                         <SupplierPaymentModal

@@ -50,16 +50,57 @@ export function formatDateTime(value) {
     });
 }
 
-/** KM: không cộng vào tiền cần trả lúc nhập. */
-export function isNonPayableImportLine(line) {
-    return Boolean(line?.isPromotion);
+/** KM: không cộng vào tiền cần trả. Bán thử: cộng vào công nợ lúc nhập. */
+export function resolveLineType(line) {
+    if (!line) return 'REGULAR';
+    if (line.lineType === 'TRIAL' || line.isTrial) return 'TRIAL';
+    if (line.lineType === 'PROMOTION' || line.isPromotion) return 'PROMOTION';
+    return line.lineType === 'REGULAR' ? 'REGULAR' : 'REGULAR';
 }
 
+export function isTrialLine(line) {
+    return resolveLineType(line) === 'TRIAL';
+}
+
+export function isPromotionLine(line) {
+    return resolveLineType(line) === 'PROMOTION';
+}
+
+export function isNonPayableImportLine(line) {
+    return isPromotionLine(line);
+}
+
+/** Tiền cần trả lúc nhập: hàng thường + bán thử (không gồm KM). */
 export function computeLineTotal(line) {
     if (isNonPayableImportLine(line)) return 0;
     const quantity = Number(line.quantity) || 0;
     const costPerUnit = Number(line.costPerUnit) || 0;
     return quantity * costPerUnit;
+}
+
+/**
+ * Thành tiền hiển thị trên dòng: KM = 0; bán thử OPEN = qty × giá;
+ * bán thử đã quyết toán lấy lineTotal đã ghi.
+ */
+export function computeDisplayLineTotal(line) {
+    if (isPromotionLine(line)) return 0;
+    const quantity = Number(line.quantity) || 0;
+    const costPerUnit = Number(line.costPerUnit) || 0;
+    if (isTrialLine(line) && line.trialStatus === 'SETTLED') {
+        return Number(line.lineTotal) || 0;
+    }
+    return quantity * costPerUnit;
+}
+
+export function computeGoodsTotal(lines) {
+    return (lines || []).reduce((sum, line) => sum + computeDisplayLineTotal(line), 0);
+}
+
+export function computeOpenTrialAmount(lines) {
+    return (lines || []).reduce((sum, line) => {
+        if (!isTrialLine(line) || line.trialStatus === 'SETTLED') return sum;
+        return sum + (Number(line.quantity) || 0) * (Number(line.costPerUnit) || 0);
+    }, 0);
 }
 
 /** Đơn giá gợi ý = giá / ĐVT cơ bản × hệ số ĐVT đang chọn. */
@@ -74,7 +115,7 @@ export function suggestCostForUnit(lastCostPerBase, unitBase) {
  * @returns {{ level: 'warn', message: string } | null}
  */
 export function getLinePriceWarning(line) {
-    if (!line || line.isPromotion) return null;
+    if (!line || isPromotionLine(line)) return null;
 
     const unitBase = Number(line.unitBase) > 0 ? Number(line.unitBase) : 1;
     const costPerUnit = Number(line.costPerUnit) || 0;
@@ -170,16 +211,6 @@ export function searchProducts(products, keyword) {
             product.productCode.toLowerCase().includes(normalized) ||
             product.barcode?.includes(normalized),
     );
-}
-
-export function formatProductAttributes(attributes) {
-    if (!Array.isArray(attributes) || attributes.length === 0) {
-        return '';
-    }
-    return attributes
-        .filter((item) => item?.name && item?.value)
-        .map((item) => `${item.name} ${item.value}`)
-        .join(' · ');
 }
 
 /** Kệ trống hoặc đang chứa đúng loại SP (quy tắc 1 kệ = 1 SP) */

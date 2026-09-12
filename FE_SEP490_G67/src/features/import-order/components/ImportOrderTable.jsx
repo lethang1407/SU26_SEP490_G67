@@ -72,6 +72,9 @@ export default function ImportOrderTable({
                                                 {order.orderCode}
                                             </span>
                                         )}
+                                        {order.hasOpenTrial ? (
+                                            <span className="ioc-trial-badge">Bán thử</span>
+                                        ) : null}
                                     </td>
                                     <td
                                         className="supplier-table__nowrap"

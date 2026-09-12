@@ -85,8 +85,17 @@ public class CreateImportOrderRequest {
 
         /**
          * true = hàng KM / trả thưởng: lineTotal = 0, vẫn nhập kho.
-         * null được coi là false.
+         * null được coi là false. Nếu lineType = TRIAL thì bỏ qua.
          */
         Boolean isPromotion;
+
+        /**
+         * REGULAR | PROMOTION | TRIAL.
+         * TRIAL = hàng bán thử: nhập kho, ghi công nợ theo giá thỏa thuận, quyết toán khi NCC đến.
+         */
+        String lineType;
+
+        /** true = bán thử. Có thể dùng thay cho lineType = TRIAL. */
+        Boolean isTrial;
     }
 }

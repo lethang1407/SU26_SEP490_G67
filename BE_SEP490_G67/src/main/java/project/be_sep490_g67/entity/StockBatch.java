@@ -3,6 +3,7 @@ package project.be_sep490_g67.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
@@ -30,6 +31,11 @@ public class StockBatch extends BaseEntity {
     @JoinColumn(name = "import_order_id")
     private ImportOrder importOrder;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @OnDelete(action = OnDeleteAction.SET_NULL)
+    @JoinColumn(name = "import_order_detail_id")
+    private ImportOrderDetail importOrderDetail;
+
     /** Mã lô: L + ddMMyy + "-" + STT trong ngày (vd L210826-01). */
     @Column(name = "batch_code", nullable = false, length = 50)
     private String batchCode;
@@ -48,6 +54,10 @@ public class StockBatch extends BaseEntity {
 
     @Column(name = "batch_note")
     private String batchNote;
+
+    @ColumnDefault("0")
+    @Column(name = "is_trial", nullable = false)
+    private Boolean isTrial = false;
 
     @OneToMany(mappedBy = "batch")
     private Set<BatchLocation> batchLocations = new LinkedHashSet<>();

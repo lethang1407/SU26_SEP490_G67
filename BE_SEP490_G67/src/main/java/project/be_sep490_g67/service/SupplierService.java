@@ -18,6 +18,7 @@ import project.be_sep490_g67.entity.Supplier;
 import project.be_sep490_g67.entity.User;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
+import project.be_sep490_g67.repository.ImportOrderDetailRepository;
 import project.be_sep490_g67.repository.ImportOrderRepository;
 import project.be_sep490_g67.repository.SupplierPaymentRepository;
 import project.be_sep490_g67.repository.SupplierRepository;
@@ -41,6 +42,7 @@ public class SupplierService {
 
     SupplierRepository supplierRepository;
     ImportOrderRepository importOrderRepository;
+    ImportOrderDetailRepository importOrderDetailRepository;
     SupplierPaymentRepository supplierPaymentRepository;
     UserRepository userRepository;
 
@@ -180,6 +182,13 @@ public class SupplierService {
 
             if (remaining.compareTo(BigDecimal.ZERO) > 0) {
                 debtPerSupplier.merge(order.getSupplier().getId(), remaining, BigDecimal::add);
+            }
+        }
+        for (Object[] row : importOrderDetailRepository.sumUnbookedOpenTrialGroupedBySupplier()) {
+            Integer supplierId = (Integer) row[0];
+            BigDecimal unbooked = row[1] instanceof BigDecimal value ? value : BigDecimal.ZERO;
+            if (supplierId != null && unbooked.compareTo(BigDecimal.ZERO) > 0) {
+                debtPerSupplier.merge(supplierId, unbooked, BigDecimal::add);
             }
         }
         return debtPerSupplier;

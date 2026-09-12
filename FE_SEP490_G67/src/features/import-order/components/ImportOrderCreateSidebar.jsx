@@ -25,6 +25,7 @@ export default function ImportOrderCreateSidebar({
     invoiceImageName = '',
     uploadingInvoiceImage = false,
     totalAmount,
+    openTrialAmount = 0,
     discountAmount,
     returnDeductionAmount = 0,
     amountDue,
@@ -39,6 +40,7 @@ export default function ImportOrderCreateSidebar({
     onNoteChange,
     onInvoiceImageChange,
     onClearInvoiceImage,
+    invoiceOptional = false,
     onDiscountAmountChange,
     onPaidAmountChange,
     onSaveDraft,
@@ -105,6 +107,7 @@ export default function ImportOrderCreateSidebar({
     const idleResults = useMemo(() => suppliers.slice(0, 5), [suppliers]);
     const isQuerying = supplierKeyword.trim().length >= MIN_QUERY_LENGTH;
     const showDropdown = supplierOpen && !supplier;
+    const maxPaidNow = Math.max((Number(amountDue) || 0) - (Number(openTrialAmount) || 0), 0);
 
     return (
         <aside className="ioc-sidebar">
@@ -206,6 +209,13 @@ export default function ImportOrderCreateSidebar({
                     <strong>{formatCurrency(totalAmount)}</strong>
                 </div>
 
+                {openTrialAmount > 0 ? (
+                    <div className="ioc-sidebar__summary-row ioc-sidebar__summary-row--trial">
+                        <span>Hàng bán thử (ghi công nợ)</span>
+                        <strong>{formatCurrency(openTrialAmount)}</strong>
+                    </div>
+                ) : null}
+
                 <div className="ioc-sidebar__discount-row">
                     <span>Giảm giá</span>
                     <div className="ioc-sidebar__discount-input">
@@ -239,7 +249,7 @@ export default function ImportOrderCreateSidebar({
                     </div>
                 )}
 
-                {amountDue > 0 && (
+                {maxPaidNow > 0 ? (
                     <>
                         <div className="ioc-sidebar__discount-row">
                             <span>Tiền trả nhà cung cấp</span>
@@ -254,13 +264,21 @@ export default function ImportOrderCreateSidebar({
                                 <span className="ioc-sidebar__discount-unit">đ</span>
                             </div>
                         </div>
-
-                        <div className="ioc-sidebar__summary-row ioc-sidebar__summary-row--debt">
-                            <span>Tính vào công nợ</span>
-                            <strong>{formatCurrency(debtAmount)}</strong>
-                        </div>
                     </>
-                )}
+                ) : null}
+
+                {openTrialAmount > 0 ? (
+                    <p className="ioc-sidebar__upload-hint">
+                        Tiền bán thử trả khi nhân viên NCC đến quyết toán, không trả lúc nhập.
+                    </p>
+                ) : null}
+
+                {amountDue > 0 ? (
+                    <div className="ioc-sidebar__summary-row ioc-sidebar__summary-row--debt">
+                        <span>Tính vào công nợ</span>
+                        <strong>{formatCurrency(debtAmount)}</strong>
+                    </div>
+                ) : null}
             </div>
 
             <div className="ioc-sidebar__field">
@@ -348,7 +366,11 @@ export default function ImportOrderCreateSidebar({
                     </label>
                 )}
                 {!invoiceImageUrl && (
-                    <p className="ioc-sidebar__upload-hint">Tối đa 5MB · JPG, PNG, WebP</p>
+                    <p className="ioc-sidebar__upload-hint">
+                        {invoiceOptional
+                            ? 'Không bắt buộc với phiếu chỉ có hàng bán thử / KM'
+                            : 'Tối đa 5MB · JPG, PNG, WebP'}
+                    </p>
                 )}
             </div>
 

@@ -56,6 +56,8 @@ public class ProductDetailResponse {
         private String status;
         @Builder.Default
         private List<AttributeResponse> attributes = new ArrayList<>();
+        @Builder.Default
+        private List<UnitResponse> units = new ArrayList<>();
     }
 
     @Data

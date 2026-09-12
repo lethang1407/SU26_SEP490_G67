@@ -205,6 +205,60 @@ export function mapProductEditView(detail) {
     };
 }
 
+/** Form thêm/sửa SP → body UpsertProductRequest (kèm mảng units). */
+export function toUpsertPayload(formData) {
+  const costPrice = Number(formData.costPrice || 0);
+  const sellingPrice = Number(formData.sellingPrice || 0);
+  const baseUnitName = formData.baseUnit?.trim() || 'Chai';
+
+  const abs = { [baseUnitName]: 1 };
+  for (const u of formData.conversionUnits || []) {
+    if (!u.unitName?.trim()) continue;
+    const ref = u.ofUnit || baseUnitName;
+    const refAbs = abs[ref] || 1;
+    const rawQty = parseFloat(u.qty) || 1;
+    const effectiveRatio = u.isReversed ? rawQty : (rawQty > 0 ? 1 / rawQty : 1);
+    abs[u.unitName.trim()] = effectiveRatio * refAbs;
+  }
+
+  const units = [
+    {
+      name: baseUnitName,
+      unitBase: 1,
+      sellingPrice,
+      isBase: true,
+    },
+    ...(formData.conversionUnits || [])
+      .filter((u) => u.unitName?.trim())
+      .map((u) => {
+        const name = u.unitName.trim();
+        return {
+          name,
+          unitBase: abs[name] != null ? abs[name] : 1,
+          sellingPrice: Number(u.sellPrice) || 0,
+          isBase: false,
+        };
+      }),
+  ];
+
+  return {
+    name: formData.name,
+    sku: formData.sku || null,
+    barcode: formData.barcode || null,
+    categoryId: Number(formData.categoryId),
+    brand: formData.brand || null,
+    description: formData.description || null,
+    status: formData.isActive ? 'active' : (formData.status || 'inactive'),
+    costPrice,
+    sellingPrice,
+    vatPercent: Number(formData.vatPercent) || 0,
+    units,
+    attributes: (formData.attributes || [])
+      .filter((a) => a.name?.trim() && a.value?.trim())
+      .map((a) => ({ name: a.name.trim(), value: a.value.trim() })),
+  };
+}
+
 export function buildCreatePayload(formData) {
     const attributes = (formData.attributes ?? [])
         .filter((item) => item.name?.trim() || item.value?.trim())

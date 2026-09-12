@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom';
 import { Pencil, Trash2 } from 'lucide-react';
 import ImportOrderInfoTab from './ImportOrderInfoTab';
 import ImportOrderPaymentHistoryTab from './ImportOrderPaymentHistoryTab';
+import ImportTrialHistory from './ImportTrialHistory';
 import ImportOrderAlertModal from './ImportOrderAlertModal';
 import { importOrdersApi } from '../api';
 import { ORDER_STATUS } from '../constants';
 
 const TABS = [
     { id: 'info', label: 'Thông tin' },
+    { id: 'trial', label: 'Lịch sử bán thử' },
     { id: 'payments', label: 'Lịch sử thanh toán' },
 ];
 
@@ -92,7 +94,13 @@ export default function ImportOrderExpandPanel({ orderId, onDraftCancelled }) {
 
     const isDraft = order.orderStatus === ORDER_STATUS.DRAFT;
     const hasPayments = Number(order.paidAmount) > 0;
-    const visibleTabs = hasPayments ? TABS : TABS.filter((tab) => tab.id !== 'payments');
+    const trialSettlements = order.trialSettlements || [];
+    const hasTrialHistory = trialSettlements.length > 0;
+    const visibleTabs = TABS.filter((tab) => {
+        if (tab.id === 'payments') return hasPayments;
+        if (tab.id === 'trial') return hasTrialHistory;
+        return true;
+    });
     const currentTab = visibleTabs.some((tab) => tab.id === activeTab) ? activeTab : 'info';
 
     return (
@@ -118,7 +126,10 @@ export default function ImportOrderExpandPanel({ orderId, onDraftCancelled }) {
 
             <div className="import-order-expand__panel" role="tabpanel">
                 {currentTab === 'info' && (
-                    <ImportOrderInfoTab order={order} />
+                    <ImportOrderInfoTab order={order} showTrialHistory={false} />
+                )}
+                {currentTab === 'trial' && hasTrialHistory && (
+                    <ImportTrialHistory settlements={trialSettlements} />
                 )}
                 {currentTab === 'payments' && hasPayments && (
                     <ImportOrderPaymentHistoryTab orderId={orderId} />

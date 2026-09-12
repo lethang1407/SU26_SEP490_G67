@@ -139,6 +139,11 @@ export default function SupplierExpandPanel({
                     setEditError('');
                     setEditOpen(true);
                 }}
+                onTrialSettled={() => {
+                    fetchSupplier({ silent: true });
+                    setRefreshToken((token) => token + 1);
+                    onPaymentSuccess?.();
+                }}
             />
 
             <SupplierPaymentModal

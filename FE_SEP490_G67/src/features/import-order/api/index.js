@@ -46,6 +46,21 @@ export const importOrdersApi = {
         return response.result ?? [];
     },
 
+    previewTrialSettlement: async (id) => {
+        const response = await api.get(`/import-orders/${id}/trial-preview`);
+        return response.result;
+    },
+
+    settleTrial: async (id, payload) => {
+        const response = await api.post(`/import-orders/${id}/trial-settle`, payload);
+        return response.result;
+    },
+
+    getTrialSettlements: async (id) => {
+        const response = await api.get(`/import-orders/${id}/trial-settlements`);
+        return response.result ?? [];
+    },
+
     cancelDraftImportOrder: async (id) => {
         const response = await api.delete(`/import-orders/${id}`);
         return response;

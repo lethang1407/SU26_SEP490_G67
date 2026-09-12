@@ -37,6 +37,16 @@ export const suppliersApi = {
         return response.result;
     },
 
+    getOpenTrial: async (supplierId) => {
+        const response = await api.get(`/suppliers/${supplierId}/trial-open`);
+        return response.result ?? [];
+    },
+
+    getTrialHistory: async (supplierId) => {
+        const response = await api.get(`/suppliers/${supplierId}/trial-history`);
+        return response.result ?? [];
+    },
+
     getImportOrderDetail: async (orderId) => {
         const response = await api.get(`/import-orders/${orderId}`);
         return response.result;

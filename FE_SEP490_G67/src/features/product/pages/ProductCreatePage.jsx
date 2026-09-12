@@ -2,53 +2,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import ProductCreateForm from '../components/ProductCreateForm';
-import { productsApi } from '../api';
+import { productsApi, toUpsertPayload } from '../api';
 import { categoriesApi } from '../../category/api';
 import { ADD_PRODUCT_FORM_ID, PRODUCT_ROUTES } from '../constants';
 import '../../../css/AdminDashboard.css';
 import '../../../css/AddProduct.css';
-
-function toUpsertPayload(formData) {
-  const costPrice = Number(formData.costPrice || 0);
-  const sellingPrice = Number(formData.sellingPrice || 0);
-  const baseUnitName = formData.baseUnit?.trim() || 'Chai';
-
-  const units = [
-    {
-      name: baseUnitName,
-      unitBase: 1,
-      sellingPrice: sellingPrice,
-      isBase: true,
-    },
-    ...(formData.conversionUnits || []).map((u) => {
-      const rawQty = parseFloat(u.qty) || 1;
-      const unitBase = u.isReversed ? rawQty : (rawQty > 0 ? 1 / rawQty : 1);
-      return {
-        name: u.unitName?.trim() || 'Đơn vị',
-        unitBase: unitBase,
-        sellingPrice: Number(u.sellPrice) || 0,
-        isBase: false,
-      };
-    }),
-  ];
-
-  return {
-    name: formData.name,
-    sku: formData.sku || null,
-    barcode: formData.barcode || null,
-    categoryId: Number(formData.categoryId),
-    brand: formData.brand || null,
-    description: formData.description || null,
-    status: formData.isActive ? 'active' : 'inactive',
-    costPrice: costPrice,
-    sellingPrice: sellingPrice,
-    vatPercent: Number(formData.vatPercent) || 0,
-    units,
-    attributes: (formData.attributes || [])
-      .filter((a) => a.name?.trim() && a.value?.trim())
-      .map((a) => ({ name: a.name.trim(), value: a.value.trim() })),
-  };
-}
 
 export default function ProductCreatePage() {
   const navigate = useNavigate();

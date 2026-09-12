@@ -16,7 +16,13 @@ import {
 } from '../utils/importReturnAttachUtils';
 import { ORDER_STATUS } from '../constants';
 import { uploadInvoiceImage } from '@/lib/cloudinary';
-import { suggestCostForUnit } from '../utils/importOrderUtils';
+import {
+    suggestCostForUnit,
+    resolveLineType,
+    isNonPayableImportLine,
+    computeGoodsTotal,
+    computeOpenTrialAmount,
+} from '../utils/importOrderUtils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Supplier.css';
 import '../../../css/ImportOrder.css';
@@ -58,6 +64,7 @@ function buildFormSnapshot({
             expiryDate: line.expiryDate || '',
             note: line.note?.trim() || '',
             isPromotion: Boolean(line.isPromotion),
+            lineType: resolveLineType(line),
         })),
     });
 }
@@ -65,7 +72,7 @@ function buildFormSnapshot({
 function normalizeProductUnits(productUnits) {
     return (productUnits || []).map((unit) => ({
         id: unit.id,
-        name: unit.name || 'Cái',
+        name: unit.name || 'Chai',
         unitBase: Number(unit.unitBase) || 1,
     }));
 }
@@ -73,7 +80,7 @@ function normalizeProductUnits(productUnits) {
 function pickDefaultProductUnit(productUnits) {
     const units = normalizeProductUnits(productUnits);
     if (units.length === 0) {
-        return { id: null, name: 'Cái', unitBase: 1 };
+        return { id: null, name: 'Chai', unitBase: 1 };
     }
     return units.find((unit) => unit.unitBase === 1) || units[0];
 }
@@ -101,6 +108,10 @@ function createLineFromProduct(product) {
         expiryDate: '',
         note: '',
         isPromotion: false,
+        isTrial: false,
+        lineType: 'REGULAR',
+        alreadyInStore:
+            Boolean(product.alreadyInStore) || Number(product.stockQuantity) > 0,
     };
 }
 
@@ -127,7 +138,11 @@ function mapDetailLine(item) {
         costPerUnit: Number(item.costPerUnit) || 0,
         expiryDate: item.expiryDate || '',
         note: item.note || '',
-        isPromotion: Boolean(item.isPromotion),
+        isPromotion: Boolean(item.isPromotion) || item.lineType === 'PROMOTION',
+        isTrial: Boolean(item.isTrial) || item.lineType === 'TRIAL',
+        lineType: item.lineType || (item.isTrial ? 'TRIAL' : item.isPromotion ? 'PROMOTION' : 'REGULAR'),
+        alreadyInStore: Boolean(item.alreadyInStore),
+        trialStatus: item.trialStatus || '',
     };
 }
 
@@ -171,7 +186,9 @@ function toApiPayload(orderStatus, {
             costPerUnit: Number(line.costPerUnit) || 0,
             expiryDate: line.expiryDate || null,
             note: line.note?.trim() || null,
-            isPromotion: Boolean(line.isPromotion),
+            isPromotion: resolveLineType(line) === 'PROMOTION',
+            isTrial: resolveLineType(line) === 'TRIAL',
+            lineType: resolveLineType(line),
         })),
     };
 }
@@ -215,9 +232,10 @@ export default function CreateImportOrderPage() {
     const [loadingReturns, setLoadingReturns] = useState(false);
 
     const displayLines = useMemo(() => {
-        const paid = lines.filter((line) => !line.isPromotion);
-        const promo = lines.filter((line) => line.isPromotion);
-        return [...paid, ...promo];
+        const regular = lines.filter((line) => resolveLineType(line) === 'REGULAR');
+        const trial = lines.filter((line) => resolveLineType(line) === 'TRIAL');
+        const promo = lines.filter((line) => resolveLineType(line) === 'PROMOTION');
+        return [...regular, ...trial, ...promo];
     }, [lines]);
 
     const allowNavigateRef = useRef(false);
@@ -244,27 +262,34 @@ export default function CreateImportOrderPage() {
         });
     };
 
-    const importItemCount = useMemo(
-        () => lines.filter((line) => !line.isPromotion).length,
+    const hasRegularPayable = useMemo(
+        () => lines.some((line) => resolveLineType(line) === 'REGULAR'),
         [lines],
     );
-    const totalAmount = useMemo(
+    const importItemCount = useMemo(
+        () => lines.filter((line) => resolveLineType(line) !== 'PROMOTION').length,
+        [lines],
+    );
+    const payableAmount = useMemo(
         () =>
             lines.reduce((sum, line) => {
-                if (line.isPromotion) return sum;
+                if (isNonPayableImportLine(line)) return sum;
                 return sum + (Number(line.quantity) || 0) * (Number(line.costPerUnit) || 0);
             }, 0),
         [lines],
     );
-    const safeDiscount = Math.min(Math.max(Number(discountAmount) || 0, 0), totalAmount);
+    const goodsAmount = useMemo(() => computeGoodsTotal(lines), [lines]);
+    const openTrialAmount = useMemo(() => computeOpenTrialAmount(lines), [lines]);
+    const safeDiscount = Math.min(Math.max(Number(discountAmount) || 0, 0), payableAmount);
     const returnDeductionAmount = useMemo(
         () => selectedReturnDeduction(pendingReturnLines, selectedReturnLineKeys),
         [pendingReturnLines, selectedReturnLineKeys],
     );
-    const settlementNet = totalAmount - safeDiscount - returnDeductionAmount;
+    const settlementNet = payableAmount - safeDiscount - returnDeductionAmount;
     const amountDue = Math.max(settlementNet, 0);
     const supplierRefundAmount = Math.max(-settlementNet, 0);
-    const safePaidAmount = Math.min(Math.max(Number(paidAmount) || 0, 0), amountDue);
+    const maxPaidAtImport = Math.max(amountDue - openTrialAmount, 0);
+    const safePaidAmount = Math.min(Math.max(Number(paidAmount) || 0, 0), maxPaidAtImport);
     const debtAmount = Math.max(amountDue - safePaidAmount, 0);
 
     const formSnapshot = useMemo(
@@ -509,46 +534,57 @@ export default function CreateImportOrderPage() {
         };
     }, [supplier?.id, editId, isEditMode]);
 
+    const defaultPaidAmount = Math.max(amountDue - openTrialAmount, 0);
+
     useEffect(() => {
         if (!paidAmountTouchedRef.current) {
-            // Mặc định: trả đủ theo tổng cần trả NCC (tổng tiền − giảm giá)
-            setPaidAmount(amountDue);
+            // Mặc định trả phần hàng thường; bán thử để công nợ đến khi quyết toán.
+            setPaidAmount(defaultPaidAmount);
             return;
         }
-        // Đã sửa tay: chỉ kẹp trong khoảng hợp lệ khi tổng thay đổi
-        setPaidAmount((prev) => Math.min(Math.max(Number(prev) || 0, 0), amountDue));
-    }, [amountDue]);
+        setPaidAmount((prev) => Math.min(Math.max(Number(prev) || 0, 0), maxPaidAtImport));
+    }, [amountDue, defaultPaidAmount, maxPaidAtImport]);
 
     const handleDiscountAmountChange = (value) => {
         const parsed = Math.max(0, Number(value) || 0);
-        setDiscountAmount(Math.min(parsed, totalAmount));
+        setDiscountAmount(Math.min(parsed, payableAmount));
     };
 
     const handlePaidAmountChange = (value) => {
         paidAmountTouchedRef.current = true;
         const parsed = Math.max(0, Number(value) || 0);
-        setPaidAmount(Math.min(parsed, amountDue));
+        setPaidAmount(Math.min(parsed, maxPaidAtImport));
+    };
+
+    const handleSelectProducts = (products) => {
+        const list = (Array.isArray(products) ? products : [products]).filter(Boolean);
+        if (list.length === 0) return;
+        setLines((prev) => {
+            let next = prev;
+            list.forEach((product) => {
+                const newLine = createLineFromProduct(product);
+                const existing = next.find(
+                    (line) =>
+                        line.productId === product.id &&
+                        line.productUnitId === newLine.productUnitId &&
+                        resolveLineType(line) === 'REGULAR',
+                );
+                if (existing) {
+                    next = next.map((line) =>
+                        line.key === existing.key
+                            ? { ...line, quantity: (Number(line.quantity) || 0) + 1 }
+                            : line,
+                    );
+                } else {
+                    next = [...next, newLine];
+                }
+            });
+            return next;
+        });
     };
 
     const handleSelectProduct = (product) => {
-        setLines((prev) => {
-            const newLine = createLineFromProduct(product);
-            // Chỉ cộng dồn dòng hàng thường cùng SP/ĐVT — không gộp vào dòng KM.
-            const existing = prev.find(
-                (line) =>
-                    line.productId === product.id &&
-                    line.productUnitId === newLine.productUnitId &&
-                    !line.isPromotion,
-            );
-            if (existing) {
-                return prev.map((line) =>
-                    line.key === existing.key
-                        ? { ...line, quantity: (Number(line.quantity) || 0) + 1 }
-                        : line,
-                );
-            }
-            return [...prev, newLine];
-        });
+        handleSelectProducts([product]);
     };
 
     const preselectAppliedRef = useRef(false);
@@ -578,15 +614,25 @@ export default function CreateImportOrderPage() {
 
             const nextPatch = { ...patch };
             const merged = { ...current, ...nextPatch };
-            const togglingFlag = typeof patch.isPromotion === 'boolean';
+            const nextType = resolveLineType(merged);
 
-            if (togglingFlag) {
+            if (nextType === 'TRIAL' && current.alreadyInStore) {
+                showAlertModal(
+                    'Hàng bán thử',
+                    'Chỉ dùng cho sản phẩm mới, chưa từng có ở cửa hàng.',
+                );
+                return prev;
+            }
+
+            const togglingType = typeof patch.lineType === 'string' || typeof patch.isPromotion === 'boolean';
+
+            if (togglingType) {
                 const sibling = prev.find(
                     (line) =>
                         line.key !== key &&
                         line.productId === merged.productId &&
                         line.productUnitId === merged.productUnitId &&
-                        Boolean(line.isPromotion) === Boolean(merged.isPromotion),
+                        resolveLineType(line) === nextType,
                 );
                 if (sibling) {
                     return prev
@@ -750,6 +796,16 @@ export default function CreateImportOrderPage() {
             showAlertModal(
                 'Dòng hàng chưa hợp lệ',
                 'Có dòng hàng chưa hợp lệ. Kiểm tra đơn vị tính và số lượng.',
+            );
+            return false;
+        }
+        const trialWithoutPrice = lines.find(
+            (line) => resolveLineType(line) === 'TRIAL' && (Number(line.costPerUnit) || 0) <= 0,
+        );
+        if (trialWithoutPrice) {
+            showAlertModal(
+                'Hàng bán thử',
+                'Hàng bán thử phải nhập giá thỏa thuận với nhân viên nhà cung cấp để ghi công nợ.',
             );
             return false;
         }
@@ -960,7 +1016,10 @@ export default function CreateImportOrderPage() {
                     ) : (
                         <div className="ioc-layout">
                             <section className="ioc-main">
-                                <ImportOrderProductSearch onSelect={handleSelectProduct} />
+                                <ImportOrderProductSearch
+                                    onSelect={handleSelectProduct}
+                                    onSelectMany={handleSelectProducts}
+                                />
                                 <section className="ioc-section ioc-section--import">
                                     <header className="ioc-section__head">
                                         <div>
@@ -993,7 +1052,8 @@ export default function CreateImportOrderPage() {
                                 invoiceImageUrl={invoiceImageUrl}
                                 invoiceImageName={invoiceImageName}
                                 uploadingInvoiceImage={uploadingInvoiceImage}
-                                totalAmount={totalAmount}
+                                totalAmount={goodsAmount}
+                                openTrialAmount={openTrialAmount}
                                 importItemCount={importItemCount}
                                 discountAmount={safeDiscount}
                                 returnDeductionAmount={returnDeductionAmount}
@@ -1011,6 +1071,7 @@ export default function CreateImportOrderPage() {
                                 onNoteChange={setNote}
                                 onInvoiceImageChange={handleInvoiceImageChange}
                                 onClearInvoiceImage={handleClearInvoiceImage}
+                                invoiceOptional={!hasRegularPayable}
                                 onDiscountAmountChange={handleDiscountAmountChange}
                                 onPaidAmountChange={handlePaidAmountChange}
                                 onSaveDraft={() => submitOrder(ORDER_STATUS.DRAFT)}

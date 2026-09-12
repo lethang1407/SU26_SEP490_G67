@@ -11,6 +11,7 @@ public final class ImportOrderConstants {
     public static final String ORDER_STATUS_IMPORTED = "IMPORTED";
 
     public static final String PAYMENT_STATUS_DEBT = "DEBT";
+    public static final String PAYMENT_STATUS_PENDING_SETTLEMENT = "PENDING_SETTLEMENT";
     public static final String PAYMENT_STATUS_DONE = "DONE";
 
     /**

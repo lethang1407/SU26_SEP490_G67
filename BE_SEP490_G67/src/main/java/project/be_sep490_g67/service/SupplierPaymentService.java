@@ -18,6 +18,7 @@ import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.constants.ImportOrderConstants;
 import project.be_sep490_g67.repository.ImportOrderRepository;
+import project.be_sep490_g67.repository.ImportOrderDetailRepository;
 import project.be_sep490_g67.repository.SupplierPaymentRepository;
 import project.be_sep490_g67.repository.SupplierRepository;
 
@@ -40,6 +41,7 @@ public class SupplierPaymentService {
 
     SupplierRepository supplierRepository;
     ImportOrderRepository importOrderRepository;
+    ImportOrderDetailRepository importOrderDetailRepository;
     SupplierPaymentRepository supplierPaymentRepository;
 
     @Transactional
@@ -173,7 +175,11 @@ public class SupplierPaymentService {
         if (paidSoFar == null) {
             paidSoFar = BigDecimal.ZERO;
         }
-        return totalCost.subtract(paidSoFar).max(BigDecimal.ZERO);
+        BigDecimal openTrial = importOrderDetailRepository.sumOpenTrialAmountByOrderId(order.getId());
+        if (openTrial == null) {
+            openTrial = BigDecimal.ZERO;
+        }
+        return totalCost.subtract(paidSoFar).subtract(openTrial).max(BigDecimal.ZERO);
     }
 
     @Transactional(readOnly = true)

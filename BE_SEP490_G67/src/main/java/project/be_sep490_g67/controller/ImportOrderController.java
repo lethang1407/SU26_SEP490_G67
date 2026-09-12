@@ -13,16 +13,20 @@ import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.request.CreateDraftFromSuggestRequest;
 import project.be_sep490_g67.dto.request.CreateImportOrderRequest;
 import project.be_sep490_g67.dto.request.ImportSuggestRequest;
+import project.be_sep490_g67.dto.request.SettleImportTrialRequest;
 import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.ImportOrderDetailResponse;
 import project.be_sep490_g67.dto.response.ImportOrderListItemResponse;
 import project.be_sep490_g67.dto.response.ImportOrderReturnLineResponse;
 import project.be_sep490_g67.dto.response.ImportOrderResponse;
 import project.be_sep490_g67.dto.response.ImportSuggestionResponse;
+import project.be_sep490_g67.dto.response.ImportTrialPreviewResponse;
+import project.be_sep490_g67.dto.response.ImportTrialSettleResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.dto.response.SupplierPaymentResponse;
 import project.be_sep490_g67.service.ImportOrderService;
 import project.be_sep490_g67.service.ImportSuggestionService;
+import project.be_sep490_g67.service.ImportTrialSettlementService;
 import project.be_sep490_g67.service.SupplierPaymentService;
 
 import java.time.LocalDate;
@@ -38,6 +42,7 @@ public class ImportOrderController {
     ImportSuggestionService importSuggestionService;
     ImportOrderService importOrderService;
     SupplierPaymentService supplierPaymentService;
+    ImportTrialSettlementService importTrialSettlementService;
 
     /**
      * Tạo 1 phiếu nhập (DRAFT hoặc IMPORTED). IMPORTED → tạo lô + tăng tồn.
@@ -106,8 +111,10 @@ public class ImportOrderController {
 
     @GetMapping("/{id}")
     public ApiResponse<ImportOrderDetailResponse> getImportOrderDetail(@PathVariable Integer id) {
+        ImportOrderDetailResponse result = importOrderService.getImportOrderDetail(id);
+        result.setTrialSettlements(importTrialSettlementService.listByOrder(id));
         return ApiResponse.<ImportOrderDetailResponse>builder()
-                .result(importOrderService.getImportOrderDetail(id))
+                .result(result)
                 .message("Lấy chi tiết đơn nhập hàng thành công")
                 .build();
     }
@@ -121,6 +128,33 @@ public class ImportOrderController {
         return ApiResponse.<PageResponse<SupplierPaymentResponse>>builder()
                 .result(supplierPaymentService.getPaymentHistoryByImportOrder(id, page, size))
                 .message("Lấy lịch sử thanh toán đơn nhập hàng thành công")
+                .build();
+    }
+
+    @GetMapping("/{id}/trial-preview")
+    public ApiResponse<ImportTrialPreviewResponse> previewTrialSettlement(@PathVariable Integer id) {
+        return ApiResponse.<ImportTrialPreviewResponse>builder()
+                .result(importTrialSettlementService.preview(id))
+                .message("Lấy thông tin quyết toán hàng bán thử thành công")
+                .build();
+    }
+
+    @PostMapping("/{id}/trial-settle")
+    public ApiResponse<ImportTrialSettleResponse> settleTrial(
+            @PathVariable Integer id,
+            @Valid @RequestBody SettleImportTrialRequest request
+    ) {
+        return ApiResponse.<ImportTrialSettleResponse>builder()
+                .result(importTrialSettlementService.settle(id, request))
+                .message("Quyết toán hàng bán thử thành công")
+                .build();
+    }
+
+    @GetMapping("/{id}/trial-settlements")
+    public ApiResponse<List<ImportTrialSettleResponse>> listTrialSettlements(@PathVariable Integer id) {
+        return ApiResponse.<List<ImportTrialSettleResponse>>builder()
+                .result(importTrialSettlementService.listByOrder(id))
+                .message("Lấy lịch sử quyết toán hàng bán thử thành công")
                 .build();
     }
 
