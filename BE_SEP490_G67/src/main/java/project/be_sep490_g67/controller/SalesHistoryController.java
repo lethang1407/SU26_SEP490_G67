@@ -45,7 +45,7 @@ public class SalesHistoryController {
     public ApiResponse<List<HourRevenueResponse>> hourly(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
     ) {
-        return ApiResponse.<List<HourRevenueResponse>>builder()
+        return ApiResponse.<List<HourevenueResponse>>builder()
                 .result(salesHistoryService.hourlyRevenue(date))
                 .message("Lấy doanh thu theo giờ thành công")
                 .build();

@@ -460,7 +460,7 @@ export default function ProductImportTable({
                         {renderOpenPoBadge(singleTarget, onOpenDraftPo)}
                       </div>
                       <div className="pi-td col-unit" style={{ color: '#475569' }}>
-                        {singleTarget.unitName || singleTarget.baseUnitName || '—'}
+                        {singleTarget.unitName || singleTarget.baseUnitName || 'N/A'}
                       </div>
                       <div className="pi-td col-cprod">
                         <div className="cprod">
@@ -475,8 +475,8 @@ export default function ProductImportTable({
                           </div>
                         </div>
                       </div>
-                      <div className="pi-td col-ps">{singleTarget.sellingPrice ? Number(singleTarget.sellingPrice).toLocaleString() : '—'}</div>
-                      <div className="pi-td col-pc">{singleTarget.costPrice ? Number(singleTarget.costPrice).toLocaleString() : '—'}</div>
+                      <div className="pi-td col-ps">{singleTarget.sellingPrice ? Number(singleTarget.sellingPrice).toLocaleString('vi-VN') : 'N/A'}</div>
+                      <div className="pi-td col-pc">{singleTarget.costPrice ? Number(singleTarget.costPrice).toLocaleString('vi-VN') : 'N/A'}</div>
                       <div className="pi-td col-st">{renderStockDisplay(singleTarget.onHand)}</div>
                       <div className="pi-td col-rt">{renderSalesPaceDisplay(singleTarget)}</div>
                       <div className="pi-td col-act" onClick={(e) => e.stopPropagation()}>
@@ -524,7 +524,7 @@ export default function ProductImportTable({
                       {renderOpenPoBadge(p, onOpenDraftPo)}
                     </div>
                     <div className="pi-td col-unit" style={{ color: '#475569' }}>
-                      {p.unitName || p.baseUnitName || '—'}
+                      {p.unitName || p.baseUnitName || 'N/A'}
                     </div>
                     <div className="pi-td col-cprod">
                       <div className="cprod">
@@ -540,10 +540,10 @@ export default function ProductImportTable({
                       </div>
                     </div>
                     <div className="pi-td col-ps">
-                      {p.sellingPrice ? Number(p.sellingPrice).toLocaleString() : '—'}
+                      {p.sellingPrice ? Number(p.sellingPrice).toLocaleString('vi-VN') : 'N/A'}
                     </div>
                     <div className="pi-td col-pc">
-                      {p.costPrice ? Number(p.costPrice).toLocaleString() : '—'}
+                      {p.costPrice ? Number(p.costPrice).toLocaleString('vi-VN') : 'N/A'}
                     </div>
                     <div className="pi-td col-st">{renderStockDisplay(p.onHand)}</div>
                     <div className="pi-td col-rt">{renderSalesPaceDisplay(p)}</div>
@@ -600,7 +600,7 @@ export default function ProductImportTable({
                                 {renderOpenPoBadge(child, onOpenDraftPo)}
                               </div>
                               <div className="pi-td col-unit" style={{ color: '#475569' }}>
-                                {child.unitName || p.unitName || '—'}
+                                {child.unitName || p.unitName || 'N/A'}
                               </div>
                               <div className="pi-td col-cprod">
                                 <div className="cprod">
@@ -627,10 +627,10 @@ export default function ProductImportTable({
                                 </div>
                               </div>
                               <div className="pi-td col-ps">
-                                {child.sellingPrice ? Number(child.sellingPrice).toLocaleString() : '—'}
+                                {child.sellingPrice ? Number(child.sellingPrice).toLocaleString('vi-VN') : 'N/A'}
                               </div>
                               <div className="pi-td col-pc">
-                                {child.costPrice ? Number(child.costPrice).toLocaleString() : '—'}
+                                {child.costPrice ? Number(child.costPrice).toLocaleString('vi-VN') : 'N/A'}
                               </div>
                               <div className="pi-td col-st">{renderStockDisplay(child.onHand)}</div>
                               <div className="pi-td col-rt">{renderSalesPaceDisplay(child)}</div>
@@ -681,7 +681,7 @@ export default function ProductImportTable({
                       {renderOpenPoBadge(p, onOpenDraftPo)}
                     </div>
                     <div className="pi-td col-unit" style={{ color: '#475569' }}>
-                      {p.unitName || p.baseUnitName || '—'}
+                      {p.unitName || p.baseUnitName || 'N/A'}
                     </div>
                     <div className="pi-td col-cprod">
                       <div className="cprod">
@@ -696,8 +696,8 @@ export default function ProductImportTable({
                         </div>
                       </div>
                     </div>
-                    <div className="pi-td col-ps">{p.sellingPrice ? Number(p.sellingPrice).toLocaleString() : '—'}</div>
-                    <div className="pi-td col-pc">{p.costPrice ? Number(p.costPrice).toLocaleString() : '—'}</div>
+                    <div className="pi-td col-ps">{p.sellingPrice ? Number(p.sellingPrice).toLocaleString('vi-VN') : 'N/A'}</div>
+                    <div className="pi-td col-pc">{p.costPrice ? Number(p.costPrice).toLocaleString('vi-VN') : 'N/A'}</div>
                     <div className="pi-td col-st">{renderStockDisplay(p.onHand)}</div>
                     <div className="pi-td col-rt">{renderSalesPaceDisplay(p)}</div>
                     <div className="pi-td col-act" onClick={(e) => e.stopPropagation()}>
