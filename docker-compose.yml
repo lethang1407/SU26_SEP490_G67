@@ -1,0 +1,49 @@
+services:
+  app:
+    build:
+      context: ./BE_SEP490_G67
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/dbdev?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=123
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - JWT_SECRETKEY=b06eea3bd9be960ac35d7b4a4267001d8d805d09da0861f2c7905e9e8d1aaaff
+      - INFOBIP_API_KEY=9b20ad842fea954b3833dd5328b0c412-1cb8061f-fed3-4a4c-8240-5279c65ee626
+      - CLOUDINARY_CLOUD_NAME=mediaflows_bbb5dea3-fc35-4ce0-99ca-9e97680ba854
+      - CLOUDINARY_API_KEY=954732741126347
+      - CLOUDINARY_API_SECRET=knJg9MUUpGlC9JEFInfv4f3Noz4
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: always
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=123
+      - MYSQL_DATABASE=dbdev
+      - MYSQL_USER=appuser
+      - MYSQL_PASSWORD=123
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p123"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: always
+
+  redis:
+    image: redis:7
+    volumes:
+      - redis_data:/data
+    restart: always
+
+volumes:
+  mysql_data:
+  redis_data:
