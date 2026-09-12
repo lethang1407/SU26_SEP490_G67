@@ -10,12 +10,10 @@ import {
 } from '../utils/importOrderUtils';
 import { mapPendingReturnLine } from '../utils/importReturnAttachUtils';
 import ImportOrderReturnSection from './ImportOrderReturnSection';
-import ImportTrialHistory from './ImportTrialHistory';
 
 export default function ImportOrderInfoTab({
     order,
     hideSupplierLink = false,
-    showTrialHistory = true,
 }) {
     const items = order.items || [];
     const regularItems = items.filter((item) => resolveLineType(item) === 'REGULAR');
@@ -46,7 +44,6 @@ export default function ImportOrderInfoTab({
         order.remainingDebt != null
             ? Math.max(remainingDebt + paidAmount, totalCost, netGoods)
             : Math.max(totalCost, netGoods);
-    const trialSettlements = order.trialSettlements || [];
     const totalQty = displayItems
         .filter((item) => resolveLineType(item) !== 'PROMOTION')
         .reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
@@ -264,15 +261,6 @@ export default function ImportOrderInfoTab({
                         variant="expand"
                     />
                 </div>
-            ) : null}
-
-            {showTrialHistory && trialSettlements.length > 0 ? (
-                <section className="import-order-expand__import-section">
-                    <header className="ioc-section__head">
-                        <h2 className="ioc-section__title">Lịch sử bán thử</h2>
-                    </header>
-                    <ImportTrialHistory settlements={trialSettlements} />
-                </section>
             ) : null}
 
             <div className="import-order-expand__footer">

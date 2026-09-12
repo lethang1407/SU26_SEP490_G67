@@ -1,9 +1,4 @@
-import { TRIAL_DECISION_LABEL } from '../constants';
 import { formatCurrency, formatDateTime, formatMoneyPlain } from '../utils/importOrderUtils';
-
-function decisionLabel(decision) {
-    return TRIAL_DECISION_LABEL[decision] || decision || '—';
-}
 
 function soldQtyOf(line) {
     const received = Number(line.receivedQty) || 0;
@@ -11,9 +6,29 @@ function soldQtyOf(line) {
     return Math.max(received - counted, 0);
 }
 
+function resultOf(line) {
+    const unit = line.unitName ? ` ${line.unitName}` : '';
+    const received = Number(line.receivedQty) || 0;
+    const sold = soldQtyOf(line);
+    const returned = Number(line.returnedQty) || 0;
+    const unsellable = Number(line.unsellableQty) || 0;
+    const kept = Math.max((Number(line.countedRemainingQty) || 0) - unsellable, 0);
+    const parts = [`Nhận ${received}${unit}`];
+    if (sold > 0) parts.push(`bán ${sold}`);
+    if (returned > 0) parts.push(`trả ${returned}`);
+    if (kept > 0 && returned <= 0) parts.push(`giữ ${kept}`);
+    if (unsellable > 0) parts.push(`hỏng ${unsellable}`);
+    return parts.join(', ');
+}
+
+function paymentOf(settlement) {
+    const remaining = Number(settlement.remainingDebt) || 0;
+    if (remaining > 0) return `Còn ${formatCurrency(remaining)}`;
+    return 'Đã trả';
+}
+
 export default function ImportTrialHistory({
     settlements = [],
-    showOrderCode = false,
     emptyText = 'Chưa có lần quyết toán bán thử.',
 }) {
     if (!settlements.length) {
@@ -21,77 +36,61 @@ export default function ImportTrialHistory({
     }
 
     return (
-        <div className="import-trial-history">
-            {settlements.map((settlement, index) => (
-                <article
-                    key={settlement.id || `${settlement.importOrderId || 'order'}-${settlement.settledAt || index}`}
-                    className="supplier-trial-card import-trial-history__card"
-                >
-                    <div className="supplier-trial-card__head">
-                        <div>
-                            {showOrderCode ? (
-                                <div className="supplier-trial-card__code">
-                                    {settlement.orderCode || '—'}
-                                </div>
-                            ) : (
-                                <div className="supplier-trial-card__code">
-                                    Quyết toán lần {settlements.length - index}
-                                </div>
-                            )}
-                            <div className="supplier-trial-card__meta">
-                                {formatDateTime(settlement.settledAt)}
-                            </div>
-                        </div>
-                        <div className="import-trial-history__totals">
-                            <div>
-                                Phải trả: <strong>{formatCurrency(settlement.payableAmount)}</strong>
-                            </div>
-                            <div>
-                                Đã trả: <strong>{formatCurrency(settlement.paidAmount)}</strong>
-                            </div>
-                            {Number(settlement.remainingDebt) > 0 ? (
-                                <div>
-                                    Còn nợ lần này:{' '}
-                                    <strong>{formatCurrency(settlement.remainingDebt)}</strong>
-                                </div>
-                            ) : null}
-                        </div>
-                    </div>
-
-                    <div className="import-order-expand__table-wrap">
-                        <table className="import-order-expand__table trial-settle-table">
-                            <thead>
-                                <tr>
-                                    <th>Tên hàng</th>
-                                    <th>ĐVT</th>
-                                    <th className="trial-settle-table__num">Nhận</th>
-                                    <th className="trial-settle-table__num">Đã bán</th>
-                                    <th className="trial-settle-table__num">Trả NCC</th>
-                                    <th className="trial-settle-table__num">Hỏng</th>
-                                    <th>Quyết định</th>
-                                    <th className="trial-settle-table__num">Tiền</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {(settlement.lines || []).map((line) => (
-                                    <tr key={line.importOrderDetailId || `${line.productId}-${line.productName}`}>
-                                        <td>{line.productName || '—'}</td>
-                                        <td>{line.unitName || '—'}</td>
-                                        <td className="trial-settle-table__num">{line.receivedQty ?? '—'}</td>
-                                        <td className="trial-settle-table__num">{soldQtyOf(line)}</td>
-                                        <td className="trial-settle-table__num">{line.returnedQty ?? 0}</td>
-                                        <td className="trial-settle-table__num">{line.unsellableQty ?? 0}</td>
-                                        <td>{decisionLabel(line.decision)}</td>
-                                        <td className="trial-settle-table__num">
-                                            {formatMoneyPlain(line.payableAmount)}
+        <div className="import-order-expand__table-wrap">
+            <table className="import-order-expand__table trial-settle-table import-trial-history-table">
+                <thead>
+                    <tr>
+                        <th>Ngày</th>
+                        <th>Phiếu</th>
+                        <th>Sản phẩm</th>
+                        <th>Kết quả</th>
+                        <th className="trial-settle-table__num">Tiền</th>
+                        <th>Thanh toán</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {settlements.map((settlement) => {
+                        const lines = settlement.lines?.length ? settlement.lines : [null];
+                        const rowSpan = lines.length;
+                        return lines.map((line, lineIndex) => (
+                            <tr
+                                key={
+                                    line?.importOrderDetailId
+                                    || `${settlement.id || settlement.importOrderId}-${lineIndex}`
+                                }
+                            >
+                                {lineIndex === 0 ? (
+                                    <>
+                                        <td rowSpan={rowSpan} className="import-trial-history-table__meta">
+                                            {formatDateTime(settlement.settledAt)}
                                         </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </article>
-            ))}
+                                        <td rowSpan={rowSpan} className="import-trial-history-table__code">
+                                            {settlement.orderCode || '—'}
+                                        </td>
+                                    </>
+                                ) : null}
+                                <td>{line?.productName || '—'}</td>
+                                <td>{line ? resultOf(line) : '—'}</td>
+                                <td className="trial-settle-table__num">
+                                    {line ? formatMoneyPlain(line.payableAmount) : '—'}
+                                </td>
+                                {lineIndex === 0 ? (
+                                    <td
+                                        rowSpan={rowSpan}
+                                        className={
+                                            Number(settlement.remainingDebt) > 0
+                                                ? 'import-trial-history-table__pay import-trial-history-table__pay--debt'
+                                                : 'import-trial-history-table__pay import-trial-history-table__pay--done'
+                                        }
+                                    >
+                                        {paymentOf(settlement)}
+                                    </td>
+                                ) : null}
+                            </tr>
+                        ));
+                    })}
+                </tbody>
+            </table>
         </div>
     );
 }

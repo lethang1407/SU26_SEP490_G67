@@ -1134,21 +1134,32 @@ a.supplier-btn {
     font-size: 13px;
 }
 
-.import-trial-history {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.import-trial-history__card .import-order-expand__table-wrap {
-    margin-top: 8px;
-}
-
-.import-trial-history__totals {
-    text-align: right;
+.import-trial-history-table__meta {
+    white-space: nowrap;
+    color: #64748b;
     font-size: 13px;
-    color: #475569;
-    line-height: 1.5;
+    vertical-align: top;
+}
+
+.import-trial-history-table__code {
+    font-weight: 700;
+    color: #0f172a;
+    white-space: nowrap;
+    vertical-align: top;
+}
+
+.import-trial-history-table__pay {
+    white-space: nowrap;
+    font-weight: 600;
+    vertical-align: top;
+}
+
+.import-trial-history-table__pay--done {
+    color: #15803d;
+}
+
+.import-trial-history-table__pay--debt {
+    color: #dc2626;
 }
 
 .supplier-trial-tab {

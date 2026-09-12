@@ -43,16 +43,9 @@ export default function SupplierTrialTab({ supplierId, refreshToken, onSettled }
 
     return (
         <div className="supplier-trial-tab">
-            <section>
-                <header className="ioc-section__head">
-                    <h2 className="ioc-section__title">Đang treo</h2>
-                </header>
-                {!orders.length ? (
-                    <p className="supplier-detail-empty-text">
-                        Không có hàng bán thử đang treo với nhà cung cấp này.
-                    </p>
-                ) : (
-                    orders.map((order) => (
+            {orders.length > 0 ? (
+                <section>
+                    {orders.map((order) => (
                         <article key={order.importOrderId} className="supplier-trial-card">
                             <div className="supplier-trial-card__head">
                                 <div>
@@ -81,9 +74,9 @@ export default function SupplierTrialTab({ supplierId, refreshToken, onSettled }
                                 ))}
                             </ul>
                         </article>
-                    ))
-                )}
-            </section>
+                    ))}
+                </section>
+            ) : null}
 
             <section>
                 <header className="ioc-section__head">
@@ -91,7 +84,6 @@ export default function SupplierTrialTab({ supplierId, refreshToken, onSettled }
                 </header>
                 <ImportTrialHistory
                     settlements={history}
-                    showOrderCode
                     emptyText="Chưa có lần quyết toán bán thử với nhà cung cấp này."
                 />
             </section>
