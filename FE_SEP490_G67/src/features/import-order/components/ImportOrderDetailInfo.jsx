@@ -50,7 +50,7 @@ export default function ImportOrderDetailInfo({ order }) {
                 </div>
                 {openTrialAmount > 0 ? (
                     <div className="import-order-info-list__item">
-                        <dt>Hàng bán thử (đã ghi công nợ)</dt>
+                        <dt>Hàng bán thử</dt>
                         <dd className="import-order-info-list__amount">
                             {formatCurrency(openTrialAmount)}
                         </dd>

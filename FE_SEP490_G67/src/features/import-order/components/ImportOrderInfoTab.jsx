@@ -44,9 +44,7 @@ export default function ImportOrderInfoTab({
         order.remainingDebt != null
             ? Math.max(remainingDebt + paidAmount, totalCost, netGoods)
             : Math.max(totalCost, netGoods);
-    const totalQty = displayItems
-        .filter((item) => resolveLineType(item) !== 'PROMOTION')
-        .reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+    const itemCount = displayItems.filter((item) => resolveLineType(item) !== 'PROMOTION').length;
     const statusClass = String(order.orderStatus || '').toLowerCase();
     const showPaymentBadge =
         order.status === IMPORT_ORDER_STATUS.DEBT
@@ -272,12 +270,12 @@ export default function ImportOrderInfoTab({
 
                 <div className="import-order-expand__summary">
                     <div className="import-order-expand__summary-row">
-                        <span>Tổng tiền hàng{totalQty > 0 ? ` (${totalQty})` : ''}</span>
+                        <span>Tổng tiền hàng{itemCount > 0 ? ` (${itemCount})` : ''}</span>
                         <strong>{formatMoneyPlain(goodsTotal)}</strong>
                     </div>
                     {openTrialAmount > 0 ? (
                         <div className="import-order-expand__summary-row import-order-expand__summary-row--trial">
-                            <span>Hàng bán thử (đã ghi công nợ)</span>
+                            <span>Hàng bán thử</span>
                             <strong>{formatMoneyPlain(openTrialAmount)}</strong>
                         </div>
                     ) : null}

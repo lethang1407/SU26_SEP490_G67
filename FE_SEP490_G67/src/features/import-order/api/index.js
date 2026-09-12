@@ -66,6 +66,18 @@ export const importOrdersApi = {
         return response;
     },
 
+    uploadInvoiceImage: async (id, file) => {
+        const form = new FormData();
+        form.append('file', file);
+        const response = await api.post(`/import-orders/${id}/invoice-image`, form);
+        return response.result;
+    },
+
+    deleteInvoiceImage: async (id) => {
+        const response = await api.delete(`/import-orders/${id}/invoice-image`);
+        return response;
+    },
+
     /** Tìm SP theo tên / barcode — dùng chung endpoint POS. */
     searchProducts: async (query) => {
         const response = await api.get('/products/search', { params: { q: query } });

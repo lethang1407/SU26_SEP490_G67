@@ -120,6 +120,7 @@ public class ImportTrialSettlementService {
         settlement.setSupplier(supplier);
         settlement.setNote(blankToNull(request.getNote()));
         settlement.setPayableAmount(BigDecimal.ZERO);
+        settlement.setDiscountAmount(BigDecimal.ZERO);
         settlement.setPaidAmount(BigDecimal.ZERO);
         settlement.setIsRemoved(false);
         settlement = settlementRepository.save(settlement);
@@ -137,8 +138,16 @@ public class ImportTrialSettlementService {
             responseLines.add(applied.response());
         }
 
+        BigDecimal discount = request.getDiscountAmount() != null
+                ? request.getDiscountAmount()
+                : BigDecimal.ZERO;
+        if (discount.compareTo(BigDecimal.ZERO) < 0 || discount.compareTo(totalPayable) > 0) {
+            throw new AppException(ErrorCode.INVALID_TRIAL_DISCOUNT);
+        }
+        BigDecimal netPayable = totalPayable.subtract(discount);
+
         BigDecimal previousDue = order.getTotalCost() != null ? order.getTotalCost() : BigDecimal.ZERO;
-        BigDecimal newTotalCost = previousDue.subtract(bookedTrial).add(totalPayable).max(BigDecimal.ZERO);
+        BigDecimal newTotalCost = previousDue.subtract(bookedTrial).add(netPayable).max(BigDecimal.ZERO);
         order.setTotalCost(newTotalCost);
         importOrderRepository.save(order);
         importOrderRepository.flush();
@@ -155,8 +164,11 @@ public class ImportTrialSettlementService {
         }
 
         settlement.setPayableAmount(totalPayable);
+        settlement.setDiscountAmount(discount);
         settlement.setPaidAmount(paidAmount);
         settlementRepository.save(settlement);
+
+        
 
         if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
             supplierPaymentService.createPayment(supplier.getId(), CreateSupplierPaymentRequest.builder()
@@ -171,14 +183,15 @@ public class ImportTrialSettlementService {
 
         BigDecimal remainingDebt = remainingAfterAdjust.subtract(paidAmount).max(BigDecimal.ZERO);
 
-        log.info("Settled trial import order {} payable={} booked={} paid={} remainingDebt={}",
-                order.getOrderCode(), totalPayable, bookedTrial, paidAmount, remainingDebt);
+        log.info("Settled trial import order {} payable={} discount={} booked={} paid={} remainingDebt={}",
+                order.getOrderCode(), totalPayable, discount, bookedTrial, paidAmount, remainingDebt);
 
         return ImportTrialSettleResponse.builder()
                 .id(settlement.getId())
                 .importOrderId(order.getId())
                 .orderCode(order.getOrderCode())
                 .payableAmount(totalPayable)
+                .discountAmount(discount)
                 .paidAmount(paidAmount)
                 .remainingDebt(remainingDebt)
                 .settledAt(settlement.getCreatedAt())
@@ -378,14 +391,16 @@ public class ImportTrialSettlementService {
                 .toList();
         ImportOrder order = settlement.getImportOrder();
         BigDecimal payable = settlement.getPayableAmount() != null ? settlement.getPayableAmount() : BigDecimal.ZERO;
+        BigDecimal discount = settlement.getDiscountAmount() != null ? settlement.getDiscountAmount() : BigDecimal.ZERO;
         BigDecimal paid = settlement.getPaidAmount() != null ? settlement.getPaidAmount() : BigDecimal.ZERO;
         return ImportTrialSettleResponse.builder()
                 .id(settlement.getId())
                 .importOrderId(order != null ? order.getId() : null)
                 .orderCode(order != null ? order.getOrderCode() : null)
                 .payableAmount(payable)
+                .discountAmount(discount)
                 .paidAmount(paid)
-                .remainingDebt(payable.subtract(paid).max(BigDecimal.ZERO))
+                .remainingDebt(payable.subtract(discount).subtract(paid).max(BigDecimal.ZERO))
                 .settledAt(settlement.getCreatedAt())
                 .lines(lines)
                 .build();

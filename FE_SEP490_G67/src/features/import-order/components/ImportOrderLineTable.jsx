@@ -41,7 +41,7 @@ export default function ImportOrderLineTable({
                             <th>Tên hàng</th>
                             <th>ĐVT</th>
                             <th>Số lượng</th>
-                            <th>Đơn giá</th>
+                            <th>Đơn giá *</th>
                             <th>Hạn sử dụng</th>
                             <th className="ioc-lines-table__note">Ghi chú</th>
                             <th>Thành tiền</th>
@@ -68,6 +68,7 @@ export default function ImportOrderLineTable({
                                       ? Number(line.lineTotal) || 0
                                       : computedTotal;
                             const noteText = line.note?.trim() || '';
+                            const costValue = Number(line.costPerUnit) || 0;
                             const priceWarning = canEdit ? getLinePriceWarning(line) : null;
                             const rowClass = isTrial
                                 ? 'ioc-lines-table__row--trial'
@@ -215,13 +216,21 @@ export default function ImportOrderLineTable({
                                                             ? ` ioc-lines-table__input--price-${priceWarning.level}`
                                                             : ''
                                                     }`}
-                                                    value={formatMoneyInput(line.costPerUnit)}
+                                                    value={
+                                                        !isPromotion && costValue <= 0
+                                                            ? ''
+                                                            : formatMoneyInput(line.costPerUnit)
+                                                    }
+                                                    placeholder={isPromotion ? '0' : 'Nhập giá'}
                                                     onChange={(event) =>
                                                         onChangeLine(line.key, {
                                                             costPerUnit: parseMoneyInput(
                                                                 event.target.value,
                                                             ),
                                                         })
+                                                    }
+                                                    aria-invalid={
+                                                        priceWarning?.level === 'danger' ? true : undefined
                                                     }
                                                     aria-label={
                                                         isTrial

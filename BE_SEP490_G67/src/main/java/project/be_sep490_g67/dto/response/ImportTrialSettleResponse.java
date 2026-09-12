@@ -22,6 +22,7 @@ public class ImportTrialSettleResponse {
     Integer importOrderId;
     String orderCode;
     BigDecimal payableAmount;
+    BigDecimal discountAmount;
     BigDecimal paidAmount;
     BigDecimal remainingDebt;
     Instant settledAt;

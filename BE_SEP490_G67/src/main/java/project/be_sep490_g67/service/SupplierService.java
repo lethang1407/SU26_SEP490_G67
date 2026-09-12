@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -74,10 +75,10 @@ public class SupplierService {
 
         // Bước 2: Tính nợ hiện tại của từng NCC — derive từ (totalCost - đã trả),
         // KHÔNG đọc từ cột cache nào để tránh lệch số liệu khi thanh toán mới phát sinh.
-        Map<Integer, BigDecimal> debtMap = calculateDebtPerSupplier();
+        Map<Integer, SupplierDebtAmounts> debtMap = calculateDebtPerSupplier();
 
         List<SupplierListItemResponse> allItems = suppliers.stream()
-                .map(s -> toListItem(s, debtMap.getOrDefault(s.getId(), BigDecimal.ZERO)))
+                .map(s -> toListItem(s, debtMap.getOrDefault(s.getId(), SupplierDebtAmounts.ZERO)))
                 .toList();
 
         // Bước 4: Lọc theo SP → lần nhập gần nhất; không thì nợ giảm dần, cùng nợ thì tên A–Z
@@ -107,8 +108,11 @@ public class SupplierService {
                 totalElements == 0 ? List.of() : sorted.subList(from, to);
 
         // Bước 6: Tổng nợ + số NCC đang nợ toàn hệ thống (không bị ảnh hưởng bởi filter/search)
-        BigDecimal totalDebt = debtMap.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalDebt = debtMap.values().stream()
+                .map(SupplierDebtAmounts::currentDebt)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         long debtSupplierCount = debtMap.values().stream()
+                .map(SupplierDebtAmounts::currentDebt)
                 .filter(debt -> debt.compareTo(BigDecimal.ZERO) > 0)
                 .count();
 
@@ -155,18 +159,21 @@ public class SupplierService {
         return Instant.EPOCH;
     }
 
-    private SupplierListItemResponse toListItem(Supplier supplier, BigDecimal currentDebt) {
+    private SupplierListItemResponse toListItem(Supplier supplier, SupplierDebtAmounts debt) {
+        SupplierDebtAmounts amounts = debt != null ? debt : SupplierDebtAmounts.ZERO;
         return SupplierListItemResponse.builder()
                 .id(supplier.getId())
                 .supplierCode(supplier.getSupplierCode())
                 .name(supplier.getName())
                 .phoneNumber(supplier.getPhoneNumber())
                 .notes(supplier.getNotes())
-                .currentDebt(currentDebt)
+                .currentDebt(amounts.currentDebt())
+                .payableNowAmount(amounts.payableNowAmount())
+                .openTrialAmount(amounts.openTrialAmount())
                 .build();
     }
 
-    private Map<Integer, BigDecimal> calculateDebtPerSupplier() {
+    private Map<Integer, SupplierDebtAmounts> calculateDebtPerSupplier() {
         Map<Integer, BigDecimal> paidPerOrder = supplierPaymentRepository.sumPaidAmountGroupByImportOrder()
                 .stream()
                 .collect(Collectors.toMap(
@@ -174,32 +181,64 @@ public class SupplierService {
                         row -> (BigDecimal) row[1]
                 ));
 
-        Map<Integer, BigDecimal> debtPerSupplier = new HashMap<>();
+        Map<Integer, BigDecimal> remainingPerSupplier = new HashMap<>();
         for (ImportOrder order : importOrderRepository.findAllActiveWithActiveSupplier()) {
             BigDecimal totalCost = order.getTotalCost() != null ? order.getTotalCost() : BigDecimal.ZERO;
             BigDecimal paid = paidPerOrder.getOrDefault(order.getId(), BigDecimal.ZERO);
             BigDecimal remaining = totalCost.subtract(paid).max(BigDecimal.ZERO);
-
             if (remaining.compareTo(BigDecimal.ZERO) > 0) {
-                debtPerSupplier.merge(order.getSupplier().getId(), remaining, BigDecimal::add);
+                remainingPerSupplier.merge(order.getSupplier().getId(), remaining, BigDecimal::add);
             }
         }
-        for (Object[] row : importOrderDetailRepository.sumUnbookedOpenTrialGroupedBySupplier()) {
+        Map<Integer, BigDecimal> bookedTrial = decimalBySupplierId(
+                importOrderDetailRepository.sumBookedOpenTrialGroupedBySupplier());
+        Map<Integer, BigDecimal> unbookedTrial = decimalBySupplierId(
+                importOrderDetailRepository.sumUnbookedOpenTrialGroupedBySupplier());
+
+        Set<Integer> supplierIds = new HashSet<>();
+        supplierIds.addAll(remainingPerSupplier.keySet());
+        supplierIds.addAll(bookedTrial.keySet());
+        supplierIds.addAll(unbookedTrial.keySet());
+
+        Map<Integer, SupplierDebtAmounts> result = new HashMap<>();
+        for (Integer supplierId : supplierIds) {
+            BigDecimal remaining = remainingPerSupplier.getOrDefault(supplierId, BigDecimal.ZERO);
+            BigDecimal booked = bookedTrial.getOrDefault(supplierId, BigDecimal.ZERO).min(remaining);
+            BigDecimal unbooked = unbookedTrial.getOrDefault(supplierId, BigDecimal.ZERO).max(BigDecimal.ZERO);
+            BigDecimal currentDebt = remaining.add(unbooked);
+            BigDecimal payableNow = remaining.subtract(booked).max(BigDecimal.ZERO);
+            BigDecimal openTrial = booked.add(unbooked);
+            if (currentDebt.compareTo(BigDecimal.ZERO) > 0
+                    || payableNow.compareTo(BigDecimal.ZERO) > 0
+                    || openTrial.compareTo(BigDecimal.ZERO) > 0) {
+                result.put(supplierId, new SupplierDebtAmounts(currentDebt, payableNow, openTrial));
+            }
+        }
+        return result;
+    }
+
+    private Map<Integer, BigDecimal> decimalBySupplierId(List<Object[]> rows) {
+        Map<Integer, BigDecimal> result = new HashMap<>();
+        if (rows == null) {
+            return result;
+        }
+        for (Object[] row : rows) {
+            if (row == null || row[0] == null) {
+                continue;
+            }
             Integer supplierId = (Integer) row[0];
-            BigDecimal unbooked = row[1] instanceof BigDecimal value ? value : BigDecimal.ZERO;
-            if (supplierId != null && unbooked.compareTo(BigDecimal.ZERO) > 0) {
-                debtPerSupplier.merge(supplierId, unbooked, BigDecimal::add);
-            }
+            BigDecimal value = row[1] instanceof BigDecimal amount ? amount : BigDecimal.ZERO;
+            result.merge(supplierId, value, BigDecimal::add);
         }
-        return debtPerSupplier;
+        return result;
     }
 
     @Transactional(readOnly = true)
     public SupplierDetailResponse getSupplierDetail(Integer id) {
         Supplier supplier = supplierRepository.findByIdAndIsRemovedFalse(id)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
-                
-        BigDecimal currentDebt = calculateDebtPerSupplier().getOrDefault(id, BigDecimal.ZERO);
+
+        SupplierDebtAmounts debt = calculateDebtPerSupplier().getOrDefault(id, SupplierDebtAmounts.ZERO);
 
         List<CategoryResponse> categories = supplier.getCategories() == null
                 ? List.of()
@@ -221,7 +260,9 @@ public class SupplierService {
                 .address(supplier.getAddress())
                 .notes(supplier.getNotes())
                 .categories(categories)
-                .currentDebt(currentDebt)
+                .currentDebt(debt.currentDebt())
+                .payableNowAmount(debt.payableNowAmount())
+                .openTrialAmount(debt.openTrialAmount())
                 .build();
     }
 
@@ -254,7 +295,9 @@ public class SupplierService {
         Supplier supplier = supplierRepository.findByIdAndIsRemovedFalse(id)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
 
-        BigDecimal currentDebt = calculateDebtPerSupplier().getOrDefault(id, BigDecimal.ZERO);
+        BigDecimal currentDebt = calculateDebtPerSupplier()
+                .getOrDefault(id, SupplierDebtAmounts.ZERO)
+                .currentDebt();
         if (currentDebt.compareTo(BigDecimal.ZERO) > 0) {
             throw new AppException(ErrorCode.SUPPLIER_HAS_DEBT);
         }
@@ -335,5 +378,13 @@ public class SupplierService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private record SupplierDebtAmounts(
+            BigDecimal currentDebt,
+            BigDecimal payableNowAmount,
+            BigDecimal openTrialAmount) {
+        static final SupplierDebtAmounts ZERO = new SupplierDebtAmounts(
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
     }
 }

@@ -60,6 +60,9 @@ public class ImportOrder extends BaseEntity {
     @Column(name = "invoice_image", length = 500)
     private String invoiceImage;
 
+    @Column(name = "invoice_image_public_id", length = 255)
+    private String invoiceImagePublicId;
+
     @OneToMany(mappedBy = "importOrder")
     private Set<ImportOrderDetail> importOrderDetails = new LinkedHashSet<>();
 

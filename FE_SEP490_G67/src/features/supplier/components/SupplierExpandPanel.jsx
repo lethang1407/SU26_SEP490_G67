@@ -3,6 +3,7 @@ import SupplierDetailTabs from './SupplierDetailTabs';
 import SupplierPaymentModal from './SupplierPaymentModal';
 import SupplierAddNewModal from './SupplierAddNewModal';
 import { suppliersApi } from '../api';
+import { canPaySupplierDebt } from '../utils/supplierUtils';
 
 export default function SupplierExpandPanel({
     supplierId,
@@ -53,9 +54,6 @@ export default function SupplierExpandPanel({
     useEffect(() => {
         fetchSupplier();
     }, [fetchSupplier]);
-
-    const currentDebt = supplier?.currentDebt ?? listDebt ?? 0;
-    const canPayDebt = currentDebt > 0;
 
     const handlePaymentSubmit = ({ importOrderIds, orderCodes, amount, paymentMethod, notes }) => {
         setSubmittingPayment(true);
@@ -130,8 +128,8 @@ export default function SupplierExpandPanel({
             <SupplierDetailTabs
                 supplier={supplier}
                 refreshToken={refreshToken}
-                canPayDebt={canPayDebt}
                 onPayDebt={() => {
+                    if (!canPaySupplierDebt(supplier)) return;
                     setPaymentError('');
                     setPaymentOpen(true);
                 }}

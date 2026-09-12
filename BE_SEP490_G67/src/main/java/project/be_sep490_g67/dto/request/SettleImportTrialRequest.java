@@ -21,6 +21,10 @@ public class SettleImportTrialRequest {
 
     String note;
 
+    /** Giảm giá trên tiền lô thử. Không âm, không vượt tổng phải trả. */
+    @DecimalMin(value = "0.0", inclusive = true, message = "Giảm giá quyết toán không được âm")
+    BigDecimal discountAmount;
+
     @DecimalMin(value = "0.0", inclusive = true, message = "Số tiền trả không được âm")
     BigDecimal paidAmount;
 

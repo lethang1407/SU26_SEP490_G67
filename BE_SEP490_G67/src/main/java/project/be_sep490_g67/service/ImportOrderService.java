@@ -6,6 +6,7 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import project.be_sep490_g67.constants.ImportOrderConstants;
 import project.be_sep490_g67.constants.ImportTrialConstants;
 import project.be_sep490_g67.dto.request.CreateDraftFromSuggestRequest;
@@ -73,6 +74,7 @@ public class ImportOrderService {
     StockMovementRepository stockMovementRepository;
     UserRepository userRepository;
     ImportReturnService importReturnService;
+    CloudinaryImageService cloudinaryImageService;
 
     @Transactional
     public ImportOrderListItemResponse createImportOrder(CreateImportOrderRequest request) {
@@ -81,7 +83,6 @@ public class ImportOrderService {
         List<CreateImportOrderRequest.LineItem> requestLines =
                 request.getLines() == null ? List.of() : request.getLines();
         validateTrialLines(requestLines, null);
-        requireInvoiceImageIfImported(isImported && hasRegularPayableLine(requestLines), request.getInvoiceImage());
         Supplier supplier = resolveSupplier(request.getSupplierId(), isImported);
 
         Map<Integer, String> returnMethodOverrides = collectReturnMethodOverrides(request);
@@ -178,7 +179,6 @@ public class ImportOrderService {
         List<CreateImportOrderRequest.LineItem> requestLines =
                 request.getLines() == null ? List.of() : request.getLines();
         validateTrialLines(requestLines, order.getId());
-        requireInvoiceImageIfImported(isImported && hasRegularPayableLine(requestLines), request.getInvoiceImage());
         Supplier supplier = resolveSupplier(request.getSupplierId(), isImported);
 
         Map<Integer, String> returnMethodOverrides = collectReturnMethodOverrides(request);
@@ -227,7 +227,7 @@ public class ImportOrderService {
         order.setTotalCost(money.amountDue());
         order.setOrderStatus(orderStatus);
         order.setNote(blankToNull(request.getNote()));
-        order.setInvoiceImage(blankToNull(request.getInvoiceImage()));
+        applyInvoiceImageUrl(order, request.getInvoiceImage());
         order.setReceivedDate(isImported ? LocalDate.now() : null);
 
         ImportOrder saved = importOrderRepository.save(order);
@@ -273,6 +273,41 @@ public class ImportOrderService {
         order.setIsRemoved(true);
         importOrderRepository.save(order);
         log.info("Cancelled draft import order id={} code={}", orderId, order.getOrderCode());
+    }
+
+    /**
+     * Upload ảnh hóa đơn qua Cloudinary (cùng service với ảnh sản phẩm).
+     * Không bắt buộc khi hoàn thành phiếu. Cho phép phiếu tạm và phiếu đã nhập.
+     */
+    @Transactional
+    public String uploadInvoiceImage(Integer orderId, MultipartFile file) {
+        ImportOrder order = importOrderRepository.findActiveByIdForUpdate(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_IMPORT_ORDER));
+
+        String previousPublicId = resolveInvoicePublicId(order);
+        CloudinaryImageService.UploadResult uploaded =
+                cloudinaryImageService.upload(file, "sep490/import-invoices/" + order.getId());
+
+        order.setInvoiceImage(uploaded.url());
+        order.setInvoiceImagePublicId(uploaded.publicId());
+        importOrderRepository.save(order);
+
+        deletePreviousInvoiceAsset(previousPublicId, uploaded.publicId());
+        log.info("Uploaded invoice image for import order id={}", orderId);
+        return uploaded.url();
+    }
+
+    @Transactional
+    public void deleteInvoiceImage(Integer orderId) {
+        ImportOrder order = importOrderRepository.findActiveByIdForUpdate(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_IMPORT_ORDER));
+
+        String publicId = resolveInvoicePublicId(order);
+        order.setInvoiceImage(null);
+        order.setInvoiceImagePublicId(null);
+        importOrderRepository.save(order);
+        deletePreviousInvoiceAsset(publicId, null);
+        log.info("Deleted invoice image for import order id={}", orderId);
     }
 
     private static final ZoneId VN_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -851,10 +886,78 @@ public class ImportOrderService {
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
     }
 
-    private void requireInvoiceImageIfImported(boolean isImported, String invoiceImage) {
-        if (isImported && (invoiceImage == null || invoiceImage.isBlank())) {
-            throw new AppException(ErrorCode.IMPORT_INVOICE_REQUIRED);
+    private void applyInvoiceImageUrl(ImportOrder order, String invoiceImage) {
+        String url = blankToNull(invoiceImage);
+        if (url == null || url.startsWith("blob:") || url.startsWith("data:")) {
+            return;
         }
+        order.setInvoiceImage(url);
+    }
+
+    private String resolveInvoicePublicId(ImportOrder order) {
+        if (order.getInvoiceImagePublicId() != null && !order.getInvoiceImagePublicId().isBlank()) {
+            return order.getInvoiceImagePublicId().trim();
+        }
+        return extractCloudinaryPublicId(order.getInvoiceImage());
+    }
+
+    private void deletePreviousInvoiceAsset(String previousPublicId, String keepPublicId) {
+        if (previousPublicId == null || previousPublicId.isBlank()) {
+            return;
+        }
+        if (keepPublicId != null && previousPublicId.equals(keepPublicId)) {
+            return;
+        }
+        try {
+            cloudinaryImageService.delete(previousPublicId);
+        } catch (Exception e) {
+            log.warn("Could not delete previous invoice image {}: {}", previousPublicId, e.getMessage());
+        }
+    }
+
+    static String extractCloudinaryPublicId(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        int uploadIdx = url.indexOf("/upload/");
+        if (uploadIdx < 0) {
+            return null;
+        }
+        String path = url.substring(uploadIdx + "/upload/".length());
+        int queryIdx = path.indexOf('?');
+        if (queryIdx >= 0) {
+            path = path.substring(0, queryIdx);
+        }
+        String[] parts = path.split("/");
+        int start = 0;
+        while (start < parts.length) {
+            String part = parts[start];
+            if (part.startsWith("v") && part.length() > 1 && part.substring(1).chars().allMatch(Character::isDigit)) {
+                start++;
+                break;
+            }
+            if (part.contains(",") || part.startsWith("s--")) {
+                start++;
+                continue;
+            }
+            break;
+        }
+        if (start >= parts.length) {
+            return null;
+        }
+        StringBuilder publicId = new StringBuilder();
+        for (int i = start; i < parts.length; i++) {
+            if (i > start) {
+                publicId.append('/');
+            }
+            publicId.append(parts[i]);
+        }
+        String value = publicId.toString();
+        int dot = value.lastIndexOf('.');
+        if (dot > 0) {
+            value = value.substring(0, dot);
+        }
+        return value.isBlank() ? null : value;
     }
 
     private String normalizeCreateOrderStatus(String orderStatus) {
@@ -933,6 +1036,9 @@ public class ImportOrderService {
         boolean isPromotion = lineType == ImportLineType.PROMOTION;
         boolean isTrial = lineType == ImportLineType.TRIAL;
         BigDecimal cost = line.getCostPerUnit() != null ? line.getCostPerUnit() : BigDecimal.ZERO;
+        if (!isPromotion && cost.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new AppException(isTrial ? ErrorCode.TRIAL_COST_REQUIRED : ErrorCode.INVALID_IMPORT_COST);
+        }
         BigDecimal lineTotal = lineType.isPayableAtImport()
                 ? cost.multiply(BigDecimal.valueOf(line.getQuantity()))
                 : BigDecimal.ZERO;
@@ -978,12 +1084,6 @@ public class ImportOrderService {
                 throw new AppException(ErrorCode.TRIAL_PRODUCT_ALREADY_IN_STORE);
             }
         }
-    }
-
-    private boolean hasRegularPayableLine(List<CreateImportOrderRequest.LineItem> requestLines) {
-        return requestLines.stream().anyMatch(line ->
-                ImportLineType.from(line.getLineType(), line.getIsPromotion(), line.getIsTrial())
-                        == ImportLineType.REGULAR);
     }
 
     private boolean isRegularLine(ImportOrderDetail detail) {

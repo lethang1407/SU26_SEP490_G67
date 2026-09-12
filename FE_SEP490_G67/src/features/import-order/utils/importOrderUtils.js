@@ -120,15 +120,20 @@ export function suggestCostForUnit(lastCostPerBase, unitBase) {
 
 /**
  * Cảnh báo giá ngay trên dòng (không popup).
- * @returns {{ level: 'warn', message: string } | null}
+ * @returns {{ level: 'warn' | 'danger', message: string } | null}
  */
 export function getLinePriceWarning(line) {
     if (!line || isPromotionLine(line)) return null;
 
-    const unitBase = Number(line.unitBase) > 0 ? Number(line.unitBase) : 1;
     const costPerUnit = Number(line.costPerUnit) || 0;
-    if (costPerUnit <= 0) return null;
+    if (costPerUnit <= 0) {
+        return {
+            level: 'danger',
+            message: isTrialLine(line) ? 'Nhập giá thỏa thuận' : 'Nhập đơn giá',
+        };
+    }
 
+    const unitBase = Number(line.unitBase) > 0 ? Number(line.unitBase) : 1;
     const newCostBase = costPerUnit / unitBase;
     const lastCost = Number(line.lastCostPerBase) || 0;
 
@@ -294,6 +299,9 @@ export function validateImportForm({ supplierId, lines }) {
 
         if (costPerUnit < 0 || Number.isNaN(costPerUnit)) {
             return `Đơn giá của "${line.productName}" không hợp lệ.`;
+        }
+        if (resolveLineType(line) !== 'PROMOTION' && costPerUnit <= 0) {
+            return `Đơn giá của "${line.productName}" chưa nhập.`;
         }
     }
 

@@ -69,7 +69,7 @@ public enum ErrorCode {
     INVALID_BATCH_LOCATION_MOVE(1038, "Không thể chuyển lô về cùng một kệ", HttpStatus.BAD_REQUEST),
     IMPORT_ITEMS_EMPTY(1039, "Phiếu nhập phải có ít nhất một sản phẩm nhập hoặc một dòng đổi/trả nhà cung cấp", HttpStatus.BAD_REQUEST),
     INVALID_IMPORT_QUANTITY(1040, "Số lượng nhập phải lớn hơn 0", HttpStatus.BAD_REQUEST),
-    INVALID_IMPORT_COST(1041, "Đơn giá nhập không hợp lệ", HttpStatus.BAD_REQUEST),
+    INVALID_IMPORT_COST(1041, "Đơn giá nhập phải lớn hơn 0", HttpStatus.BAD_REQUEST),
     INVENTORY_CHECK_NOT_FOUND(1042, "Không tìm thấy phiếu kiểm kho", HttpStatus.NOT_FOUND),
     INVENTORY_CHECK_ITEMS_EMPTY(1043, "Phiếu kiểm kho phải có ít nhất một dòng", HttpStatus.BAD_REQUEST),
     INVALID_INVENTORY_CHECK_QTY(1044, "Số lượng thực tế kiểm kho không hợp lệ", HttpStatus.BAD_REQUEST),
@@ -113,6 +113,7 @@ public enum ErrorCode {
             "Không thể vừa nhập thường vừa bán thử cùng một sản phẩm trên phiếu.",
             HttpStatus.BAD_REQUEST),
     IMPORT_ORDER_NOT_IMPORTED(1091, "Chỉ quyết toán hàng bán thử trên phiếu đã nhập kho.", HttpStatus.BAD_REQUEST),
+    INVALID_TRIAL_DISCOUNT(1092, "Giảm giá quyết toán không được âm và không vượt tiền lô thử phải trả.", HttpStatus.BAD_REQUEST),
 
     // Product / category errors (11xx)
     PRODUCT_NAME_REQUIRED(1101, "Vui lòng nhập tên sản phẩm", HttpStatus.BAD_REQUEST),

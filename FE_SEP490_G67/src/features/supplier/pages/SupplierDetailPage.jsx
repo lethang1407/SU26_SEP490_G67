@@ -8,6 +8,7 @@ import SupplierPaymentModal from '../components/SupplierPaymentModal';
 import SupplierSuccessToast from '../components/SupplierSuccessToast';
 import { suppliersApi } from '../api';
 import { PAYMENT_METHOD_LABEL } from '../constants';
+import { canPaySupplierDebt } from '../utils/supplierUtils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Supplier.css';
 
@@ -70,6 +71,7 @@ export default function SupplierDetailPage() {
     };
 
     const handleOpenPayment = () => {
+        if (!canPaySupplierDebt(supplier)) return;
         setPaymentError('');
         setPaymentOpen(true);
     };

@@ -48,20 +48,26 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
     const [preview, setPreview] = useState(null);
     const [rows, setRows] = useState([]);
     const [paidAmount, setPaidAmount] = useState(0);
+    const [discountAmount, setDiscountAmount] = useState(0);
     const [note, setNote] = useState('');
     const paidAmountTouchedRef = useRef(false);
+    const discountTouchedRef = useRef(false);
 
     useEffect(() => {
         if (!open || !orderId) {
             setPreview(null);
             setRows([]);
             setError('');
+            setDiscountAmount(0);
             paidAmountTouchedRef.current = false;
+            discountTouchedRef.current = false;
             return;
         }
         setLoading(true);
         setError('');
         paidAmountTouchedRef.current = false;
+        discountTouchedRef.current = false;
+        setDiscountAmount(0);
         importOrdersApi
             .previewTrialSettlement(orderId)
             .then((result) => {
@@ -91,11 +97,20 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
         }, 0);
     }, [preview, rows]);
 
+    const safeDiscount = Math.min(Math.max(Number(discountAmount) || 0, 0), payableTotal);
+    const netPayable = Math.max(payableTotal - safeDiscount, 0);
     const bookedOpenTrial = Number(preview?.bookedOpenTrialAmount) || 0;
     const currentRemaining = Number(preview?.remainingDebt) || 0;
-    const debtAfterSettle = Math.max(currentRemaining - bookedOpenTrial + payableTotal, 0);
-    const maxPayNow = Math.min(payableTotal, debtAfterSettle);
-    const trialRemaining = Math.max(payableTotal - paidAmount, 0);
+    const debtAfterSettle = Math.max(currentRemaining - bookedOpenTrial + netPayable, 0);
+    const maxPayNow = Math.min(netPayable, debtAfterSettle);
+    const trialRemaining = Math.max(netPayable - paidAmount, 0);
+
+    useEffect(() => {
+        if (!discountTouchedRef.current) {
+            return;
+        }
+        setDiscountAmount((prev) => Math.min(Math.max(Number(prev) || 0, 0), payableTotal));
+    }, [payableTotal]);
 
     useEffect(() => {
         if (!paidAmountTouchedRef.current) {
@@ -121,6 +136,7 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
         try {
             const result = await importOrdersApi.settleTrial(orderId, {
                 note: note.trim() || null,
+                discountAmount: safeDiscount,
                 paidAmount,
                 paymentMethod: 'CASH',
                 lines: rows.map((row) => ({
@@ -338,7 +354,7 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
                                                                             })
                                                                         }
                                                                     />{' '}
-                                                                    Trả phần còn, thu tiền đã bán
+                                                                    Trả phần còn, trả tiền đã bán
                                                                 </label>
                                                                 <label>
                                                                     <input
@@ -370,7 +386,7 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
                                 <textarea
                                     className="ioc-sidebar__textarea trial-settle-footer__note"
                                     rows={3}
-                                    placeholder="Ghi chú quyết toán (không bắt buộc)"
+                                    placeholder="Ghi chú quyết toán"
                                     value={note}
                                     onChange={(event) => setNote(event.target.value)}
                                 />
@@ -378,6 +394,27 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
                                     <div className="trial-settle-paybox__row">
                                         <span>Tiền lô thử phải trả</span>
                                         <strong>{formatCurrency(payableTotal)}</strong>
+                                    </div>
+                                    <div className="trial-settle-paybox__row trial-settle-paybox__row--pay">
+                                        <label htmlFor="trial-discount-amount">Giảm giá</label>
+                                        <div className="trial-settle-paybox__input">
+                                            <input
+                                                id="trial-discount-amount"
+                                                type="text"
+                                                inputMode="numeric"
+                                                value={formatMoneyInput(safeDiscount)}
+                                                onChange={(event) => {
+                                                    discountTouchedRef.current = true;
+                                                    setDiscountAmount(
+                                                        Math.min(
+                                                            payableTotal,
+                                                            parseMoneyInput(event.target.value),
+                                                        ),
+                                                    );
+                                                }}
+                                            />
+                                            <span>đ</span>
+                                        </div>
                                     </div>
                                     <div className="trial-settle-paybox__row trial-settle-paybox__row--pay">
                                         <label htmlFor="trial-paid-amount">Trả ngay</label>

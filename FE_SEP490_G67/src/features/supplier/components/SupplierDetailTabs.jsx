@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pencil, Wallet } from 'lucide-react';
 import SupplierGeneralInfoTab from './SupplierGeneralInfoTab';
 import SupplierImportHistoryTable from './SupplierImportHistoryTable';
@@ -6,6 +6,7 @@ import SupplierPaymentHistoryTable from './SupplierPaymentHistoryTable';
 import SupplierTrialTab from './SupplierTrialTab';
 import SupplierOrderDetailModal from './SupplierOrderDetailModal';
 import { suppliersApi } from '../api';
+import { canPaySupplierDebt, payDebtButtonTitle } from '../utils/supplierUtils';
 
 const TABS = [
     { id: 'general', label: 'Thông tin chung' },
@@ -17,15 +18,35 @@ const TABS = [
 export default function SupplierDetailTabs({
     supplier,
     refreshToken,
-    canPayDebt = false,
     onPayDebt,
     onEdit,
     onTrialSettled,
 }) {
     const [activeTab, setActiveTab] = useState('general');
     const [viewingOrderId, setViewingOrderId] = useState(null);
+    const [openTrialCount, setOpenTrialCount] = useState(0);
     const showEditFooter = Boolean(onEdit) && activeTab === 'general';
     const historyRefresh = refreshToken || 0;
+    const canPayDebt = canPaySupplierDebt(supplier);
+
+    useEffect(() => {
+        if (!supplier?.id) {
+            setOpenTrialCount(0);
+            return undefined;
+        }
+        let cancelled = false;
+        suppliersApi
+            .getOpenTrial(supplier.id)
+            .then((result) => {
+                if (!cancelled) setOpenTrialCount((result || []).length);
+            })
+            .catch(() => {
+                if (!cancelled) setOpenTrialCount(0);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [supplier?.id, historyRefresh]);
 
     const handleViewReference = async (referenceCode) => {
         try {
@@ -57,7 +78,9 @@ export default function SupplierDetailTabs({
                             }`}
                             onClick={() => setActiveTab(tab.id)}
                         >
-                            {tab.label}
+                            {tab.id === 'trial' && openTrialCount > 0
+                                ? `Hàng bán thử (${openTrialCount})`
+                                : tab.label}
                         </button>
                     ))}
                 </div>
@@ -68,7 +91,7 @@ export default function SupplierDetailTabs({
                         className="supplier-btn supplier-btn--pay supplier-detail-tabs__pay"
                         disabled={!canPayDebt}
                         onClick={onPayDebt}
-                        title={canPayDebt ? 'Thanh toán nợ' : 'Không có công nợ'}
+                        title={payDebtButtonTitle(supplier)}
                     >
                         <Wallet size={16} />
                         Thanh toán nợ

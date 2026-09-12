@@ -230,4 +230,18 @@ public interface ImportOrderDetailRepository extends JpaRepository<ImportOrderDe
         GROUP BY o.supplier.id
         """)
     List<Object[]> sumUnbookedOpenTrialGroupedBySupplier();
+
+    @Query("""
+        SELECT o.supplier.id,
+               COALESCE(SUM(COALESCE(d.lineTotal, 0)), 0)
+        FROM ImportOrderDetail d
+        JOIN d.importOrder o
+        WHERE (d.isRemoved = false OR d.isRemoved IS NULL)
+          AND (o.isRemoved = false OR o.isRemoved IS NULL)
+          AND UPPER(o.orderStatus) = 'IMPORTED'
+          AND d.lineType = 'TRIAL'
+          AND d.trialStatus = 'OPEN'
+        GROUP BY o.supplier.id
+        """)
+    List<Object[]> sumBookedOpenTrialGroupedBySupplier();
 }

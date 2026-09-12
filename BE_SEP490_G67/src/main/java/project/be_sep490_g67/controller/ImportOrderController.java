@@ -7,14 +7,17 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.request.CreateDraftFromSuggestRequest;
 import project.be_sep490_g67.dto.request.CreateImportOrderRequest;
 import project.be_sep490_g67.dto.request.ImportSuggestRequest;
 import project.be_sep490_g67.dto.request.SettleImportTrialRequest;
 import project.be_sep490_g67.dto.response.ApiResponse;
+import project.be_sep490_g67.dto.response.ImportInvoiceImageResponse;
 import project.be_sep490_g67.dto.response.ImportOrderDetailResponse;
 import project.be_sep490_g67.dto.response.ImportOrderListItemResponse;
 import project.be_sep490_g67.dto.response.ImportOrderReturnLineResponse;
@@ -166,6 +169,26 @@ public class ImportOrderController {
         return ApiResponse.<ImportOrderListItemResponse>builder()
                 .result(importOrderService.updateImportOrder(id, request))
                 .message("Cập nhật phiếu nhập hàng thành công")
+                .build();
+    }
+
+    @PostMapping(value = "/{id}/invoice-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<ImportInvoiceImageResponse> uploadInvoiceImage(
+            @PathVariable Integer id,
+            @RequestParam("file") MultipartFile file
+    ) {
+        String url = importOrderService.uploadInvoiceImage(id, file);
+        return ApiResponse.<ImportInvoiceImageResponse>builder()
+                .result(ImportInvoiceImageResponse.builder().url(url).build())
+                .message("Tải ảnh hóa đơn thành công")
+                .build();
+    }
+
+    @DeleteMapping("/{id}/invoice-image")
+    public ApiResponse<Void> deleteInvoiceImage(@PathVariable Integer id) {
+        importOrderService.deleteInvoiceImage(id);
+        return ApiResponse.<Void>builder()
+                .message("Đã xóa ảnh hóa đơn")
                 .build();
     }
 

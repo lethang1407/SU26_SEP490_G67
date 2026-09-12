@@ -32,6 +32,11 @@ public class ImportTrialSettlement extends BaseEntity {
     @Column(name = "payable_amount", precision = 15, scale = 2, nullable = false)
     private BigDecimal payableAmount = BigDecimal.ZERO;
 
+    /** Giảm giá trên tiền lô thử (cấp lần quyết toán), không trừ từng dòng SP. */
+    @ColumnDefault("0.00")
+    @Column(name = "discount_amount", precision = 15, scale = 2, nullable = false)
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
     @ColumnDefault("0.00")
     @Column(name = "paid_amount", precision = 15, scale = 2, nullable = false)
     private BigDecimal paidAmount = BigDecimal.ZERO;

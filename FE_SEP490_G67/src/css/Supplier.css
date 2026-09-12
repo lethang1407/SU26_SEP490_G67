@@ -815,6 +815,10 @@
     color: #0f766e;
 }
 
+.supplier-stat-card__hint--trial {
+    color: #b45309;
+}
+
 .supplier-table__actions {
     text-align: center;
     white-space: nowrap;

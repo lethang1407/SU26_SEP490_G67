@@ -1708,8 +1708,9 @@ a.supplier-btn {
 }
 
 .ioc-sidebar__summary-row--emphasis strong {
-    color: #dc2626;
+    color: #0f172a;
     font-size: 16px;
+    font-weight: 800;
 }
 
 .ioc-sidebar__summary-row--refund strong {
@@ -1717,7 +1718,7 @@ a.supplier-btn {
 }
 
 .ioc-sidebar__summary-row--debt strong {
-    color: #ea580c;
+    color: #dc2626;
     font-size: 15px;
 }
 

@@ -22,9 +22,13 @@ function resultOf(line) {
 }
 
 function paymentOf(settlement) {
+    const discount = Number(settlement.discountAmount) || 0;
     const remaining = Number(settlement.remainingDebt) || 0;
-    if (remaining > 0) return `Còn ${formatCurrency(remaining)}`;
-    return 'Đã trả';
+    const status = remaining > 0 ? `Còn ${formatCurrency(remaining)}` : 'Đã trả';
+    if (discount > 0) {
+        return `Giảm ${formatCurrency(discount)} · ${status}`;
+    }
+    return status;
 }
 
 export default function ImportTrialHistory({

@@ -23,7 +23,6 @@ export default function ImportOrderCreateSidebar({
     note,
     invoiceImageUrl = '',
     invoiceImageName = '',
-    uploadingInvoiceImage = false,
     totalAmount,
     openTrialAmount = 0,
     discountAmount,
@@ -41,7 +40,6 @@ export default function ImportOrderCreateSidebar({
     onNoteChange,
     onInvoiceImageChange,
     onClearInvoiceImage,
-    invoiceOptional = false,
     onDiscountAmountChange,
     onPaidAmountChange,
     onSaveDraft,
@@ -212,7 +210,7 @@ export default function ImportOrderCreateSidebar({
 
                 {openTrialAmount > 0 ? (
                     <div className="ioc-sidebar__summary-row ioc-sidebar__summary-row--trial">
-                        <span>Hàng bán thử (ghi công nợ)</span>
+                        <span>Hàng bán thử</span>
                         <strong>{formatCurrency(openTrialAmount)}</strong>
                     </div>
                 ) : null}
@@ -255,7 +253,7 @@ export default function ImportOrderCreateSidebar({
                 ) : (
                     <div className="ioc-sidebar__summary-row ioc-sidebar__summary-row--emphasis">
                         <span>Cần trả nhà cung cấp</span>
-                        <strong>{formatCurrency(amountDue)}</strong>
+                        <strong>{formatCurrency(maxPaidNow)}</strong>
                     </div>
                 )}
 
@@ -283,7 +281,7 @@ export default function ImportOrderCreateSidebar({
                     </p>
                 ) : null}
 
-                {amountDue > 0 ? (
+                {maxPaidNow - (Number(paidAmount) || 0) > 0 ? (
                     <div className="ioc-sidebar__summary-row ioc-sidebar__summary-row--debt">
                         <span>Tính vào công nợ</span>
                         <strong>{formatCurrency(debtAmount)}</strong>
@@ -330,7 +328,7 @@ export default function ImportOrderCreateSidebar({
                                         type="file"
                                         accept="image/jpeg,image/png,image/webp"
                                         hidden
-                                        disabled={submitting || uploadingInvoiceImage}
+                                        disabled={submitting}
                                         onChange={(event) => {
                                             const file = event.target.files?.[0];
                                             onInvoiceImageChange?.(file || null);
@@ -341,7 +339,7 @@ export default function ImportOrderCreateSidebar({
                                 <button
                                     type="button"
                                     className="ioc-sidebar__invoice-clear"
-                                    disabled={submitting || uploadingInvoiceImage}
+                                    disabled={submitting}
                                     onClick={onClearInvoiceImage}
                                 >
                                     <X size={14} />
@@ -351,22 +349,14 @@ export default function ImportOrderCreateSidebar({
                         </div>
                     </div>
                 ) : (
-                    <label
-                        className={`ioc-sidebar__upload ${
-                            uploadingInvoiceImage ? 'ioc-sidebar__upload--busy' : ''
-                        }`}
-                    >
+                    <label className="ioc-sidebar__upload">
                         <ImagePlus size={16} />
-                        <span>
-                            {uploadingInvoiceImage
-                                ? 'Đang upload ảnh...'
-                                : 'Chọn ảnh hóa đơn giấy'}
-                        </span>
+                        <span>Chọn ảnh hóa đơn giấy</span>
                         <input
                             type="file"
                             accept="image/jpeg,image/png,image/webp"
                             hidden
-                            disabled={submitting || uploadingInvoiceImage}
+                            disabled={submitting}
                             onChange={(event) => {
                                 const file = event.target.files?.[0];
                                 onInvoiceImageChange?.(file || null);
@@ -375,13 +365,9 @@ export default function ImportOrderCreateSidebar({
                         />
                     </label>
                 )}
-                {!invoiceImageUrl && (
-                    <p className="ioc-sidebar__upload-hint">
-                        {invoiceOptional
-                            ? 'Không bắt buộc với phiếu chỉ có hàng bán thử / KM'
-                            : 'Tối đa 5MB · JPG, PNG, WebP'}
-                    </p>
-                )}
+                <p className="ioc-sidebar__upload-hint">
+                    Không bắt buộc · JPG, PNG, WebP · tối đa 5MB
+                </p>
             </div>
 
             <div className="ioc-sidebar__actions">

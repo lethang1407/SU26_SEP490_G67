@@ -15,7 +15,7 @@ import {
     selectedReturnDeduction,
 } from '../utils/importReturnAttachUtils';
 import { ORDER_STATUS } from '../constants';
-import { uploadInvoiceImage } from '@/lib/cloudinary';
+import { isRemoteImageUrl, validateInvoiceImageFile } from '@/lib/cloudinary';
 import {
     suggestCostForUnit,
     resolveLineType,
@@ -216,7 +216,7 @@ export default function CreateImportOrderPage() {
     const [note, setNote] = useState('');
     const [invoiceImageUrl, setInvoiceImageUrl] = useState('');
     const [invoiceImageName, setInvoiceImageName] = useState('');
-    const [uploadingInvoiceImage, setUploadingInvoiceImage] = useState(false);
+    const [invoiceFile, setInvoiceFile] = useState(null);
     const [discountAmount, setDiscountAmount] = useState(0);
     const [paidAmount, setPaidAmount] = useState(0);
     const [submitting, setSubmitting] = useState(false);
@@ -241,6 +241,7 @@ export default function CreateImportOrderPage() {
 
     const allowNavigateRef = useRef(false);
     const initialSnapshotRef = useRef(null);
+    const savedInvoiceUrlRef = useRef('');
     /** false = tự fill tiền trả = cần trả NCC; true = chủ đã sửa tay (trả một phần / không trả) */
     const paidAmountTouchedRef = useRef(false);
 
@@ -359,6 +360,12 @@ export default function CreateImportOrderPage() {
         return () => window.removeEventListener('beforeunload', onBeforeUnload);
     }, [isDirty]);
 
+    useEffect(() => () => {
+        if (invoiceImageUrl?.startsWith('blob:')) {
+            URL.revokeObjectURL(invoiceImageUrl);
+        }
+    }, [invoiceImageUrl]);
+
     const allowNavigate = () => {
         allowNavigateRef.current = true;
     };
@@ -437,10 +444,12 @@ export default function CreateImportOrderPage() {
                 const nextInvoice = detail.invoiceImage || '';
                 const nextDiscount = Number(detail.discountAmount) || 0;
 
+                savedInvoiceUrlRef.current = nextInvoice;
                 setOrderCode(detail.orderCode || '');
                 setNote(nextNote);
                 setInvoiceImageUrl(nextInvoice);
                 setInvoiceImageName(nextInvoice ? 'Ảnh hóa đơn đã lưu' : '');
+                setInvoiceFile(null);
                 setDiscountAmount(nextDiscount);
                 paidAmountTouchedRef.current = false;
                 setPaidAmount(0);
@@ -698,33 +707,41 @@ export default function CreateImportOrderPage() {
         );
     };
 
-    const handleInvoiceImageChange = async (file) => {
-        if (!file) {
-            setInvoiceImageUrl('');
-            setInvoiceImageName('');
-            return;
-        }
-
-        setUploadingInvoiceImage(true);
-        try {
-            const result = await uploadInvoiceImage(file);
-            setInvoiceImageUrl(result.url);
-            setInvoiceImageName(file.name || 'Ảnh hóa đơn');
-        } catch (error) {
-            setInvoiceImageUrl('');
-            setInvoiceImageName('');
-            showAlertModal(
-                'Upload ảnh hóa đơn',
-                error?.message || 'Không thể upload ảnh. Vui lòng thử lại.',
-            );
-        } finally {
-            setUploadingInvoiceImage(false);
+    const revokeIfBlobUrl = (url) => {
+        if (url?.startsWith('blob:')) {
+            URL.revokeObjectURL(url);
         }
     };
 
     const handleClearInvoiceImage = () => {
-        setInvoiceImageUrl('');
+        setInvoiceImageUrl((prev) => {
+            revokeIfBlobUrl(prev);
+            return '';
+        });
         setInvoiceImageName('');
+        setInvoiceFile(null);
+    };
+
+    const handleInvoiceImageChange = (file) => {
+        if (!file) {
+            handleClearInvoiceImage();
+            return;
+        }
+        try {
+            validateInvoiceImageFile(file);
+        } catch (error) {
+            showAlertModal(
+                'Ảnh hóa đơn',
+                error?.message || 'Ảnh hóa đơn không hợp lệ.',
+            );
+            return;
+        }
+        setInvoiceImageUrl((prev) => {
+            revokeIfBlobUrl(prev);
+            return URL.createObjectURL(file);
+        });
+        setInvoiceImageName(file.name || 'Ảnh hóa đơn');
+        setInvoiceFile(file);
     };
 
     const selectCreatedSupplier = (created) => {
@@ -815,13 +832,17 @@ export default function CreateImportOrderPage() {
             );
             return false;
         }
-        const trialWithoutPrice = lines.find(
-            (line) => resolveLineType(line) === 'TRIAL' && (Number(line.costPerUnit) || 0) <= 0,
+        const missingPriceLine = lines.find(
+            (line) =>
+                resolveLineType(line) !== 'PROMOTION' && (Number(line.costPerUnit) || 0) <= 0,
         );
-        if (trialWithoutPrice) {
+        if (missingPriceLine) {
+            const isTrial = resolveLineType(missingPriceLine) === 'TRIAL';
             showAlertModal(
-                'Hàng bán thử',
-                'Hàng bán thử phải nhập giá thỏa thuận với nhân viên nhà cung cấp để ghi công nợ.',
+                'Chưa nhập đơn giá',
+                isTrial
+                    ? `Hàng bán thử "${missingPriceLine.productName}" phải nhập giá thỏa thuận.`
+                    : `Đơn giá của "${missingPriceLine.productName}" chưa nhập.`,
             );
             return false;
         }
@@ -848,18 +869,10 @@ export default function CreateImportOrderPage() {
             return false;
         }
 
-        if (uploadingInvoiceImage) {
-            showAlertModal(
-                'Đang upload ảnh',
-                'Đang upload ảnh hóa đơn. Vui lòng đợi xong rồi lưu lại.',
-            );
-            return false;
-        }
-
         const payload = toApiPayload(orderStatus, {
             supplier,
             note,
-            invoiceImage: invoiceImageUrl,
+            invoiceImage: isRemoteImageUrl(invoiceImageUrl) ? invoiceImageUrl : null,
             safeDiscount,
             safePaidAmount,
             lines,
@@ -869,10 +882,39 @@ export default function CreateImportOrderPage() {
 
         setSubmitting(true);
         try {
-            if (isEditMode) {
-                await importOrdersApi.updateImportOrder(editId, payload);
-            } else {
-                await importOrdersApi.createImportOrder(payload);
+            const saved = isEditMode
+                ? await importOrdersApi.updateImportOrder(editId, payload)
+                : await importOrdersApi.createImportOrder(payload);
+            const orderId = saved?.id || editId;
+
+            let imageWarning = '';
+            if (invoiceFile && orderId) {
+                try {
+                    const uploaded = await importOrdersApi.uploadInvoiceImage(orderId, invoiceFile);
+                    const nextUrl = uploaded?.url || '';
+                    if (nextUrl) {
+                        savedInvoiceUrlRef.current = nextUrl;
+                        setInvoiceImageUrl((prev) => {
+                            if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev);
+                            return nextUrl;
+                        });
+                        setInvoiceFile(null);
+                        setInvoiceImageName('Ảnh hóa đơn đã lưu');
+                    }
+                } catch (error) {
+                    imageWarning =
+                        error?.response?.data?.message ||
+                        'Phiếu đã lưu nhưng không tải được ảnh hóa đơn. Bạn có thể thêm lại khi sửa phiếu tạm.';
+                }
+            } else if (isEditMode && orderId && savedInvoiceUrlRef.current && !isRemoteImageUrl(invoiceImageUrl)) {
+                try {
+                    await importOrdersApi.deleteInvoiceImage(orderId);
+                    savedInvoiceUrlRef.current = '';
+                } catch (error) {
+                    imageWarning =
+                        error?.response?.data?.message ||
+                        'Phiếu đã lưu nhưng không xóa được ảnh hóa đơn cũ.';
+                }
             }
 
             // Đã lưu thành công → coi form sạch để không chặn lần nữa
@@ -880,18 +922,21 @@ export default function CreateImportOrderPage() {
                 supplier,
                 lines,
                 note,
-                invoiceImageUrl,
+                invoiceImageUrl: isRemoteImageUrl(invoiceImageUrl)
+                    ? invoiceImageUrl
+                    : savedInvoiceUrlRef.current || '',
                 discountAmount,
                 returnLineIds: selectedReturnLineKeys,
                 pendingReturnLines,
             });
 
             const successMessage =
-                orderStatus === ORDER_STATUS.DRAFT
+                (orderStatus === ORDER_STATUS.DRAFT
                     ? isEditMode
                         ? 'Đã cập nhật phiếu tạm.'
                         : 'Đã lưu phiếu tạm thành công.'
-                    : 'Đã hoàn thành phiếu nhập hàng.';
+                    : 'Đã hoàn thành phiếu nhập hàng.')
+                + (imageWarning ? ` ${imageWarning}` : '');
 
             if (skipSuccessModal) {
                 allowNavigate();
@@ -935,7 +980,7 @@ export default function CreateImportOrderPage() {
     };
 
     const handleSaveDraftAndLeave = async () => {
-        if (submitting || loadingDetail || uploadingInvoiceImage) return;
+        if (submitting || loadingDetail) return;
 
         if (!validate({ useModal: false, requireSupplier: false })) {
             // Thiếu NCC/SP: đóng guard, ở lại trang để sửa
@@ -1067,7 +1112,6 @@ export default function CreateImportOrderPage() {
                                 note={note}
                                 invoiceImageUrl={invoiceImageUrl}
                                 invoiceImageName={invoiceImageName}
-                                uploadingInvoiceImage={uploadingInvoiceImage}
                                 totalAmount={goodsAmount}
                                 openTrialAmount={openTrialAmount}
                                 importItemCount={importItemCount}
@@ -1077,7 +1121,7 @@ export default function CreateImportOrderPage() {
                                 supplierRefundAmount={supplierRefundAmount}
                                 paidAmount={safePaidAmount}
                                 debtAmount={debtAmount}
-                                submitting={submitting || uploadingInvoiceImage}
+                                submitting={submitting}
                                 showDiscount={hasRegularPayable}
                                 onSelectSupplier={setSupplier}
                                 onClearSupplier={() => setSupplier(null)}
@@ -1088,7 +1132,6 @@ export default function CreateImportOrderPage() {
                                 onNoteChange={setNote}
                                 onInvoiceImageChange={handleInvoiceImageChange}
                                 onClearInvoiceImage={handleClearInvoiceImage}
-                                invoiceOptional={!hasRegularPayable}
                                 onDiscountAmountChange={handleDiscountAmountChange}
                                 onPaidAmountChange={handlePaidAmountChange}
                                 onSaveDraft={() => submitOrder(ORDER_STATUS.DRAFT)}
@@ -1117,7 +1160,7 @@ export default function CreateImportOrderPage() {
                     cancelLabel="Tiếp tục nhập"
                     dangerLabel="Thoát, không cần giữ"
                     confirmLabel={submitting ? 'Đang lưu...' : 'Lưu tạm rồi thoát'}
-                    confirmDisabled={submitting || uploadingInvoiceImage}
+                    confirmDisabled={submitting}
                     dangerDisabled={submitting}
                     onClose={handleStayOnPage}
                     onDanger={handleLeaveWithoutSave}
