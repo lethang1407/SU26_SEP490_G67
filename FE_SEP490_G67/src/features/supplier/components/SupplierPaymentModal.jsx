@@ -241,7 +241,7 @@ export default function SupplierPaymentModal({ open, supplier, onClose, onSubmit
                             onClick={() => setAmount(formatAmountInput(String(Math.round(payableNowTotal))))}
                             disabled={submitting}
                         >
-                            Trả hết phần được trả ngay
+                            Trả tối đa
                         </button>
                     ) : null}
 

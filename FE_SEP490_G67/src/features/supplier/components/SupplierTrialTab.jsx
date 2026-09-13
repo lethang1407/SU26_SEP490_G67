@@ -93,7 +93,9 @@ export default function SupplierTrialTab({ supplierId, refreshToken, onSettled }
                                             ) : null}
                                         </span>
                                         : nhận {line.receivedQty}
-                                        {line.unitName ? ` ${line.unitName}` : ''}
+                                        {line.unitName || line.baseUnitName
+                                            ? ` ${line.unitName || line.baseUnitName}`
+                                            : ''}
                                         {Number(line.receivedBaseQty) > 0
                                         && Number(line.receivedBaseQty) !== Number(line.receivedQty)
                                             ? ` (= ${line.receivedBaseQty}${line.baseUnitName ? ` ${line.baseUnitName}` : ''})`

@@ -38,7 +38,13 @@ export default function SupplierDetailTabs({
         suppliersApi
             .getOpenTrial(supplier.id)
             .then((result) => {
-                if (!cancelled) setOpenTrialCount((result || []).length);
+                if (!cancelled) {
+                    const productCount = (result || []).reduce(
+                        (sum, order) => sum + (order.lines || []).length,
+                        0,
+                    );
+                    setOpenTrialCount(productCount);
+                }
             })
             .catch(() => {
                 if (!cancelled) setOpenTrialCount(0);

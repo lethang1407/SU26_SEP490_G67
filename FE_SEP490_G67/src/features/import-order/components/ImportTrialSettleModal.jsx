@@ -28,8 +28,11 @@ function costPerBaseOf(line) {
 }
 
 function hasBaseUnitPrice(line) {
-    const baseUnit = baseUnitOf(line);
-    return unitBaseOf(line) !== 1 || (baseUnit && baseUnit !== line.unitName);
+    return unitBaseOf(line) !== 1;
+}
+
+function importUnitOf(line) {
+    return line.unitName || baseUnitOf(line);
 }
 
 function payableOf(line, counted, unsellable, decision) {
@@ -228,9 +231,8 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
                                                 unsellable,
                                                 row.decision,
                                             );
-                                            const showReceivedBase =
-                                                receivedBase !== Number(line.receivedQty)
-                                                || (baseUnit && baseUnit !== line.unitName);
+                                            const importUnit = importUnitOf(line);
+                                            const showReceivedBase = receivedBase !== Number(line.receivedQty);
                                             return (
                                                 <tr key={line.importOrderDetailId}>
                                                     <td>
@@ -246,13 +248,13 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
                                                             </div>
                                                             <div className="ioc-sidebar__upload-hint">
                                                                 {formatCurrency(line.costPerUnit)}
-                                                                {line.unitName ? ` / ${line.unitName}` : ''}
+                                                                {importUnit ? ` / ${importUnit}` : ''}
                                                             </div>
                                                             {hasBaseUnitPrice(line) ? (
                                                                 <div className="trial-settle-product__tip" role="tooltip">
                                                                     <div>
                                                                         {formatCurrency(line.costPerUnit)}
-                                                                        {line.unitName ? ` / ${line.unitName}` : ''}
+                                                                        {importUnit ? ` / ${importUnit}` : ''}
                                                                     </div>
                                                                     <div>
                                                                         {formatCurrency(costPerBaseOf(line))}
@@ -264,7 +266,7 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
                                                     </td>
                                                     <td className="trial-settle-table__num">
                                                         {line.receivedQty}
-                                                        {line.unitName ? ` ${line.unitName}` : ''}
+                                                        {importUnit ? ` ${importUnit}` : ''}
                                                         {showReceivedBase ? (
                                                             <span className="trial-settle-table__sub">
                                                                 = {receivedBase}
