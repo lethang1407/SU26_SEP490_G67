@@ -35,6 +35,7 @@ export function useCustomerSearch(query) {
                 setResults(data ?? []);
                 setError(null);
             } catch (err) {
+                console.error("Failed to search customers:", err);
                 setError('Không thể tải danh sách khách hàng. Vui lòng thử lại.');
                 setResults([]);
             } finally {

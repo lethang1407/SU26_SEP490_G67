@@ -33,6 +33,7 @@ export function useBarcodeScanner({ onProductFound, enabled = true }) {
             const product = await getProductByBarcode(raw.trim());
             onProductFound(product);
         } catch (err) {
+            console.error("Failed to look up product by barcode:", err);
             const status = err.response?.status;
             if (status === 404) {
                 setTimedError('Không tìm thấy sản phẩm với mã vạch này.');

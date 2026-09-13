@@ -56,7 +56,7 @@ public enum ErrorCode {
     STORAGE_LOCATION_EMPTY_CANNOT_MARK_FULL(1059, "Ô đang trống, không thể đánh dấu đầy", HttpStatus.BAD_REQUEST),
     STORAGE_LOCATION_NO_BATCHES_TO_MOVE(1080, "Ô nguồn không có hàng để chuyển", HttpStatus.BAD_REQUEST),
     STORAGE_ZONE_NOT_FOUND(1055, "Không tìm thấy khu", HttpStatus.NOT_FOUND),
-    INVALID_STORAGE_ZONE_TYPE(1056, "Loại khu không hợp lệ (SALES, WAREHOUSE)", HttpStatus.BAD_REQUEST),
+    INVALID_STORAGE_ZONE_TYPE(1056, "Loại khu không hợp lệ (WAREHOUSE)", HttpStatus.BAD_REQUEST),
     STORAGE_RETURN_HOLD_LOCKED(1081, "Không thể thay đổi hoặc tạo thêm vị trí trong khu chứa hàng đổi trả", HttpStatus.BAD_REQUEST),
     RETURN_HOLD_LOCATION_NOT_FOUND(1082, "Chưa có khu chứa hàng đổi trả trong kho", HttpStatus.INTERNAL_SERVER_ERROR),
     SALES_ZONE_PRODUCT_BATCH_EXISTS(1057, "Sản phẩm đã có một lô trên khu bán. Mỗi SP chỉ được 1 lô trên toàn khu bán", HttpStatus.BAD_REQUEST),
@@ -181,7 +181,6 @@ public enum ErrorCode {
     PAIRED_ITEM_NOT_FOUND(3304, "Không tìm thấy sản phẩm thay thế được ghép cặp", HttpStatus.BAD_REQUEST),
     PAIRED_ITEM_ALREADY_USED(3305, "Một sản phẩm thay thế chỉ được ghép với một dòng hàng trả", HttpStatus.BAD_REQUEST),
     EXCHANGE_EVEN_AMOUNT_MISMATCH(3306, "Đổi ngang giá yêu cầu hai bên bằng giá, vui lòng chọn đổi có chênh lệch", HttpStatus.BAD_REQUEST),
-    // 3307 (MANAGER_APPROVAL_REQUIRED) đã bỏ cùng lối phê duyệt người mang hàng — không cấp lại số này.
 
     // Item condition errors (34xx)
     ITEM_CONDITION_REQUIRED(3401, "Vui lòng chọn tình trạng hàng hóa cho từng dòng trả", HttpStatus.BAD_REQUEST),
@@ -202,6 +201,7 @@ public enum ErrorCode {
 
     // Notification errors (42xx)
     NOTIFICATION_NOT_FOUND(4201, "Không tìm thấy thông báo", HttpStatus.NOT_FOUND),
+    INVALID_NOTIFICATION_TYPE(4202, "Loại thông báo không hợp lệ", HttpStatus.BAD_REQUEST),
 
     // Thanh toán chuyển khoản (43xx)
     PAYMENT_METHOD_NOT_TRANSFER(4306, "Chỉ đơn thanh toán chuyển khoản mới có nội dung chuyển khoản", HttpStatus.BAD_REQUEST),

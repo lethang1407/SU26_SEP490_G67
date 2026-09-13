@@ -62,7 +62,10 @@ export default function SalesOrderDetailModal({ orderId, onClose }) {
         let alive = true;
         getInvoiceData(orderId)
             .then((result) => { if (alive) setData(result); })
-            .catch(() => { if (alive) setError('Không thể tải chi tiết hóa đơn.'); })
+            .catch((error) => {
+                console.error("Failed to fetch invoice detail:", error);
+                if (alive) setError('Không thể tải chi tiết hóa đơn.');
+            })
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
     }, [orderId]);

@@ -20,6 +20,7 @@ export default function InventoryCheckLineTable({
     onNoteChange,
     onRemoveLine,
     onBatchChange,
+    onUnitChange,
     onExchangeBatch,
     onReturnBatch,
 }) {
@@ -114,7 +115,20 @@ export default function InventoryCheckLineTable({
                                             line.batchCode || 'Tất cả lô'
                                         )}
                                     </td>
-                                    <td>{line.unit}</td>
+                                    <td>
+                                        {editable && onUnitChange && (line.units?.length ?? 0) > 1 ? (
+                                            <StyledSelect
+                                                value={line.selectedUnitId ?? line.units?.[0]?.id}
+                                                options={(line.units ?? []).map((unit) => ({
+                                                    value: unit.id,
+                                                    label: unit.name,
+                                                }))}
+                                                onChange={(next) => onUnitChange(rowKey, next)}
+                                            />
+                                        ) : (
+                                            line.unit
+                                        )}
+                                    </td>
                                     <td className="inventory-check-line-table__qty">
                                         {line.systemQty}
                                     </td>

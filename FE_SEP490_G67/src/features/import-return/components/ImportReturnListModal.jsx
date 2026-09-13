@@ -10,6 +10,7 @@ import {
     fetchImportReturnById,
     fetchImportReturns,
     submitImportReturn,
+    updateImportReturnDraft,
     updateImportReturnExchangeExpiry,
     updateImportReturnLineMethod,
     updateImportReturnLineStatus,
@@ -204,7 +205,47 @@ export default function ImportReturnListModal({
         }
     };
 
+    const handleSaveDraftInline = async ({ note, lines }, { submit = false } = {}) => {
+        if (!detail?.id) return;
+        setBusy(true);
+        setError(null);
+        try {
+            await updateImportReturnDraft(detail.id, {
+                note: note || null,
+                source: detail.source || 'MANUAL',
+                inventoryCheckId: detail.inventoryCheckId ?? null,
+                lines: (lines ?? []).map((line) => ({
+                    batchId: line.stockBatchId,
+                    quantity: Number(line.quantity),
+                    method: line.method || RETURN_METHOD.RETURN,
+                    note: line.note || null,
+                    returnReason: line.note || line.returnReason || null,
+                })),
+            });
+            if (submit) {
+                const result = await submitImportReturn(detail.id);
+                setDetail(result);
+                setSuccess('Đã lưu đổi trả.');
+            } else {
+                const refreshed = await fetchImportReturnById(detail.id);
+                setDetail(refreshed);
+                setSuccess('Đã lưu phiếu nháp.');
+            }
+            await loadList();
+        } catch (saveError) {
+            setError(
+                getApiErrorMessage(
+                    saveError,
+                    submit ? 'Không lưu đổi trả được.' : 'Không lưu nháp được.',
+                ),
+            );
+        } finally {
+            setBusy(false);
+        }
+    };
+
     const handleSubmitDraft = async () => {
+        // kept for compatibility; prefer handleSaveDraftInline(..., { submit: true })
         if (!detail?.id) return;
         setBusy(true);
         setError(null);
@@ -433,10 +474,8 @@ export default function ImportReturnListModal({
                             loading={loading}
                             busy={busy}
                             onSubmitDraft={handleSubmitDraft}
-                            onEditDraft={() => {
-                                onEditDraft?.(detail);
-                                onClose?.();
-                            }}
+                            onSaveDraft={handleSaveDraftInline}
+                            onReloadDetail={() => openDetail(detail?.id)}
                             onLineStatus={handleLineStatus}
                             onLineMethod={handleLineMethod}
                             onSaveExchangeExpiry={handleExchangeExpiry}
@@ -480,7 +519,7 @@ function DetailBody({
     loading,
     busy,
     onSubmitDraft,
-    onEditDraft,
+    onSaveDraft,
     onLineStatus,
     onLineMethod,
     onSaveExchangeExpiry,
@@ -488,19 +527,45 @@ function DetailBody({
     const [pendingExpiry, setPendingExpiry] = useState({});
     const [editingExpiryId, setEditingExpiryId] = useState(null);
     const [editExpiryValue, setEditExpiryValue] = useState('');
+    const [draftNote, setDraftNote] = useState('');
+    const [draftLines, setDraftLines] = useState([]);
 
     useEffect(() => {
         setPendingExpiry({});
         setEditingExpiryId(null);
         setEditExpiryValue('');
-    }, [detail?.id]);
+        setDraftNote(detail?.note || '');
+        setDraftLines(
+            (detail?.lines ?? []).map((line) => ({
+                ...line,
+                quantity: line.quantity,
+                note: line.note || line.returnReason || '',
+                method: line.method || RETURN_METHOD.RETURN,
+            })),
+        );
+    }, [detail]);
 
     if (loading || !detail) {
         return <p>Đang tải chi tiết...</p>;
     }
 
-    const lines = detail.lines ?? [];
+    const lines = isDraft ? draftLines : (detail.lines ?? []);
     const showHistoryCols = !isDraft;
+    const totalValue = lines.reduce((sum, line) => {
+        const unitPrice = Number(line.returnPrice || 0);
+        if (unitPrice) {
+            return sum + Number(line.quantity || 0) * unitPrice;
+        }
+        return sum + Number(line.lineValue || 0);
+    }, 0);
+
+    const updateDraftLine = (detailId, patch) => {
+        setDraftLines((prev) =>
+            prev.map((line) =>
+                line.detailId === detailId ? { ...line, ...patch } : line,
+            ),
+        );
+    };
 
     const getPendingExpiry = (line) => {
         const key = String(line.detailId);
@@ -526,43 +591,66 @@ function DetailBody({
         setEditExpiryValue('');
     };
 
+    const buildDraftPayload = () => ({
+        note: draftNote,
+        lines: draftLines.map((line) => ({
+            stockBatchId: line.stockBatchId,
+            quantity: line.quantity,
+            method: line.method,
+            note: line.note,
+            returnReason: line.note,
+        })),
+    });
+
+    const handleSaveDraft = async () => {
+        await onSaveDraft?.(buildDraftPayload(), { submit: false });
+    };
+
+    const handleSubmit = async () => {
+        await onSaveDraft?.(buildDraftPayload(), { submit: true });
+    };
+
     return (
         <>
-            <div className="import-return-modal__meta import-return-modal__meta--fields">
+            <div className="import-return-modal__meta import-return-modal__meta--fields import-return-info-fields--plain">
                 <div className="import-return-info-field">
                     <span className="import-return-info-field__label">Người tạo phiếu</span>
-                    <div className="import-return-info-field__box">
-                        <span className="import-return-info-field__value">
-                            {detail.createdByName || '—'}
-                        </span>
-                    </div>
+                    <span className="import-return-info-field__value">
+                        {detail.createdByName || '—'}
+                    </span>
                 </div>
                 <div className="import-return-info-field">
                     <span className="import-return-info-field__label">Ngày tạo phiếu</span>
-                    <div className="import-return-info-field__box">
-                        <span className="import-return-info-field__value">
-                            {formatDateOnly(detail.createdAt)}
-                        </span>
-                    </div>
+                    <span className="import-return-info-field__value">
+                        {formatDateOnly(detail.createdAt)}
+                    </span>
                 </div>
                 <div className="import-return-info-field">
                     <span className="import-return-info-field__label">Giờ tạo</span>
-                    <div className="import-return-info-field__box">
-                        <span className="import-return-info-field__value">
-                            {formatTimeOnly(detail.createdAt)}
-                        </span>
-                    </div>
+                    <span className="import-return-info-field__value">
+                        {formatTimeOnly(detail.createdAt)}
+                    </span>
                 </div>
                 {!isDraft ? (
                     <div className="import-return-info-field">
                         <span className="import-return-info-field__label">Trạng thái</span>
-                        <div className="import-return-info-field__box">
-                            <span className={getReturnStatusClass(detail.status)}>
-                                {formatReturnStatus(detail.status)}
-                            </span>
-                        </div>
+                        <span className={getReturnStatusClass(detail.status)}>
+                            {formatReturnStatus(detail.status)}
+                        </span>
                     </div>
-                ) : null}
+                ) : (
+                    <div className="import-return-info-field import-return-info-field--note">
+                        <span className="import-return-info-field__label">Ghi chú phiếu</span>
+                        <textarea
+                            className="import-return-info-field__textarea"
+                            rows={2}
+                            value={draftNote}
+                            disabled={busy}
+                            onChange={(e) => setDraftNote(e.target.value)}
+                            placeholder="Ghi chú chung..."
+                        />
+                    </div>
+                )}
             </div>
 
             <div className="import-return-modal__table-wrap">
@@ -583,34 +671,82 @@ function DetailBody({
                     </thead>
                     <tbody>
                         {lines.map((line, index) => {
-                            const isExchange =
-                                line.method === RETURN_METHOD.EXCHANGE;
+                            const isExchange = line.method === RETURN_METHOD.EXCHANGE;
                             const isDone = line.lineStatus === LINE_STATUS.DONE;
                             const isEditing = editingExpiryId === line.detailId;
+                            const unitPrice = Number(line.returnPrice || 0);
+                            const lineValue = isDraft
+                                ? Number(line.quantity || 0) * unitPrice
+                                : line.lineValue;
 
                             return (
-                                <tr key={line.detailId}>
+                                <tr key={line.detailId || index}>
                                     <td>{index + 1}</td>
                                     <td>{line.productName}</td>
                                     <td>{line.batchCode || '—'}</td>
-                                    <td>{line.quantity}</td>
-                                    <td>{line.supplierName || '—'}</td>
-                                    <td>{line.note || line.returnReason || '—'}</td>
                                     <td>
-                                        {isDone ||
-                                        detail.status === DOC_STATUS.COMPLETED ? (
+                                        {isDraft ? (
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                className="import-return-modal__control"
+                                                value={line.quantity}
+                                                disabled={busy}
+                                                onChange={(e) =>
+                                                    updateDraftLine(line.detailId, {
+                                                        quantity: e.target.value,
+                                                    })
+                                                }
+                                            />
+                                        ) : (
+                                            line.quantity
+                                        )}
+                                    </td>
+                                    <td>{line.supplierName || '—'}</td>
+                                    <td>
+                                        {isDraft ? (
+                                            <input
+                                                type="text"
+                                                className="import-return-modal__control"
+                                                value={line.note || ''}
+                                                disabled={busy}
+                                                placeholder="Ghi chú"
+                                                onChange={(e) =>
+                                                    updateDraftLine(line.detailId, {
+                                                        note: e.target.value,
+                                                    })
+                                                }
+                                            />
+                                        ) : (
+                                            line.note || line.returnReason || '—'
+                                        )}
+                                    </td>
+                                    <td>
+                                        {isDraft ? (
+                                            <StyledSelect
+                                                value={line.method || RETURN_METHOD.RETURN}
+                                                disabled={busy}
+                                                options={[
+                                                    { value: RETURN_METHOD.RETURN, label: 'Trả' },
+                                                    {
+                                                        value: RETURN_METHOD.EXCHANGE,
+                                                        label: 'Đổi',
+                                                    },
+                                                ]}
+                                                onChange={(next) =>
+                                                    updateDraftLine(line.detailId, {
+                                                        method: next,
+                                                    })
+                                                }
+                                            />
+                                        ) : detail.status === DOC_STATUS.COMPLETED ? (
                                             formatMethod(line.method)
                                         ) : (
                                             <StyledSelect
-                                                value={
-                                                    line.method || RETURN_METHOD.RETURN
-                                                }
+                                                value={line.method || RETURN_METHOD.RETURN}
                                                 disabled={busy}
                                                 options={[
-                                                    {
-                                                        value: RETURN_METHOD.RETURN,
-                                                        label: 'Trả',
-                                                    },
+                                                    { value: RETURN_METHOD.RETURN, label: 'Trả' },
                                                     {
                                                         value: RETURN_METHOD.EXCHANGE,
                                                         label: 'Đổi',
@@ -622,7 +758,7 @@ function DetailBody({
                                             />
                                         )}
                                     </td>
-                                    <td>{formatCurrency(line.lineValue)}</td>
+                                    <td>{formatCurrency(lineValue)}</td>
                                     {showHistoryCols ? (
                                         <td>
                                             {!isExchange ? (
@@ -746,24 +882,24 @@ function DetailBody({
             </div>
 
             <div className="import-return-modal__detail-footer">
-                <strong>{formatCurrency(detail.totalRefund)}</strong>
+                <strong>{formatCurrency(isDraft ? totalValue : detail.totalRefund)}</strong>
                 {isDraft ? (
                     <div className="import-return-modal__detail-actions">
                         <button
                             type="button"
-                            className="supplier-btn supplier-btn--primary"
+                            className="supplier-btn supplier-btn--secondary"
                             disabled={busy || lines.length === 0}
-                            onClick={onSubmitDraft}
+                            onClick={handleSaveDraft}
                         >
-                            Lưu Đổi Trả
+                            Lưu Nháp
                         </button>
                         <button
                             type="button"
-                            className="supplier-btn supplier-btn--secondary"
-                            disabled={busy}
-                            onClick={onEditDraft}
+                            className="supplier-btn supplier-btn--primary"
+                            disabled={busy || lines.length === 0}
+                            onClick={handleSubmit}
                         >
-                            Chỉnh sửa
+                            Lưu Đổi Trả
                         </button>
                     </div>
                 ) : null}
