@@ -2,6 +2,7 @@ package project.be_sep490_g67.dto.request;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
@@ -74,6 +75,7 @@ public class CreateImportOrderRequest {
 
         @NotNull(message = "Số lượng không được để trống")
         @Min(value = 1, message = "Số lượng phải lớn hơn 0")
+        @Max(value = 999999, message = "Số lượng không được vượt 999999")
         Integer quantity;
 
         @NotNull(message = "Đơn giá không được để trống")

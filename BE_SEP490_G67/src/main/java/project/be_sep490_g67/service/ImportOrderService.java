@@ -553,6 +553,8 @@ public class ImportOrderService {
             order.setOrderStatus(ImportOrderConstants.ORDER_STATUS_DRAFT);
             order.setNote("Tạo từ màn gợi ý nhập hàng");
             order.setDiscountAmount(BigDecimal.ZERO);
+            order.setReturnDeductionAmount(BigDecimal.ZERO);
+            order.setSupplierRefundAmount(BigDecimal.ZERO);
             order.setTotalCost(BigDecimal.ZERO);
             order.setIsRemoved(false);
             order = importOrderRepository.save(order);
@@ -1281,18 +1283,15 @@ public class ImportOrderService {
     }
 
     private String generatePaymentCode() {
-        String prefix = ImportOrderConstants.PAYMENT_CODE_PREFIX;
-        int seqLength = ImportOrderConstants.PAYMENT_CODE_SEQ_LENGTH;
+        LocalDate date = LocalDate.now();
+        return ImportOrderConstants.formatPaymentCode(date, nextPaymentSequence(date));
+    }
 
-        int nextSeq = supplierPaymentRepository.findLatestTtnPaymentCode()
-                .map(code -> Integer.parseInt(code.substring(prefix.length())) + 1)
-                .orElse(0);
-
-        if (nextSeq > 999_999) {
-            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
-        }
-
-        return prefix + String.format("%0" + seqLength + "d", nextSeq);
+    private int nextPaymentSequence(LocalDate date) {
+        supplierPaymentRepository.flush();
+        Integer max = supplierPaymentRepository.findMaxPaymentSequenceByDayPrefix(
+                ImportOrderConstants.paymentDayPrefix(date));
+        return (max != null ? max : 0) + 1;
     }
 
     private Map<Integer, String> collectReturnMethodOverrides(CreateImportOrderRequest request) {

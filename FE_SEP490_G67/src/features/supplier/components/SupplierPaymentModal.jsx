@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { formatCurrency } from '../utils/supplierUtils';
 import { suppliersApi } from '../api';
@@ -136,8 +137,12 @@ export default function SupplierPaymentModal({ open, supplier, onClose, onSubmit
 
     const displayError = submitError || error;
 
-    return (
-        <div className="supplier-modal-overlay" onClick={onClose} role="presentation">
+    return createPortal(
+        <div
+            className="supplier-modal-overlay supplier-modal-overlay--stacked"
+            onClick={onClose}
+            role="presentation"
+        >
             <div
                 className="supplier-modal supplier-modal--payment"
                 onClick={(event) => event.stopPropagation()}
@@ -311,6 +316,7 @@ export default function SupplierPaymentModal({ open, supplier, onClose, onSubmit
                     </div>
                 </form>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }

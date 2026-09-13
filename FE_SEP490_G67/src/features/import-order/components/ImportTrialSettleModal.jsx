@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { importOrdersApi } from '../api';
 import { formatCurrency, formatMoneyInput, parseMoneyInput } from '../utils/importOrderUtils';
@@ -158,8 +159,12 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
         }
     };
 
-    return (
-        <div className="supplier-modal-overlay" onClick={onClose} role="presentation">
+    return createPortal(
+        <div
+            className="supplier-modal-overlay supplier-modal-overlay--stacked"
+            onClick={onClose}
+            role="presentation"
+        >
             <div
                 className="supplier-modal trial-settle-modal"
                 onClick={(event) => event.stopPropagation()}
@@ -385,13 +390,15 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
                             </div>
 
                             <div className="trial-settle-footer">
-                                <textarea
-                                    className="ioc-sidebar__textarea trial-settle-footer__note"
-                                    rows={3}
-                                    placeholder="Ghi chú quyết toán"
-                                    value={note}
-                                    onChange={(event) => setNote(event.target.value)}
-                                />
+                                <div className="trial-settle-footer__note">
+                                    <textarea
+                                        className="trial-settle-footer__textarea"
+                                        rows={3}
+                                        placeholder="Ghi chú quyết toán"
+                                        value={note}
+                                        onChange={(event) => setNote(event.target.value)}
+                                    />
+                                </div>
                                 <div className="trial-settle-paybox">
                                     <div className="trial-settle-paybox__row">
                                         <span>Tiền lô thử phải trả</span>
@@ -473,6 +480,7 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }

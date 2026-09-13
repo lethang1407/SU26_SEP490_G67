@@ -1,4 +1,4 @@
--- Phiếu bán thử OPEN cũ: line_total = 0 nên chưa vào công nợ.
+-- V61 (trước là V57): phiếu bán thử OPEN cũ — line_total = 0 nên chưa vào công nợ.
 -- Cộng giá trị thỏa thuận vào dòng và total_cost phiếu.
 
 UPDATE import_orders o

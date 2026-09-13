@@ -116,7 +116,6 @@ export default function ImportOrderCreateSidebar({
                     <div className="ioc-sidebar__selected">
                         <div>
                             <strong>{supplier.name}</strong>
-                            <div className="ioc-sidebar__selected-code">{supplier.supplierCode}</div>
                         </div>
                         <button
                             type="button"
@@ -162,7 +161,6 @@ export default function ImportOrderCreateSidebar({
                                                     }}
                                                 >
                                                     <strong>{item.name}</strong>
-                                                    <span>{item.supplierCode}</span>
                                                 </button>
                                             ))
                                         )
@@ -182,7 +180,6 @@ export default function ImportOrderCreateSidebar({
                                                 }}
                                             >
                                                 <strong>{item.name}</strong>
-                                                <span>{item.supplierCode}</span>
                                             </button>
                                         ))
                                     )}
@@ -366,7 +363,7 @@ export default function ImportOrderCreateSidebar({
                     </label>
                 )}
                 <p className="ioc-sidebar__upload-hint">
-                    Không bắt buộc · JPG, PNG, WebP · tối đa 5MB
+                    JPG, PNG, WebP · tối đa 5MB
                 </p>
             </div>
 

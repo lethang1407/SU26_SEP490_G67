@@ -1,12 +1,19 @@
-import { Trash2 } from 'lucide-react';
+import { Minus, Plus, Trash2 } from 'lucide-react';
 import {
     formatCurrency,
     formatMoneyInput,
     parseMoneyInput,
+    parseQtyInput,
+    normalizeQty,
+    MAX_IMPORT_QUANTITY,
     suggestCostForUnit,
     getLinePriceWarning,
     resolveLineType,
 } from '../utils/importOrderUtils';
+
+function bumpQty(current, delta) {
+    return Math.min(MAX_IMPORT_QUANTITY, Math.max(1, normalizeQty(current) + delta));
+}
 
 export default function ImportOrderLineTable({
     lines,
@@ -35,16 +42,26 @@ export default function ImportOrderLineTable({
         <div className="ioc-lines-card">
             <div className="ioc-lines-wrapper">
                 <table className="ioc-lines-table">
+                    <colgroup>
+                        <col className="ioc-lines-table__col--stt" />
+                        <col className="ioc-lines-table__col--name" />
+                        <col className="ioc-lines-table__col--unit" />
+                        <col className="ioc-lines-table__col--qty" />
+                        <col className="ioc-lines-table__col--price" />
+                        <col className="ioc-lines-table__col--date" />
+                        <col className="ioc-lines-table__col--note" />
+                        <col className="ioc-lines-table__col--total" />
+                    </colgroup>
                     <thead>
                         <tr>
                             <th className="ioc-lines-table__stt">STT</th>
-                            <th>Tên hàng</th>
-                            <th>ĐVT</th>
-                            <th>Số lượng</th>
-                            <th>Đơn giá *</th>
-                            <th>Hạn sử dụng</th>
+                            <th className="ioc-lines-table__col--name">Tên hàng</th>
+                            <th className="ioc-lines-table__col--unit">ĐVT</th>
+                            <th className="ioc-lines-table__col--qty">Số lượng</th>
+                            <th className="ioc-lines-table__col--price">Đơn giá *</th>
+                            <th className="ioc-lines-table__col--date">Hạn sử dụng</th>
                             <th className="ioc-lines-table__note">Ghi chú</th>
-                            <th>Thành tiền</th>
+                            <th className="ioc-lines-table__col--total">Thành tiền</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -61,6 +78,7 @@ export default function ImportOrderLineTable({
                             const isTrial = lineType === 'TRIAL';
                             const computedTotal =
                                 (Number(line.quantity) || 0) * (Number(line.costPerUnit) || 0);
+                            const missingExpiry = !String(line.expiryDate || '').trim();
                             const displayTotal =
                                 isPromotion
                                     ? 0
@@ -94,7 +112,7 @@ export default function ImportOrderLineTable({
                                             </button>
                                         ) : null}
                                     </td>
-                                    <td>
+                                    <td className="ioc-lines-table__col--name">
                                         <div className="ioc-lines-table__name">{line.productName}</div>
                                         {showMeta ? (
                                             <div className="ioc-line-meta">
@@ -151,7 +169,7 @@ export default function ImportOrderLineTable({
                                             </div>
                                         ) : null}
                                     </td>
-                                    <td>
+                                    <td className="ioc-lines-table__col--unit">
                                         {canEdit && (line.productUnits || []).length > 0 ? (
                                             <select
                                                 className="ioc-lines-table__input ioc-lines-table__input--unit ioc-lines-table__select"
@@ -185,27 +203,63 @@ export default function ImportOrderLineTable({
                                             </span>
                                         )}
                                     </td>
-                                    <td>
+                                    <td className="ioc-lines-table__col--qty">
                                         {canEdit ? (
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                className="ioc-lines-table__input ioc-lines-table__input--qty"
-                                                value={line.quantity}
-                                                onChange={(event) =>
-                                                    onChangeLine(line.key, {
-                                                        quantity: Math.max(
-                                                            1,
-                                                            Number(event.target.value) || 1,
-                                                        ),
-                                                    })
-                                                }
-                                            />
+                                            <div className="ioc-lines-table__qty-stepper">
+                                                <button
+                                                    type="button"
+                                                    className="ioc-lines-table__qty-btn"
+                                                    disabled={normalizeQty(line.quantity) <= 1}
+                                                    onClick={() =>
+                                                        onChangeLine(line.key, {
+                                                            quantity: bumpQty(line.quantity, -1),
+                                                        })
+                                                    }
+                                                    aria-label={`Giảm số lượng ${line.productName}`}
+                                                >
+                                                    <Minus size={12} />
+                                                </button>
+                                                <input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    maxLength={6}
+                                                    className="ioc-lines-table__input ioc-lines-table__input--qty"
+                                                    value={line.quantity ?? ''}
+                                                    onChange={(event) =>
+                                                        onChangeLine(line.key, {
+                                                            quantity: parseQtyInput(event.target.value),
+                                                        })
+                                                    }
+                                                    onBlur={(event) =>
+                                                        onChangeLine(line.key, {
+                                                            quantity: normalizeQty(
+                                                                parseQtyInput(event.target.value),
+                                                            ),
+                                                        })
+                                                    }
+                                                    aria-label={`Số lượng ${line.productName}`}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="ioc-lines-table__qty-btn"
+                                                    disabled={
+                                                        normalizeQty(line.quantity) >= MAX_IMPORT_QUANTITY
+                                                    }
+                                                    onClick={() =>
+                                                        onChangeLine(line.key, {
+                                                            quantity: bumpQty(line.quantity, 1),
+                                                        })
+                                                    }
+                                                    aria-label={`Tăng số lượng ${line.productName}`}
+                                                >
+                                                    <Plus size={12} />
+                                                </button>
+                                            </div>
                                         ) : (
                                             <span>{line.quantity ?? '—'}</span>
                                         )}
                                     </td>
-                                    <td>
+                                    <td className="ioc-lines-table__col--price">
                                         {canEdit ? (
                                             <div className="ioc-lines-table__price-cell">
                                                 <input
@@ -259,16 +313,26 @@ export default function ImportOrderLineTable({
                                             <span>{formatCurrency(line.costPerUnit)}</span>
                                         )}
                                     </td>
-                                    <td>
+                                    <td className="ioc-lines-table__col--date">
                                         {canEdit ? (
                                             <input
                                                 type="date"
-                                                className="ioc-lines-table__input ioc-lines-table__input--date"
+                                                className={`ioc-lines-table__input ioc-lines-table__input--date${
+                                                    missingExpiry
+                                                        ? ' ioc-lines-table__input--date-warn'
+                                                        : ''
+                                                }`}
                                                 value={line.expiryDate}
                                                 onChange={(event) =>
                                                     onChangeLine(line.key, {
                                                         expiryDate: event.target.value,
                                                     })
+                                                }
+                                                title={missingExpiry ? 'Chưa nhập hạn sử dụng' : undefined}
+                                                aria-label={
+                                                    missingExpiry
+                                                        ? `Hạn sử dụng ${line.productName} (chưa nhập)`
+                                                        : `Hạn sử dụng ${line.productName}`
                                                 }
                                             />
                                         ) : (

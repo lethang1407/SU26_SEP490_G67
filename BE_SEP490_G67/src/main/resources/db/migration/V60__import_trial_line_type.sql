@@ -1,4 +1,4 @@
--- Hàng bán thử: loại dòng, trạng thái quyết toán, gắn lô, sổ quyết toán.
+-- V60 (trước là V56): hàng bán thử — loại dòng, trạng thái quyết toán, gắn lô, sổ quyết toán.
 
 SET @col_exists := (
     SELECT COUNT(*) FROM information_schema.COLUMNS

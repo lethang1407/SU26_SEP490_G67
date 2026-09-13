@@ -1,4 +1,27 @@
-import { IMPORT_ORDER_STATUS, ORDER_STATUS_FILTER } from '../constants';
+import { IMPORT_ORDER_STATUS, MAX_IMPORT_QUANTITY, ORDER_STATUS_FILTER } from '../constants';
+
+export { MAX_IMPORT_QUANTITY };
+
+const MAX_IMPORT_QTY_DIGITS = String(MAX_IMPORT_QUANTITY).length;
+
+/** Parse ô số lượng: chỉ chữ số, tối đa 6 ký tự. Trả '' khi đang xóa. */
+export function parseQtyInput(text) {
+    const digits = String(text ?? '').replace(/[^\d]/g, '').slice(0, MAX_IMPORT_QTY_DIGITS);
+    if (!digits) return '';
+    return Number(digits);
+}
+
+/** Chốt số lượng khi rời ô: nguyên, 1–MAX_IMPORT_QUANTITY. */
+export function normalizeQty(value) {
+    const n = Number(value);
+    if (!Number.isInteger(n) || n < 1) return 1;
+    return Math.min(n, MAX_IMPORT_QUANTITY);
+}
+
+export function isValidImportQuantity(value) {
+    const n = Number(value);
+    return Number.isInteger(n) && n >= 1 && n <= MAX_IMPORT_QUANTITY;
+}
 
 export function formatCurrency(value) {
     const amount = Number(value) || 0;
@@ -293,8 +316,8 @@ export function validateImportForm({ supplierId, lines }) {
         const quantity = Number(line.quantity);
         const costPerUnit = Number(line.costPerUnit);
 
-        if (!quantity || quantity <= 0) {
-            return `Số lượng nhập của "${line.productName}" phải lớn hơn 0.`;
+        if (!isValidImportQuantity(quantity)) {
+            return `Số lượng của "${line.productName}" phải là số nguyên từ 1 đến ${MAX_IMPORT_QUANTITY.toLocaleString('vi-VN')}.`;
         }
 
         if (costPerUnit < 0 || Number.isNaN(costPerUnit)) {

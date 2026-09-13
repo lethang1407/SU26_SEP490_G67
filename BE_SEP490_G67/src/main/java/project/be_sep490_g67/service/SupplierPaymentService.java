@@ -119,7 +119,8 @@ public class SupplierPaymentService {
         String method = request.getPaymentMethod() == null || request.getPaymentMethod().isBlank()
                 ? "CASH" : request.getPaymentMethod();
         LocalDateTime paidAt = LocalDateTime.now();
-        int nextSeq = nextPaymentSequence();
+        LocalDate paidDate = paidAt.toLocalDate();
+        int nextSeq = nextPaymentSequence(paidDate);
         BigDecimal unapplied = amount;
         List<SupplierPaymentResponse> paymentDetails = new ArrayList<>();
 
@@ -134,7 +135,7 @@ public class SupplierPaymentService {
             BigDecimal paidForOrder = unapplied.min(remaining);
 
             SupplierPayment payment = new SupplierPayment();
-            payment.setPaymentCode(formatPaymentCode(nextSeq++));
+            payment.setPaymentCode(ImportOrderConstants.formatPaymentCode(paidDate, nextSeq++));
             payment.setSupplier(supplier);
             payment.setImportOrder(order);
             payment.setAmount(paidForOrder);
@@ -288,19 +289,10 @@ public class SupplierPaymentService {
                 .build();
     }
 
-    private int nextPaymentSequence() {
-        String prefix = ImportOrderConstants.PAYMENT_CODE_PREFIX;
-        int nextSeq = supplierPaymentRepository.findLatestTtnPaymentCode()
-                .map(code -> Integer.parseInt(code.substring(prefix.length())) + 1)
-                .orElse(0);
-        if (nextSeq > 999_999) {
-            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
-        }
-        return nextSeq;
-    }
-
-    private String formatPaymentCode(int seq) {
-        return ImportOrderConstants.PAYMENT_CODE_PREFIX
-                + String.format("%0" + ImportOrderConstants.PAYMENT_CODE_SEQ_LENGTH + "d", seq);
+    private int nextPaymentSequence(LocalDate date) {
+        supplierPaymentRepository.flush();
+        Integer max = supplierPaymentRepository.findMaxPaymentSequenceByDayPrefix(
+                ImportOrderConstants.paymentDayPrefix(date));
+        return (max != null ? max : 0) + 1;
     }
 }

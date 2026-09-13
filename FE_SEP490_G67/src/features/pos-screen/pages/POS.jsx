@@ -34,6 +34,7 @@ import QuickAddCustomerModal from '../components/QuickAddCustomerModal';
 import SalesOrderHistoryModal from '../components/SalesOrderHistoryModal';
 import ExchangeOrder from '../components/ExchangeOrder';
 import TransferQrPanel from '../components/TransferQrPanel';
+import PosHeaderMenu from '../components/PosHeaderMenu';
 import { buildPaymentReference } from '../utils/vietqr';
 import { saveActiveCart, loadActiveCart } from '../utils/cartStorage';
 import { printInvoice } from '../utils/printInvoice';

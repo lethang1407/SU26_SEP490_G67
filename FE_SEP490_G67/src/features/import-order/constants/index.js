@@ -59,6 +59,9 @@ export const ORDER_STATUS_FILTER_LABEL = {
     [ORDER_STATUS_FILTER.IMPORTED]: 'Đã nhập hàng',
 };
 
+/** Số lượng mỗi dòng phiếu nhập: 1–999.999 (6 chữ số). */
+export const MAX_IMPORT_QUANTITY = 999_999;
+
 export const TRIAL_DECISION = {
     PAY_SOLD_RETURN_REST: 'PAY_SOLD_RETURN_REST',
     PAY_ALL_KEEP: 'PAY_ALL_KEEP',

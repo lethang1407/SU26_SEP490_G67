@@ -14,7 +14,7 @@ import {
     mapPendingReturnLine,
     selectedReturnDeduction,
 } from '../utils/importReturnAttachUtils';
-import { ORDER_STATUS } from '../constants';
+import { MAX_IMPORT_QUANTITY, ORDER_STATUS } from '../constants';
 import { isRemoteImageUrl, validateInvoiceImageFile } from '@/lib/cloudinary';
 import {
     suggestCostForUnit,
@@ -23,6 +23,7 @@ import {
     computeGoodsTotal,
     computeOpenTrialAmount,
     computeRegularPayableAmount,
+    isValidImportQuantity,
 } from '../utils/importOrderUtils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Supplier.css';
@@ -597,7 +598,13 @@ export default function CreateImportOrderPage() {
                 if (existing) {
                     next = next.map((line) =>
                         line.key === existing.key
-                            ? { ...line, quantity: (Number(line.quantity) || 0) + 1 }
+                            ? {
+                                  ...line,
+                                  quantity: Math.min(
+                                      MAX_IMPORT_QUANTITY,
+                                      (Number(line.quantity) || 0) + 1,
+                                  ),
+                              }
                             : line,
                     );
                 } else {
@@ -666,9 +673,11 @@ export default function CreateImportOrderPage() {
                             line.key === sibling.key
                                 ? {
                                     ...line,
-                                    quantity:
+                                    quantity: Math.min(
+                                        MAX_IMPORT_QUANTITY,
                                         (Number(line.quantity) || 0) +
-                                        (Number(current.quantity) || 0),
+                                            (Number(current.quantity) || 0),
+                                    ),
                                 }
                                 : line,
                         );
@@ -819,16 +828,19 @@ export default function CreateImportOrderPage() {
             }
             return false;
         }
-        const invalidLine = lines.find(
-            (line) =>
-                !line.productId ||
-                !line.productUnitId ||
-                (Number(line.quantity) || 0) < 1,
-        );
-        if (invalidLine) {
+        const invalidMetaLine = lines.find((line) => !line.productId || !line.productUnitId);
+        if (invalidMetaLine) {
             showAlertModal(
                 'Dòng hàng chưa hợp lệ',
-                'Có dòng hàng chưa hợp lệ. Kiểm tra đơn vị tính và số lượng.',
+                `Dòng "${invalidMetaLine.productName || 'hàng'}" chưa chọn đơn vị tính.`,
+            );
+            return false;
+        }
+        const invalidQtyLine = lines.find((line) => !isValidImportQuantity(line.quantity));
+        if (invalidQtyLine) {
+            showAlertModal(
+                'Số lượng chưa hợp lệ',
+                `Số lượng của "${invalidQtyLine.productName}" phải là số nguyên từ 1 đến ${MAX_IMPORT_QUANTITY.toLocaleString('vi-VN')}.`,
             );
             return false;
         }
@@ -848,9 +860,6 @@ export default function CreateImportOrderPage() {
         }
         return true;
     };
-
-    const countMissingExpiry = () =>
-        lines.filter((line) => !String(line.expiryDate || '').trim()).length;
 
     const navigateAfterSuccess = (message) => {
         allowNavigate();
@@ -1004,23 +1013,6 @@ export default function CreateImportOrderPage() {
 
     const handleComplete = () => {
         if (!validate({ useModal: true, requireSupplier: true }) || submitting || loadingDetail) return;
-
-        const missingCount = countMissingExpiry();
-        if (missingCount > 0) {
-            showAlertModal(
-                'Hoàn thành phiếu nhập',
-                `Có ${missingCount} sản phẩm chưa nhập hạn sử dụng. Bạn có chắc muốn hoàn thành phiếu nhập hàng?`,
-                {
-                    cancelLabel: 'Quay lại',
-                    onConfirm: () => {
-                        closeAlertModal();
-                        submitOrder(ORDER_STATUS.IMPORTED);
-                    },
-                },
-            );
-            return;
-        }
-
         submitOrder(ORDER_STATUS.IMPORTED);
     };
 

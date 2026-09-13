@@ -1,5 +1,5 @@
 -- ============================================================
--- V59: giảm giá lúc quyết toán hàng bán thử (cấp lần quyết toán).
+-- V62 (trước là V59): giảm giá lúc quyết toán hàng bán thử (cấp lần quyết toán).
 -- Guarded: Hibernate ddl-auto có thể đã thêm cột.
 -- ============================================================
 
