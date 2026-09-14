@@ -34,10 +34,12 @@ public class ImportOrderDetailResponse {
     /** Trạng thái thanh toán derive: DEBT | DONE (giữ tên status cho modal NCC). */
     String status;
 
-    /** Tổng tiền hàng = SUM(line_total), trước giảm giá. */
+    /** Tổng tiền hàng = giá trị hàng thường + bán thử (không gồm KM). */
     BigDecimal goodsTotal;
+    /** Giá trị bán thử chưa quyết toán — đã gồm trong totalCost / công nợ. */
+    BigDecimal openTrialAmount;
     BigDecimal discountAmount;
-    /** Cần trả NCC = max(goodsTotal - discount - hàng trả, 0) (= total_cost). */
+    /** Cần trả NCC (= total_cost), gồm bán thử OPEN. */
     BigDecimal totalCost;
     BigDecimal returnDeductionAmount;
     BigDecimal supplierRefundAmount;
@@ -51,4 +53,8 @@ public class ImportOrderDetailResponse {
 
     List<ImportOrderItemResponse> items;
     List<ImportOrderReturnLineResponse> returnLines;
+    List<ImportTrialSettleResponse> trialSettlements;
+
+    /** Có dòng bán thử chưa quyết toán. */
+    Boolean hasOpenTrial;
 }

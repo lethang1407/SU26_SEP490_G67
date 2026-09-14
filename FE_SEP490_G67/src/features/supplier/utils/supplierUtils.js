@@ -98,3 +98,28 @@ export function validateSupplierForm(formData) {
 
     return errors;
 }
+
+export function payableNowAmountOf(supplier) {
+    if (supplier?.payableNowAmount != null) {
+        return Math.max(Number(supplier.payableNowAmount) || 0, 0);
+    }
+    return Math.max(Number(supplier?.currentDebt) || 0, 0);
+}
+
+export function openTrialAmountOf(supplier) {
+    return Math.max(Number(supplier?.openTrialAmount) || 0, 0);
+}
+
+export function canPaySupplierDebt(supplier) {
+    return payableNowAmountOf(supplier) > 0;
+}
+
+export function payDebtButtonTitle(supplier) {
+    if (canPaySupplierDebt(supplier)) {
+        return 'Thanh toán nợ hàng thường';
+    }
+    if ((Number(supplier?.currentDebt) || 0) > 0) {
+        return 'Chỉ còn hàng bán thử — quyết toán ở tab Hàng bán thử';
+    }
+    return 'Không có công nợ';
+}

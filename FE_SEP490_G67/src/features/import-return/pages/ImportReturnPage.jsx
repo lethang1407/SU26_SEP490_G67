@@ -307,63 +307,62 @@ export default function ImportReturnPage() {
 
                         {error && <Alert variant="danger">{error}</Alert>}
 
-                        <section className="import-return-side-card import-return-info-card">
-                            <h3>Thông tin phiếu</h3>
-                            <div className="import-return-info-fields">
-                                <div className="import-return-info-field">
-                                    <span className="import-return-info-field__label">Số dòng</span>
-                                    <div className="import-return-info-field__box">
-                                        <span className="import-return-info-field__value">
-                                            {rows.length}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="import-return-info-field">
-                                    <span className="import-return-info-field__label">Số NCC</span>
-                                    <div className="import-return-info-field__box">
-                                        <span className="import-return-info-field__value">
-                                            {supplierCount}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="import-return-info-field">
-                                    <span className="import-return-info-field__label">
-                                        Tổng hoàn
-                                    </span>
-                                    <div className="import-return-info-field__box">
-                                        <span className="import-return-info-field__value">
-                                            {formatCurrency(totalValue)}
-                                        </span>
-                                    </div>
-                                </div>
-                                {editingDraftId ? (
-                                    <div className="import-return-info-field">
-                                        <span className="import-return-info-field__label">
-                                            Đang sửa nháp
-                                        </span>
-                                        <div className="import-return-info-field__box">
-                                            <span className="import-return-info-field__value">
-                                                #{editingDraftId}
-                                            </span>
-                                        </div>
-                                    </div>
+                        {showBanner ? (
+                            <section
+                                className={`import-return-check-banner import-return-check-banner--top${bannerCollapsed ? ' import-return-check-banner--collapsed' : ''}`}
+                            >
+                                <button
+                                    type="button"
+                                    className="import-return-check-banner__header"
+                                    onClick={() => setBannerCollapsed((prev) => !prev)}
+                                    aria-expanded={!bannerCollapsed}
+                                >
+                                    <strong>
+                                        Cần đổi/trả từ kiểm kho ({checkDrafts.length})
+                                    </strong>
+                                    <ChevronDown
+                                        size={18}
+                                        className="import-return-check-banner__chevron"
+                                        aria-hidden="true"
+                                    />
+                                </button>
+                                {!bannerCollapsed ? (
+                                    <ul className="import-return-check-banner__list">
+                                        {checkDrafts.map((draft) => (
+                                            <li key={draft.id}>
+                                                <button
+                                                    type="button"
+                                                    className="import-return-check-banner__item"
+                                                    onClick={() => {
+                                                        setModalDetailId(draft.id);
+                                                        setModalMode('drafts');
+                                                    }}
+                                                >
+                                                    <span className="import-return-check-banner__item-title">
+                                                        {draft.inventoryCheckCode
+                                                            ? `Kiểm kho ${draft.inventoryCheckCode}`
+                                                            : draft.returnCode ||
+                                                              `Nháp #${draft.id}`}
+                                                    </span>
+                                                    <span className="import-return-check-banner__item-meta">
+                                                        {draft.itemCount ?? 0} sản phẩm
+                                                        {' · '}
+                                                        {formatCurrency(draft.totalRefund)}
+                                                    </span>
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
                                 ) : null}
-                                <div className="import-return-info-field import-return-info-field--note">
-                                    <span className="import-return-info-field__label">
-                                        Ghi chú phiếu
-                                    </span>
-                                    <div className="import-return-info-field__box">
-                                        <textarea
-                                            className="import-return-info-field__textarea"
-                                            rows={3}
-                                            value={note}
-                                            onChange={(e) => setNote(e.target.value)}
-                                            placeholder="Ghi chú chung..."
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
+                            </section>
+                        ) : (
+                            <section className="import-return-side-card import-return-side-card--empty import-return-check-banner--top">
+                                <h3>Cần đổi/trả từ kiểm kho</h3>
+                                <p className="text-muted mb-0">
+                                    Hiện không có phiếu nháp từ kiểm kho.
+                                </p>
+                            </section>
+                        )}
 
                         <div className="import-return-workspace">
                             <div className="import-return-workspace__main">
@@ -495,62 +494,57 @@ export default function ImportReturnPage() {
                             </div>
 
                             <aside className="import-return-workspace__side">
-                                {showBanner ? (
-                                    <section
-                                        className={`import-return-check-banner${bannerCollapsed ? ' import-return-check-banner--collapsed' : ''}`}
-                                    >
-                                        <button
-                                            type="button"
-                                            className="import-return-check-banner__header"
-                                            onClick={() => setBannerCollapsed((prev) => !prev)}
-                                            aria-expanded={!bannerCollapsed}
-                                        >
-                                            <strong>
-                                                Cần đổi/trả từ kiểm kho ({checkDrafts.length})
-                                            </strong>
-                                            <ChevronDown
-                                                size={18}
-                                                className="import-return-check-banner__chevron"
-                                                aria-hidden="true"
-                                            />
-                                        </button>
-                                        {!bannerCollapsed ? (
-                                            <ul className="import-return-check-banner__list">
-                                                {checkDrafts.map((draft) => (
-                                                    <li key={draft.id}>
-                                                        <button
-                                                            type="button"
-                                                            className="import-return-check-banner__item"
-                                                            onClick={() => {
-                                                                setModalDetailId(draft.id);
-                                                                setModalMode('drafts');
-                                                            }}
-                                                        >
-                                                            <span className="import-return-check-banner__item-title">
-                                                                {draft.inventoryCheckCode
-                                                                    ? `Kiểm kho ${draft.inventoryCheckCode}`
-                                                                    : draft.returnCode ||
-                                                                      `Nháp #${draft.id}`}
-                                                            </span>
-                                                            <span className="import-return-check-banner__item-meta">
-                                                                {draft.itemCount ?? 0} sản phẩm
-                                                                {' · '}
-                                                                {formatCurrency(draft.totalRefund)}
-                                                            </span>
-                                                        </button>
-                                                    </li>
-                                                ))}
-                                            </ul>
+                                <section className="import-return-side-card import-return-info-card">
+                                    <h3>Thông tin phiếu</h3>
+                                    <div className="import-return-info-fields import-return-info-fields--plain">
+                                        <div className="import-return-info-field">
+                                            <span className="import-return-info-field__label">
+                                                Số dòng
+                                            </span>
+                                            <span className="import-return-info-field__value">
+                                                {rows.length}
+                                            </span>
+                                        </div>
+                                        <div className="import-return-info-field">
+                                            <span className="import-return-info-field__label">
+                                                Số NCC
+                                            </span>
+                                            <span className="import-return-info-field__value">
+                                                {supplierCount}
+                                            </span>
+                                        </div>
+                                        <div className="import-return-info-field">
+                                            <span className="import-return-info-field__label">
+                                                Tổng hoàn
+                                            </span>
+                                            <span className="import-return-info-field__value">
+                                                {formatCurrency(totalValue)}
+                                            </span>
+                                        </div>
+                                        {editingDraftId ? (
+                                            <div className="import-return-info-field">
+                                                <span className="import-return-info-field__label">
+                                                    Đang sửa nháp
+                                                </span>
+                                                <span className="import-return-info-field__value">
+                                                    #{editingDraftId}
+                                                </span>
+                                            </div>
                                         ) : null}
-                                    </section>
-                                ) : (
-                                    <section className="import-return-side-card import-return-side-card--empty">
-                                        <h3>Cần đổi/trả từ kiểm kho</h3>
-                                        <p className="text-muted mb-0">
-                                            Hiện không có phiếu nháp từ kiểm kho.
-                                        </p>
-                                    </section>
-                                )}
+                                        <div className="import-return-info-field import-return-info-field--note">
+                                            <span className="import-return-info-field__label">
+                                                Ghi chú phiếu
+                                            </span>
+                                            <textarea
+                                                className="import-return-info-field__textarea"
+                                                rows={3}
+                                                value={note}
+                                                onChange={(e) => setNote(e.target.value)}
+                                                placeholder="Ghi chú chung..."
+                                            />
+                                        </div>
+                                    </div>
+                                </section>
                             </aside>
                         </div>
                     </div>

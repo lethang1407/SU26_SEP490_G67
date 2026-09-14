@@ -1,7 +1,12 @@
 import { Search } from 'lucide-react';
 import { IMPORT_HISTORY_FILTER, IMPORT_HISTORY_FILTER_LABEL } from '../constants';
 
-const FILTER_OPTIONS = [IMPORT_HISTORY_FILTER.ALL, IMPORT_HISTORY_FILTER.DEBT, IMPORT_HISTORY_FILTER.DONE];
+const FILTER_OPTIONS = [
+    IMPORT_HISTORY_FILTER.ALL,
+    IMPORT_HISTORY_FILTER.DEBT,
+    IMPORT_HISTORY_FILTER.PENDING_SETTLEMENT,
+    IMPORT_HISTORY_FILTER.DONE,
+];
 
 export default function SupplierImportHistoryToolbar({ keyword, statusFilter, onKeywordChange, onStatusFilterChange }) {
     return (

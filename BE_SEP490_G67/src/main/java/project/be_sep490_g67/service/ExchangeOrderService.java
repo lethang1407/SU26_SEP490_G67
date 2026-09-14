@@ -17,6 +17,7 @@ import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.*;
 import project.be_sep490_g67.utils.ResolvedReturnLine;
+import project.be_sep490_g67.utils.ReturnRefundCalculator;
 import project.be_sep490_g67.utils.UnitPriceResolver;
 import project.be_sep490_g67.utils.UnitQuantityConverter;
 
@@ -43,7 +44,7 @@ public class ExchangeOrderService {
     StockBatchRepository stockBatchRepository;
     StockMovementRepository stockMovementRepository;
     ProductUnitRepository productUnitRepository;
-    StoreConfigRepository storeConfigRepository;
+    AlertThresholdConfigRepository alertThresholdConfigRepository;
     BatchLocationRepository batchLocationRepository;
     StorageLocationRepository storageLocationRepository;
     DebtPaymentRepository debtPaymentRepository;
@@ -54,6 +55,7 @@ public class ExchangeOrderService {
         SalesOrder order = salesOrderRepository.findByIdWithDetails(orderId)
                 .orElseThrow(() -> new AppException(ErrorCode.ORDER_NOT_FOUND));
         Map<Integer, Integer> returnedByLine = returnedQuantityByLine(orderId);
+        Map<Integer, BigDecimal> netLineTotals = ReturnRefundCalculator.netLineTotals(order);
 
         ExchangeOrderDetailResponse.CustomerInfo customerInfo = null;
         if (order.getCustomer() != null) {
@@ -83,6 +85,7 @@ public class ExchangeOrderService {
                                     || product.getIsReturnable())
                             .unitPrice(detail.getUnitPrice())
                             .lineTotal(detail.getLineTotal())
+                            .netLineTotal(netLineTotals.get(detail.getId()))
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -142,15 +145,24 @@ public class ExchangeOrderService {
         returnOrder.setUpdatedAt(Instant.now());
         returnOrder.setIsRemoved(false);
 
-        // Calculate return amounts.
+        // Calculate return amounts — theo giá khách đã trả (đã phân bổ giảm giá hóa đơn).
         BigDecimal returnSubtotal = BigDecimal.ZERO;
         List<ReturnOrderDetail> returnDetails = new ArrayList<>();
+        Map<Integer, BigDecimal> netLineTotals = ReturnRefundCalculator.netLineTotals(originalOrder);
+        Map<Integer, Integer> refundedQtyByLine = new HashMap<>(returnedByLine);
 
         for (ResolvedReturnLine line : resolvedLines) {
             SalesOrderDetail soldLine = line.soldLine();
 
             BigDecimal unitPrice = soldLine.getUnitPrice();
-            BigDecimal lineRefund = unitPrice.multiply(BigDecimal.valueOf(line.quantity()));
+            int refundedBefore = refundedQtyByLine.getOrDefault(soldLine.getId(), 0);
+            BigDecimal lineRefund = ReturnRefundCalculator.refundFor(
+                    netLineTotals.getOrDefault(soldLine.getId(),
+                            ReturnRefundCalculator.grossLineTotal(soldLine)),
+                    soldLine.getQuantity(),
+                    refundedBefore,
+                    line.quantity());
+            refundedQtyByLine.put(soldLine.getId(), refundedBefore + line.quantity());
 
             ReturnOrderDetail detail = new ReturnOrderDetail();
             detail.setReturnOrder(returnOrder);
@@ -345,6 +357,7 @@ public class ExchangeOrderService {
                 savedReturnOrder,
                 originalOrder,
                 resolvedLines,
+                returnDetails,
                 exchangeDetails,
                 returnSubtotal,
                 returnDiscount,
@@ -679,10 +692,13 @@ public class ExchangeOrderService {
 
     /**
      * Thời điểm hết hạn đổi trả của một hóa đơn, null khi cửa hàng không đặt hạn hoặc đơn
-     * chưa có ngày tạo.
+     * chưa có ngày tạo. Hạn đổi trả nằm ở alert_threshold_config từ V57.
+     *
+     * <p>Thiếu dòng cấu hình thì ném lỗi chứ không đoán: đoán 7 là tự đặt chính sách thay
+     * chủ cửa hàng, còn coi như null là cho đổi trả vô thời hạn.
      */
     private Instant returnDeadline(SalesOrder order) {
-        Integer windowDays = storeConfigRepository.findFirstByOrderByIdAsc()
+        Integer windowDays = alertThresholdConfigRepository.findFirstByOrderByIdAsc()
                 .orElseThrow(() -> new AppException(ErrorCode.STORE_CONFIG_MISSING))
                 .getReturnWindowDays();
 
@@ -824,6 +840,7 @@ public class ExchangeOrderService {
             ReturnOrder returnOrder,
             SalesOrder originalOrder,
             List<ResolvedReturnLine> resolvedLines,
+            List<ReturnOrderDetail> returnDetails,
             List<SalesOrderDetail> exchangeDetails,
             BigDecimal returnSubtotal,
             BigDecimal returnDiscount,
@@ -836,25 +853,23 @@ public class ExchangeOrderService {
             DebtSettlement settlement,
             SalesOrder exchangeOrder) {
 
-        List<ExchangeOrderResponse.ReturnItemInfo> returnItems = resolvedLines.stream()
-                .map(line -> {
-                    SalesOrderDetail soldLine = line.soldLine();
-                    Product product = soldLine.getProduct();
-                    BigDecimal unitPrice = soldLine.getUnitPrice();
-                    return ExchangeOrderResponse.ReturnItemInfo.builder()
-                            .salesOrderDetailId(soldLine.getId())
-                            .productId(product.getId())
-                            .productCode(product.getBarcode() != null ? product.getBarcode()
-                                    : "SP" + String.format("%06d", product.getId()))
-                            .productName(product.getName())
-                            .unitName(soldLine.getUnitName())
-                            .quantity(line.quantity())
-                            .unitPrice(unitPrice)
-                            .lineTotal(unitPrice
-                                    .multiply(BigDecimal.valueOf(line.quantity())))
-                            .build();
-                })
-                .collect(Collectors.toList());
+        List<ExchangeOrderResponse.ReturnItemInfo> returnItems = new ArrayList<>();
+        for (int i = 0; i < resolvedLines.size(); i++) {
+            ResolvedReturnLine line = resolvedLines.get(i);
+            SalesOrderDetail soldLine = line.soldLine();
+            Product product = soldLine.getProduct();
+            returnItems.add(ExchangeOrderResponse.ReturnItemInfo.builder()
+                    .salesOrderDetailId(soldLine.getId())
+                    .productId(product.getId())
+                    .productCode(product.getBarcode() != null ? product.getBarcode()
+                            : "SP" + String.format("%06d", product.getId()))
+                    .productName(product.getName())
+                    .unitName(soldLine.getUnitName())
+                    .quantity(line.quantity())
+                    .unitPrice(soldLine.getUnitPrice())
+                    .lineTotal(returnDetails.get(i).getLineRefund())
+                    .build());
+        }
 
         List<ExchangeOrderResponse.ExchangeItemInfo> exchangeItems = exchangeDetails.stream()
                 .map(detail -> {

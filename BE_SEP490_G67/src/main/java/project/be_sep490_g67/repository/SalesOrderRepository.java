@@ -6,10 +6,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import project.be_sep490_g67.entity.SalesOrder;
+
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import java.time.Instant;
 
 
 public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer> {
@@ -19,10 +20,6 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
     @Query("SELECT o.createdBy FROM SalesOrder o WHERE o.id = :id AND o.isRemoved = false")
     Optional<Integer> findCreatedById(@Param("id") Integer id);
 
-    /**
-     * Đơn đổi (hóa đơn bán hàng lấy mới) sinh ra từ một hóa đơn gốc. Lịch sử đơn hàng
-     * không liệt kê chúng thành dòng riêng mà gom vào dòng của hóa đơn gốc.
-     */
     @Query("""
             SELECT o FROM SalesOrder o
             WHERE o.originalSalesOrderId IN :originalIds
@@ -119,56 +116,56 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
 
     @Query(
             value = """
-                SELECT so
-                FROM SalesOrder so
-                WHERE so.customer.id = :customerId
-                  AND (:keyword IS NULL OR so.orderCode LIKE %:keyword%)
-                ORDER BY
-                    CASE
-                        WHEN so.totalAmount >
-                             (
-                                 COALESCE(so.paidAmount, 0)
-                                 +
-                                 COALESCE(
-                                     (
-                                         SELECT SUM(dp.amountPaid)
-                                         FROM DebtPayment dp
-                                         WHERE dp.salesOrder = so
-                                           AND dp.isRemoved = false
-                                     ),
-                                     0
+                    SELECT so
+                    FROM SalesOrder so
+                    WHERE so.customer.id = :customerId
+                      AND (:keyword IS NULL OR so.orderCode LIKE %:keyword%)
+                    ORDER BY
+                        CASE
+                            WHEN so.totalAmount >
+                                 (
+                                     COALESCE(so.paidAmount, 0)
+                                     +
+                                     COALESCE(
+                                         (
+                                             SELECT SUM(dp.amountPaid)
+                                             FROM DebtPayment dp
+                                             WHERE dp.salesOrder = so
+                                               AND dp.isRemoved = false
+                                         ),
+                                         0
+                                     )
                                  )
-                             )
-                             AND so.dueDate IS NOT NULL
-                             AND so.dueDate < :now
-                        THEN 1
-
-                        WHEN so.totalAmount >
-                             (
-                                 COALESCE(so.paidAmount, 0)
-                                 +
-                                 COALESCE(
-                                     (
-                                         SELECT SUM(dp.amountPaid)
-                                         FROM DebtPayment dp
-                                         WHERE dp.salesOrder = so
-                                           AND dp.isRemoved = false
-                                     ),
-                                     0
+                                 AND so.dueDate IS NOT NULL
+                                 AND so.dueDate < :now
+                            THEN 1
+                    
+                            WHEN so.totalAmount >
+                                 (
+                                     COALESCE(so.paidAmount, 0)
+                                     +
+                                     COALESCE(
+                                         (
+                                             SELECT SUM(dp.amountPaid)
+                                             FROM DebtPayment dp
+                                             WHERE dp.salesOrder = so
+                                               AND dp.isRemoved = false
+                                         ),
+                                         0
+                                     )
                                  )
-                             )
-                        THEN 2
-
-                        ELSE 3
-                    END,
-                    so.createdAt DESC
-                """,
+                            THEN 2
+                    
+                            ELSE 3
+                        END,
+                        so.createdAt DESC
+                    """,
             countQuery = """
-                SELECT COUNT(so)
-                FROM SalesOrder so
-                WHERE so.customer.id = :customerId
-                  AND (:keyword IS NULL OR so.orderCode LIKE %:keyword%)
-                """
+                    SELECT COUNT(so)
+                    FROM SalesOrder so
+                    WHERE so.customer.id = :customerId
+                      AND (:keyword IS NULL OR so.orderCode LIKE %:keyword%)
+                    """
     )
     Page<SalesOrder> findDebtOrdersByCustomerIdWithPriority(
             @Param("customerId") Integer customerId,
@@ -177,10 +174,6 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
             Pageable pageable
     );
 
-    /**
-     * Kiểm tra khách này đã từng có đơn bán nợ nào chưa. Dùng để nhận biết đơn nợ đầu
-     * tiên của một khách — đơn đó cần quản lý rà soát lại.
-     */
     @Query("""
             SELECT COUNT(so) > 0 FROM SalesOrder so
             WHERE so.customer.id = :customerId
@@ -189,10 +182,6 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
             """)
     boolean existsDebtOrderByCustomerId(@Param("customerId") Integer customerId);
 
-    /**
-     * Đơn nợ đã quá hạn của một khách. Lọc theo dueDate — phần "còn nợ bao
-     * nhiêu" để service tính bằng DebtCalculator.
-     */
     @Query("""
             SELECT so FROM SalesOrder so
             WHERE so.customer.id = :customerId
@@ -204,6 +193,26 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
     List<SalesOrder> findOverdueDebtOrdersByCustomerId(
             @Param("customerId") Integer customerId,
             @Param("now") Instant now);
+
+    @Query("""
+            SELECT c.id, c.fullName,
+                   (so.totalAmount - COALESCE(so.paidAmount, 0)
+                    - COALESCE((SELECT SUM(dp.amountPaid) FROM DebtPayment dp
+                                WHERE dp.salesOrder = so AND dp.isRemoved = false), 0))
+            FROM SalesOrder so
+            JOIN so.customer c
+            WHERE so.isRemoved = false
+              AND so.isDebt = true
+              AND so.dueDate IS NOT NULL
+              AND so.dueDate < :now
+              AND so.totalAmount > (
+                    COALESCE(so.paidAmount, 0)
+                    + COALESCE((SELECT SUM(dp.amountPaid) FROM DebtPayment dp
+                                WHERE dp.salesOrder = so AND dp.isRemoved = false), 0))
+            ORDER BY so.dueDate ASC, so.id ASC
+            """)
+    List<Object[]> findAllOverdueUnpaidDebtOrders(@Param("now") Instant now);
+
     @Query("""
             SELECT DISTINCT so FROM SalesOrder so
             LEFT JOIN FETCH so.customer
@@ -300,15 +309,6 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
             """)
     List<SalesOrder> findOrdersBetween(@Param("start") Instant start, @Param("end") Instant end);
 
-    /**
-     * Hình thức thanh toán của các đơn đổi sinh ra trong kỳ, tra theo đơn gốc.
-     *
-     * <p>Đơn đổi ghi phần hàng trả cấn sang vào {@code paidAmount}, nên khoản đó rơi vào
-     * quỹ tiền mặt hay quỹ ngân hàng là do hình thức thanh toán của chính đơn đổi quyết
-     * định — cùng tiêu chí mà {@code sumCashSalesBetween}/{@code sumBankSalesBetween} dùng.
-     *
-     * <p>Mỗi phần tử: {@code [idĐơnGốc, hìnhThứcThanhToán]}.
-     */
     @Query("""
             SELECT so.originalSalesOrderId, so.paymentMethod
             FROM SalesOrder so

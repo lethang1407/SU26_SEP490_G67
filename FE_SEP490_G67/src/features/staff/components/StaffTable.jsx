@@ -28,7 +28,6 @@ export default function StaffTable({ staffList }) {
                             <col className="staff-table__col-name" />
                             <col className="staff-table__col-gap" />
                             <col className="staff-table__col-phone" />
-                            <col className="staff-table__col-position" />
                             <col style={{ width: '120px' }} />
                         </colgroup>
                         <thead>
@@ -38,14 +37,13 @@ export default function StaffTable({ staffList }) {
                                 <th className="staff-table__col-name">Tên nhân viên</th>
                                 <th className="staff-table__col-gap" aria-hidden="true" />
                                 <th className="staff-table__col-phone">Số điện thoại</th>
-                                <th className="staff-table__col-position">Vị trí</th>
                                 <th>Thao tác</th>
                             </tr>
                         </thead>
                         <tbody>
                             {staffList.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="staff-table__empty">
+                                    <td colSpan={6} className="staff-table__empty">
                                         Không tìm thấy nhân viên phù hợp.
                                     </td>
                                 </tr>
@@ -61,7 +59,6 @@ export default function StaffTable({ staffList }) {
                                         <td className="staff-table__name">{staff.name}</td>
                                         <td className="staff-table__col-gap" aria-hidden="true" />
                                         <td className="staff-table__phone">{staff.phone}</td>
-                                        <td className="staff-table__position">{staff.position}</td>
                                         <td>
                                             <button
                                                 type="button"

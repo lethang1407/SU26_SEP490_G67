@@ -21,4 +21,6 @@ public class SupplierListItemResponse {
     String phoneNumber;
     String notes;
     BigDecimal currentDebt;
+    BigDecimal payableNowAmount;
+    BigDecimal openTrialAmount;
 }

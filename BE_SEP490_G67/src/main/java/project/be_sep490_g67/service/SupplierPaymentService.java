@@ -18,6 +18,7 @@ import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.constants.ImportOrderConstants;
 import project.be_sep490_g67.repository.ImportOrderRepository;
+import project.be_sep490_g67.repository.ImportOrderDetailRepository;
 import project.be_sep490_g67.repository.SupplierPaymentRepository;
 import project.be_sep490_g67.repository.SupplierRepository;
 
@@ -40,6 +41,7 @@ public class SupplierPaymentService {
 
     SupplierRepository supplierRepository;
     ImportOrderRepository importOrderRepository;
+    ImportOrderDetailRepository importOrderDetailRepository;
     SupplierPaymentRepository supplierPaymentRepository;
 
     @Transactional
@@ -117,7 +119,8 @@ public class SupplierPaymentService {
         String method = request.getPaymentMethod() == null || request.getPaymentMethod().isBlank()
                 ? "CASH" : request.getPaymentMethod();
         LocalDateTime paidAt = LocalDateTime.now();
-        int nextSeq = nextPaymentSequence();
+        LocalDate paidDate = paidAt.toLocalDate();
+        int nextSeq = nextPaymentSequence(paidDate);
         BigDecimal unapplied = amount;
         List<SupplierPaymentResponse> paymentDetails = new ArrayList<>();
 
@@ -132,7 +135,7 @@ public class SupplierPaymentService {
             BigDecimal paidForOrder = unapplied.min(remaining);
 
             SupplierPayment payment = new SupplierPayment();
-            payment.setPaymentCode(formatPaymentCode(nextSeq++));
+            payment.setPaymentCode(ImportOrderConstants.formatPaymentCode(paidDate, nextSeq++));
             payment.setSupplier(supplier);
             payment.setImportOrder(order);
             payment.setAmount(paidForOrder);
@@ -173,7 +176,11 @@ public class SupplierPaymentService {
         if (paidSoFar == null) {
             paidSoFar = BigDecimal.ZERO;
         }
-        return totalCost.subtract(paidSoFar).max(BigDecimal.ZERO);
+        BigDecimal openTrial = importOrderDetailRepository.sumOpenTrialAmountByOrderId(order.getId());
+        if (openTrial == null) {
+            openTrial = BigDecimal.ZERO;
+        }
+        return totalCost.subtract(paidSoFar).subtract(openTrial).max(BigDecimal.ZERO);
     }
 
     @Transactional(readOnly = true)
@@ -282,19 +289,10 @@ public class SupplierPaymentService {
                 .build();
     }
 
-    private int nextPaymentSequence() {
-        String prefix = ImportOrderConstants.PAYMENT_CODE_PREFIX;
-        int nextSeq = supplierPaymentRepository.findLatestTtnPaymentCode()
-                .map(code -> Integer.parseInt(code.substring(prefix.length())) + 1)
-                .orElse(0);
-        if (nextSeq > 999_999) {
-            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
-        }
-        return nextSeq;
-    }
-
-    private String formatPaymentCode(int seq) {
-        return ImportOrderConstants.PAYMENT_CODE_PREFIX
-                + String.format("%0" + ImportOrderConstants.PAYMENT_CODE_SEQ_LENGTH + "d", seq);
+    private int nextPaymentSequence(LocalDate date) {
+        supplierPaymentRepository.flush();
+        Integer max = supplierPaymentRepository.findMaxPaymentSequenceByDayPrefix(
+                ImportOrderConstants.paymentDayPrefix(date));
+        return (max != null ? max : 0) + 1;
     }
 }

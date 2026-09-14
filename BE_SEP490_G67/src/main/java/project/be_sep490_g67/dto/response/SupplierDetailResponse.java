@@ -25,4 +25,8 @@ public class SupplierDetailResponse {
     String notes;
     List<CategoryResponse> categories;
     BigDecimal currentDebt;
+    /** Phần hàng thường có thể trả qua Thanh toán nợ (không gồm bán thử chưa chốt). */
+    BigDecimal payableNowAmount;
+    /** Giá trị bán thử OPEN còn treo. */
+    BigDecimal openTrialAmount;
 }

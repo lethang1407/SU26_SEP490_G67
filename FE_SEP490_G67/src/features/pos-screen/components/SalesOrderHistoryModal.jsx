@@ -60,7 +60,8 @@ export default function SalesOrderHistoryModal({ onClose, onExchange, mode = 'ex
         try {
             const data = await getInvoiceData(orderId);
             printInvoice(data);
-        } catch {
+        } catch (error) {
+            console.error("Failed to load invoice for printing:", error);
             alert('Không thể tải hóa đơn.');
         }
     };

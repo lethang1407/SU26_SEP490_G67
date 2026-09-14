@@ -70,19 +70,20 @@ export const SHELF_CAPACITY = {
 };
 
 export const ZONE_TYPE = {
+    /** @deprecated Đã gộp vào WAREHOUSE */
     SALES: 'SALES',
     WAREHOUSE: 'WAREHOUSE',
     RETURN_HOLD: 'RETURN_HOLD',
 };
 
 export const ZONE_TYPE_LABEL = {
-    [ZONE_TYPE.SALES]: 'Bán',
+    [ZONE_TYPE.SALES]: 'Kho',
     [ZONE_TYPE.WAREHOUSE]: 'Kho',
     [ZONE_TYPE.RETURN_HOLD]: 'Đổi trả',
 };
 
+/** Chỉ còn WAREHOUSE — SALES đã gộp. */
 export const ZONE_TYPE_OPTIONS = [
-    { value: ZONE_TYPE.SALES, label: 'Khu bán hàng' },
     { value: ZONE_TYPE.WAREHOUSE, label: 'Khu kho' },
 ];
 
@@ -91,8 +92,8 @@ export const RETURN_HOLD_LOCATION_LABEL = 'RT-HOLD';
 
 export function normalizeZoneType(raw) {
     const value = String(raw ?? '').trim().toUpperCase();
-    if (value === ZONE_TYPE.SALES) return ZONE_TYPE.SALES;
     if (value === ZONE_TYPE.RETURN_HOLD) return ZONE_TYPE.RETURN_HOLD;
+    // SALES và mọi giá trị khác → WAREHOUSE
     return ZONE_TYPE.WAREHOUSE;
 }
 

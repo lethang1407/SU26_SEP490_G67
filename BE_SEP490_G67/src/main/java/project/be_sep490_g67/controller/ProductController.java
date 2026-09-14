@@ -61,8 +61,6 @@ public class ProductController {
 
     /**
      * GET /api/products/{productId}/pos-info
-     * Thông tin sản phẩm cho nút "i" ở dòng giỏ hàng POS: giá bán, tồn kho bán
-     * được và vị trí để hàng.
      */
     @GetMapping("/{productId}/pos-info")
     ApiResponse<ProductPosInfoResponse> getPosInfo(@PathVariable Integer productId) {

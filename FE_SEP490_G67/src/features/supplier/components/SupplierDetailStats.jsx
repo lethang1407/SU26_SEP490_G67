@@ -1,8 +1,22 @@
 import { Wallet } from 'lucide-react';
-import { formatCurrency } from '../utils/supplierUtils';
+import {
+    formatCurrency,
+    openTrialAmountOf,
+    payableNowAmountOf,
+} from '../utils/supplierUtils';
 
 export default function SupplierDetailStats({ supplier }) {
-    const hasDebt = supplier.currentDebt > 0;
+    const currentDebt = Number(supplier?.currentDebt) || 0;
+    const payableNow = payableNowAmountOf(supplier);
+    const openTrial = openTrialAmountOf(supplier);
+    const hasDebt = currentDebt > 0;
+
+    let hint = '';
+    if (hasDebt && payableNow <= 0 && openTrial > 0) {
+        hint = 'Toàn bộ chờ quyết toán bán thử';
+    } else if (hasDebt && openTrial > 0) {
+        hint = `Có thể trả ngay ${formatCurrency(payableNow)} · chờ quyết toán ${formatCurrency(openTrial)}`;
+    }
 
     return (
         <div className="supplier-stat-cards supplier-stat-cards--single supplier-detail-stats">
@@ -14,8 +28,17 @@ export default function SupplierDetailStats({ supplier }) {
                             hasDebt ? 'supplier-stat-card__value--debt' : ''
                         }`}
                     >
-                        {formatCurrency(supplier.currentDebt)}
+                        {formatCurrency(currentDebt)}
                     </span>
+                    {hint ? (
+                        <span
+                            className={`supplier-stat-card__hint ${
+                                payableNow <= 0 ? 'supplier-stat-card__hint--trial' : ''
+                            }`}
+                        >
+                            {hint}
+                        </span>
+                    ) : null}
                 </div>
                 <div
                     className="supplier-stat-card__icon"

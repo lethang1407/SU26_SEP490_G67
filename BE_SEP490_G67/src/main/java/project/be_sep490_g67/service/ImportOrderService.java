@@ -6,7 +6,9 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import project.be_sep490_g67.constants.ImportOrderConstants;
+import project.be_sep490_g67.constants.ImportTrialConstants;
 import project.be_sep490_g67.dto.request.CreateDraftFromSuggestRequest;
 import project.be_sep490_g67.dto.request.CreateImportOrderRequest;
 import project.be_sep490_g67.dto.response.ImportOrderDetailResponse;
@@ -16,6 +18,7 @@ import project.be_sep490_g67.dto.response.ImportOrderListItemResponse;
 import project.be_sep490_g67.dto.response.ImportOrderReturnLineResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.dto.response.ProductAttributeResponse;
+import project.be_sep490_g67.enums.ImportLineType;
 import project.be_sep490_g67.mapper.ProductMapper;
 import project.be_sep490_g67.entity.ImportOrder;
 import project.be_sep490_g67.entity.ImportOrderDetail;
@@ -71,16 +74,17 @@ public class ImportOrderService {
     StockMovementRepository stockMovementRepository;
     UserRepository userRepository;
     ImportReturnService importReturnService;
+    CloudinaryImageService cloudinaryImageService;
 
     @Transactional
     public ImportOrderListItemResponse createImportOrder(CreateImportOrderRequest request) {
         String orderStatus = normalizeCreateOrderStatus(request.getOrderStatus());
         boolean isImported = ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(orderStatus);
-        requireInvoiceImageIfImported(isImported, request.getInvoiceImage());
-        Supplier supplier = resolveSupplier(request.getSupplierId(), isImported);
-
         List<CreateImportOrderRequest.LineItem> requestLines =
                 request.getLines() == null ? List.of() : request.getLines();
+        validateTrialLines(requestLines, null);
+        Supplier supplier = resolveSupplier(request.getSupplierId(), isImported);
+
         Map<Integer, String> returnMethodOverrides = collectReturnMethodOverrides(request);
         List<Integer> returnLineIds = new ArrayList<>(returnMethodOverrides.keySet());
         if (requestLines.isEmpty() && returnLineIds.isEmpty()) {
@@ -105,16 +109,15 @@ public class ImportOrderService {
         BigDecimal discount = request.getDiscountAmount() != null
                 ? request.getDiscountAmount()
                 : BigDecimal.ZERO;
-        if (discount.compareTo(BigDecimal.ZERO) < 0 || discount.compareTo(goodsTotal) > 0) {
-            throw new AppException(ErrorCode.INVALID_IMPORT_DISCOUNT);
-        }
+        requireValidDiscount(discount, regularPayableAmount(details));
 
         MoneySplit money = splitMoney(goodsTotal, discount, importReturnService.returnDeductionOf(returnLines));
 
         BigDecimal paidAmount = request.getPaidAmount() != null
                 ? request.getPaidAmount()
                 : BigDecimal.ZERO;
-        if (paidAmount.compareTo(BigDecimal.ZERO) < 0 || paidAmount.compareTo(money.amountDue()) > 0) {
+        BigDecimal maxPaidAtImport = maxPaidExcludingOpenTrial(money.amountDue(), details);
+        if (paidAmount.compareTo(BigDecimal.ZERO) < 0 || paidAmount.compareTo(maxPaidAtImport) > 0) {
             throw new AppException(ErrorCode.INVALID_IMPORT_PAID_AMOUNT);
         }
 
@@ -154,7 +157,7 @@ public class ImportOrderService {
         log.info("Created import order {} status={} lines={} amountDue={} paid={}",
                 saved.getOrderCode(), orderStatus, details.size(), money.amountDue(), recordedPaid);
 
-        return toListItemResponse(saved, supplier, orderStatus, recordedPaid);
+        return toListItemResponse(saved, supplier, orderStatus, recordedPaid, details);
     }
 
     /**
@@ -173,11 +176,11 @@ public class ImportOrderService {
 
         String orderStatus = normalizeCreateOrderStatus(request.getOrderStatus());
         boolean isImported = ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(orderStatus);
-        requireInvoiceImageIfImported(isImported, request.getInvoiceImage());
-        Supplier supplier = resolveSupplier(request.getSupplierId(), isImported);
-
         List<CreateImportOrderRequest.LineItem> requestLines =
                 request.getLines() == null ? List.of() : request.getLines();
+        validateTrialLines(requestLines, order.getId());
+        Supplier supplier = resolveSupplier(request.getSupplierId(), isImported);
+
         Map<Integer, String> returnMethodOverrides = collectReturnMethodOverrides(request);
         List<Integer> returnLineIds = new ArrayList<>(returnMethodOverrides.keySet());
         if (requestLines.isEmpty() && returnLineIds.isEmpty()) {
@@ -202,16 +205,15 @@ public class ImportOrderService {
         BigDecimal discount = request.getDiscountAmount() != null
                 ? request.getDiscountAmount()
                 : BigDecimal.ZERO;
-        if (discount.compareTo(BigDecimal.ZERO) < 0 || discount.compareTo(goodsTotal) > 0) {
-            throw new AppException(ErrorCode.INVALID_IMPORT_DISCOUNT);
-        }
+        requireValidDiscount(discount, regularPayableAmount(details));
 
         MoneySplit money = splitMoney(goodsTotal, discount, importReturnService.returnDeductionOf(returnLines));
 
         BigDecimal paidAmount = request.getPaidAmount() != null
                 ? request.getPaidAmount()
                 : BigDecimal.ZERO;
-        if (paidAmount.compareTo(BigDecimal.ZERO) < 0 || paidAmount.compareTo(money.amountDue()) > 0) {
+        BigDecimal maxPaidAtImport = maxPaidExcludingOpenTrial(money.amountDue(), details);
+        if (paidAmount.compareTo(BigDecimal.ZERO) < 0 || paidAmount.compareTo(maxPaidAtImport) > 0) {
             throw new AppException(ErrorCode.INVALID_IMPORT_PAID_AMOUNT);
         }
 
@@ -225,7 +227,7 @@ public class ImportOrderService {
         order.setTotalCost(money.amountDue());
         order.setOrderStatus(orderStatus);
         order.setNote(blankToNull(request.getNote()));
-        order.setInvoiceImage(blankToNull(request.getInvoiceImage()));
+        applyInvoiceImageUrl(order, request.getInvoiceImage());
         order.setReceivedDate(isImported ? LocalDate.now() : null);
 
         ImportOrder saved = importOrderRepository.save(order);
@@ -251,7 +253,7 @@ public class ImportOrderService {
         log.info("Updated import order {} -> status={} lines={} amountDue={} paid={}",
                 saved.getOrderCode(), orderStatus, details.size(), money.amountDue(), recordedPaid);
 
-        return toListItemResponse(saved, supplier, orderStatus, recordedPaid);
+        return toListItemResponse(saved, supplier, orderStatus, recordedPaid, details);
     }
 
     /**
@@ -271,6 +273,41 @@ public class ImportOrderService {
         order.setIsRemoved(true);
         importOrderRepository.save(order);
         log.info("Cancelled draft import order id={} code={}", orderId, order.getOrderCode());
+    }
+
+    /**
+     * Upload ảnh hóa đơn qua Cloudinary (cùng service với ảnh sản phẩm).
+     * Không bắt buộc khi hoàn thành phiếu. Cho phép phiếu tạm và phiếu đã nhập.
+     */
+    @Transactional
+    public String uploadInvoiceImage(Integer orderId, MultipartFile file) {
+        ImportOrder order = importOrderRepository.findActiveByIdForUpdate(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_IMPORT_ORDER));
+
+        String previousPublicId = resolveInvoicePublicId(order);
+        CloudinaryImageService.UploadResult uploaded =
+                cloudinaryImageService.upload(file, "sep490/import-invoices/" + order.getId());
+
+        order.setInvoiceImage(uploaded.url());
+        order.setInvoiceImagePublicId(uploaded.publicId());
+        importOrderRepository.save(order);
+
+        deletePreviousInvoiceAsset(previousPublicId, uploaded.publicId());
+        log.info("Uploaded invoice image for import order id={}", orderId);
+        return uploaded.url();
+    }
+
+    @Transactional
+    public void deleteInvoiceImage(Integer orderId) {
+        ImportOrder order = importOrderRepository.findActiveByIdForUpdate(orderId)
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_IMPORT_ORDER));
+
+        String publicId = resolveInvoicePublicId(order);
+        order.setInvoiceImage(null);
+        order.setInvoiceImagePublicId(null);
+        importOrderRepository.save(order);
+        deletePreviousInvoiceAsset(publicId, null);
+        log.info("Deleted invoice image for import order id={}", orderId);
     }
 
     private static final ZoneId VN_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -363,19 +400,18 @@ public class ImportOrderService {
         boolean isImported = ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(order.getOrderStatus());
         BigDecimal totalCost = order.getTotalCost() != null ? order.getTotalCost() : BigDecimal.ZERO;
         BigDecimal safePaid = isImported ? paid : BigDecimal.ZERO;
-        String paymentStatus = isImported
-                ? resolvePaymentStatus(totalCost, safePaid)
-                : ImportOrderConstants.PAYMENT_STATUS_DONE;
 
         List<ImportOrderDetail> details = order.getImportOrderDetails().stream()
                 .sorted(Comparator.comparing(ImportOrderDetail::getId, Comparator.nullsLast(Comparator.naturalOrder())))
                 .toList();
-        Map<Integer, List<ProductAttributeResponse>> attributesByProduct = loadAttributesByProductIds(
-                details.stream()
-                        .map(detail -> detail.getProduct() != null ? detail.getProduct().getId() : null)
-                        .filter(Objects::nonNull)
-                        .distinct()
-                        .toList());
+        List<Integer> productIds = details.stream()
+                .map(detail -> detail.getProduct() != null ? detail.getProduct().getId() : null)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Integer, List<ProductAttributeResponse>> attributesByProduct =
+                loadAttributesByProductIds(productIds);
+        java.util.Set<Integer> alreadyInStoreIds = loadAlreadyInStoreProductIds(productIds);
 
         List<ImportOrderItemResponse> items = details.stream()
                 .map(detail -> {
@@ -415,10 +451,18 @@ public class ImportOrderService {
                             .costPerUnit(detail.getCostPerUnit())
                             .lastCostPerBase(lastCostPerBase)
                             .sellingPrice(product != null ? product.getSellingPrice() : null)
-                            .lineTotal(detail.getLineTotal())
+                            .lineTotal(displayLineTotal(detail))
                             .expiryDate(detail.getExpiryDate())
                             .note(detail.getNote())
-                            .isPromotion(Boolean.TRUE.equals(detail.getIsPromotion()))
+                            .isPromotion(Boolean.TRUE.equals(detail.getIsPromotion())
+                                    || ImportTrialConstants.LINE_PROMOTION.equals(detail.getLineType()))
+                            .lineType(detail.getLineType() != null
+                                    ? detail.getLineType()
+                                    : (Boolean.TRUE.equals(detail.getIsPromotion())
+                                            ? ImportTrialConstants.LINE_PROMOTION
+                                            : ImportTrialConstants.LINE_REGULAR))
+                            .trialStatus(detail.getTrialStatus())
+                            .alreadyInStore(productId != null && alreadyInStoreIds.contains(productId))
                             .build();
                 })
                 .toList();
@@ -426,6 +470,19 @@ public class ImportOrderService {
         BigDecimal goodsTotal = items.stream()
                 .map(item -> item.getLineTotal() != null ? item.getLineTotal() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal openTrialAmount = details.stream()
+                .filter(this::isOpenTrialLine)
+                .map(this::agreedLineAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        boolean hasOpenTrial = openTrialAmount.compareTo(BigDecimal.ZERO) > 0
+                || details.stream().anyMatch(this::isOpenTrialLine);
+        BigDecimal unbookedTrial = unbookedOpenTrialAmount(details);
+        BigDecimal remainingDebt = isImported
+                ? totalCost.add(unbookedTrial).subtract(safePaid).max(BigDecimal.ZERO)
+                : BigDecimal.ZERO;
+        String paymentStatus = isImported
+                ? resolvePaymentStatus(remainingDebt, hasOpenTrial, openTrialAmount)
+                : ImportOrderConstants.PAYMENT_STATUS_DONE;
 
         Supplier supplier = order.getSupplier();
 
@@ -441,6 +498,7 @@ public class ImportOrderService {
                 .orderStatus(order.getOrderStatus())
                 .status(paymentStatus)
                 .goodsTotal(goodsTotal)
+                .openTrialAmount(openTrialAmount)
                 .discountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO)
                 .returnDeductionAmount(order.getReturnDeductionAmount() != null
                         ? order.getReturnDeductionAmount()
@@ -450,11 +508,12 @@ public class ImportOrderService {
                         : BigDecimal.ZERO)
                 .totalCost(totalCost)
                 .paidAmount(safePaid)
-                .remainingDebt(isImported ? totalCost.subtract(safePaid).max(BigDecimal.ZERO) : BigDecimal.ZERO)
+                .remainingDebt(remainingDebt)
                 .note(order.getNote())
                 .invoiceImage(order.getInvoiceImage())
                 .items(items)
                 .returnLines(importReturnService.listSettledForImportOrder(order.getId()))
+                .hasOpenTrial(hasOpenTrial)
                 .build();
     }
     /**
@@ -494,6 +553,8 @@ public class ImportOrderService {
             order.setOrderStatus(ImportOrderConstants.ORDER_STATUS_DRAFT);
             order.setNote("Tạo từ màn gợi ý nhập hàng");
             order.setDiscountAmount(BigDecimal.ZERO);
+            order.setReturnDeductionAmount(BigDecimal.ZERO);
+            order.setSupplierRefundAmount(BigDecimal.ZERO);
             order.setTotalCost(BigDecimal.ZERO);
             order.setIsRemoved(false);
             order = importOrderRepository.save(order);
@@ -567,16 +628,16 @@ public class ImportOrderService {
                 .collect(Collectors.toMap(row -> (Integer) row[0], row -> (BigDecimal) row[1]));
 
         Map<Integer, String> nameByUserId = resolveCreatedByNames(orders);
+        Map<Integer, TrialMoney> trialMoneyByOrder = loadOpenTrialMoney(orders);
 
         List<ImportOrderListItemResponse> allItems = orders.stream()
-                .map(order -> toListItem(order, paidPerOrder, nameByUserId))
+                .map(order -> toListItem(order, paidPerOrder, nameByUserId, trialMoneyByOrder))
                 .toList();
 
         List<ImportOrderListItemResponse> filtered = filterByPaymentStatus(allItems, paymentStatusFilter);
         if (debtFirst) {
             filtered = new ArrayList<>(filtered);
-            filtered.sort(Comparator.comparingInt(item ->
-                    ImportOrderConstants.PAYMENT_STATUS_DEBT.equals(item.getStatus()) ? 0 : 1));
+            filtered.sort(Comparator.comparingInt(item -> paymentSortRank(item.getStatus())));
         }
 
         int totalElements = filtered.size();
@@ -604,6 +665,9 @@ public class ImportOrderService {
             case ImportOrderConstants.PAYMENT_STATUS_DEBT -> items.stream()
                     .filter(item -> ImportOrderConstants.PAYMENT_STATUS_DEBT.equals(item.getStatus()))
                     .toList();
+            case ImportOrderConstants.PAYMENT_STATUS_PENDING_SETTLEMENT -> items.stream()
+                    .filter(item -> ImportOrderConstants.PAYMENT_STATUS_PENDING_SETTLEMENT.equals(item.getStatus()))
+                    .toList();
             case ImportOrderConstants.PAYMENT_STATUS_DONE -> items.stream()
                     .filter(item -> ImportOrderConstants.PAYMENT_STATUS_DONE.equals(item.getStatus()))
                     .toList();
@@ -612,7 +676,10 @@ public class ImportOrderService {
     }
 
     private ImportOrderListItemResponse toListItem(
-            ImportOrder order, Map<Integer, BigDecimal> paidPerOrder, Map<Integer, String> nameByUserId) {
+            ImportOrder order,
+            Map<Integer, BigDecimal> paidPerOrder,
+            Map<Integer, String> nameByUserId,
+            Map<Integer, TrialMoney> trialMoneyByOrder) {
 
         BigDecimal paid = paidPerOrder.getOrDefault(order.getId(), BigDecimal.ZERO);
         BigDecimal totalCost = order.getTotalCost() != null ? order.getTotalCost() : BigDecimal.ZERO;
@@ -620,13 +687,14 @@ public class ImportOrderService {
         Supplier supplier = order.getSupplier();
         String orderStatus = order.getOrderStatus();
         boolean isImported = ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(orderStatus);
+        TrialMoney trial = trialMoneyByOrder.getOrDefault(order.getId(), TrialMoney.NONE);
 
-        // Chỉ đơn đã nhập mới tính nợ; DRAFT / chưa gán status → 0đ
         BigDecimal remainingDebt = isImported
-                ? totalCost.subtract(paid).max(BigDecimal.ZERO)
+                ? totalCost.add(trial.unbooked()).subtract(paid).max(BigDecimal.ZERO)
                 : BigDecimal.ZERO;
+        boolean hasOpenTrial = isImported && trial.agreed().compareTo(BigDecimal.ZERO) > 0;
         String paymentStatus = isImported
-                ? resolvePaymentStatus(order.getTotalCost(), paid)
+                ? resolvePaymentStatus(remainingDebt, hasOpenTrial, trial.agreed())
                 : ImportOrderConstants.PAYMENT_STATUS_DONE;
 
         return ImportOrderListItemResponse.builder()
@@ -643,7 +711,24 @@ public class ImportOrderService {
                 .status(paymentStatus)
                 .paidAmount(isImported ? paid : BigDecimal.ZERO)
                 .remainingDebt(remainingDebt)
+                .openTrialAmount(isImported ? trial.agreed() : BigDecimal.ZERO)
+                .hasOpenTrial(hasOpenTrial)
                 .build();
+    }
+
+    private Map<Integer, TrialMoney> loadOpenTrialMoney(List<ImportOrder> orders) {
+        List<Integer> ids = orders.stream().map(ImportOrder::getId).filter(Objects::nonNull).toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<Integer, TrialMoney> result = new java.util.HashMap<>();
+        for (Object[] row : importOrderDetailRepository.sumOpenTrialMoneyByOrderIds(ids)) {
+            Integer orderId = (Integer) row[0];
+            BigDecimal agreed = row[1] instanceof BigDecimal value ? value : BigDecimal.ZERO;
+            BigDecimal booked = row[2] instanceof BigDecimal value ? value : BigDecimal.ZERO;
+            result.put(orderId, new TrialMoney(agreed, booked));
+        }
+        return result;
     }
 
     private String normalizeOrderStatusFilter(String orderStatusFilter) {
@@ -659,12 +744,74 @@ public class ImportOrderService {
         return "ALL";
     }
 
-    private String resolvePaymentStatus(BigDecimal totalCost, BigDecimal paid) {
-        BigDecimal safeTotalCost = totalCost != null ? totalCost : BigDecimal.ZERO;
-        BigDecimal safePaid = paid != null ? paid : BigDecimal.ZERO;
-        return safeTotalCost.subtract(safePaid).compareTo(BigDecimal.ZERO) > 0
+    /**
+     * Hàng thường còn phải trả → Đang nợ.
+     * Hàng thường đã trả đủ, còn bán thử chưa chốt → Chờ quyết toán.
+     * Hết nợ và đã chốt thử → Hoàn thành.
+     */
+    private String resolvePaymentStatus(BigDecimal remainingDebt, boolean hasOpenTrial, BigDecimal openTrialAmount) {
+        BigDecimal remaining = remainingDebt != null ? remainingDebt : BigDecimal.ZERO;
+        BigDecimal trial = openTrialAmount != null ? openTrialAmount : BigDecimal.ZERO;
+        BigDecimal regularRemaining = remaining.subtract(trial).max(BigDecimal.ZERO);
+        if (regularRemaining.compareTo(BigDecimal.ZERO) > 0) {
+            return ImportOrderConstants.PAYMENT_STATUS_DEBT;
+        }
+        if (hasOpenTrial) {
+            return ImportOrderConstants.PAYMENT_STATUS_PENDING_SETTLEMENT;
+        }
+        return remaining.compareTo(BigDecimal.ZERO) > 0
                 ? ImportOrderConstants.PAYMENT_STATUS_DEBT
                 : ImportOrderConstants.PAYMENT_STATUS_DONE;
+    }
+
+    private int paymentSortRank(String status) {
+        if (ImportOrderConstants.PAYMENT_STATUS_DEBT.equals(status)) {
+            return 0;
+        }
+        if (ImportOrderConstants.PAYMENT_STATUS_PENDING_SETTLEMENT.equals(status)) {
+            return 1;
+        }
+        return 2;
+    }
+
+    private boolean isPromotionLine(ImportOrderDetail detail) {
+        if (detail == null) {
+            return false;
+        }
+        return Boolean.TRUE.equals(detail.getIsPromotion())
+                || ImportTrialConstants.LINE_PROMOTION.equals(detail.getLineType());
+    }
+
+    private boolean isOpenTrialLine(ImportOrderDetail detail) {
+        if (detail == null) {
+            return false;
+        }
+        return ImportTrialConstants.LINE_TRIAL.equals(detail.getLineType())
+                && ImportTrialConstants.TRIAL_OPEN.equals(detail.getTrialStatus());
+    }
+
+    /** Giá trị thỏa thuận qty × đơn giá; KM = 0. */
+    private BigDecimal agreedLineAmount(ImportOrderDetail detail) {
+        if (detail == null || isPromotionLine(detail)) {
+            return BigDecimal.ZERO;
+        }
+        int qty = detail.getQuantity() != null ? detail.getQuantity() : 0;
+        BigDecimal cost = detail.getCostPerUnit() != null ? detail.getCostPerUnit() : BigDecimal.ZERO;
+        return cost.multiply(BigDecimal.valueOf(qty));
+    }
+
+    /**
+     * Thành tiền hiển thị: KM = 0; bán thử OPEN = qty × giá (kể cả phiếu cũ DB đang 0);
+     * còn lại lấy line_total đã ghi.
+     */
+    private BigDecimal displayLineTotal(ImportOrderDetail detail) {
+        if (isPromotionLine(detail)) {
+            return BigDecimal.ZERO;
+        }
+        if (isOpenTrialLine(detail)) {
+            return agreedLineAmount(detail);
+        }
+        return detail.getLineTotal() != null ? detail.getLineTotal() : agreedLineAmount(detail);
     }
 
     private Map<Integer, String> resolveCreatedByNames(List<ImportOrder> orders) {
@@ -690,15 +837,25 @@ public class ImportOrderService {
     }
 
     private ImportOrderListItemResponse toListItemResponse(
-            ImportOrder order, Supplier supplier, String orderStatus, BigDecimal recordedPaid) {
+            ImportOrder order,
+            Supplier supplier,
+            String orderStatus,
+            BigDecimal recordedPaid,
+            List<ImportOrderDetail> details) {
         boolean isImported = ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(orderStatus);
         BigDecimal amountDue = order.getTotalCost() != null ? order.getTotalCost() : BigDecimal.ZERO;
         BigDecimal paid = recordedPaid != null ? recordedPaid : BigDecimal.ZERO;
+        BigDecimal unbookedTrial = unbookedOpenTrialAmount(details);
         BigDecimal remainingDebt = isImported
-                ? amountDue.subtract(paid).max(BigDecimal.ZERO)
+                ? amountDue.add(unbookedTrial).subtract(paid).max(BigDecimal.ZERO)
                 : BigDecimal.ZERO;
+        boolean hasOpenTrial = isImported && details != null && details.stream().anyMatch(this::isOpenTrialLine);
+        BigDecimal openTrialAmount = details == null
+                ? BigDecimal.ZERO
+                : details.stream().filter(this::isOpenTrialLine).map(this::agreedLineAmount)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
         String paymentStatus = isImported
-                ? resolvePaymentStatus(amountDue, paid)
+                ? resolvePaymentStatus(remainingDebt, hasOpenTrial, openTrialAmount)
                 : ImportOrderConstants.PAYMENT_STATUS_DONE;
 
         return ImportOrderListItemResponse.builder()
@@ -715,6 +872,8 @@ public class ImportOrderService {
                 .status(paymentStatus)
                 .paidAmount(isImported ? paid : BigDecimal.ZERO)
                 .remainingDebt(remainingDebt)
+                .openTrialAmount(openTrialAmount)
+                .hasOpenTrial(hasOpenTrial)
                 .build();
     }
 
@@ -729,10 +888,78 @@ public class ImportOrderService {
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_SUPPLIER));
     }
 
-    private void requireInvoiceImageIfImported(boolean isImported, String invoiceImage) {
-        if (isImported && (invoiceImage == null || invoiceImage.isBlank())) {
-            throw new AppException(ErrorCode.IMPORT_INVOICE_REQUIRED);
+    private void applyInvoiceImageUrl(ImportOrder order, String invoiceImage) {
+        String url = blankToNull(invoiceImage);
+        if (url == null || url.startsWith("blob:") || url.startsWith("data:")) {
+            return;
         }
+        order.setInvoiceImage(url);
+    }
+
+    private String resolveInvoicePublicId(ImportOrder order) {
+        if (order.getInvoiceImagePublicId() != null && !order.getInvoiceImagePublicId().isBlank()) {
+            return order.getInvoiceImagePublicId().trim();
+        }
+        return extractCloudinaryPublicId(order.getInvoiceImage());
+    }
+
+    private void deletePreviousInvoiceAsset(String previousPublicId, String keepPublicId) {
+        if (previousPublicId == null || previousPublicId.isBlank()) {
+            return;
+        }
+        if (keepPublicId != null && previousPublicId.equals(keepPublicId)) {
+            return;
+        }
+        try {
+            cloudinaryImageService.delete(previousPublicId);
+        } catch (Exception e) {
+            log.warn("Could not delete previous invoice image {}: {}", previousPublicId, e.getMessage());
+        }
+    }
+
+    static String extractCloudinaryPublicId(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        int uploadIdx = url.indexOf("/upload/");
+        if (uploadIdx < 0) {
+            return null;
+        }
+        String path = url.substring(uploadIdx + "/upload/".length());
+        int queryIdx = path.indexOf('?');
+        if (queryIdx >= 0) {
+            path = path.substring(0, queryIdx);
+        }
+        String[] parts = path.split("/");
+        int start = 0;
+        while (start < parts.length) {
+            String part = parts[start];
+            if (part.startsWith("v") && part.length() > 1 && part.substring(1).chars().allMatch(Character::isDigit)) {
+                start++;
+                break;
+            }
+            if (part.contains(",") || part.startsWith("s--")) {
+                start++;
+                continue;
+            }
+            break;
+        }
+        if (start >= parts.length) {
+            return null;
+        }
+        StringBuilder publicId = new StringBuilder();
+        for (int i = start; i < parts.length; i++) {
+            if (i > start) {
+                publicId.append('/');
+            }
+            publicId.append(parts[i]);
+        }
+        String value = publicId.toString();
+        int dot = value.lastIndexOf('.');
+        if (dot > 0) {
+            value = value.substring(0, dot);
+        }
+        return value.isBlank() ? null : value;
     }
 
     private String normalizeCreateOrderStatus(String orderStatus) {
@@ -750,6 +977,41 @@ public class ImportOrderService {
     private record MoneySplit(BigDecimal returnDeduction, BigDecimal amountDue, BigDecimal refund) {
     }
 
+    private record TrialMoney(BigDecimal agreed, BigDecimal booked) {
+        static final TrialMoney NONE = new TrialMoney(BigDecimal.ZERO, BigDecimal.ZERO);
+
+        BigDecimal unbooked() {
+            BigDecimal safeAgreed = agreed != null ? agreed : BigDecimal.ZERO;
+            BigDecimal safeBooked = booked != null ? booked : BigDecimal.ZERO;
+            return safeAgreed.subtract(safeBooked).max(BigDecimal.ZERO);
+        }
+    }
+
+    private BigDecimal unbookedOpenTrialAmount(List<ImportOrderDetail> details) {
+        if (details == null || details.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        return details.stream()
+                .filter(this::isOpenTrialLine)
+                .map(detail -> {
+                    BigDecimal booked = detail.getLineTotal() != null ? detail.getLineTotal() : BigDecimal.ZERO;
+                    return agreedLineAmount(detail).subtract(booked).max(BigDecimal.ZERO);
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal maxPaidExcludingOpenTrial(BigDecimal amountDue, List<ImportOrderDetail> details) {
+        BigDecimal due = amountDue != null ? amountDue : BigDecimal.ZERO;
+        if (details == null || details.isEmpty()) {
+            return due.max(BigDecimal.ZERO);
+        }
+        BigDecimal trialBooked = details.stream()
+                .filter(detail -> ImportTrialConstants.LINE_TRIAL.equals(detail.getLineType()))
+                .map(detail -> detail.getLineTotal() != null ? detail.getLineTotal() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return due.subtract(trialBooked).max(BigDecimal.ZERO);
+    }
+
     private MoneySplit splitMoney(BigDecimal goodsTotal, BigDecimal discount, BigDecimal returnDeduction) {
         BigDecimal safeGoods = goodsTotal != null ? goodsTotal : BigDecimal.ZERO;
         BigDecimal safeDiscount = discount != null ? discount : BigDecimal.ZERO;
@@ -763,7 +1025,7 @@ public class ImportOrderService {
 
     /**
      * Map dòng request → detail.
-     * Hàng KM (isPromotion): lineTotal = 0 (không tính nợ lúc nhập), vẫn giữ costPerUnit, vẫn nhập kho.
+     * KM: lineTotal = 0. Bán thử: lineTotal = qty × giá, ghi vào công nợ lúc nhập.
      */
     private ImportOrderDetail buildDetailFromLine(CreateImportOrderRequest.LineItem line) {
         Product product = productRepository.findById(line.getProductId())
@@ -772,12 +1034,16 @@ public class ImportOrderService {
         assertSellableProduct(product);
 
         ProductUnit productUnit = resolveProductUnit(product, line.getProductUnitId());
-
-        boolean isPromotion = Boolean.TRUE.equals(line.getIsPromotion());
+        ImportLineType lineType = ImportLineType.from(line.getLineType(), line.getIsPromotion(), line.getIsTrial());
+        boolean isPromotion = lineType == ImportLineType.PROMOTION;
+        boolean isTrial = lineType == ImportLineType.TRIAL;
         BigDecimal cost = line.getCostPerUnit() != null ? line.getCostPerUnit() : BigDecimal.ZERO;
-        BigDecimal lineTotal = isPromotion
-                ? BigDecimal.ZERO
-                : cost.multiply(BigDecimal.valueOf(line.getQuantity()));
+        if (!isPromotion && cost.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new AppException(isTrial ? ErrorCode.TRIAL_COST_REQUIRED : ErrorCode.INVALID_IMPORT_COST);
+        }
+        BigDecimal lineTotal = lineType.isPayableAtImport()
+                ? cost.multiply(BigDecimal.valueOf(line.getQuantity()))
+                : BigDecimal.ZERO;
 
         ImportOrderDetail detail = new ImportOrderDetail();
         detail.setProduct(product);
@@ -788,8 +1054,83 @@ public class ImportOrderService {
         detail.setExpiryDate(line.getExpiryDate());
         detail.setNote(blankToNull(line.getNote()));
         detail.setIsPromotion(isPromotion);
+        detail.setLineType(lineType.name());
+        detail.setTrialStatus(isTrial ? ImportTrialConstants.TRIAL_OPEN : null);
         detail.setIsRemoved(false);
         return detail;
+    }
+
+    private void validateTrialLines(List<CreateImportOrderRequest.LineItem> requestLines, Integer excludeOrderId) {
+        java.util.Set<Integer> trialProductIds = new java.util.HashSet<>();
+        java.util.Set<Integer> otherProductIds = new java.util.HashSet<>();
+        for (CreateImportOrderRequest.LineItem line : requestLines) {
+            if (line == null || line.getProductId() == null) {
+                continue;
+            }
+            ImportLineType lineType = ImportLineType.from(line.getLineType(), line.getIsPromotion(), line.getIsTrial());
+            if (lineType == ImportLineType.TRIAL) {
+                BigDecimal cost = line.getCostPerUnit() != null ? line.getCostPerUnit() : BigDecimal.ZERO;
+                if (cost.compareTo(BigDecimal.ZERO) <= 0) {
+                    throw new AppException(ErrorCode.TRIAL_COST_REQUIRED);
+                }
+                trialProductIds.add(line.getProductId());
+            } else {
+                otherProductIds.add(line.getProductId());
+            }
+        }
+        for (Integer productId : trialProductIds) {
+            if (otherProductIds.contains(productId)) {
+                throw new AppException(ErrorCode.TRIAL_MIXED_WITH_REGULAR_SAME_PRODUCT);
+            }
+            if (isProductAlreadyInStore(productId, excludeOrderId)) {
+                throw new AppException(ErrorCode.TRIAL_PRODUCT_ALREADY_IN_STORE);
+            }
+        }
+    }
+
+    private boolean isRegularLine(ImportOrderDetail detail) {
+        return detail != null
+                && !isPromotionLine(detail)
+                && !ImportTrialConstants.LINE_TRIAL.equals(detail.getLineType());
+    }
+
+    /** Trần giảm giá: chỉ hàng thường, không KM / bán thử. */
+    private BigDecimal regularPayableAmount(List<ImportOrderDetail> details) {
+        if (details == null || details.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        return details.stream()
+                .filter(this::isRegularLine)
+                .map(this::agreedLineAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private void requireValidDiscount(BigDecimal discount, BigDecimal regularPayable) {
+        BigDecimal safeDiscount = discount != null ? discount : BigDecimal.ZERO;
+        BigDecimal cap = regularPayable != null ? regularPayable : BigDecimal.ZERO;
+        if (safeDiscount.compareTo(BigDecimal.ZERO) < 0 || safeDiscount.compareTo(cap) > 0) {
+            throw new AppException(ErrorCode.INVALID_IMPORT_DISCOUNT);
+        }
+    }
+
+    private java.util.Set<Integer> loadAlreadyInStoreProductIds(List<Integer> productIds) {
+        java.util.Set<Integer> ids = new java.util.HashSet<>();
+        if (productIds == null || productIds.isEmpty()) {
+            return ids;
+        }
+        ids.addAll(importOrderDetailRepository.findImportedProductIds(productIds));
+        ids.addAll(stockBatchRepository.findProductIdsWithBatches(productIds));
+        return ids;
+    }
+
+    private boolean isProductAlreadyInStore(Integer productId, Integer excludeOrderId) {
+        if (productId == null) {
+            return false;
+        }
+        if (importOrderDetailRepository.existsImportedForProduct(productId, excludeOrderId)) {
+            return true;
+        }
+        return stockBatchRepository.existsActiveForProductExcludingOrder(productId, excludeOrderId);
     }
 
     private void assertSellableProduct(Product product) {
@@ -884,6 +1225,8 @@ public class ImportOrderService {
         batch.setReceivedDate(order.getReceivedDate() != null ? order.getReceivedDate() : LocalDate.now());
         batch.setExpiryDate(detail.getExpiryDate());
         batch.setBatchNote(detail.getNote());
+        batch.setImportOrderDetail(detail);
+        batch.setIsTrial(ImportTrialConstants.LINE_TRIAL.equals(detail.getLineType()));
         batch.setIsRemoved(false);
         StockBatch savedBatch = stockBatchRepository.save(batch);
 
@@ -940,18 +1283,15 @@ public class ImportOrderService {
     }
 
     private String generatePaymentCode() {
-        String prefix = ImportOrderConstants.PAYMENT_CODE_PREFIX;
-        int seqLength = ImportOrderConstants.PAYMENT_CODE_SEQ_LENGTH;
+        LocalDate date = LocalDate.now();
+        return ImportOrderConstants.formatPaymentCode(date, nextPaymentSequence(date));
+    }
 
-        int nextSeq = supplierPaymentRepository.findLatestTtnPaymentCode()
-                .map(code -> Integer.parseInt(code.substring(prefix.length())) + 1)
-                .orElse(0);
-
-        if (nextSeq > 999_999) {
-            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
-        }
-
-        return prefix + String.format("%0" + seqLength + "d", nextSeq);
+    private int nextPaymentSequence(LocalDate date) {
+        supplierPaymentRepository.flush();
+        Integer max = supplierPaymentRepository.findMaxPaymentSequenceByDayPrefix(
+                ImportOrderConstants.paymentDayPrefix(date));
+        return (max != null ? max : 0) + 1;
     }
 
     private Map<Integer, String> collectReturnMethodOverrides(CreateImportOrderRequest request) {

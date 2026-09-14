@@ -7,6 +7,7 @@ export const IMPORT_ORDER_ROUTES = {
 /** Trạng thái thanh toán — khớp BE (derive từ nợ NCC) */
 export const IMPORT_ORDER_STATUS = {
     DEBT: 'DEBT',
+    PENDING_SETTLEMENT: 'PENDING_SETTLEMENT',
     DONE: 'DONE',
     RECEIVED: 'RECEIVED',
     DELIVERING: 'DELIVERING',
@@ -15,6 +16,7 @@ export const IMPORT_ORDER_STATUS = {
 
 export const IMPORT_ORDER_STATUS_LABEL = {
     [IMPORT_ORDER_STATUS.DEBT]: 'Đang nợ',
+    [IMPORT_ORDER_STATUS.PENDING_SETTLEMENT]: 'Chờ quyết toán',
     [IMPORT_ORDER_STATUS.DONE]: 'Hoàn thành',
     [IMPORT_ORDER_STATUS.RECEIVED]: 'Đã nhận',
     [IMPORT_ORDER_STATUS.DELIVERING]: 'Đang giao',
@@ -24,6 +26,7 @@ export const IMPORT_ORDER_STATUS_LABEL = {
 export const IMPORT_ORDER_STATUS_OPTIONS = [
     { value: 'all', label: 'Tất cả trạng thái' },
     { value: IMPORT_ORDER_STATUS.DEBT, label: IMPORT_ORDER_STATUS_LABEL.DEBT },
+    { value: IMPORT_ORDER_STATUS.PENDING_SETTLEMENT, label: IMPORT_ORDER_STATUS_LABEL.PENDING_SETTLEMENT },
     { value: IMPORT_ORDER_STATUS.DONE, label: IMPORT_ORDER_STATUS_LABEL.DONE },
 ];
 
@@ -54,4 +57,17 @@ export const ORDER_STATUS_FILTER_LABEL = {
     [ORDER_STATUS_FILTER.ALL]: 'Tất cả',
     [ORDER_STATUS_FILTER.DRAFT]: 'Phiếu tạm',
     [ORDER_STATUS_FILTER.IMPORTED]: 'Đã nhập hàng',
+};
+
+/** Số lượng mỗi dòng phiếu nhập: 1–999.999 (6 chữ số). */
+export const MAX_IMPORT_QUANTITY = 999_999;
+
+export const TRIAL_DECISION = {
+    PAY_SOLD_RETURN_REST: 'PAY_SOLD_RETURN_REST',
+    PAY_ALL_KEEP: 'PAY_ALL_KEEP',
+};
+
+export const TRIAL_DECISION_LABEL = {
+    [TRIAL_DECISION.PAY_SOLD_RETURN_REST]: 'Trả phần còn',
+    [TRIAL_DECISION.PAY_ALL_KEEP]: 'Giữ hết',
 };

@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import project.be_sep490_g67.entity.ImportOrderDetail;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
@@ -120,4 +121,127 @@ public interface ImportOrderDetailRepository extends JpaRepository<ImportOrderDe
         ORDER BY o.id DESC
         """)
     List<Object[]> findSupplierNamesByProductsLatestFirst(@Param("productIds") List<Integer> productIds);
+
+    @Query("""
+        SELECT COUNT(d) > 0
+        FROM ImportOrderDetail d
+        JOIN d.importOrder o
+        WHERE d.product.id = :productId
+          AND (d.isRemoved = false OR d.isRemoved IS NULL)
+          AND (o.isRemoved = false OR o.isRemoved IS NULL)
+          AND UPPER(o.orderStatus) = 'IMPORTED'
+          AND (:excludeOrderId IS NULL OR o.id <> :excludeOrderId)
+        """)
+    boolean existsImportedForProduct(
+            @Param("productId") Integer productId,
+            @Param("excludeOrderId") Integer excludeOrderId);
+
+    @Query("""
+        SELECT DISTINCT d.product.id
+        FROM ImportOrderDetail d
+        JOIN d.importOrder o
+        WHERE d.product.id IN :productIds
+          AND (d.isRemoved = false OR d.isRemoved IS NULL)
+          AND (o.isRemoved = false OR o.isRemoved IS NULL)
+          AND UPPER(o.orderStatus) = 'IMPORTED'
+        """)
+    List<Integer> findImportedProductIds(@Param("productIds") List<Integer> productIds);
+
+    @Query("""
+        SELECT d
+        FROM ImportOrderDetail d
+        JOIN FETCH d.product p
+        LEFT JOIN FETCH p.parent
+        LEFT JOIN FETCH d.productUnit
+        JOIN FETCH d.importOrder o
+        WHERE o.id = :orderId
+          AND (d.isRemoved = false OR d.isRemoved IS NULL)
+          AND d.lineType = 'TRIAL'
+          AND d.trialStatus = 'OPEN'
+        ORDER BY d.id ASC
+        """)
+    List<ImportOrderDetail> findOpenTrialLinesByOrderId(@Param("orderId") Integer orderId);
+
+    @Query("""
+        SELECT DISTINCT o.id
+        FROM ImportOrderDetail d
+        JOIN d.importOrder o
+        WHERE o.id IN :orderIds
+          AND (d.isRemoved = false OR d.isRemoved IS NULL)
+          AND (o.isRemoved = false OR o.isRemoved IS NULL)
+          AND d.lineType = 'TRIAL'
+          AND d.trialStatus = 'OPEN'
+        """)
+    List<Integer> findOrderIdsWithOpenTrial(@Param("orderIds") List<Integer> orderIds);
+
+    @Query("""
+        SELECT d
+        FROM ImportOrderDetail d
+        JOIN FETCH d.product p
+        LEFT JOIN FETCH p.parent
+        LEFT JOIN FETCH d.productUnit
+        JOIN FETCH d.importOrder o
+        LEFT JOIN FETCH o.supplier
+        WHERE o.supplier.id = :supplierId
+          AND (d.isRemoved = false OR d.isRemoved IS NULL)
+          AND (o.isRemoved = false OR o.isRemoved IS NULL)
+          AND UPPER(o.orderStatus) = 'IMPORTED'
+          AND d.lineType = 'TRIAL'
+          AND d.trialStatus = 'OPEN'
+        ORDER BY o.receivedDate DESC, o.id DESC, d.id ASC
+        """)
+    List<ImportOrderDetail> findOpenTrialLinesBySupplierId(@Param("supplierId") Integer supplierId);
+
+    @Query("""
+        SELECT COALESCE(SUM(COALESCE(d.costPerUnit, 0) * d.quantity), 0)
+        FROM ImportOrderDetail d
+        WHERE d.importOrder.id = :orderId
+          AND (d.isRemoved = false OR d.isRemoved IS NULL)
+          AND d.lineType = 'TRIAL'
+          AND d.trialStatus = 'OPEN'
+        """)
+    BigDecimal sumOpenTrialAmountByOrderId(@Param("orderId") Integer orderId);
+
+    @Query("""
+        SELECT d.importOrder.id,
+               COALESCE(SUM(COALESCE(d.costPerUnit, 0) * d.quantity), 0),
+               COALESCE(SUM(COALESCE(d.lineTotal, 0)), 0)
+        FROM ImportOrderDetail d
+        WHERE d.importOrder.id IN :orderIds
+          AND (d.isRemoved = false OR d.isRemoved IS NULL)
+          AND d.lineType = 'TRIAL'
+          AND d.trialStatus = 'OPEN'
+        GROUP BY d.importOrder.id
+        """)
+    List<Object[]> sumOpenTrialMoneyByOrderIds(@Param("orderIds") List<Integer> orderIds);
+
+    @Query("""
+        SELECT o.supplier.id,
+               COALESCE(SUM(
+                   COALESCE(d.costPerUnit, 0) * d.quantity - COALESCE(d.lineTotal, 0)
+               ), 0)
+        FROM ImportOrderDetail d
+        JOIN d.importOrder o
+        WHERE (d.isRemoved = false OR d.isRemoved IS NULL)
+          AND (o.isRemoved = false OR o.isRemoved IS NULL)
+          AND UPPER(o.orderStatus) = 'IMPORTED'
+          AND d.lineType = 'TRIAL'
+          AND d.trialStatus = 'OPEN'
+        GROUP BY o.supplier.id
+        """)
+    List<Object[]> sumUnbookedOpenTrialGroupedBySupplier();
+
+    @Query("""
+        SELECT o.supplier.id,
+               COALESCE(SUM(COALESCE(d.lineTotal, 0)), 0)
+        FROM ImportOrderDetail d
+        JOIN d.importOrder o
+        WHERE (d.isRemoved = false OR d.isRemoved IS NULL)
+          AND (o.isRemoved = false OR o.isRemoved IS NULL)
+          AND UPPER(o.orderStatus) = 'IMPORTED'
+          AND d.lineType = 'TRIAL'
+          AND d.trialStatus = 'OPEN'
+        GROUP BY o.supplier.id
+        """)
+    List<Object[]> sumBookedOpenTrialGroupedBySupplier();
 }

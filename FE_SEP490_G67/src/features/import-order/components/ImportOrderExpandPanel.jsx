@@ -92,7 +92,10 @@ export default function ImportOrderExpandPanel({ orderId, onDraftCancelled }) {
 
     const isDraft = order.orderStatus === ORDER_STATUS.DRAFT;
     const hasPayments = Number(order.paidAmount) > 0;
-    const visibleTabs = hasPayments ? TABS : TABS.filter((tab) => tab.id !== 'payments');
+    const visibleTabs = TABS.filter((tab) => {
+        if (tab.id === 'payments') return hasPayments;
+        return true;
+    });
     const currentTab = visibleTabs.some((tab) => tab.id === activeTab) ? activeTab : 'info';
 
     return (

@@ -1,6 +1,7 @@
 .admin-header {
     background: #fff;
     border-bottom: 1px solid #e5e7eb;
+    padding: 0;
     padding: 0 30px;
     display: flex;
     align-items: center;
@@ -10,11 +11,25 @@
     flex-shrink: 0;
 }
 
-/* Left: Store name + Status */
+/* Left: sidebar toggle */
 .header-left {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
+    padding-left: 0;
+}
+
+.header-btn--sidebar {
+    flex-shrink: 0;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.2s ease;
+}
+
+.header-btn--sidebar:active {
+    transform: scale(0.94);
+}
+
+.header-btn--sidebar svg {
+    transition: transform 0.36s ease;
 }
 
 .header-store-name {

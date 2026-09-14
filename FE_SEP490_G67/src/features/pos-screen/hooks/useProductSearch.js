@@ -35,6 +35,7 @@ export function useProductSearch(query) {
                 setResults(data);
                 setError(null);
             } catch (err) {
+                console.error("Failed to search products by name:", err);
                 setError('Không thể tải danh sách sản phẩm. Vui lòng thử lại.');
                 setResults([]);
             } finally {

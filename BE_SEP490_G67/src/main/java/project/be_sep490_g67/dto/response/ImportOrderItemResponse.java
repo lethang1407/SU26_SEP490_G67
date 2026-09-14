@@ -38,6 +38,15 @@ public class ImportOrderItemResponse {
     LocalDate expiryDate;
     String note;
     Boolean isPromotion;
+    /** REGULAR | PROMOTION | TRIAL */
+    String lineType;
+    /** OPEN | SETTLED — chỉ dòng bán thử */
+    String trialStatus;
+    /**
+     * true nếu SP đã từng nhập kho hoặc còn lô.
+     * FE ẩn nút Bán thử khi true.
+     */
+    Boolean alreadyInStore;
 
     @Data
     @Builder

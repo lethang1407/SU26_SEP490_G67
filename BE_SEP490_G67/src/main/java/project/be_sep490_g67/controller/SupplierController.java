@@ -19,12 +19,15 @@ import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.dto.response.SupplierDetailResponse;
 import project.be_sep490_g67.dto.response.SupplierListPageResponse;
 import project.be_sep490_g67.dto.response.SupplierPaymentResponse;
+import project.be_sep490_g67.dto.response.ImportTrialPreviewResponse;
 import project.be_sep490_g67.dto.response.*;
 import project.be_sep490_g67.service.ImportOrderService;
+import project.be_sep490_g67.service.ImportTrialSettlementService;
 import project.be_sep490_g67.service.SupplierPaymentService;
 import project.be_sep490_g67.service.SupplierService;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -36,6 +39,7 @@ public class SupplierController {
     SupplierService supplierService;
     ImportOrderService importOrderService;
     SupplierPaymentService supplierPaymentService;
+    ImportTrialSettlementService importTrialSettlementService;
 
     @GetMapping
     public ApiResponse<SupplierListPageResponse> getSuppliers(
@@ -91,6 +95,26 @@ public class SupplierController {
         return ApiResponse.<PageResponse<ImportOrderListItemResponse>>builder()
                 .result(importOrderService.getImportHistory(id, search, status, page, size))
                 .message("Lấy lịch sử nhập hàng thành công")
+                .build();
+    }
+
+    @GetMapping("/{id}/trial-open")
+    public ApiResponse<List<ImportTrialPreviewResponse>> getOpenTrial(
+            @PathVariable Integer id
+    ) {
+        return ApiResponse.<List<ImportTrialPreviewResponse>>builder()
+                .result(importTrialSettlementService.previewOpenBySupplier(id))
+                .message("Lấy hàng bán thử đang treo thành công")
+                .build();
+    }
+
+    @GetMapping("/{id}/trial-history")
+    public ApiResponse<List<ImportTrialSettleResponse>> getTrialHistory(
+            @PathVariable Integer id
+    ) {
+        return ApiResponse.<List<ImportTrialSettleResponse>>builder()
+                .result(importTrialSettlementService.listBySupplier(id))
+                .message("Lấy lịch sử quyết toán hàng bán thử thành công")
                 .build();
     }
 

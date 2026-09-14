@@ -174,13 +174,21 @@ public class ProductService {
                         .build())
                 .toList();
 
-        // Fetch available stock batches
-        List<StockBatch> batches = stockBatchRepository.findAvailableByProductId(product.getId());
-        List<ProductBarcodeResponse.StockBatchInfo> batchInfos = batches.stream()
+        // Tồn của từng lô phải là số BÁN ĐƯỢC, cộng theo từng ô và đã loại khu đổi trả
+        Map<Integer, Integer> sellableByBatch = new LinkedHashMap<>();
+        Map<Integer, StockBatch> batchById = new LinkedHashMap<>();
+        for (BatchLocation line : batchLocationRepository.findAvailableByProductId(product.getId())) {
+            StockBatch batch = line.getBatch();
+            batchById.putIfAbsent(batch.getId(), batch);
+            sellableByBatch.merge(batch.getId(),
+                    line.getQuantity() != null ? line.getQuantity() : 0, Integer::sum);
+        }
+
+        List<ProductBarcodeResponse.StockBatchInfo> batchInfos = batchById.values().stream()
                 .map(b -> ProductBarcodeResponse.StockBatchInfo.builder()
                         .id(b.getId())
                         .batchCode(StockBatchUtils.resolveBatchCode(b))
-                        .quantity(b.getQuantityIn())
+                        .quantity(sellableByBatch.get(b.getId()))
                         .expiryDate(b.getExpiryDate() != null ? b.getExpiryDate().toString()
                                 : null)
                         .build())
@@ -534,27 +542,17 @@ public class ProductService {
                         .build())
                 .toList();
 
-        // Đã sắp xếp sẵn ở query: khu bán trước, rồi FIFO theo ngày nhập (null xuống
-        // cuối).
+        // Đã sắp FEFO (expiryDate ASC, receivedDate ASC); loại RETURN_HOLD.
         List<ProductPosInfoResponse.LocationStockInfo> locationInfos = batchLocationRepository
                 .findPosLinesByProductId(productId).stream()
                 .map(ProductService::toLocationStockInfo)
                 .toList();
 
-        int salesZoneQty = locationInfos.stream()
-                .filter(l -> SALES_ZONE_TYPE.equals(l.getZoneType()))
-                .mapToInt(ProductPosInfoResponse.LocationStockInfo::getQuantity)
-                .sum();
         int available = locationInfos.stream()
                 .mapToInt(ProductPosInfoResponse.LocationStockInfo::getQuantity)
                 .sum();
 
-        // Dòng khu bán đầu tiên là ô POS chọn sẵn; không có nghĩa là SP chưa ra quầy.
-        ProductPosInfoResponse.LocationStockInfo defaultLine = locationInfos.stream()
-                .filter(l -> SALES_ZONE_TYPE.equals(l.getZoneType()))
-                .findFirst()
-                .orElse(null);
-
+        // Không ép ô mặc định — checkout không gửi picks sẽ trừ theo FEFO toàn kho.
         return ProductPosInfoResponse.builder()
                 .id(product.getId())
                 .name(product.getName())
@@ -563,18 +561,16 @@ public class ProductService {
                 .description(product.getDescription())
                 .sellingPrice(product.getSellingPrice())
                 .availableQuantity(available)
-                .salesZoneQuantity(salesZoneQty)
-                .warehouseQuantity(available - salesZoneQty)
+                .salesZoneQuantity(0)
+                .warehouseQuantity(available)
                 .minStock(product.getMinStock())
                 .belowMinStock(product.getMinStock() != null && available <= product.getMinStock())
-                .defaultLocationId(defaultLine != null ? defaultLine.getLocationId() : null)
-                .defaultBatchId(defaultLine != null ? defaultLine.getBatchId() : null)
+                .defaultLocationId(null)
+                .defaultBatchId(null)
                 .units(unitInfos)
                 .locations(locationInfos)
                 .build();
     }
-
-    private static final String SALES_ZONE_TYPE = "SALES";
 
     private static ProductPosInfoResponse.LocationStockInfo toLocationStockInfo(BatchLocation bl) {
         StorageLocation location = bl.getLocation();
@@ -627,15 +623,28 @@ public class ProductService {
                 .findByProduct_IdInAndIsRemovedFalse(productIds)
                 .stream()
                 .collect(Collectors.groupingBy(item -> item.getProduct().getId()));
+        java.util.Set<Integer> alreadyInStoreIds = loadAlreadyInStoreProductIds(productIds);
 
         return productList.stream()
                 .map(product -> toSearchResponse(
                         product,
-                        attributesByProduct.getOrDefault(product.getId(), List.of())))
+                        attributesByProduct.getOrDefault(product.getId(), List.of()),
+                        alreadyInStoreIds.contains(product.getId())))
                 .toList();
     }
 
-    private ProductSearchResponse toSearchResponse(Product product, List<ProductAttribute> attributes) {
+    private java.util.Set<Integer> loadAlreadyInStoreProductIds(List<Integer> productIds) {
+        java.util.Set<Integer> ids = new java.util.HashSet<>();
+        if (productIds == null || productIds.isEmpty()) {
+            return ids;
+        }
+        ids.addAll(importOrderDetailRepository.findImportedProductIds(productIds));
+        ids.addAll(stockBatchRepository.findProductIdsWithBatches(productIds));
+        return ids;
+    }
+
+    private ProductSearchResponse toSearchResponse(
+            Product product, List<ProductAttribute> attributes, boolean alreadyInStore) {
         BigDecimal costPrice = product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO;
         BigDecimal lastCostPerBase = stockBatchRepository
                 .findFirstByProduct_IdAndIsRemovedFalseOrderByReceivedDateDescIdDesc(product.getId())
@@ -665,6 +674,7 @@ public class ProductService {
                 .costPrice(costPrice)
                 .lastCostPerBase(lastCostPerBase)
                 .stockQuantity(stockQuantity)
+                .alreadyInStore(alreadyInStore)
                 .parentId(parent != null ? parent.getId() : null)
                 .parentName(parent != null ? parent.getName() : null)
                 .attributes(productMapper.toAttributeResponses(attributes))

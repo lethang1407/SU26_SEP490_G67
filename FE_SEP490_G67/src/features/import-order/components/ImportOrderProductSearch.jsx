@@ -7,7 +7,7 @@ const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
 
 function mapProduct(product) {
-    const productUnits = (product.productUnits || []).map((unit) => ({
+    const productUnits = (product.productUnits || product.units || []).map((unit) => ({
         id: unit.id,
         name: unit.name,
         unitBase: Number(unit.unitBase) || 1,
@@ -24,7 +24,7 @@ function mapProduct(product) {
         code: product.sku || product.barcode || `SP${String(product.id).padStart(6, '0')}`,
         barcode: product.barcode || '',
         productUnits,
-        unit: baseUnit?.name || 'Cái',
+        unit: baseUnit?.name || 'Chai',
         lastCostPerBase,
         sellingPrice: Number(product.sellingPrice) || 0,
         // Gợi ý theo ĐVT cơ bản; createLine sẽ nhân unitBase
@@ -32,10 +32,53 @@ function mapProduct(product) {
         openPoId: product.openPoId || null,
         openPoCode: product.openPoCode || null,
         openPoQty: product.openPoQty || 0,
+        alreadyInStore:
+            Boolean(product.alreadyInStore) || Number(product.stockQuantity) > 0,
     };
 }
 
-export default function ImportOrderProductSearch({ onSelect }) {
+function toCreatedImportProducts(createdProduct) {
+    const parentUnits = (createdProduct.units || createdProduct.productUnits || []).filter(
+        (unit) => unit?.name,
+    );
+    const fallbackUnits =
+        parentUnits.length > 0
+            ? parentUnits
+            : [{ name: createdProduct.baseUnitName || 'Chai', unitBase: 1 }];
+    const variants = (createdProduct.variants || []).filter((variant) => variant?.id);
+    if (variants.length > 0) {
+        return variants.map((variant) => {
+            const variantUnits = (variant.units || []).filter((unit) => unit?.name);
+            const units = variantUnits.length > 0 ? variantUnits : fallbackUnits;
+            return {
+                id: variant.id,
+                name: variant.name,
+                sku: variant.sku,
+                barcode: variant.barcode || '',
+                sellingPrice: variant.sellingPrice ?? createdProduct.sellingPrice,
+                costPrice: variant.costPrice ?? createdProduct.costPrice,
+                lastCostPerBase: variant.costPrice ?? createdProduct.costPrice,
+                attributes: variant.attributes || [],
+                units,
+                productUnits: units,
+                alreadyInStore: false,
+                stockQuantity: 0,
+                parentId: createdProduct.id,
+                parentName: createdProduct.name,
+            };
+        });
+    }
+
+    return [{
+        ...createdProduct,
+        alreadyInStore: false,
+        stockQuantity: 0,
+        units: fallbackUnits,
+        productUnits: fallbackUnits,
+    }];
+}
+
+export default function ImportOrderProductSearch({ onSelect, onSelectMany }) {
     const [keyword, setKeyword] = useState('');
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -96,13 +139,13 @@ export default function ImportOrderProductSearch({ onSelect }) {
 
     const handleProductCreated = (createdProduct) => {
         if (!createdProduct) return;
-        const mapped = mapProduct({
-            ...createdProduct,
-            productUnits: createdProduct.units || createdProduct.productUnits || [
-                { id: Date.now(), name: createdProduct.baseUnitName || 'Chai', unitBase: 1 },
-            ],
-        });
-        onSelect?.(mapped);
+        const products = toCreatedImportProducts(createdProduct).map(mapProduct);
+        if (products.length === 0) return;
+        if (products.length > 1 && typeof onSelectMany === 'function') {
+            onSelectMany(products);
+            return;
+        }
+        products.forEach((product) => onSelect?.(product));
     };
 
     const showDropdown = open && keyword.trim().length >= MIN_QUERY_LENGTH;

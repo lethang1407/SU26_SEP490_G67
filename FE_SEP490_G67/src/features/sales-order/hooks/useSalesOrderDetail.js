@@ -14,6 +14,7 @@ export function useSalesOrderDetail(orderId) {
         getSalesOrderDetail(orderId)
             .then(setOrder)
             .catch((err) => {
+                console.error("Failed to fetch sales order detail:", err);
                 setOrder(null);
                 setError(getApiErrorMessage(err, 'Không thể tải chi tiết đơn hàng'));
             })
