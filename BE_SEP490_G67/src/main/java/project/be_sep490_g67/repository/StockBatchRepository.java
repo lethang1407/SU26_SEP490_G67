@@ -209,4 +209,25 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
             """, nativeQuery = true)
     Integer findMaxBatchSequenceByDayPrefix(@Param("dayPrefix") String dayPrefix);
 
+    Optional<StockBatch> findFirstByImportOrderDetail_IdAndIsRemovedFalse(Integer importOrderDetailId);
+
+    @Query("""
+        SELECT DISTINCT sb.product.id
+        FROM StockBatch sb
+        WHERE sb.product.id IN :productIds
+          AND sb.isRemoved = false
+        """)
+    List<Integer> findProductIdsWithBatches(@Param("productIds") List<Integer> productIds);
+
+    @Query("""
+        SELECT COUNT(sb) > 0
+        FROM StockBatch sb
+        LEFT JOIN sb.importOrder io
+        WHERE sb.product.id = :productId
+          AND sb.isRemoved = false
+          AND (:excludeOrderId IS NULL OR io.id IS NULL OR io.id <> :excludeOrderId)
+        """)
+    boolean existsActiveForProductExcludingOrder(
+            @Param("productId") Integer productId,
+            @Param("excludeOrderId") Integer excludeOrderId);
 }

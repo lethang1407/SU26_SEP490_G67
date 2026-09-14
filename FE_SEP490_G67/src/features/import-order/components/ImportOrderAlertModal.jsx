@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 /**
  * Modal cảnh báo / xác nhận.
  * - Chỉ confirm: chặn cứng (thiếu NCC, thiếu SP)
- * - cancel + confirm: cảnh báo có thể bỏ qua (thiếu HSD)
+ * - cancel + confirm: cảnh báo có thể bỏ qua
  * - cancel + danger + confirm: rời trang khi chưa lưu
  */
 export default function ImportOrderAlertModal({

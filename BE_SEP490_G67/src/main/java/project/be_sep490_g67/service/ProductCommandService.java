@@ -191,7 +191,7 @@ public class ProductCommandService {
         if (units == null || units.isEmpty()) {
             ProductUnit base = new ProductUnit();
             base.setProduct(product);
-            base.setName("sp");
+            base.setName("Chai");
             base.setUnitBase(BigDecimal.ONE);
             base.setSellingPrice(product.getSellingPrice());
             productUnitRepository.save(base);
@@ -254,7 +254,7 @@ public class ProductCommandService {
                 .filter(u -> u.getUnitBase() != null && u.getUnitBase().compareTo(BigDecimal.ONE) == 0)
                 .map(ProductUnit::getName)
                 .findFirst()
-                .orElse(units.isEmpty() ? "sp" : units.get(0).getName());
+                .orElse(units.isEmpty() ? "Chai" : units.get(0).getName());
 
         var category = product.getCategory();
         var defaultSupplier = category != null ? category.getDefaultSupplier() : null;
@@ -289,6 +289,7 @@ public class ProductCommandService {
         List<Product> childProducts = productRepository.findByParent_IdAndIsRemovedFalse(id);
         List<ProductDetailResponse.VariantResponse> variantDTOs = childProducts.stream().map(cp -> {
             List<ProductAttribute> childAttrs = productAttributeRepository.findByProductIdAndIsRemovedFalse(cp.getId());
+            List<ProductUnit> childUnits = productUnitRepository.findByProductIdAndIsRemovedFalse(cp.getId());
             return ProductDetailResponse.VariantResponse.builder()
                     .id(cp.getId())
                     .name(cp.getName())
@@ -301,6 +302,13 @@ public class ProductCommandService {
                             .id(ca.getId())
                             .name(ca.getAttribute() != null ? ca.getAttribute().getName() : null)
                             .value(ca.getValue())
+                            .build()).toList())
+                    .units(childUnits.stream().map(u -> ProductDetailResponse.UnitResponse.builder()
+                            .id(u.getId())
+                            .name(u.getName())
+                            .unitBase(u.getUnitBase())
+                            .sellingPrice(u.getSellingPrice())
+                            .isBase(u.getUnitBase() != null && u.getUnitBase().compareTo(BigDecimal.ONE) == 0)
                             .build()).toList())
                     .build();
         }).toList();

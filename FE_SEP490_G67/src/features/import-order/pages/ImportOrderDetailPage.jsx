@@ -9,17 +9,20 @@ import ImportOrderLineTable from '../components/ImportOrderLineTable';
 import ImportOrderReturnSection from '../components/ImportOrderReturnSection';
 import ImportOrderStatusBadge from '../components/ImportOrderStatusBadge';
 import ImportOrderSummaryPanel from '../components/ImportOrderSummaryPanel';
+import ImportTrialSettleModal from '../components/ImportTrialSettleModal';
 import { IMPORT_ORDER_ROUTES } from '../constants';
 import { mapPendingReturnLine } from '../utils/importReturnAttachUtils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Inventory.css';
 import '../../../css/ImportOrder.css';
+import '../../../css/Supplier.css';
 
 export default function ImportOrderDetailPage() {
     const { orderId } = useParams();
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [settleOpen, setSettleOpen] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -70,7 +73,10 @@ export default function ImportOrderDetailPage() {
         locationId: item.locationId,
         locationLabel: item.locationLabel,
         batchCode: item.batchCode,
-        isPromotion: Boolean(item.isPromotion),
+        isPromotion: Boolean(item.isPromotion) || item.lineType === 'PROMOTION',
+        isTrial: Boolean(item.isTrial) || item.lineType === 'TRIAL',
+        lineType: item.lineType || (item.isTrial ? 'TRIAL' : item.isPromotion ? 'PROMOTION' : 'REGULAR'),
+        trialStatus: item.trialStatus || '',
         lineTotal: Number(item.lineTotal) || 0,
         note: item.note || '',
     }));
@@ -143,6 +149,16 @@ export default function ImportOrderDetailPage() {
                             <div className="import-order-detail-header__title-row">
                                 <h1 className="inventory-page__title">{order.orderCode}</h1>
                                 <ImportOrderStatusBadge status={order.status} />
+                                {order.hasOpenTrial ? (
+                                    <button
+                                        type="button"
+                                        className="supplier-btn supplier-btn--primary"
+                                        style={{ marginLeft: 12 }}
+                                        onClick={() => setSettleOpen(true)}
+                                    >
+                                        Quyết toán bán thử
+                                    </button>
+                                ) : null}
                             </div>
                             <p className="inventory-page__subtitle">
                                 Chi tiết các dòng nhập — mỗi dòng là một lô đã tạo trong kho.
@@ -166,6 +182,20 @@ export default function ImportOrderDetailPage() {
                                 <ImportOrderSummaryPanel lines={lines} note={order.note} />
                             </aside>
                         </div>
+                        <ImportTrialSettleModal
+                            open={settleOpen}
+                            orderId={Number(orderId)}
+                            onClose={() => setSettleOpen(false)}
+                            onSettled={async () => {
+                                setSettleOpen(false);
+                                try {
+                                    const result = await fetchImportOrderById(orderId);
+                                    setOrder(result);
+                                } catch {
+                                    // giữ dữ liệu cũ nếu reload lỗi
+                                }
+                            }}
+                        />
                     </div>
                 </main>
             </div>

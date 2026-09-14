@@ -815,6 +815,10 @@
     color: #0f766e;
 }
 
+.supplier-stat-card__hint--trial {
+    color: #b45309;
+}
+
 .supplier-table__actions {
     text-align: center;
     white-space: nowrap;
@@ -1517,6 +1521,11 @@
     color: #b45309;
 }
 
+.supplier-import-status--pending_settlement {
+    background: #ccfbf1;
+    color: #0f766e;
+}
+
 .supplier-table tbody td.supplier-payment-history__amount {
     font-weight: 700;
     white-space: nowrap;
@@ -1568,10 +1577,17 @@
     align-items: center;
     justify-content: center;
     padding: 20px;
+    overflow: auto;
     background: rgba(15, 23, 42, 0.45);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
-    animation: supplier-modal-overlay-in 0.28s ease-out;
+    animation: supplier-modal-overlay-in 0.16s ease-out;
+}
+
+.supplier-modal-overlay--stacked {
+    z-index: 1200;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
 @keyframes supplier-modal-overlay-in {
@@ -1586,22 +1602,22 @@
 @keyframes supplier-modal-panel-in {
     from {
         opacity: 0;
-        transform: translateY(14px) scale(0.97);
+        transform: translateY(8px) scale(0.98);
     }
     to {
         opacity: 1;
-        transform: translateY(0) scale(1);
+        transform: none;
     }
 }
 
 .supplier-modal {
     width: 100%;
     max-width: 440px;
+    max-height: calc(100dvh - 40px);
     background: #fff;
     border-radius: 14px;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
-    animation: supplier-modal-panel-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
-    will-change: transform, opacity;
+    animation: supplier-modal-panel-in 0.18s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .supplier-modal__header {
@@ -1848,6 +1864,14 @@
 /* Add New Supplier Modal - Wider for form layout */
 .supplier-modal--add {
     max-width: 680px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.supplier-modal--add .supplier-modal__body {
+    overflow-y: auto;
+    min-height: 0;
 }
 
 /* Order Detail Modal - reuse phiếu nhập info layout */
@@ -1902,7 +1926,7 @@
 .supplier-modal--payment {
     display: flex;
     flex-direction: column;
-    max-height: calc(100vh - 48px);
+    max-height: calc(100dvh - 40px);
     overflow: hidden;
 }
 
@@ -1955,7 +1979,7 @@
 
 .supplier-payment-orders__item {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
     padding: 6px 4px;
     font-size: 13px;
@@ -1963,15 +1987,48 @@
     cursor: pointer;
 }
 
+.supplier-payment-orders__body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.supplier-payment-orders__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.supplier-payment-orders__hint {
+    font-size: 11px;
+    font-weight: 400;
+    color: #64748b;
+    line-height: 1.35;
+}
+
+.supplier-payment-max-hint {
+    margin: -6px 0 10px;
+}
+
 .supplier-payment-orders__item--all {
     font-weight: 600;
+    align-items: center;
     border-bottom: 1px solid #f1f5f9;
     margin-bottom: 4px;
+}
+
+.supplier-payment-orders__item--all input {
+    margin-top: 0;
 }
 
 .supplier-payment-orders__item input {
     width: 16px;
     height: 16px;
+    margin-top: 2px;
+    flex-shrink: 0;
     accent-color: #2563eb;
     cursor: pointer;
 }

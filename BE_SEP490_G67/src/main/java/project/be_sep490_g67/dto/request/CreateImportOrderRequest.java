@@ -2,6 +2,7 @@ package project.be_sep490_g67.dto.request;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
@@ -31,6 +32,7 @@ public class CreateImportOrderRequest {
     /** URL ảnh hóa đơn / phiếu giao hàng (Cloudinary). Tùy chọn. */
     String invoiceImage;
 
+    /** Giảm giá theo đơn — chỉ trừ hàng nhập thường, không trừ hàng bán thử / KM. */
     @DecimalMin(value = "0.0", inclusive = true, message = "Giảm giá không được âm")
     BigDecimal discountAmount;
 
@@ -73,6 +75,7 @@ public class CreateImportOrderRequest {
 
         @NotNull(message = "Số lượng không được để trống")
         @Min(value = 1, message = "Số lượng phải lớn hơn 0")
+        @Max(value = 999999, message = "Số lượng không được vượt 999999")
         Integer quantity;
 
         @NotNull(message = "Đơn giá không được để trống")
@@ -85,8 +88,17 @@ public class CreateImportOrderRequest {
 
         /**
          * true = hàng KM / trả thưởng: lineTotal = 0, vẫn nhập kho.
-         * null được coi là false.
+         * null được coi là false. Nếu lineType = TRIAL thì bỏ qua.
          */
         Boolean isPromotion;
+
+        /**
+         * REGULAR | PROMOTION | TRIAL.
+         * TRIAL = hàng bán thử: nhập kho, ghi công nợ theo giá thỏa thuận, quyết toán khi NCC đến.
+         */
+        String lineType;
+
+        /** true = bán thử. Có thể dùng thay cho lineType = TRIAL. */
+        Boolean isTrial;
     }
 }

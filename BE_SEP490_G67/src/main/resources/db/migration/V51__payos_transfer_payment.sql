@@ -43,9 +43,42 @@ CREATE TABLE IF NOT EXISTS `payos_checkout_sessions` (
   KEY `idx_payos_checkout_sales_order` (`sales_order_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Gắn đơn bán với giao dịch PayOS đã thanh toán cho nó.
-ALTER TABLE `sales_orders`
-  ADD COLUMN `payos_order_code` BIGINT DEFAULT NULL,
-  ADD COLUMN `payment_reference` VARCHAR(100) DEFAULT NULL;
+-- Gắn đơn bán với giao dịch PayOS đã thanh toán cho nó (DB local có thể đã có cột).
+SET @col_exists := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'sales_orders'
+      AND COLUMN_NAME = 'payos_order_code'
+);
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE `sales_orders` ADD COLUMN `payos_order_code` BIGINT DEFAULT NULL',
+    'DO 0');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
-CREATE INDEX `idx_sales_orders_payos_order_code` ON `sales_orders` (`payos_order_code`);
+SET @col_exists := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'sales_orders'
+      AND COLUMN_NAME = 'payment_reference'
+);
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE `sales_orders` ADD COLUMN `payment_reference` VARCHAR(100) DEFAULT NULL',
+    'DO 0');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @idx_exists := (
+    SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'sales_orders'
+      AND INDEX_NAME = 'idx_sales_orders_payos_order_code'
+);
+SET @sql := IF(@idx_exists = 0,
+    'CREATE INDEX `idx_sales_orders_payos_order_code` ON `sales_orders` (`payos_order_code`)',
+    'DO 0');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;

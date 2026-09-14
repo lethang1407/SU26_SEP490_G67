@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
 import { ChevronRight, Pencil, Wallet } from 'lucide-react';
+import { canPaySupplierDebt, payDebtButtonTitle } from '../utils/supplierUtils';
 
 export default function SupplierDetailHeader({ supplier, onPayDebt, onEdit }) {
-    const canPayDebt = supplier.currentDebt > 0;
+    const canPayDebt = canPaySupplierDebt(supplier);
 
     return (
         <div className="supplier-detail-header">
@@ -36,7 +37,7 @@ export default function SupplierDetailHeader({ supplier, onPayDebt, onEdit }) {
                         className="supplier-btn supplier-btn--pay"
                         disabled={!canPayDebt}
                         onClick={onPayDebt}
-                        title={canPayDebt ? 'Thanh toán nợ' : 'Không có công nợ'}
+                        title={payDebtButtonTitle(supplier)}
                     >
                         <Wallet size={18} />
                         Thanh toán nợ

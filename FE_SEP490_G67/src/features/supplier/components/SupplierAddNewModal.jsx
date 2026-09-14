@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ChevronDown, Search } from 'lucide-react';
 import { removeVietnameseTones, validateSupplierForm } from '../utils/supplierUtils';
 import { categoriesApi } from '../../category/api';
@@ -195,8 +196,12 @@ export default function SupplierAddNewModal({
     const fieldClass = (name) =>
         `supplier-modal__field${fieldErrors[name] ? ' supplier-modal__field--error' : ''}`;
 
-    return (
-        <div className="supplier-modal-overlay" onClick={onClose} role="presentation">
+    return createPortal(
+        <div
+            className="supplier-modal-overlay supplier-modal-overlay--stacked"
+            onClick={onClose}
+            role="presentation"
+        >
             <div
                 className="supplier-modal supplier-modal--add"
                 onClick={(event) => event.stopPropagation()}
@@ -456,6 +461,7 @@ export default function SupplierAddNewModal({
                     </div>
                 </form>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }

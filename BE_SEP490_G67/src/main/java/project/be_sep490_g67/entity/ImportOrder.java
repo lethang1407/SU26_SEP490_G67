@@ -30,21 +30,21 @@ public class ImportOrder extends BaseEntity {
 
     @ColumnDefault("0.00")
     @Column(name = "total_cost", precision = 15, scale = 2)
-    private BigDecimal totalCost;
+    private BigDecimal totalCost = BigDecimal.ZERO;
 
     @ColumnDefault("0.00")
     @Column(name = "discount_amount", precision = 15, scale = 2)
-    private BigDecimal discountAmount;
+    private BigDecimal discountAmount = BigDecimal.ZERO;
 
     /** Giá trị hàng trả (RETURN) đã gắn vào đơn này. */
     @ColumnDefault("0.00")
     @Column(name = "return_deduction_amount", precision = 15, scale = 2)
-    private BigDecimal returnDeductionAmount;
+    private BigDecimal returnDeductionAmount = BigDecimal.ZERO;
 
     /** Phần hàng trả vượt quá tiền nhập — NCC phải trả lại cửa hàng. */
     @ColumnDefault("0.00")
     @Column(name = "supplier_refund_amount", precision = 15, scale = 2)
-    private BigDecimal supplierRefundAmount;
+    private BigDecimal supplierRefundAmount = BigDecimal.ZERO;
 
     @Column(name = "received_date")
     private LocalDate receivedDate;
@@ -59,6 +59,9 @@ public class ImportOrder extends BaseEntity {
 
     @Column(name = "invoice_image", length = 500)
     private String invoiceImage;
+
+    @Column(name = "invoice_image_public_id", length = 255)
+    private String invoiceImagePublicId;
 
     @OneToMany(mappedBy = "importOrder")
     private Set<ImportOrderDetail> importOrderDetails = new LinkedHashSet<>();
