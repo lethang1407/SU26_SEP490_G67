@@ -52,5 +52,12 @@ public class ImportOrderDetail extends BaseEntity {
     @Column(name = "is_promotion", nullable = false)
     private Boolean isPromotion = false;
 
+    /** REGULAR | PROMOTION | TRIAL */
+    @ColumnDefault("'REGULAR'")
+    @Column(name = "line_type", length = 20, nullable = false)
+    private String lineType = "REGULAR";
 
+    /** OPEN | SETTLED — chỉ dùng cho dòng TRIAL */
+    @Column(name = "trial_status", length = 20)
+    private String trialStatus;
 }

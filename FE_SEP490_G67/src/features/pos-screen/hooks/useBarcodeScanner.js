@@ -33,7 +33,7 @@ export function useBarcodeScanner({ onProductFound, enabled = true }) {
         clearError();
         try {
             const product = await getProductByBarcode(trimmedCode);
-            saveOfflineProducts([product]).catch(() => {});
+            saveOfflineProducts([product]).catch(() => { });
             onProductFound(product);
         } catch (err) {
             // Check offline database

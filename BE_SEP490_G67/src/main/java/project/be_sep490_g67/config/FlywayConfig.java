@@ -10,20 +10,10 @@
 //import javax.sql.DataSource;
 //import java.util.Arrays;
 //
-///**
-// * Manual Flyway bean — only when spring.flyway.enabled=true.
-// * Default is false: schema is managed by Hibernate ddl-auto=update
-// * (see application.properties). Forcing migrate here conflicts with
-// * an already-updated DB and blocks startup.
-// */
 //@Configuration
 //@ConditionalOnProperty(name = "spring.flyway.enabled", havingValue = "true")
 //public class FlywayConfig {
 //
-//    /**
-//     * Đảm bảo Flyway migrate xong trước khi Hibernate EntityManagerFactory
-//     * chạy ddl-auto (tránh Hibernate tạo cột/FK nửa chừng trước V15).
-//     */
 //    @Bean
 //    public static BeanFactoryPostProcessor entityManagerFactoryDependsOnFlyway() {
 //        return beanFactory -> {

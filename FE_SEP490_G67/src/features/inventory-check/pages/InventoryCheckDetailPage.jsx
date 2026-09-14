@@ -1,17 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Alert, Spinner } from 'react-bootstrap';
-import { Download, Printer } from 'lucide-react';
 import AdminHeader from '../../../components/ui/header-footer/Header';
-import AlertNoticeModal from '../../../components/ui/AlertNoticeModal';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import { fetchInventoryCheckById } from '../api';
 import InventoryCheckLineTable from '../components/InventoryCheckLineTable';
 import InventoryCheckStatusBadge from '../components/InventoryCheckStatusBadge';
-import {
-    InventoryCheckInfoPanel,
-    InventoryCheckSummaryPanel,
-} from '../components/InventoryCheckSidePanels';
+import { InventoryCheckInfoPanel } from '../components/InventoryCheckSidePanels';
 import { INVENTORY_CHECK_ROUTES } from '../constants';
 import { isEditableStatus } from '../utils/inventoryCheckUtils';
 import '../../../css/AdminDashboard.css';
@@ -27,7 +22,6 @@ export default function InventoryCheckDetailPage() {
     const [lines, setLines] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [warning, setWarning] = useState(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -142,26 +136,6 @@ export default function InventoryCheckDetailPage() {
                                 >
                                     Quay lại
                                 </button>
-                                <button
-                                    type="button"
-                                    className="inventory-btn inventory-btn--secondary"
-                                    onClick={() =>
-                                        setWarning('Chức năng in phiếu đang phát triển.')
-                                    }
-                                >
-                                    <Printer size={18} />
-                                    In phiếu
-                                </button>
-                                <button
-                                    type="button"
-                                    className="inventory-btn inventory-btn--secondary"
-                                    onClick={() =>
-                                        setWarning('Chức năng xuất file đang phát triển.')
-                                    }
-                                >
-                                    <Download size={18} />
-                                    Xuất file
-                                </button>
                             </div>
                         </header>
 
@@ -176,24 +150,15 @@ export default function InventoryCheckDetailPage() {
                             </div>
 
                             <aside className="inventory-check-detail-sidebar">
-                                <InventoryCheckInfoPanel check={check} />
-                                <InventoryCheckSummaryPanel
+                                <InventoryCheckInfoPanel
+                                    check={check}
+                                    showSummary
                                     lines={lines}
-                                    note={check.generalNote || check.note}
-                                    showNote
-                                    showMeta
-                                    checkDate={check.checkDate}
-                                    checkerName={check.checker}
                                 />
                             </aside>
                         </div>
                     </div>
                 </main>
-            <AlertNoticeModal
-                open={Boolean(warning)}
-                message={warning}
-                onClose={() => setWarning(null)}
-            />
         </div>
     );
 }

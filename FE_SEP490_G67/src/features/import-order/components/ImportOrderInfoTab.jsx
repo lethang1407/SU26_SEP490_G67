@@ -1,24 +1,54 @@
 import { Link } from 'react-router-dom';
 import { ExternalLink, ImageIcon } from 'lucide-react';
-import { ORDER_STATUS_LABEL } from '../constants';
-import { formatDate, formatMoneyPlain, formatProductAttributes } from '../utils/importOrderUtils';
+import { IMPORT_ORDER_STATUS, IMPORT_ORDER_STATUS_LABEL, ORDER_STATUS_LABEL } from '../constants';
+import {
+    computeDisplayLineTotal,
+    computeOpenTrialAmount,
+    formatDate,
+    formatMoneyPlain,
+    resolveLineType,
+} from '../utils/importOrderUtils';
 import { mapPendingReturnLine } from '../utils/importReturnAttachUtils';
 import ImportOrderReturnSection from './ImportOrderReturnSection';
 
-export default function ImportOrderInfoTab({ order, hideSupplierLink = false }) {
+export default function ImportOrderInfoTab({
+    order,
+    hideSupplierLink = false,
+}) {
     const items = order.items || [];
-    const paidItems = items.filter((item) => !item.isPromotion);
-    const promoItems = items.filter((item) => item.isPromotion);
-    const displayItems = [...paidItems, ...promoItems];
+    const regularItems = items.filter((item) => resolveLineType(item) === 'REGULAR');
+    const trialItems = items.filter((item) => resolveLineType(item) === 'TRIAL');
+    const promoItems = items.filter((item) => resolveLineType(item) === 'PROMOTION');
+    const displayItems = [...regularItems, ...trialItems, ...promoItems];
     const returnLines = (order.returnLines || []).map(mapPendingReturnLine);
-    const goodsTotal = Number(order.goodsTotal) || 0;
+    const computedGoodsTotal = displayItems.reduce(
+        (sum, item) => sum + computeDisplayLineTotal(item),
+        0,
+    );
+    const computedOpenTrial = computeOpenTrialAmount(displayItems);
+    const openTrialAmount =
+        order.openTrialAmount != null ? Number(order.openTrialAmount) || 0 : computedOpenTrial;
+    const goodsTotal =
+        order.openTrialAmount != null ? Number(order.goodsTotal) || 0 : computedGoodsTotal;
     const discountAmount = Number(order.discountAmount) || 0;
     const returnDeductionAmount = Number(order.returnDeductionAmount) || 0;
     const supplierRefundAmount = Number(order.supplierRefundAmount) || 0;
     const totalCost = Number(order.totalCost) || 0;
     const paidAmount = Number(order.paidAmount) || 0;
-    const totalQty = paidItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+    const remainingDebt =
+        order.remainingDebt != null
+            ? Number(order.remainingDebt) || 0
+            : Math.max(totalCost - paidAmount, 0);
+    const netGoods = Math.max(goodsTotal - discountAmount - returnDeductionAmount, 0);
+    const displayDue =
+        order.remainingDebt != null
+            ? Math.max(remainingDebt + paidAmount, totalCost, netGoods)
+            : Math.max(totalCost, netGoods);
+    const itemCount = displayItems.filter((item) => resolveLineType(item) !== 'PROMOTION').length;
     const statusClass = String(order.orderStatus || '').toLowerCase();
+    const showPaymentBadge =
+        order.status === IMPORT_ORDER_STATUS.DEBT
+        || order.status === IMPORT_ORDER_STATUS.PENDING_SETTLEMENT;
     const receivedLabel = order.receivedDate ? formatDate(order.receivedDate) : '—';
 
     return (
@@ -29,6 +59,11 @@ export default function ImportOrderInfoTab({ order, hideSupplierLink = false }) 
                     <span className={`import-order-status import-order-status--${statusClass}`}>
                         {ORDER_STATUS_LABEL[order.orderStatus] || order.orderStatus || '—'}
                     </span>
+                    {showPaymentBadge ? (
+                        <span className={`import-order-status import-order-status--${String(order.status).toLowerCase()}`}>
+                            {IMPORT_ORDER_STATUS_LABEL[order.status]}
+                        </span>
+                    ) : null}
                 </div>
             </div>
 
@@ -110,35 +145,32 @@ export default function ImportOrderInfoTab({ order, hideSupplierLink = false }) 
                                 </tr>
                             ) : (
                                 displayItems.map((item, index) => {
-                                    const attributeLabel = formatProductAttributes(item.attributes);
+                                    const lineType = resolveLineType(item);
+                                    const isPromotion = lineType === 'PROMOTION';
+                                    const isTrial = lineType === 'TRIAL';
                                     return (
                                     <tr
                                         key={item.id || `${order.id}-${index}`}
                                         className={
-                                            item.isPromotion
-                                                ? 'import-order-expand__row--promo'
-                                                : undefined
+                                            isTrial
+                                                ? 'import-order-expand__row--trial'
+                                                : isPromotion
+                                                  ? 'import-order-expand__row--promo'
+                                                  : undefined
                                         }
                                     >
                                         <td className="import-order-expand__col-stt">{index + 1}</td>
                                         <td>
                                             <div className="import-order-expand__product-name">
-                                                {item.parentName || item.productName || '—'}
+                                                {item.productName || item.parentName || '—'}
                                             </div>
                                             <div className="import-order-expand__line-meta">
-                                                {attributeLabel ? (
-                                                    <span className="import-order-expand__attrs">
-                                                        {attributeLabel}
-                                                    </span>
-                                                ) : null}
                                                 {item.expiryDate ? (
                                                     <span>
-                                                        {attributeLabel ? ' · ' : ''}
                                                         Hạn sử dụng: {formatDate(item.expiryDate)}
                                                     </span>
                                                 ) : (
                                                     <span className="import-order-expand__line-meta--muted">
-                                                        {attributeLabel ? ' · ' : ''}
                                                         Chưa ghi hạn sử dụng
                                                     </span>
                                                 )}
@@ -146,7 +178,18 @@ export default function ImportOrderInfoTab({ order, hideSupplierLink = false }) 
                                                     <span> · Ghi chú: {item.note.trim()}</span>
                                                 ) : null}
                                             </div>
-                                            {item.isPromotion ? (
+                                            {isTrial ? (
+                                                <div className="ioc-line-meta">
+                                                    <span
+                                                        className="ioc-promo-chip ioc-trial-chip ioc-trial-chip--on"
+                                                        title="Hàng bán thử — quyết toán khi nhân viên NCC đến"
+                                                    >
+                                                        {item.trialStatus === 'SETTLED'
+                                                            ? 'Bán thử · đã quyết toán'
+                                                            : 'Bán thử'}
+                                                    </span>
+                                                </div>
+                                            ) : isPromotion ? (
                                                 <div className="ioc-line-meta">
                                                     <span
                                                         className="ioc-promo-chip ioc-promo-chip--on"
@@ -177,15 +220,25 @@ export default function ImportOrderInfoTab({ order, hideSupplierLink = false }) 
                                         </td>
                                         <td
                                             className={`import-order-expand__col-num import-order-expand__col-total ${
-                                                item.isPromotion
-                                                    ? 'import-order-expand__col-total--promo'
-                                                    : ''
+                                                isTrial
+                                                    ? 'import-order-expand__col-total--trial'
+                                                    : isPromotion
+                                                      ? 'import-order-expand__col-total--promo'
+                                                      : ''
                                             }`}
                                         >
-                                            {item.isPromotion ? (
+                                            {isPromotion ? (
                                                 <span title="Không thu tiền">0</span>
                                             ) : (
-                                                formatMoneyPlain(item.lineTotal)
+                                                <span
+                                                    title={
+                                                        isTrial && item.trialStatus !== 'SETTLED'
+                                                            ? 'Giá trị thỏa thuận — đã ghi vào công nợ NCC'
+                                                            : undefined
+                                                    }
+                                                >
+                                                    {formatMoneyPlain(computeDisplayLineTotal(item))}
+                                                </span>
                                             )}
                                         </td>
                                     </tr>
@@ -217,9 +270,15 @@ export default function ImportOrderInfoTab({ order, hideSupplierLink = false }) 
 
                 <div className="import-order-expand__summary">
                     <div className="import-order-expand__summary-row">
-                        <span>Tổng tiền hàng{totalQty > 0 ? ` (${totalQty})` : ''}</span>
+                        <span>Tổng tiền hàng{itemCount > 0 ? ` (${itemCount})` : ''}</span>
                         <strong>{formatMoneyPlain(goodsTotal)}</strong>
                     </div>
+                    {openTrialAmount > 0 ? (
+                        <div className="import-order-expand__summary-row import-order-expand__summary-row--trial">
+                            <span>Hàng bán thử</span>
+                            <strong>{formatMoneyPlain(openTrialAmount)}</strong>
+                        </div>
+                    ) : null}
                     <div className="import-order-expand__summary-row">
                         <span>Giảm giá</span>
                         <strong>{formatMoneyPlain(discountAmount)}</strong>
@@ -238,12 +297,18 @@ export default function ImportOrderInfoTab({ order, hideSupplierLink = false }) 
                     ) : null}
                     <div className="import-order-expand__summary-row import-order-expand__summary-row--grand">
                         <span>{supplierRefundAmount > 0 ? 'Cần trả NCC' : 'Tổng cộng'}</span>
-                        <strong>{formatMoneyPlain(totalCost)}</strong>
+                        <strong>{formatMoneyPlain(displayDue)}</strong>
                     </div>
                     <div className="import-order-expand__summary-row">
                         <span>Tiền đã trả NCC</span>
                         <strong>{formatMoneyPlain(paidAmount)}</strong>
                     </div>
+                    {remainingDebt > 0 ? (
+                        <div className="import-order-expand__summary-row import-order-expand__summary-row--trial">
+                            <span>Còn nợ</span>
+                            <strong>{formatMoneyPlain(remainingDebt)}</strong>
+                        </div>
+                    ) : null}
                 </div>
             </div>
         </div>

@@ -1,8 +1,7 @@
 import { Modal } from 'react-bootstrap';
 import { Package, Settings2, CircleDot } from 'lucide-react';
-import { LOCATION_STATUS, ZONE_TYPE } from '../constants';
+import { LOCATION_STATUS } from '../constants';
 import {
-    formatCurrency,
     formatDate,
     formatLocationAddress,
     getLocationMetrics,
@@ -22,7 +21,6 @@ export default function StorageLocationDetailModal({
     const metrics = location ? getLocationMetrics(location) : null;
     const isEmpty = status === LOCATION_STATUS.EMPTY;
     const isFull = Boolean(location?.isFull);
-    const isSales = location?.zoneType === ZONE_TYPE.SALES;
     const batches = location?.contents ?? [];
 
     return (
@@ -50,7 +48,6 @@ export default function StorageLocationDetailModal({
                             </Modal.Title>
                             <p className="storage-location-detail-modal__address">
                                 {formatLocationAddress(location)}
-                                {isSales ? ' · Khu bán' : ' · Khu kho'}
                             </p>
                             {location.description && (
                                 <p className="storage-location-detail-modal__description">
@@ -68,12 +65,6 @@ export default function StorageLocationDetailModal({
                                 </div>
                                 <h3>Ô kệ này đang trống</h3>
                                 <p>Chưa có lô hàng nào được gán vào vị trí này.</p>
-                                {!isSales ? (
-                                    <p className="storage-location-detail-modal__rule-note">
-                                        Khu kho: mỗi ô chỉ lưu một loại sản phẩm; có thể có nhiều lô
-                                        cùng SP.
-                                    </p>
-                                ) : null}
                             </div>
                         ) : (
                             <div className="storage-location-detail-modal__product">
@@ -105,12 +96,12 @@ export default function StorageLocationDetailModal({
                                         className="storage-location-detail-modal__batch"
                                     >
                                         <div className="storage-location-detail-modal__batch-code">
-                                            {item.batchCode}
-                                            {metrics?.productCount > 1 ? (
-                                                <span className="storage-location-detail-modal__batch-product">
-                                                    {item.productName}
-                                                </span>
-                                            ) : null}
+                                            <span className="storage-location-detail-modal__batch-product">
+                                                {item.productName || '—'}
+                                            </span>
+                                            <span className="storage-location-detail-modal__batch-code-text">
+                                                {item.batchCode || '—'}
+                                            </span>
                                         </div>
                                         <dl className="storage-location-detail-modal__batch-details">
                                             <div>
@@ -130,10 +121,6 @@ export default function StorageLocationDetailModal({
                                                 >
                                                     {formatDate(item.expiryDate)}
                                                 </dd>
-                                            </div>
-                                            <div>
-                                                <dt>Giá nhập</dt>
-                                                <dd>{formatCurrency(item.importPrice)}</dd>
                                             </div>
                                         </dl>
                                     </div>

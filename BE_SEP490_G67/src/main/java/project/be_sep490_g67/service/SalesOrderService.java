@@ -3,6 +3,7 @@ package project.be_sep490_g67.service;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -33,6 +34,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class SalesOrderService {
@@ -176,10 +178,6 @@ public class SalesOrderService {
         // Đơn thường: trả đủ ngay.
         BigDecimal paid = isDebt ? resolvePrepaid(request.getPaidAmount(), grandTotal) : grandTotal;
         order.setPaidAmount(paid);
-
-        // Nội dung chuyển khoản in trên mã QR khách vừa quét. Hệ thống không đọc được
-        // sao kê nên không tự kiểm chứng được khoản tiền này — thu ngân đã nhìn app
-        // ngân hàng và xác nhận trước khi bấm. Lưu lại để cuối ca còn dò ngược được.
         order.setPaymentReference(trimToNull(request.getPaymentReference()));
 
         salesOrderRepository.save(order);
@@ -197,11 +195,7 @@ public class SalesOrderService {
     }
 
     /**
-     * Nội dung chuyển khoản chỉ thuộc về đơn chuyển khoản.
-     *
-     * <p>Chiều ngược lại không bắt buộc: đơn TRANSFER thiếu chuỗi này vẫn ghi được,
-     * vì tiền đã về tài khoản rồi — chặn ở đây chỉ tạo ra một hóa đơn không lưu nổi
-     * dù cửa hàng đã cầm tiền của khách.
+     * Nội dung chuyển khoản
      */
     private void validateTransferReference(CreateSalesOrderRequest request, boolean isDebt) {
         boolean isTransfer = !isDebt && "TRANSFER".equalsIgnoreCase(request.getPaymentMethod());
@@ -261,12 +255,17 @@ public class SalesOrderService {
                 String.format("%,.0f", debtAmount),
                 order.getOrderCode());
 
-        notificationService.notifyAdmins(
-                NotificationType.DEBT_CUSTOMER_REVIEW,
-                "Khách hàng nợ mới cần rà soát",
-                message,
-                NotificationReferenceType.CUSTOMER,
-                customer.getId());
+        try {
+            notificationService.notifyAdmins(
+                    NotificationType.DEBT_CUSTOMER_REVIEW,
+                    "Khách hàng nợ mới cần rà soát",
+                    message,
+                    NotificationReferenceType.CUSTOMER,
+                    customer.getId());
+        } catch (Exception exception) {
+            log.error("Không gửi được thông báo khách nợ mới cho đơn {} (khách {})",
+                    order.getOrderCode(), customer.getId(), exception);
+        }
     }
 
     private boolean hasAdminRole(Integer userId) {

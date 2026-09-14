@@ -56,7 +56,7 @@ public enum ErrorCode {
     STORAGE_LOCATION_EMPTY_CANNOT_MARK_FULL(1059, "Ô đang trống, không thể đánh dấu đầy", HttpStatus.BAD_REQUEST),
     STORAGE_LOCATION_NO_BATCHES_TO_MOVE(1080, "Ô nguồn không có hàng để chuyển", HttpStatus.BAD_REQUEST),
     STORAGE_ZONE_NOT_FOUND(1055, "Không tìm thấy khu", HttpStatus.NOT_FOUND),
-    INVALID_STORAGE_ZONE_TYPE(1056, "Loại khu không hợp lệ (SALES, WAREHOUSE)", HttpStatus.BAD_REQUEST),
+    INVALID_STORAGE_ZONE_TYPE(1056, "Loại khu không hợp lệ (WAREHOUSE)", HttpStatus.BAD_REQUEST),
     STORAGE_RETURN_HOLD_LOCKED(1081, "Không thể thay đổi hoặc tạo thêm vị trí trong khu chứa hàng đổi trả", HttpStatus.BAD_REQUEST),
     RETURN_HOLD_LOCATION_NOT_FOUND(1082, "Chưa có khu chứa hàng đổi trả trong kho", HttpStatus.INTERNAL_SERVER_ERROR),
     SALES_ZONE_PRODUCT_BATCH_EXISTS(1057, "Sản phẩm đã có một lô trên khu bán. Mỗi SP chỉ được 1 lô trên toàn khu bán", HttpStatus.BAD_REQUEST),
@@ -69,7 +69,7 @@ public enum ErrorCode {
     INVALID_BATCH_LOCATION_MOVE(1038, "Không thể chuyển lô về cùng một kệ", HttpStatus.BAD_REQUEST),
     IMPORT_ITEMS_EMPTY(1039, "Phiếu nhập phải có ít nhất một sản phẩm nhập hoặc một dòng đổi/trả nhà cung cấp", HttpStatus.BAD_REQUEST),
     INVALID_IMPORT_QUANTITY(1040, "Số lượng nhập phải lớn hơn 0", HttpStatus.BAD_REQUEST),
-    INVALID_IMPORT_COST(1041, "Đơn giá nhập không hợp lệ", HttpStatus.BAD_REQUEST),
+    INVALID_IMPORT_COST(1041, "Đơn giá nhập phải lớn hơn 0", HttpStatus.BAD_REQUEST),
     INVENTORY_CHECK_NOT_FOUND(1042, "Không tìm thấy phiếu kiểm kho", HttpStatus.NOT_FOUND),
     INVENTORY_CHECK_ITEMS_EMPTY(1043, "Phiếu kiểm kho phải có ít nhất một dòng", HttpStatus.BAD_REQUEST),
     INVALID_INVENTORY_CHECK_QTY(1044, "Số lượng thực tế kiểm kho không hợp lệ", HttpStatus.BAD_REQUEST),
@@ -94,12 +94,26 @@ public enum ErrorCode {
     INSUFFICIENT_STOCK(1029, "Không đủ tồn kho", HttpStatus.BAD_REQUEST),
     SUPPLIER_HAS_DEBT(1030, "Không thể xóa nhà cung cấp đang còn công nợ. Vui lòng thanh toán hết trước khi xóa.", HttpStatus.BAD_REQUEST),
     INVALID_IMPORT_ORDER_STATUS(1032, "Trạng thái phiếu nhập không hợp lệ", HttpStatus.BAD_REQUEST),
-    INVALID_IMPORT_DISCOUNT(1033, "Giảm giá không hợp lệ", HttpStatus.BAD_REQUEST),
+    INVALID_IMPORT_DISCOUNT(1033, "Giảm giá chỉ áp cho hàng nhập thường, không được trừ vào hàng bán thử.", HttpStatus.BAD_REQUEST),
     INVALID_IMPORT_PAID_AMOUNT(1034, "Số tiền trả NCC không hợp lệ", HttpStatus.BAD_REQUEST),
     IMPORT_ORDER_NOT_EDITABLE(1035, "Chỉ được sửa phiếu tạm. Phiếu đã nhập hàng không thể chỉnh sửa.", HttpStatus.BAD_REQUEST),
     IMPORT_ORDER_NOT_DELETABLE(1036, "Chỉ được hủy phiếu tạm. Phiếu đã nhập hàng không thể xóa.", HttpStatus.BAD_REQUEST),
     SUPPLIER_REQUIRED_FOR_IMPORT(1037, "Vui lòng chọn nhà cung cấp trước khi hoàn thành phiếu nhập hàng.", HttpStatus.BAD_REQUEST),
     IMPORT_INVOICE_REQUIRED(1076, "Vui lòng tải ảnh hóa đơn trước khi hoàn thành phiếu nhập hàng.", HttpStatus.BAD_REQUEST),
+    TRIAL_PRODUCT_ALREADY_IN_STORE(1083,
+            "Hàng bán thử chỉ dành cho sản phẩm mới, chưa từng có ở cửa hàng.",
+            HttpStatus.BAD_REQUEST),
+    TRIAL_COST_REQUIRED(1084, "Hàng bán thử phải có giá thỏa thuận để ghi công nợ và quyết toán sau.", HttpStatus.BAD_REQUEST),
+    TRIAL_NOT_FOUND(1085, "Phiếu này không có hàng bán thử đang treo.", HttpStatus.BAD_REQUEST),
+    TRIAL_ALREADY_SETTLED(1086, "Dòng bán thử này đã quyết toán.", HttpStatus.BAD_REQUEST),
+    TRIAL_DECISION_INVALID(1087, "Quyết định quyết toán hàng bán thử không hợp lệ.", HttpStatus.BAD_REQUEST),
+    TRIAL_QTY_INVALID(1088, "Số lượng đếm tay / hàng hỏng của hàng bán thử không hợp lệ.", HttpStatus.BAD_REQUEST),
+    TRIAL_LINES_INCOMPLETE(1089, "Cần quyết toán hết các dòng bán thử đang treo trên phiếu này.", HttpStatus.BAD_REQUEST),
+    TRIAL_MIXED_WITH_REGULAR_SAME_PRODUCT(1090,
+            "Không thể vừa nhập thường vừa bán thử cùng một sản phẩm trên phiếu.",
+            HttpStatus.BAD_REQUEST),
+    IMPORT_ORDER_NOT_IMPORTED(1091, "Chỉ quyết toán hàng bán thử trên phiếu đã nhập kho.", HttpStatus.BAD_REQUEST),
+    INVALID_TRIAL_DISCOUNT(1092, "Giảm giá quyết toán không được âm và không vượt tiền lô thử phải trả.", HttpStatus.BAD_REQUEST),
 
     // Product / category errors (11xx)
     PRODUCT_NAME_REQUIRED(1101, "Vui lòng nhập tên sản phẩm", HttpStatus.BAD_REQUEST),
@@ -167,7 +181,6 @@ public enum ErrorCode {
     PAIRED_ITEM_NOT_FOUND(3304, "Không tìm thấy sản phẩm thay thế được ghép cặp", HttpStatus.BAD_REQUEST),
     PAIRED_ITEM_ALREADY_USED(3305, "Một sản phẩm thay thế chỉ được ghép với một dòng hàng trả", HttpStatus.BAD_REQUEST),
     EXCHANGE_EVEN_AMOUNT_MISMATCH(3306, "Đổi ngang giá yêu cầu hai bên bằng giá, vui lòng chọn đổi có chênh lệch", HttpStatus.BAD_REQUEST),
-    // 3307 (MANAGER_APPROVAL_REQUIRED) đã bỏ cùng lối phê duyệt người mang hàng — không cấp lại số này.
 
     // Item condition errors (34xx)
     ITEM_CONDITION_REQUIRED(3401, "Vui lòng chọn tình trạng hàng hóa cho từng dòng trả", HttpStatus.BAD_REQUEST),
@@ -188,6 +201,7 @@ public enum ErrorCode {
 
     // Notification errors (42xx)
     NOTIFICATION_NOT_FOUND(4201, "Không tìm thấy thông báo", HttpStatus.NOT_FOUND),
+    INVALID_NOTIFICATION_TYPE(4202, "Loại thông báo không hợp lệ", HttpStatus.BAD_REQUEST),
 
     // Thanh toán chuyển khoản (43xx)
     PAYMENT_METHOD_NOT_TRANSFER(4306, "Chỉ đơn thanh toán chuyển khoản mới có nội dung chuyển khoản", HttpStatus.BAD_REQUEST),

@@ -18,18 +18,18 @@ public class ProductPosInfoResponse {
     String categoryName;
     String description;
     BigDecimal sellingPrice;
-    /** Tổng tồn toàn hệ thống (khu bán + kho). */
+    /** Tổng tồn bán được (toàn kho trừ RETURN_HOLD). */
     Integer availableQuantity;
-    /** Tồn đang nằm trên các khu bán. */
+    /** @deprecated Đã gộp khu bán/kho; luôn 0 để tương thích FE cũ. */
     Integer salesZoneQuantity;
-    /** Tồn còn trong kho, chưa ra quầy. */
+    /** Tồn bán được (cùng availableQuantity sau khi gộp khu). */
     Integer warehouseQuantity;
     Integer minStock;
     Boolean belowMinStock;
 
-    /** Ô lấy hàng POS chọn sẵn — null khi SP chưa được đưa ra khu bán. */
+    /** Null = POS trừ FEFO; chỉ set khi thu ngân chọn ô tường minh. */
     Integer defaultLocationId;
-    /** Lô suy ra từ ô mặc định. Một ô khu bán chỉ chứa một lô nên luôn xác định. */
+    /** Null cùng defaultLocationId khi đi FEFO. */
     Integer defaultBatchId;
 
     List<UnitInfo> units;
@@ -50,14 +50,13 @@ public class ProductPosInfoResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     /**
-     * Một dòng = một lô tại một ô. Không gộp theo ô, vì một ô kho có thể chứa
-     * nhiều lô của cùng sản phẩm (ràng buộc một-lô-một-ô chỉ áp cho khu bán).
+     * Một dòng = một lô tại một ô. Một ô có thể chứa nhiều lô / nhiều SP.
      */
     public static class LocationStockInfo {
         Integer locationId;
         String label;
         String zoneCode;
-        /** SALES | WAREHOUSE */
+        /** WAREHOUSE | RETURN_HOLD (SALES đã normalize → WAREHOUSE) */
         String zoneType;
         Boolean locationFull;
         Integer batchId;

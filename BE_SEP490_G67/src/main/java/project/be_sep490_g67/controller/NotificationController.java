@@ -3,10 +3,13 @@ package project.be_sep490_g67.controller;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
+import project.be_sep490_g67.dto.request.NotificationFilterRequest;
 import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.NotificationResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
@@ -14,11 +17,12 @@ import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.UserRepository;
 import project.be_sep490_g67.service.NotificationService;
+import project.be_sep490_g67.service.NotificationStreamHub;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-/**
- * Hộp thông báo của chính người đang đăng nhập. Mọi endpoint đều lấy userId từ
- * token, không nhận từ client, nên không có đường xem thông báo của người khác.
- */
+import java.time.LocalDate;
+import java.util.List;
+
 @RestController
 @RequestMapping(ApiPath.NOTIFICATIONS)
 @RequiredArgsConstructor
@@ -26,6 +30,7 @@ import project.be_sep490_g67.service.NotificationService;
 public class NotificationController {
 
     NotificationService notificationService;
+    NotificationStreamHub streamHub;
     UserRepository userRepository;
 
     /**
@@ -35,9 +40,21 @@ public class NotificationController {
     @PreAuthorize("isAuthenticated()")
     public ApiResponse<PageResponse<NotificationResponse>> getMyNotifications(
             @RequestParam(name = "page", defaultValue = "1") int page,
-            @RequestParam(name = "size", defaultValue = "10") int size) {
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "type", required = false) List<String> types,
+            @RequestParam(name = "isRead", required = false) Boolean isRead,
+            @RequestParam(name = "from", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(name = "to", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        NotificationFilterRequest filter = NotificationFilterRequest.builder()
+                .types(types)
+                .isRead(isRead)
+                .from(from)
+                .to(to)
+                .build();
         return ApiResponse.<PageResponse<NotificationResponse>>builder()
-                .result(notificationService.getInbox(currentUserId(), page, size))
+                .result(notificationService.getInbox(currentUserId(), filter, page, size))
                 .build();
     }
 
@@ -70,6 +87,15 @@ public class NotificationController {
     public ApiResponse<Void> markAllAsRead() {
         notificationService.markAllAsRead(currentUserId());
         return ApiResponse.<Void>builder().message("Đã đánh dấu tất cả thông báo là đã đọc").build();
+    }
+
+    /**
+     * GET /api/notifications/stream — kênh đẩy realtime, giữ kết nối mở.
+     */
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PreAuthorize("isAuthenticated()")
+    public SseEmitter stream() {
+        return streamHub.subscribe(currentUserId());
     }
 
     private Integer currentUserId() {

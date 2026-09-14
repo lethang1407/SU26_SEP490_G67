@@ -37,9 +37,12 @@ export function useCustomerSearch(query) {
                 setResults(data ?? []);
                 setError(null);
                 if (Array.isArray(data) && data.length > 0) {
-                    saveOfflineCustomers(data).catch(() => {});
+                    saveOfflineCustomers(data).catch((cacheErr) => {
+                        console.warn("[useCustomerSearch] Failed to cache customers to offline store:", cacheErr);
+                    });
                 }
             } catch (err) {
+                console.error("Failed to search customers:", err);
                 // Fallback to offline customer search
                 try {
                     const offlineCustomers = await searchOfflineCustomers(trimmed);
@@ -48,8 +51,8 @@ export function useCustomerSearch(query) {
                         setError(null);
                         return;
                     }
-                } catch {
-                    // Ignore DB error
+                } catch (offlineErr) {
+                    console.warn("[useCustomerSearch] Offline customer search fallback failed:", offlineErr);
                 }
                 setError('Không thể tải danh sách khách hàng. Vui lòng thử lại.');
                 setResults([]);

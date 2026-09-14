@@ -37,9 +37,12 @@ export function useProductSearch(query) {
                 setResults(data);
                 setError(null);
                 if (Array.isArray(data) && data.length > 0) {
-                    saveOfflineProducts(data).catch(() => {});
+                    saveOfflineProducts(data).catch((cacheErr) => {
+                        console.warn("[useProductSearch] Failed to cache products to offline store:", cacheErr);
+                    });
                 }
             } catch (err) {
+                console.error("Failed to search products by name:", err);
                 // Fallback to offline search
                 try {
                     const offlineData = await searchOfflineProducts(trimmed);
@@ -48,8 +51,8 @@ export function useProductSearch(query) {
                         setError(null);
                         return;
                     }
-                } catch {
-                    // Ignore Dexie error
+                } catch (offlineErr) {
+                    console.warn("[useProductSearch] Offline search fallback failed:", offlineErr);
                 }
                 setError('Không thể tải danh sách sản phẩm. Vui lòng thử lại.');
                 setResults([]);

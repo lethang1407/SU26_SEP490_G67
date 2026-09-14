@@ -1,19 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
     ChevronDown,
     HelpCircle,
-    LogOut
+    LogOut,
 } from "lucide-react";
 
 import "../../../css/SideBar.css";
 import { menus } from "./menuData";
 import { AuthContext } from "../../../app/providers/AuthProvider.jsx";
-import { useContext } from "react";
+import { useSidebarCollapse } from "../../../app/providers/SidebarCollapseProvider.jsx";
+
 export default function SideBar() {
     const [expanded, setExpanded] = useState(null);
     const location = useLocation();
     const { logout, hasPermission } = useContext(AuthContext);
+    const { collapsed, setCollapsed } = useSidebarCollapse();
 
     const filteredMenus = menus.filter(menu => {
         if (menu.children) {
@@ -47,6 +49,11 @@ export default function SideBar() {
     }, [location.pathname]);
 
     const toggleSubmenu = (id) => {
+        if (collapsed) {
+            setCollapsed(false);
+            setExpanded(id);
+            return;
+        }
         setExpanded(prevExpanded => (prevExpanded === id ? null : id));
     };
 
@@ -57,23 +64,18 @@ export default function SideBar() {
         }
         return menu.path && (location.pathname === menu.path || location.pathname.startsWith(menu.path + '/'));
     };
+
     return (
-
-        <aside className="sidebar">
-
+        <aside className={`sidebar${collapsed ? " collapse" : ""}`}>
             <div className="sidebar-header">
-
                 <div className="logo">
-
                     <div className="logo-icon">
                         ĐT
                     </div>
-
                     <div className="logo-info">
                         <h3>Đức Thắng</h3>
                         <p>Cửa hàng tạp hóa</p>
                     </div>
-
                 </div>
             </div>
 
@@ -94,6 +96,7 @@ export default function SideBar() {
                                         className={`menu-btn ${isActive ? "active" : ""
                                             } ${expanded === menu.id ? "expanded" : ""}`}
                                         onClick={() => toggleSubmenu(menu.id)}
+                                        title={collapsed ? menu.title : undefined}
                                     >
                                         <div className="menu-left">
                                             <Icon size={20} className={isActive ? 'active-icon' : ''} />
@@ -137,6 +140,7 @@ export default function SideBar() {
                             <NavLink
                                 key={menu.id}
                                 to={menu.path}
+                                title={collapsed ? menu.title : undefined}
                                 className={({ isActive }) =>
                                     isActive
                                         ? "menu-btn active"
@@ -158,6 +162,7 @@ export default function SideBar() {
                 <NavLink
                     to="/help"
                     className="menu-btn"
+                    title={collapsed ? "Hỗ trợ" : undefined}
                 >
                     <div className="menu-left">
                         <HelpCircle size={20} />
@@ -170,6 +175,7 @@ export default function SideBar() {
                     to="/login"
                     className="menu-btn logout"
                     onClick={logout}
+                    title={collapsed ? "Đăng xuất" : undefined}
                 >
                     <div className="menu-left">
                         <LogOut size={20} />

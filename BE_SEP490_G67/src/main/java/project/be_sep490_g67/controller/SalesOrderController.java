@@ -218,11 +218,9 @@ public class SalesOrderController {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
     }
 
+    // Check nếu là ADMIN được xem hoá đơn
     private boolean isPrivileged(User user) {
         return user.getRoles().stream()
-                .anyMatch(r -> {
-                    String name = r.getName().toUpperCase();
-                    return name.equals("STAFF") || name.equals("MANAGER");
-                });
+                .anyMatch(r -> "ADMIN".equals(r.getName().toUpperCase()));
     }
 }

@@ -11,6 +11,7 @@ public final class ImportOrderConstants {
     public static final String ORDER_STATUS_IMPORTED = "IMPORTED";
 
     public static final String PAYMENT_STATUS_DEBT = "DEBT";
+    public static final String PAYMENT_STATUS_PENDING_SETTLEMENT = "PENDING_SETTLEMENT";
     public static final String PAYMENT_STATUS_DONE = "DONE";
 
     /**
@@ -20,9 +21,12 @@ public final class ImportOrderConstants {
     public static final String ORDER_CODE_PREFIX = "NH";
     public static final int ORDER_CODE_SEQ_LENGTH = 2;
 
-    /** Prefix mã thanh toán nợ NCC: TTN000000, TTN000001, ... */
+    /**
+     * Mã thanh toán nợ NCC: TTN + ddMMyy + "-" + STT trong ngày (2 chữ số).
+     * Ví dụ: TTN210826-01, TTN210826-02
+     */
     public static final String PAYMENT_CODE_PREFIX = "TTN";
-    public static final int PAYMENT_CODE_SEQ_LENGTH = 6;
+    public static final int PAYMENT_CODE_SEQ_LENGTH = 2;
 
     /**
      * Mã lô: L + ddMMyy + "-" + STT trong ngày (2 chữ số).
@@ -67,5 +71,20 @@ public final class ImportOrderConstants {
         return orderDayPrefix(date)
                 + "-"
                 + String.format("%0" + ORDER_CODE_SEQ_LENGTH + "d", sequence);
+    }
+
+    /** Phần ngày của mã thanh toán NCC, vd TTN210826 */
+    public static String paymentDayPrefix(LocalDate date) {
+        LocalDate d = date != null ? date : LocalDate.now();
+        return PAYMENT_CODE_PREFIX + d.format(BATCH_CODE_DATE);
+    }
+
+    /**
+     * Ghép mã thanh toán NCC đầy đủ: TTN210826-01
+     */
+    public static String formatPaymentCode(LocalDate date, int sequence) {
+        return paymentDayPrefix(date)
+                + "-"
+                + String.format("%0" + PAYMENT_CODE_SEQ_LENGTH + "d", sequence);
     }
 }

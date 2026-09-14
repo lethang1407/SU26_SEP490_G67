@@ -198,6 +198,44 @@
     cursor: pointer;
 }
 
+/* Menu góc phải header POS (nhân viên) */
+.pos-menu {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.pos-menu-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 1000;
+    min-width: 180px;
+    padding: 6px 0;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.pos-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 16px;
+    background: none;
+    border: none;
+    color: #1f2937;
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.pos-menu-item:hover {
+    background: #f3f4f6;
+}
+
 /* các nội dung chính */
 .pos-main {
     display: flex;

@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Spinner } from 'react-bootstrap';
-import { Download, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import AdminHeader from '../../../components/ui/header-footer/Header';
-import AlertNoticeModal from '../../../components/ui/AlertNoticeModal';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import { fetchInventoryChecks } from '../api';
 import InventoryCheckToolbar from '../components/InventoryCheckToolbar';
@@ -39,7 +38,6 @@ export default function InventoryCheckListPage() {
     const [data, setData] = useState(EMPTY_PAGE);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [warning, setWarning] = useState(null);
 
     const loadChecks = useCallback(async () => {
         setLoading(true);
@@ -111,16 +109,6 @@ export default function InventoryCheckListPage() {
                             <div className="inventory-page__actions">
                                 <button
                                     type="button"
-                                    className="inventory-btn inventory-btn--secondary"
-                                    onClick={() =>
-                                        setWarning('Chức năng xuất file đang phát triển.')
-                                    }
-                                >
-                                    <Download size={18} />
-                                    Xuất file
-                                </button>
-                                <button
-                                    type="button"
                                     className="inventory-btn inventory-btn--primary"
                                     onClick={() => navigate(INVENTORY_CHECK_ROUTES.create)}
                                 >
@@ -165,11 +153,6 @@ export default function InventoryCheckListPage() {
                         />
                     </div>
                 </main>
-            <AlertNoticeModal
-                open={Boolean(warning)}
-                message={warning}
-                onClose={() => setWarning(null)}
-            />
         </div>
     );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Package } from 'lucide-react';
-import { formatCurrency, formatDate } from '../utils/storageLocationUtils';
+import { Package, Search } from 'lucide-react';
+import { formatDate } from '../utils/storageLocationUtils';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
@@ -11,13 +11,25 @@ export default function UnplacedBatchesPanel({
 }) {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
+    const [keyword, setKeyword] = useState('');
 
-    const totalItems = batches.length;
+    const filteredBatches = useMemo(() => {
+        const q = keyword.trim().toLowerCase();
+        if (!q) return batches;
+        return batches.filter((batch) => {
+            const name = String(batch.productName || '').toLowerCase();
+            const code = String(batch.productCode || '').toLowerCase();
+            const batchCode = String(batch.batchCode || '').toLowerCase();
+            return name.includes(q) || code.includes(q) || batchCode.includes(q);
+        });
+    }, [batches, keyword]);
+
+    const totalItems = filteredBatches.length;
     const totalPages = Math.max(1, Math.ceil(totalItems / pageSize) || 1);
 
     useEffect(() => {
         setPage(1);
-    }, [batches, pageSize]);
+    }, [filteredBatches, pageSize, keyword]);
 
     useEffect(() => {
         if (page > totalPages) {
@@ -27,8 +39,8 @@ export default function UnplacedBatchesPanel({
 
     const pagedBatches = useMemo(() => {
         const start = (page - 1) * pageSize;
-        return batches.slice(start, start + pageSize);
-    }, [batches, page, pageSize]);
+        return filteredBatches.slice(start, start + pageSize);
+    }, [filteredBatches, page, pageSize]);
 
     const startIndex = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
     const endIndex = Math.min(page * pageSize, totalItems);
@@ -42,6 +54,15 @@ export default function UnplacedBatchesPanel({
                         Các hàng hóa còn số lượng chưa nằm trong ô kệ nào
                     </p>
                 </div>
+                <div className="storage-unplaced-panel__search">
+                    <Search size={16} />
+                    <input
+                        type="text"
+                        placeholder="Tìm theo tên sản phẩm, số lô..."
+                        value={keyword}
+                        onChange={(event) => setKeyword(event.target.value)}
+                    />
+                </div>
             </div>
 
             {loading ? (
@@ -51,6 +72,11 @@ export default function UnplacedBatchesPanel({
                     <Package size={20} />
                     <span>Không còn hàng hóa chưa sắp xếp.</span>
                 </div>
+            ) : filteredBatches.length === 0 ? (
+                <div className="storage-unplaced-panel__empty storage-unplaced-panel__empty--box">
+                    <Package size={20} />
+                    <span>Không tìm thấy hàng khớp từ khóa.</span>
+                </div>
             ) : (
                 <>
                     <div className="storage-unplaced-panel__table-wrap">
@@ -58,11 +84,10 @@ export default function UnplacedBatchesPanel({
                             <thead>
                                 <tr>
                                     <th className="storage-unplaced-panel__stt">STT</th>
-                                    <th>Mã lô</th>
                                     <th>Sản phẩm</th>
+                                    <th>Mã lô</th>
                                     <th>Số lượng</th>
                                     <th>HSD</th>
-                                    <th>Giá nhập</th>
                                     <th />
                                 </tr>
                             </thead>
@@ -73,20 +98,19 @@ export default function UnplacedBatchesPanel({
                                             {startIndex + index}
                                         </td>
                                         <td>
-                                            <strong>{batch.batchCode || '—'}</strong>
+                                            <strong>{batch.productName || '—'}</strong>
                                             {batch.productCode ? (
                                                 <span className="storage-unplaced-panel__code">
                                                     {batch.productCode}
                                                 </span>
                                             ) : null}
                                         </td>
-                                        <td>{batch.productName || '—'}</td>
+                                        <td>{batch.batchCode || '—'}</td>
                                         <td>
                                             {batch.quantity ?? 0}
                                             {batch.unit ? ` ${batch.unit}` : ''}
                                         </td>
                                         <td>{formatDate(batch.expiryDate)}</td>
-                                        <td>{formatCurrency(batch.importPrice)}</td>
                                         <td className="storage-unplaced-panel__action">
                                             {onPlaceBatch ? (
                                                 <button

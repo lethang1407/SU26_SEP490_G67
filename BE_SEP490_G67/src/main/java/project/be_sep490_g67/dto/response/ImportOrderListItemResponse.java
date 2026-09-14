@@ -41,6 +41,12 @@ public class ImportOrderListItemResponse {
     String status;
 
     BigDecimal paidAmount;
-    /** Số tiền còn phải trả NCC cho đơn này. */
+    /** Số tiền còn phải trả NCC cho đơn này (gồm bán thử chưa quyết toán). */
     BigDecimal remainingDebt;
+
+    /** Giá trị bán thử chưa quyết toán. */
+    BigDecimal openTrialAmount;
+
+    /** Có dòng bán thử chưa quyết toán. */
+    Boolean hasOpenTrial;
 }

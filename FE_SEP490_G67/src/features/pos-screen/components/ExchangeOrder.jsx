@@ -24,7 +24,7 @@ import { isValidQtyInput, isValidQtyValue, isQtyInvalid, parseQty } from '../uti
 import { printInvoice } from '../utils/printInvoice';
 import { getApiErrorMessage } from "../../../utils/api-utils";
 import { formatVnd } from "../utils/money";
-import { previewSettlement } from "../utils/exchangeSettlement";
+import { previewSettlement, refundForQty } from "../utils/exchangeSettlement";
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { enqueueOfflineOrder, getOfflineSalesOrder, saveOfflineSalesOrder, searchOfflineProducts } from '@/lib/db';
 import { showOfflineToast } from './OfflineToast';
@@ -80,6 +80,14 @@ function buildExchangeDataFromCache(cached) {
     };
 }
 
+
+/** Tiền hoàn của một dòng trả, đã trừ phần giảm giá hóa đơn phân bổ cho dòng đó. */
+const returnLineRefund = (item, qty) => refundForQty({
+    netLineTotal: item.netLineTotal,
+    quantityPurchased: item.quantityPurchased,
+    alreadyReturned: item.quantityReturned,
+    qty,
+});
 
 const formatVnDate = (iso) => iso
     ? new Date(iso).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
@@ -168,10 +176,6 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
     const [submitError, setSubmitError] = useState(null);
 
     const [validationErrors, setValidationErrors] = useState({});
-
-    // Nội dung chuyển khoản in trên mã QR của phiếu đang xử lý. Sinh sẵn một lần và
-    // giữ nguyên: số tiền trên mã đổi theo giỏ, còn chuỗi này là đường đối soát với
-    // sao kê ngân hàng, đổi giữa chừng là mất luôn đường đó.
     const [transferReference] = useState(buildPaymentReference);
 
     // Load original order data
@@ -232,10 +236,13 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                     itemCondition: '',
                     note: '',
                     unitPrice: item.unitPrice,
+                    // Giá trị dòng sau khi phân bổ giảm giá hóa đơn — tiền hoàn tính trên số này
+                    netLineTotal: item.netLineTotal ?? item.lineTotal ?? item.unitPrice * item.quantityPurchased,
                     total: 0
                 }));
                 setReturnItems(initialReturnItems);
             } catch (err) {
+                console.error("Failed to fetch order for exchange:", err);
                 // Fallback to offline Dexie cache if network failed
                 try {
                     const cached = await getOfflineSalesOrder(orderId);
@@ -349,7 +356,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                 return { ...item, selected: false, returnQty: 0, itemCondition: '', note: '', total: 0 };
             }
             const qty = Math.min(1, item.quantityReturnable);
-            return { ...item, selected: true, returnQty: qty, total: qty * item.unitPrice };
+            return { ...item, selected: true, returnQty: qty, total: returnLineRefund(item, qty) };
         }));
         setValidationErrors(prev => ({ ...prev, returnItems: null }));
     }, []);
@@ -359,7 +366,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
             if (item.salesOrderDetailId === salesOrderDetailId) {
                 // Không bao giờ vượt quá số lượng đã mua (trừ phần đã trả ở lần trước)
                 const newQty = Math.max(1, Math.min(item.quantityReturnable, item.returnQty + delta));
-                return { ...item, returnQty: newQty, total: newQty * item.unitPrice };
+                return { ...item, returnQty: newQty, total: returnLineRefund(item, newQty) };
             }
             return item;
         }));
@@ -452,7 +459,8 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
             try {
                 posInfo = await getProductPosInfo(product.id);
                 setPosInfoError(null);
-            } catch {
+            } catch (error) {
+                console.error("Failed to fetch product POS info:", error);
                 if (!isOnline || (typeof window !== 'undefined' && !window.navigator.onLine)) {
                     posInfo = {
                         locations: product.locations || [],
@@ -473,10 +481,6 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
             const price = defaultUnit?.sellingPrice ?? product.sellingPrice ?? 0;
 
             const locations = (posInfo?.locations ?? []).filter((loc) => Number(loc.quantity ?? 0) > 0);
-            const defaultLoc = locations.find(
-                (loc) => loc.locationId === posInfo?.defaultLocationId
-                    && loc.batchId === posInfo?.defaultBatchId
-            ) ?? locations[0] ?? null;
 
             const newItem = {
                 productId: product.id,
@@ -488,11 +492,11 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                 price,
                 total: price,
                 locations,
-                pickKeys: defaultLoc ? [pickKey(defaultLoc)] : [],
+                pickKeys: [],
                 stockTotal: posInfo?.availableQuantity ?? null,
                 stockSales: posInfo?.salesZoneQuantity ?? null,
                 stockWarehouse: posInfo?.warehouseQuantity ?? null,
-                batchId: defaultLoc?.batchId ?? product.stockBatches?.[0]?.id ?? null,
+                batchId: product.stockBatches?.[0]?.id ?? null,
                 productUnitId: defaultUnit?.id ?? null
             };
             setExchangeItems(prev => [...prev, newItem]);
@@ -745,7 +749,6 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                     lineTotal: item.total,
                 })),
             };
-            // Ghi sổ xong là ra phiếu ngay rồi đóng màn — không còn bước xác nhận nào ở giữa.
             await printExchangeReceipt(receipt);
             finishExchange();
             return { ok: true };
@@ -815,7 +818,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                 : exchangeItems.length === 0
                     ? 'Chưa có hàng lấy mới nên không có số tiền nào để thu.'
                     : exchangeItems.some(hasLocationProblem)
-                        ? 'Chưa chọn vị trí lấy hàng hoặc các vị trí đã chọn không đủ số lượng.'
+                        ? 'Các vị trí đã chọn không đủ số lượng.'
                         : settlement.totalCashIn <= 0
                             ? 'Đơn đổi trả chưa có số tiền cần thu.'
                             : null;
@@ -837,9 +840,6 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
 
     /**
      * Dựng phiếu đổi trả và đẩy thẳng ra máy in.
-     *
-     * <p>Nhận kết quả qua tham số chứ không qua state: phiếu được in ngay trong
-     * lượt ghi sổ, không còn màn xác nhận nào để giữ kết quả lại.
      */
     const printExchangeReceipt = async (result) => {
         if (!result) return;
@@ -854,8 +854,8 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                     currency: invoice?.currency,
                     cashierName: invoice?.cashierName,
                 };
-            } catch {
-                // Không lấy được thông tin cửa hàng thì vẫn in phiếu, chỉ thiếu phần đầu trang.
+            } catch (error) {
+                console.error("Failed to fetch store info for exchange receipt:", error);
             }
 
             printInvoice({
@@ -1151,7 +1151,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                                                 {item.stockTotal != null && (
                                                     <div
                                                         className="cart-stock-line"
-                                                        title={`Quầy ${Number(item.stockSales ?? 0).toLocaleString('vi-VN')} · Kho ${Number(item.stockWarehouse ?? 0).toLocaleString('vi-VN')}`}
+                                                        title={`Tồn bán được: ${Number(item.stockTotal).toLocaleString('vi-VN')}`}
                                                     >
                                                         Tồn kho: {Number(item.stockTotal).toLocaleString('vi-VN')}
                                                     </div>

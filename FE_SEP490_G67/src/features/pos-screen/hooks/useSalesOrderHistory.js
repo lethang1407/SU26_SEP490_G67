@@ -62,6 +62,7 @@ export function useSalesOrderHistory() {
                 setTotal(data?.totalElements ?? 0);
                 setTotalPages(data?.totalPages ?? 0);
             } catch (err) {
+                console.error("[useSalesOrderHistory] Failed to fetch offline sales orders:", err);
                 setError('Không thể tải lịch sử đơn hàng ngoại tuyến');
             } finally {
                 setLoading(false);
@@ -83,6 +84,7 @@ export function useSalesOrderHistory() {
                 saveOfflineSalesOrders(data.content);
             }
         } catch (e) {
+            console.error("Failed to fetch sales order history:", e);
             // Fallback to offline Dexie cache on network error
             try {
                 const offlineData = await getOfflineSalesOrders({
@@ -98,8 +100,8 @@ export function useSalesOrderHistory() {
                     setTotalPages(offlineData.totalPages);
                     return;
                 }
-            } catch {
-                // Ignore
+            } catch (cacheErr) {
+                console.warn("[useSalesOrderHistory] Failed to load fallback orders from offline cache:", cacheErr);
             }
             setError('Không thể tải lịch sử đơn hàng');
         } finally {
