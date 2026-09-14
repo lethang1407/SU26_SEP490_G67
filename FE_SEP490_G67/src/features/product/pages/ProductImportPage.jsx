@@ -152,43 +152,6 @@ export default function ProductImportPage() {
       localStorage.setItem('pi_draft_overrides', JSON.stringify(overrides));
     } catch { }
   }, [overrides]);
-  const detailRequestRef = useRef(0);
-
-  const openDetail = useCallback(async (listItem) => {
-    if (!listItem?.id) return;
-    const requestId = ++detailRequestRef.current;
-    setDetailProduct(listItem);
-    try {
-      const detail = await productsApi.getById(listItem.id);
-      if (detailRequestRef.current !== requestId || !detail) return;
-      setDetailProduct({
-        ...listItem,
-        ...detail,
-        onHand: detail.stock ?? detail.onHand ?? listItem.onHand ?? 0,
-        supplierName:
-          detail.supplierName ||
-          detail.supplier ||
-          listItem.supplierName ||
-          '',
-        leadTimeDays: detail.leadTimeDays ?? listItem.leadTimeDays ?? 3,
-        safetyStock: detail.safetyStock ?? listItem.safetyStock ?? 0,
-        pendingPoQty: detail.pendingPoQty ?? listItem.pendingPoQty ?? 0,
-        avgDailyRate:
-          detail.avgDailySalesRate ??
-          detail.avgDailyRate ??
-          listItem.avgDailyRate ??
-          0,
-        units: Array.isArray(detail.units) ? detail.units : listItem.units,
-      });
-    } catch {
-      // keep basic item
-    }
-  }, []);
-
-  const closeDetail = () => {
-    detailRequestRef.current += 1;
-    setDetailProduct(null);
-  };
 
   const loadCategories = useCallback(() => {
     categoriesApi
@@ -560,7 +523,6 @@ export default function ProductImportPage() {
   const handleFacetChange = (key) => {
     setFacet(key);
     setPage(0);
-    setDetailProduct(null);
     setSuccessMsg('');
   };
 

@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.HourRevenueResponse;
-import project.be_sep490_g67.dto.response.HourlyRevenueResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.dto.response.SalesHistoryRowResponse;
 import project.be_sep490_g67.dto.response.SalesHistorySummaryResponse;
@@ -45,7 +44,7 @@ public class SalesHistoryController {
     public ApiResponse<List<HourRevenueResponse>> hourly(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
     ) {
-        return ApiResponse.<List<HourevenueResponse>>builder()
+        return ApiResponse.<List<HourRevenueResponse>>builder()
                 .result(salesHistoryService.hourlyRevenue(date))
                 .message("Lấy doanh thu theo giờ thành công")
                 .build();

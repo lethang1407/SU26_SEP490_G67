@@ -13,6 +13,10 @@ import {
     AlertCircle,
     Lock,
     QrCode,
+    Wifi,
+    WifiOff,
+    Cloud,
+    CloudOff,
 } from "lucide-react";
 import "../../../css/POS.css";
 import { isValidQtyInput, isValidQtyValue, isQtyInvalid, parseQty } from '../utils/validation';
@@ -21,6 +25,8 @@ import { useCheckout } from '../hooks/useCheckout';
 import { useStorePaymentInfo } from '../hooks/useStorePaymentInfo';
 import { useProductSearch } from '../hooks/useProductSearch';
 import { useCustomerSearch } from '../hooks/useCustomerSearch';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useOfflineSync } from '../hooks/useOfflineSync';
 import { pickKey, hasLocationProblem } from '../utils/cartLocation';
 import {
     debtLevelMeta, canSellOnDebt, debtSummaryText, debtBlockReason, formatMoney,
@@ -34,6 +40,8 @@ import QuickAddCustomerModal from '../components/QuickAddCustomerModal';
 import SalesOrderHistoryModal from '../components/SalesOrderHistoryModal';
 import ExchangeOrder from '../components/ExchangeOrder';
 import TransferQrPanel from '../components/TransferQrPanel';
+import OfflineOrdersModal from '../components/OfflineOrdersModal';
+import OfflineToast, { showOfflineToast } from '../components/OfflineToast';
 import { buildPaymentReference } from '../utils/vietqr';
 import { saveActiveCart, loadActiveCart } from '../utils/cartStorage';
 import { printInvoice } from '../utils/printInvoice';
@@ -87,6 +95,18 @@ function createReturnTab(id, orderId) {
 const POSScreen = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+
+    const { isOnline, toggleOffline } = useOnlineStatus();
+    const {
+        queue: offlineQueue,
+        pendingCount: offlinePendingCount,
+        isSyncing: isOfflineSyncing,
+        syncNow: handleOfflineSyncNow,
+        removeQueueItem: handleRemoveOfflineItem,
+        clearSynced: handleClearSyncedOffline
+    } = useOfflineSync();
+    const [showOfflineModal, setShowOfflineModal] = useState(false);
+
     const [tabs, setTabs] = useState(() => {
         const saved = loadActiveCart();
         const saleTab = saved ? { ...createTab(1), ...saved } : createTab(1);
@@ -271,7 +291,22 @@ const POSScreen = () => {
             setPosInfoError(null);
             addProductToCart(product, posInfo);
         } catch {
-            setPosInfoError(`Không tải được vị trí để hàng của "${product.name}". Vui lòng thử lại.`);
+            // Fallback for offline mode: allow adding to cart with default unit and mock/offline location
+            if (typeof window !== 'undefined' && !window.navigator.onLine) {
+                const fallbackPosInfo = {
+                    units: product.units?.length ? product.units : [
+                        { id: product.productUnitId || product.id, name: product.unit || 'Cái', sellingPrice: product.price || product.sellingPrice || 0 }
+                    ],
+                    locations: product.locations?.length ? product.locations : [
+                        { zoneName: 'Khu bán lẻ', locationCode: 'KHO-CHINH', quantity: product.stockQuantity || 999 }
+                    ],
+                    availableQuantity: product.stockQuantity || 999
+                };
+                setPosInfoError(null);
+                addProductToCart(product, fallbackPosInfo);
+            } else {
+                setPosInfoError(`Không tải được vị trí để hàng của "${product.name}". Vui lòng thử lại.`);
+            }
         }
     }, [addProductToCart]);
 
@@ -341,6 +376,70 @@ const POSScreen = () => {
         submitCheckout,
         resetCheckout,
     } = useCheckout();
+
+    const handleSelectOfflineOrder = useCallback((offlineItem) => {
+        if (!offlineItem) return;
+        const snapshot = offlineItem.orderSnapshot || {};
+        const payload = offlineItem.payload || {};
+
+        if (offlineItem.type === 'EXCHANGE') {
+            const originalId = payload.originalOrderId || snapshot.originalOrderId || snapshot.originalOrderCode;
+            if (originalId) {
+                const newId = nextTabId();
+                setTabs(prev => [...prev, createReturnTab(newId, originalId)]);
+                setActiveTabId(newId);
+            }
+            setShowOfflineModal(false);
+            return;
+        }
+
+        const items = (snapshot.items || []).map((it, idx) => ({
+            id: String(it.productId || idx),
+            productId: it.productId,
+            code: it.code || it.productId,
+            name: it.productName || it.name,
+            units: [],
+            unit: it.unitName || it.unit || 'Cái',
+            productUnitId: it.productUnitId || null,
+            locations: [],
+            pickKeys: [],
+            stockTotal: 999,
+            qty: it.quantity || it.qty || 1,
+            price: it.unitPrice || it.price || 0,
+        }));
+
+        setTabs((prev) => {
+            const existingTab = prev.find((t) => t.id === activeTabId);
+            if (existingTab && (!existingTab.cartItems || existingTab.cartItems.length === 0)) {
+                return prev.map((t) =>
+                    t.id === activeTabId
+                        ? {
+                            ...t,
+                            cartItems: items,
+                            note: payload.note || snapshot.note || '',
+                            paymentMethod: (snapshot.paymentMethod || 'CASH').toLowerCase(),
+                        }
+                        : t
+                );
+            } else {
+                const newId = nextTabId();
+                const newTab = {
+                    ...createTab(newId),
+                    cartItems: items,
+                    note: payload.note || snapshot.note || '',
+                    paymentMethod: (snapshot.paymentMethod || 'CASH').toLowerCase(),
+                };
+                setActiveTabId(newId);
+                return [...prev, newTab];
+            }
+        });
+
+        if (offlineItem.customer) {
+            attachCustomer(offlineItem.customer);
+        }
+
+        setShowOfflineModal(false);
+    }, [activeTabId, attachCustomer]);
 
     const { results: customerResults, loading: customerSearchLoading, error: customerSearchError, clearResults: clearCustomerResults } =
         useCustomerSearch(customer ? '' : phone);
@@ -419,7 +518,7 @@ const POSScreen = () => {
         setQtyInputs((prev) => { const n = { ...prev }; delete n[id]; return n; });
     };
 
-    const locationBlocked = cartItems.some(hasLocationProblem);
+    const locationBlocked = isOnline ? cartItems.some(hasLocationProblem) : false;
     const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.qty, 0);
     const totalItems = Math.ceil(cartItems.reduce((sum, item) => sum + item.qty, 0));
     const safeDiscount = Math.min(discount, subtotal);
@@ -480,6 +579,9 @@ const POSScreen = () => {
             dueDate,
         }, note, isTransferMode ? transferReference : null);
         if (!result.ok) return result;
+        if (result.isOffline) {
+            showOfflineToast();
+        }
         const orderId = result.order?.id ?? result.invoice?.orderId ?? null;
         let invoice = result.invoice;
         if (!invoice && orderId != null) {
@@ -589,7 +691,45 @@ const POSScreen = () => {
                     </div>
                 </div>
 
-                <div className="pos-header-right">
+                <div className="pos-header-right flex items-center gap-3">
+                    {/* Badge Chế độ Offline rõ ràng, nổi bật khi mất mạng */}
+                    {!isOnline && (
+                        <div
+                            className="pos-offline-badge"
+                            title="Hệ thống đang hoạt động ở Chế độ Offline do mất kết nối Internet"
+                        >
+                            <WifiOff size={15} strokeWidth={2.5} />
+                            <span>Chế độ Offline</span>
+                        </div>
+                    )}
+
+                    {/* Nút Đồng bộ dữ liệu tròn chuẩn KiotViet */}
+                    <div className="pos-sync-wrapper">
+                        <button
+                            type="button"
+                            className="pos-sync-btn"
+                            onClick={() => setShowOfflineModal(true)}
+                            aria-label="Đồng bộ dữ liệu"
+                        >
+                            <RefreshCcw
+                                size={18}
+                                className={isOfflineSyncing ? 'animate-spin' : ''}
+                            />
+
+                            {/* Badge đỏ hiển thị số lượng đơn offline chờ đồng bộ */}
+                            {offlinePendingCount > 0 && (
+                                <span className="pos-sync-badge">
+                                    {offlinePendingCount}
+                                </span>
+                            )}
+                        </button>
+
+                        {/* Tooltip Đồng bộ dữ liệu hiển thị khi hover */}
+                        <div className="pos-sync-tooltip">
+                            Đồng bộ dữ liệu
+                        </div>
+                    </div>
+
                     {!isReturnTab && (
                         <button className="icon-btn" onClick={handleNewOrder} title="Làm mới đơn hiện tại">
                             <RefreshCcw size={20} />
@@ -1030,7 +1170,7 @@ const POSScreen = () => {
                             </div>
                         )}
 
-                        {locationBlocked && (
+                        {locationBlocked && isOnline && (
                             <div className="scan-error-banner" style={{ marginTop: '12px', borderRadius: '4px' }}>
                                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <AlertCircle size={16} />
@@ -1108,6 +1248,21 @@ const POSScreen = () => {
                     }}
                 />
             )}
+
+            {/* OFFLINE ORDERS MODAL */}
+            <OfflineOrdersModal
+                show={showOfflineModal}
+                onClose={() => setShowOfflineModal(false)}
+                queue={offlineQueue}
+                isSyncing={isOfflineSyncing}
+                onSyncNow={handleOfflineSyncNow}
+                onRemoveItem={handleRemoveOfflineItem}
+                onSelectOrder={handleSelectOfflineOrder}
+                isOnline={isOnline}
+            />
+
+            {/* KIOTVIET-STYLE OFFLINE TOAST NOTIFICATION */}
+            <OfflineToast />
 
         </div>
     );

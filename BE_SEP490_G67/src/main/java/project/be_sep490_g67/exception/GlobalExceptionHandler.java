@@ -87,4 +87,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ErrorCode.INSUFFICIENT_STOCK.getStatusCode())
                 .body(ApiResponse.error(ErrorCode.INSUFFICIENT_STOCK.getCode(), ex.getMessage()));
     }
+
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                ApiResponse.<Void>builder()
+                        .code(ErrorCode.PRODUCT_IMAGE_INVALID.getCode())
+                        .message("Kích thước tệp quá lớn. Vui lòng tải ảnh tối đa 10MB.")
+                        .build()
+        );
+    }
 }

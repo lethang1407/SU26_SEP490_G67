@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { searchCustomers } from '../api';
 
+import { searchOfflineCustomers, saveOfflineCustomers } from '@/lib/db';
+
 const DEBOUNCE_MS = 200;
 const MIN_QUERY_LENGTH = 1;
 
@@ -34,7 +36,21 @@ export function useCustomerSearch(query) {
                 const data = await searchCustomers(trimmed);
                 setResults(data ?? []);
                 setError(null);
+                if (Array.isArray(data) && data.length > 0) {
+                    saveOfflineCustomers(data).catch(() => {});
+                }
             } catch (err) {
+                // Fallback to offline customer search
+                try {
+                    const offlineCustomers = await searchOfflineCustomers(trimmed);
+                    if (offlineCustomers && offlineCustomers.length > 0) {
+                        setResults(offlineCustomers);
+                        setError(null);
+                        return;
+                    }
+                } catch {
+                    // Ignore DB error
+                }
                 setError('Không thể tải danh sách khách hàng. Vui lòng thử lại.');
                 setResults([]);
             } finally {

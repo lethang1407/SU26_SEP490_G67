@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { validateBarcode } from '../utils/barcodeValidation';
 import { getProductByBarcode } from '../api';
+import { getOfflineProductByBarcode, saveOfflineProducts } from '@/lib/db';
 
 const ERROR_CLEAR_MS = 4000;
 
@@ -27,17 +28,30 @@ export function useBarcodeScanner({ onProductFound, enabled = true }) {
             return;
         }
 
+        const trimmedCode = raw.trim();
         setScanning(true);
         clearError();
         try {
-            const product = await getProductByBarcode(raw.trim());
+            const product = await getProductByBarcode(trimmedCode);
+            saveOfflineProducts([product]).catch(() => {});
             onProductFound(product);
         } catch (err) {
+            // Check offline database
+            try {
+                const offlineProduct = await getOfflineProductByBarcode(trimmedCode);
+                if (offlineProduct) {
+                    onProductFound(offlineProduct);
+                    return;
+                }
+            } catch {
+                // Ignore DB error
+            }
+
             const status = err.response?.status;
             if (status === 404) {
                 setTimedError('Không tìm thấy sản phẩm với mã vạch này.');
             } else {
-                setTimedError('Lỗi kết nối. Vui lòng thử lại.');
+                setTimedError('Không thể tìm thấy sản phẩm. Vui lòng kiểm tra lại.');
             }
         } finally {
             setScanning(false);

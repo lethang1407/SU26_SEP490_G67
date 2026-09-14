@@ -15,6 +15,7 @@ import project.be_sep490_g67.repository.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -45,7 +46,7 @@ public class ProductCommandService {
         product = productRepository.save(product);
 
         if (product.getSku() == null || product.getSku().isBlank()) {
-            product.setSku("SP" + String.format("%06d", product.getId()));
+            product.setSku(generateUniqueSku(product.getId()));
             product = productRepository.save(product);
         }
 
@@ -185,6 +186,9 @@ public class ProductCommandService {
         product.setSellingPrice(sell);
         product.setSeasonTag(blankToNull(request.getSeasonTag()));
         product.setIsRemoved(false);
+        if (product.getCreatedAt() == null) {
+            product.setCreatedAt(Instant.now());
+        }
     }
 
     private void replaceUnits(Product product, List<UpsertProductRequest.UnitRequest> units) {
@@ -254,14 +258,13 @@ public class ProductCommandService {
                 .filter(u -> u.getUnitBase() != null && u.getUnitBase().compareTo(BigDecimal.ONE) == 0)
                 .map(ProductUnit::getName)
                 .findFirst()
-                .orElse(units.isEmpty() ? "sp" : units.get(0).getName());
+                .orElse(null);
 
-        var category = product.getCategory();
-        var defaultSupplier = category != null ? category.getDefaultSupplier() : null;
-        String supplierName = null;
-        if (defaultSupplier != null && !Boolean.TRUE.equals(defaultSupplier.getIsRemoved())) {
-            supplierName = defaultSupplier.getName();
-        } else if (category != null) {
+        Category category = product.getCategory();
+        String supplierName = (category != null && category.getDefaultSupplier() != null)
+                ? category.getDefaultSupplier().getName()
+                : null;
+        if (supplierName == null && category != null) {
             List<Supplier> linked = supplierRepository.findActiveByCategoryIds(List.of(category.getId()));
             if (linked != null && !linked.isEmpty()) {
                 supplierName = linked.get(0).getName();
@@ -269,7 +272,7 @@ public class ProductCommandService {
         }
 
         String mainImgUrl = images.stream()
-                .filter(i -> Boolean.TRUE.equals(i.getIsMain()))
+                .filter(img -> Boolean.TRUE.equals(img.getIsMain()))
                 .map(ProductImage::getUrl)
                 .findFirst()
                 .orElse(images.isEmpty() ? null : images.get(0).getUrl());
@@ -286,21 +289,21 @@ public class ProductCommandService {
             }
         }
 
-        List<Product> childProducts = productRepository.findByParent_IdAndIsRemovedFalse(id);
-        List<ProductDetailResponse.VariantResponse> variantDTOs = childProducts.stream().map(cp -> {
-            List<ProductAttribute> childAttrs = productAttributeRepository.findByProductIdAndIsRemovedFalse(cp.getId());
+        List<Product> children = productRepository.findByParent_IdAndIsRemovedFalse(product.getId());
+        List<ProductDetailResponse.VariantResponse> variantDTOs = children.stream().map(c -> {
+            List<ProductAttribute> cAttrs = productAttributeRepository.findByProductIdAndIsRemovedFalse(c.getId());
             return ProductDetailResponse.VariantResponse.builder()
-                    .id(cp.getId())
-                    .name(cp.getName())
-                    .sku(cp.getSku())
-                    .barcode(cp.getBarcode())
-                    .costPrice(cp.getCostPrice())
-                    .sellingPrice(cp.getSellingPrice())
-                    .status(cp.getStatus())
-                    .attributes(childAttrs.stream().map(ca -> ProductDetailResponse.AttributeResponse.builder()
-                            .id(ca.getId())
-                            .name(ca.getAttribute() != null ? ca.getAttribute().getName() : null)
-                            .value(ca.getValue())
+                    .id(c.getId())
+                    .name(c.getName())
+                    .sku(c.getSku())
+                    .barcode(c.getBarcode())
+                    .costPrice(c.getCostPrice())
+                    .sellingPrice(c.getSellingPrice())
+                    .status(c.getStatus())
+                    .attributes(cAttrs.stream().map(a -> ProductDetailResponse.AttributeResponse.builder()
+                            .id(a.getId())
+                            .name(a.getAttribute() != null ? a.getAttribute().getName() : null)
+                            .value(a.getValue())
                             .build()).toList())
                     .build();
         }).toList();
@@ -325,7 +328,7 @@ public class ProductCommandService {
                         : 7)
                 .supplierName(supplierName)
                 .productImg(mainImgUrl)
-                .baseUnitName(baseUnitName)
+                .baseUnitName(baseUnitName != null ? baseUnitName : (units.isEmpty() ? "sp" : units.get(0).getName()))
                 .units(units.stream().map(u -> ProductDetailResponse.UnitResponse.builder()
                         .id(u.getId())
                         .name(u.getName())
@@ -362,7 +365,7 @@ public class ProductCommandService {
         if (cost.compareTo(BigDecimal.ZERO) < 0 || sell.compareTo(BigDecimal.ZERO) < 0) {
             throw new AppException(ErrorCode.PRODUCT_PRICE_INVALID);
         }
-        if (sell.compareTo(BigDecimal.ZERO) > 0 && sell.compareTo(cost) < 0) {
+        if (sell.compareTo(BigDecimal.ZERO) > 0 && cost.compareTo(BigDecimal.ZERO) > 0 && sell.compareTo(cost) < 0) {
             throw new AppException(ErrorCode.PRODUCT_SELL_BELOW_COST);
         }
 
@@ -397,6 +400,66 @@ public class ProductCommandService {
         }
 
         validateUnits(request.getUnits());
+        validateVariants(request.getVariants(), sku, barcode);
+    }
+
+    private void validateVariants(List<UpsertProductRequest.VariantRequest> variants, String parentSku, String parentBarcode) {
+        if (variants == null || variants.isEmpty()) {
+            return;
+        }
+
+        Set<String> seenVariantSkus = new HashSet<>();
+        if (parentSku != null) {
+            seenVariantSkus.add(parentSku.toLowerCase(Locale.ROOT));
+        }
+
+        Set<String> seenVariantBarcodes = new HashSet<>();
+        if (parentBarcode != null) {
+            seenVariantBarcodes.add(parentBarcode.toLowerCase(Locale.ROOT));
+        }
+
+        for (UpsertProductRequest.VariantRequest v : variants) {
+            if (v == null) continue;
+
+            BigDecimal cost = nullToZero(v.getCostPrice());
+            BigDecimal sell = nullToZero(v.getSellingPrice());
+            if (cost.compareTo(BigDecimal.ZERO) < 0 || sell.compareTo(BigDecimal.ZERO) < 0) {
+                throw new AppException(ErrorCode.PRODUCT_PRICE_INVALID);
+            }
+            if (sell.compareTo(BigDecimal.ZERO) > 0 && cost.compareTo(BigDecimal.ZERO) > 0 && sell.compareTo(cost) < 0) {
+                throw new AppException(ErrorCode.PRODUCT_SELL_BELOW_COST);
+            }
+
+            String vSku = blankToNull(v.getSku());
+            if (vSku != null) {
+                String skuKey = vSku.toLowerCase(Locale.ROOT);
+                if (!seenVariantSkus.add(skuKey)) {
+                    throw new AppException(ErrorCode.PRODUCT_SKU_EXISTED);
+                }
+
+                boolean exists = v.getId() == null
+                        ? productRepository.existsBySkuIgnoreCaseAndIsRemovedFalse(vSku)
+                        : productRepository.existsBySkuIgnoreCaseAndIdNotAndIsRemovedFalse(vSku, v.getId());
+                if (exists) {
+                    throw new AppException(ErrorCode.PRODUCT_SKU_EXISTED);
+                }
+            }
+
+            String vBarcode = blankToNull(v.getBarcode());
+            if (vBarcode != null) {
+                String barcodeKey = vBarcode.toLowerCase(Locale.ROOT);
+                if (!seenVariantBarcodes.add(barcodeKey)) {
+                    throw new AppException(ErrorCode.PRODUCT_BARCODE_EXISTED);
+                }
+
+                boolean exists = v.getId() == null
+                        ? productRepository.existsByBarcodeAndIsRemovedFalse(vBarcode)
+                        : productRepository.existsByBarcodeAndIdNotAndIsRemovedFalse(vBarcode, v.getId());
+                if (exists) {
+                    throw new AppException(ErrorCode.PRODUCT_BARCODE_EXISTED);
+                }
+            }
+        }
     }
 
     private void validateUnits(List<UpsertProductRequest.UnitRequest> units) {
@@ -426,6 +489,34 @@ public class ProductCommandService {
                 throw new AppException(ErrorCode.PRODUCT_UNIT_BASE_INVALID);
             }
         }
+    }
+
+    private String generateUniqueSku(Integer id) {
+        String baseSku = "SP" + String.format("%06d", id);
+        String candidate = baseSku;
+        int counter = 1;
+        while (productRepository.existsBySkuIgnoreCaseAndIsRemovedFalse(candidate)) {
+            candidate = baseSku + "_" + counter;
+            counter++;
+        }
+        return candidate;
+    }
+
+    private String generateUniqueChildSku(String parentSku, String suffix, Integer childId) {
+        String cleanSuffix = suffix != null ? suffix.replaceAll("[^a-zA-Z0-9-]", "").toUpperCase() : "";
+        if (cleanSuffix.isBlank()) {
+            cleanSuffix = "VAR";
+        }
+        String baseSku = parentSku + "-" + cleanSuffix;
+        String candidate = baseSku;
+        int counter = 1;
+        while (childId == null
+                ? productRepository.existsBySkuIgnoreCaseAndIsRemovedFalse(candidate)
+                : productRepository.existsBySkuIgnoreCaseAndIdNotAndIsRemovedFalse(candidate, childId)) {
+            candidate = baseSku + "-" + counter;
+            counter++;
+        }
+        return candidate;
     }
 
     private String normalizeStatus(String status) {
@@ -505,7 +596,7 @@ public class ProductCommandService {
                     .toUpperCase();
 
             String parentSku = parentProduct.getSku() != null ? parentProduct.getSku() : "SP" + parentProduct.getId();
-            String childSku = parentSku + "-" + skuClean;
+            String childSku = generateUniqueChildSku(parentSku, skuClean, null);
             child.setSku(childSku);
             child.setBarcode(null);
 
@@ -573,8 +664,16 @@ public class ProductCommandService {
                 child.setSku(vr.getSku().trim());
             } else if (child.getSku() == null || child.getSku().isBlank()) {
                 String parentSku = parentProduct.getSku() != null ? parentProduct.getSku() : "SP" + parentProduct.getId();
-                String slug = vr.getName() != null ? vr.getName().replaceAll("[^a-zA-Z0-9-]", "").toUpperCase() : String.valueOf(System.currentTimeMillis());
-                child.setSku(parentSku + "-" + slug);
+                String slug = vr.getName() != null ? vr.getName().replaceAll("[^a-zA-Z0-9-]", "").toUpperCase() : "";
+                if (slug.isBlank() && vr.getAttributes() != null) {
+                    slug = vr.getAttributes().stream()
+                            .map(UpsertProductRequest.AttributeRequest::getValue)
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.joining("-"))
+                            .replaceAll("[^a-zA-Z0-9-]", "")
+                            .toUpperCase();
+                }
+                child.setSku(generateUniqueChildSku(parentSku, slug, child.getId()));
             }
 
             BigDecimal cost = nullToZero(vr.getCostPrice());
@@ -605,6 +704,12 @@ public class ProductCommandService {
         for (Product existing : existingChildren) {
             if (!keptIds.contains(existing.getId())) {
                 existing.setIsRemoved(true);
+                if (existing.getSku() != null && !existing.getSku().contains("_del_")) {
+                    existing.setSku(existing.getSku() + "_del_" + System.currentTimeMillis());
+                }
+                if (existing.getBarcode() != null && !existing.getBarcode().contains("_del_")) {
+                    existing.setBarcode(existing.getBarcode() + "_del_" + System.currentTimeMillis());
+                }
                 productRepository.save(existing);
             }
         }

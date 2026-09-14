@@ -438,8 +438,10 @@ public class ProductListService {
     boolean matchesFacet(ProductListItemResponse dto, String facet, Instant newThreshold) {
         if ("all".equals(facet)) return true;
         if ("new".equals(facet)) {
-            return dto.getCreatedAt() != null && dto.getCreatedAt().isAfter(newThreshold)
-                    && !"inactive".equalsIgnoreCase(dto.getStatus());
+            return "new".equals(dto.getFacetStatus())
+                    || "new".equalsIgnoreCase(dto.getStatus())
+                    || (dto.getCreatedAt() != null && dto.getCreatedAt().isAfter(newThreshold)
+                            && !"inactive".equalsIgnoreCase(dto.getStatus()));
         }
         return facet.equals(dto.getFacetStatus());
     }
@@ -450,7 +452,9 @@ public class ProductListService {
         return switch (facet) {
             case "new" -> Comparator.comparing(
                     ProductListItemResponse::getCreatedAt,
-                    Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(secondary);
+                    Comparator.nullsLast(Comparator.reverseOrder()))
+                    .thenComparing(ProductListItemResponse::getId, Comparator.nullsLast(Comparator.reverseOrder()))
+                    .thenComparing(secondary);
             case "hot" -> Comparator.comparing(
                     ProductListItemResponse::getAvgDailyRate,
                     Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(secondary);

@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Check,
   FolderPlus,
+  AlertTriangle,
 } from 'lucide-react';
 import { productsApi } from '../api';
 import { categoriesApi } from '../../category/api';
@@ -440,6 +441,156 @@ export default function ProductEditModal({
   const barcodeInputRef = useRef(null);
   const [barcodeScannerTarget, setBarcodeScannerTarget] = useState(null);
 
+  // Unsaved changes protection & confirmation state
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const initialSnapshotRef = useRef(null);
+  const savedCreatedIdRef = useRef(null);
+
+  const takeSnapshot = (fData, pAttrs, iAttrs, convs, vars, minQty, minUnit) => ({
+    name: (fData?.name || '').trim(),
+    barcode: (fData?.barcode || '').trim(),
+    categoryId: String(fData?.categoryId || ''),
+    baseUnitName: (fData?.baseUnitName || '').trim(),
+    status: fData?.status || 'active',
+    description: (fData?.description || '').trim(),
+    costPrice: fData?.costPrice != null && fData?.costPrice !== '' ? Number(fData.costPrice) : '',
+    sellingPrice: fData?.sellingPrice != null && fData?.sellingPrice !== '' ? Number(fData.sellingPrice) : '',
+    isReturnable: Boolean(fData?.isReturnable),
+    minStockInputQty: Number(minQty) || 0,
+    minStockUnit: minUnit || '',
+    hasImageFile: Boolean(fData?.imageFile),
+    parentAttributes: (pAttrs || []).map((a) => ({
+      name: (a.name || '').trim(),
+      values: [...(a.values || []).map((v) => String(v).trim())],
+    })),
+    itemAttributes: (iAttrs || []).map((a) => ({
+      name: (a.name || '').trim(),
+      value: (a.value || '').trim(),
+    })),
+    conversions: (convs || []).map((c) => ({
+      name: (c.name || '').trim(),
+      unitBase: Number(c.unitBase) || 0,
+      sellingPrice: Number(c.sellingPrice) || 0,
+    })),
+    variants: (vars || []).map((v) => ({
+      key: v.key,
+      sku: (v.sku || '').trim(),
+      barcode: (v.barcode || '').trim(),
+      costPrice: Number(v.costPrice) || 0,
+      sellingPrice: Number(v.sellingPrice) || 0,
+      isRemoved: Boolean(v.isRemoved),
+    })),
+  });
+
+  const isFormDirty = () => {
+    if (isCreateMode) {
+      if (formData.name?.trim()) return true;
+      if (formData.barcode?.trim() && formData.barcode.trim() !== (product?.barcode || '').trim()) return true;
+      if (formData.categoryId) return true;
+      if (formData.baseUnitName?.trim()) return true;
+      if (formData.description?.trim()) return true;
+      if (formData.costPrice !== '' && formData.costPrice !== null && Number(formData.costPrice) > 0) return true;
+      if (formData.sellingPrice !== '' && formData.sellingPrice !== null && Number(formData.sellingPrice) > 0) return true;
+      if (formData.imageFile) return true;
+      if (parentAttributes.some((a) => a.name?.trim() || (a.values && a.values.length > 0))) return true;
+      if (conversions.length > 0) return true;
+      if (itemAttributes.some((a) => a.name?.trim() || a.value?.trim())) return true;
+      return false;
+    }
+
+    const init = initialSnapshotRef.current;
+    if (!init) return false;
+
+    if ((formData.name || '').trim() !== init.name) return true;
+    if ((formData.barcode || '').trim() !== init.barcode) return true;
+    if (String(formData.categoryId || '') !== init.categoryId) return true;
+    if ((formData.baseUnitName || '').trim() !== init.baseUnitName) return true;
+    if ((formData.status || 'active') !== init.status) return true;
+    if ((formData.description || '').trim() !== init.description) return true;
+
+    const currCost = formData.costPrice != null && formData.costPrice !== '' ? Number(formData.costPrice) : '';
+    if (currCost !== init.costPrice) return true;
+
+    const currSell = formData.sellingPrice != null && formData.sellingPrice !== '' ? Number(formData.sellingPrice) : '';
+    if (currSell !== init.sellingPrice) return true;
+
+    if (Boolean(formData.isReturnable) !== init.isReturnable) return true;
+    if (Number(minStockInputQty) !== init.minStockInputQty) return true;
+    if (Boolean(formData.imageFile) !== init.hasImageFile) return true;
+
+    // Attributes comparison
+    const currentPAttrs = (parentAttributes || []).map((a) => ({
+      name: (a.name || '').trim(),
+      values: [...(a.values || []).map((v) => String(v).trim())],
+    }));
+    if (JSON.stringify(currentPAttrs) !== JSON.stringify(init.parentAttributes)) return true;
+
+    const currentIAttrs = (itemAttributes || []).map((a) => ({
+      name: (a.name || '').trim(),
+      value: (a.value || '').trim(),
+    }));
+    if (JSON.stringify(currentIAttrs) !== JSON.stringify(init.itemAttributes)) return true;
+
+    // Conversions comparison
+    const currentConvs = (conversions || []).map((c) => ({
+      name: (c.name || '').trim(),
+      unitBase: Number(c.unitBase) || 0,
+      sellingPrice: Number(c.sellingPrice) || 0,
+    }));
+    if (JSON.stringify(currentConvs) !== JSON.stringify(init.conversions)) return true;
+
+    // Variants comparison
+    const currentVars = (variants || []).map((v) => ({
+      key: v.key,
+      sku: (v.sku || '').trim(),
+      barcode: (v.barcode || '').trim(),
+      costPrice: Number(v.costPrice) || 0,
+      sellingPrice: Number(v.sellingPrice) || 0,
+      isRemoved: Boolean(v.isRemoved),
+    }));
+    if (JSON.stringify(currentVars) !== JSON.stringify(init.variants)) return true;
+
+    return false;
+  };
+
+  const handleRequestClose = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (isFormDirty()) {
+      setShowDiscardConfirm(true);
+    } else {
+      onClose();
+    }
+  };
+
+  // Keyboard Escape protection listener
+  useEffect(() => {
+    if (!isOpen) {
+      setShowDiscardConfirm(false);
+      return;
+    }
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (showDiscardConfirm) {
+          setShowDiscardConfirm(false);
+          return;
+        }
+        if (isCreateCategoryModalOpen) {
+          setIsCreateCategoryModalOpen(false);
+          return;
+        }
+        if (barcodeScannerTarget) {
+          setBarcodeScannerTarget(null);
+          return;
+        }
+        handleRequestClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, showDiscardConfirm, isCreateCategoryModalOpen, barcodeScannerTarget]);
+
   // Click outside to close category dropdown
   useEffect(() => {
     function handleClickOutside(e) {
@@ -536,10 +687,10 @@ export default function ProductEditModal({
     setFromUnit('');
 
     if (isCreateMode) {
-      const randomCode = `SP${Math.floor(100000000 + Math.random() * 900000000)}`;
+      savedCreatedIdRef.current = null;
       setFormData({
         name: '',
-        sku: randomCode,
+        sku: '',
         barcode: product?.barcode || '',
         categoryId: '',
         parentId: '',
@@ -561,10 +712,11 @@ export default function ProductEditModal({
       setVariants([]);
       setConversions([]);
       setStockHistory([]);
+      initialSnapshotRef.current = null;
     } else if (product) {
       const baseUnit = product.unitName || product.baseUnitName || product.unit || '';
 
-      setFormData({
+      const initFormData = {
         name: product.name || '',
         sku: product.sku || `SP${product.id}`,
         barcode: product.barcode || '',
@@ -580,13 +732,18 @@ export default function ProductEditModal({
         isReturnable: false,
         imagePreview: product.imageUrl || product.productImg || product.image || (product.images && product.images[0]?.url) || product.parentImg || product.parent?.imageUrl || product.parent?.productImg || null,
         imageFile: null,
-      });
+      };
+
+      setFormData(initFormData);
       setMinStockInputQty(product.minStock ?? product.safetyStock ?? 5);
       setMinStockUnit('');
 
       // Parse initial attributes
       const rawAttrs = product.attributes || product.productAttributes || [];
       const isParentGroup = Boolean(product?.isGroup || (product?.variantGroups && product.variantGroups.length > 0));
+      let initParentArr = [];
+      let initFlatAttrs = [];
+      let initLoadedVariants = [];
 
       if (isParentGroup || !product.parentId) {
         const map = new Map();
@@ -617,15 +774,14 @@ export default function ProductEditModal({
           });
         });
 
-        const parentArr = [];
         map.forEach((vals, name) => {
-          parentArr.push({ id: `attr-${Date.now()}-${Math.random()}`, name, values: vals, inputValue: '' });
+          initParentArr.push({ id: `attr-${Date.now()}-${Math.random()}`, name, values: vals, inputValue: '' });
         });
-        setParentAttributes(parentArr);
+        setParentAttributes(initParentArr);
 
         // Preload variants from existing children
         if (existingChildren.length > 0) {
-          const loadedVariants = existingChildren.map((sz) => {
+          initLoadedVariants = existingChildren.map((sz) => {
             const pVal = sz.primaryAttrValue;
             const sVal = sz.sizeValue;
             const keyParts = [pVal, sVal].filter(Boolean);
@@ -646,17 +802,27 @@ export default function ProductEditModal({
               isRemoved: false,
             };
           });
-          setVariants(loadedVariants);
+          setVariants(initLoadedVariants);
         }
       } else {
-        const flatAttrs = rawAttrs.map((a) => ({
+        initFlatAttrs = rawAttrs.map((a) => ({
           id: a.id || `attr-${Date.now()}-${Math.random()}`,
           name: a.name || a.attribute?.name || '',
           value: a.value || '',
         }));
-        setItemAttributes(flatAttrs);
+        setItemAttributes(initFlatAttrs);
         setVariants([]);
       }
+
+      initialSnapshotRef.current = takeSnapshot(
+        initFormData,
+        initParentArr,
+        initFlatAttrs,
+        [],
+        initLoadedVariants,
+        product.minStock ?? product.safetyStock ?? 5,
+        ''
+      );
 
       if (product.id) {
         productsApi.getById(product.id)
@@ -666,23 +832,25 @@ export default function ProductEditModal({
               const base = units.find((u) => u.isBase || Number(u.unitBase) === 1) || units[0];
               const baseName = base?.name || detail.baseUnitName || product.unitName || '';
 
-              setFormData((prev) => ({
-                ...prev,
-                name: detail.name || prev.name,
-                sku: detail.sku || prev.sku,
-                barcode: detail.barcode || prev.barcode,
-                categoryId: detail.categoryId ? String(detail.categoryId) : prev.categoryId,
-                parentId: detail.parentId ? String(detail.parentId) : prev.parentId,
+              const detailFormData = {
+                ...initFormData,
+                name: detail.name || initFormData.name,
+                sku: detail.sku || initFormData.sku,
+                barcode: detail.barcode || initFormData.barcode,
+                categoryId: detail.categoryId ? String(detail.categoryId) : initFormData.categoryId,
+                parentId: detail.parentId ? String(detail.parentId) : initFormData.parentId,
                 baseUnitName: baseName,
-                status: detail.status || prev.status,
-                description: detail.description || prev.description,
-                costPrice: detail.costPrice ?? prev.costPrice,
-                sellingPrice: detail.sellingPrice ?? prev.sellingPrice,
-                minStock: detail.minStock ?? prev.minStock,
-                seasonTag: detail.seasonTag || prev.seasonTag,
-                isReturnable: detail.isReturnable ?? prev.isReturnable,
-                imagePreview: detail.imageUrl || detail.productImg || (detail.images && detail.images[0]?.url) || detail.parentImg || detail.parent?.imageUrl || detail.parent?.productImg || product.imageUrl || product.productImg || prev.imagePreview,
-              }));
+                status: detail.status || initFormData.status,
+                description: detail.description || initFormData.description,
+                costPrice: detail.costPrice ?? initFormData.costPrice,
+                sellingPrice: detail.sellingPrice ?? initFormData.sellingPrice,
+                minStock: detail.minStock ?? initFormData.minStock,
+                seasonTag: detail.seasonTag || initFormData.seasonTag,
+                isReturnable: detail.isReturnable ?? initFormData.isReturnable,
+                imagePreview: detail.imageUrl || detail.productImg || (detail.images && detail.images[0]?.url) || detail.parentImg || detail.parent?.imageUrl || detail.parent?.productImg || product.imageUrl || product.productImg || initFormData.imagePreview,
+              };
+
+              setFormData(detailFormData);
 
               const convList = units
                 .filter((u) => u !== base && Number(u.unitBase) !== 1)
@@ -702,6 +870,10 @@ export default function ProductEditModal({
                 detailVariants.length > 0 ||
                 (product?.variantGroups && product.variantGroups.length > 0)
               );
+
+              let detailParentArr = [];
+              let detailFlatAttrs = [];
+              let detailLoadedVariants = [];
 
               if (isParentProd) {
                 const map = new Map();
@@ -743,15 +915,14 @@ export default function ProductEditModal({
                   });
                 });
 
-                const parentArr = [];
                 map.forEach((vals, name) => {
-                  parentArr.push({ id: `attr-${Date.now()}-${Math.random()}`, name, values: vals, inputValue: '' });
+                  detailParentArr.push({ id: `attr-${Date.now()}-${Math.random()}`, name, values: vals, inputValue: '' });
                 });
-                setParentAttributes(parentArr);
+                setParentAttributes(detailParentArr);
 
                 // 4. Map loaded variants into variants matrix state
                 if (detailVariants.length > 0) {
-                  const loaded = detailVariants.map((v) => {
+                  detailLoadedVariants = detailVariants.map((v) => {
                     const vAttrs = (v.attributes || []).map((a) => ({
                       name: a.name || a.attribute?.name || 'Thuộc tính',
                       value: a.value || '',
@@ -770,18 +941,28 @@ export default function ProductEditModal({
                       isRemoved: false,
                     };
                   });
-                  setVariants(loaded);
+                  setVariants(detailLoadedVariants);
                 }
               } else {
                 // Child / Standalone
-                const flatAttrs = detailAttrs.map((a) => ({
+                detailFlatAttrs = detailAttrs.map((a) => ({
                   id: a.id || `attr-${Date.now()}-${Math.random()}`,
                   name: a.name || a.attribute?.name || '',
                   value: a.value || '',
                 }));
-                setItemAttributes(flatAttrs);
+                setItemAttributes(detailFlatAttrs);
                 setVariants([]);
               }
+
+              initialSnapshotRef.current = takeSnapshot(
+                detailFormData,
+                detailParentArr,
+                detailFlatAttrs,
+                convList,
+                detailLoadedVariants,
+                detail.minStock ?? 5,
+                ''
+              );
             }
           })
           .catch(() => { });
@@ -1118,24 +1299,33 @@ export default function ProductEditModal({
     try {
       // Step 1: Save/Update Parent or Child Product
       let savedProduct;
-      if (isCreateMode) {
-        savedProduct = await productsApi.create(payload);
+      const effectiveId = !isCreateMode ? product?.id : savedCreatedIdRef.current;
+      if (effectiveId) {
+        savedProduct = await productsApi.update(effectiveId, payload);
       } else {
-        savedProduct = await productsApi.update(product.id, payload);
+        savedProduct = await productsApi.create(payload);
+        if (savedProduct?.id) {
+          savedCreatedIdRef.current = savedProduct.id;
+        }
       }
 
-      const parentId = savedProduct?.id || product?.id;
+      const parentId = savedProduct?.id || product?.id || savedCreatedIdRef.current;
 
       // Step 2: Upload Image if selected
       if (formData.imageFile && parentId) {
         try {
           await productsApi.uploadImage(parentId, formData.imageFile);
-        } catch {
-          console.error('Lỗi khi tải ảnh lên');
+        } catch (imgErr) {
+          console.error('Lỗi khi tải ảnh lên:', imgErr);
+          const imgErrMsg = imgErr.response?.data?.message || imgErr.message || 'Không thể tải ảnh sản phẩm lên Cloudinary.';
+          setErrorMsg(`Sản phẩm đã được tạo/lưu thành công nhưng tải ảnh thất bại: ${imgErrMsg}. Bạn có thể bấm Lưu lại khi có mạng.`);
+          onProductUpdated?.();
+          return;
         }
       }
 
       setSuccessMsg(isCreateMode ? 'Đã tạo hàng hóa và các biến thể thành công!' : 'Đã cập nhật hàng hóa và biến thể thành công!');
+      savedCreatedIdRef.current = null;
       onProductUpdated?.();
       setTimeout(() => {
         onClose();
@@ -1148,7 +1338,7 @@ export default function ProductEditModal({
   };
 
   return (
-    <div className="pi-modal-backdrop" onClick={onClose}>
+    <div className="pi-modal-backdrop" onClick={handleRequestClose}>
       <div className="pi-modal-dialog pi-edit-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="pi-modal-header">
@@ -1164,7 +1354,7 @@ export default function ProductEditModal({
               )}
             </div>
           </div>
-          <button type="button" className="pi-modal-close" onClick={onClose} aria-label="Đóng">
+          <button type="button" className="pi-modal-close" onClick={handleRequestClose} aria-label="Đóng">
             <X size={20} />
           </button>
         </div>
@@ -1990,7 +2180,7 @@ export default function ProductEditModal({
                 <button
                   type="button"
                   className="pi-modal-btn pi-modal-btn--secondary"
-                  onClick={onClose}
+                  onClick={handleRequestClose}
                   disabled={submitting}
                 >
                   Hủy
@@ -2120,7 +2310,7 @@ export default function ProductEditModal({
             <button
               type="button"
               className="pi-modal-btn pi-modal-btn--secondary"
-              onClick={onClose}
+              onClick={handleRequestClose}
             >
               Đóng
             </button>
@@ -2203,6 +2393,54 @@ export default function ProductEditModal({
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal cảnh báo thay đổi chưa lưu (Unsaved Changes Protection) */}
+        {showDiscardConfirm && (
+          <div
+            className="pi-nested-modal-backdrop"
+            style={{ zIndex: 10050, background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)' }}
+            onClick={() => setShowDiscardConfirm(false)}
+          >
+            <div
+              className="pi-discard-dialog"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="pi-discard-dialog__icon">
+                <AlertTriangle size={28} />
+              </div>
+
+              <h3 className="pi-discard-dialog__title">
+                Bạn có thay đổi chưa lưu
+              </h3>
+
+              <p className="pi-discard-dialog__desc">
+                {isCreateMode
+                  ? 'Thông tin hàng hóa bạn đang nhập chưa được lưu. Nếu thoát ngay bây giờ, toàn bộ dữ liệu này sẽ bị mất.'
+                  : 'Các thông tin bạn vừa chỉnh sửa chưa được lưu lại. Bạn có chắc chắn muốn thoát và hủy bỏ các thay đổi không?'}
+              </p>
+
+              <div className="pi-discard-dialog__actions">
+                <button
+                  type="button"
+                  className="pi-modal-btn pi-modal-btn--secondary"
+                  onClick={() => setShowDiscardConfirm(false)}
+                >
+                  Tiếp tục chỉnh sửa
+                </button>
+                <button
+                  type="button"
+                  className="pi-modal-btn pi-modal-btn--danger"
+                  onClick={() => {
+                    setShowDiscardConfirm(false);
+                    onClose();
+                  }}
+                >
+                  Rời khỏi & Hủy thay đổi
+                </button>
+              </div>
             </div>
           </div>
         )}
