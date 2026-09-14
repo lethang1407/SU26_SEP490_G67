@@ -16,8 +16,8 @@ function notifyListeners() {
     listeners.forEach(fn => {
         try {
             fn(currentIsOnline);
-        } catch {
-            // Ignore listener errors
+        } catch (err) {
+            console.warn('[useOnlineStatus] Listener notification error:', err);
         }
     });
 }
@@ -113,7 +113,8 @@ export async function verifyConnection() {
                     lastChecked = Date.now();
                     return false;
                 }
-            } catch {
+            } catch (backendErr) {
+                console.warn('[useOnlineStatus] Backend health probe failed:', backendErr);
                 updateStatus(false);
                 lastChecked = Date.now();
                 return false;

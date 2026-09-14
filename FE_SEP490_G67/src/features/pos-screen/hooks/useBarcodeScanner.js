@@ -33,9 +33,12 @@ export function useBarcodeScanner({ onProductFound, enabled = true }) {
         clearError();
         try {
             const product = await getProductByBarcode(trimmedCode);
-            saveOfflineProducts([product]).catch(() => { });
+            saveOfflineProducts([product]).catch((cacheErr) => {
+                console.warn('[useBarcodeScanner] Failed to cache scanned product:', cacheErr);
+            });
             onProductFound(product);
         } catch (err) {
+            console.warn('[useBarcodeScanner] Online barcode lookup failed, checking offline DB:', err);
             // Check offline database
             try {
                 const offlineProduct = await getOfflineProductByBarcode(trimmedCode);
@@ -43,8 +46,8 @@ export function useBarcodeScanner({ onProductFound, enabled = true }) {
                     onProductFound(offlineProduct);
                     return;
                 }
-            } catch {
-                // Ignore DB error
+            } catch (dbErr) {
+                console.error('[useBarcodeScanner] Offline barcode lookup error:', dbErr);
             }
 
             const status = err.response?.status;

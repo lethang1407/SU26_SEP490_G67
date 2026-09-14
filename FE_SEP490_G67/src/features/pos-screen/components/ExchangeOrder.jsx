@@ -269,8 +269,8 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                         setReturnItems(initialReturnItems);
                         return;
                     }
-                } catch {
-                    // Ignore
+                } catch (cacheErr) {
+                    console.warn("[ExchangeOrder] Failed to load order from offline cache:", cacheErr);
                 }
                 setError(getApiErrorMessage(err, 'Không thể tải thông tin đơn hàng'));
             } finally {
@@ -324,8 +324,8 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                         locations: p.locations || []
                     })));
                     return;
-                } catch {
-                    // Ignore
+                } catch (offlineSearchErr) {
+                    console.warn("[ExchangeOrder] Offline search fallback failed:", offlineSearchErr);
                 }
                 console.error('Search error:', err);
                 setSearchResults([]);
@@ -753,6 +753,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
             finishExchange();
             return { ok: true };
         } catch (err) {
+            console.error("Exchange order submission failed:", err);
             const isNetworkError = !err.response || err.code === 'ERR_NETWORK' || err.message?.toLowerCase().includes('network');
             if (isNetworkError) {
                 try {

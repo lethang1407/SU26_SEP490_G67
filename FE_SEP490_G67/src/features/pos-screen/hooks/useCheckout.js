@@ -34,13 +34,16 @@ export function useCheckout() {
             if (found) {
                 setCustomer(found);
                 setInvoiceType('found');
-                saveOfflineCustomers([found]).catch(() => { });
+                saveOfflineCustomers([found]).catch((cacheErr) => {
+                    console.warn("[useCheckout] Failed to cache customer:", cacheErr);
+                });
             } else {
                 setCustomer(null);
                 setInvoiceType('not_found');
             }
             return found;
-        } catch {
+        } catch (error) {
+            console.warn("[useCheckout] Online customer lookup failed, falling back to offline cache:", error);
             // Offline fallback
             try {
                 const offlineCustomer = await getOfflineCustomerByPhone(phoneValue);
@@ -49,8 +52,8 @@ export function useCheckout() {
                     setInvoiceType('found');
                     return offlineCustomer;
                 }
-            } catch {
-                // Ignore DB error
+            } catch (dbErr) {
+                console.error("[useCheckout] Offline customer lookup error:", dbErr);
             }
 
             setError('Lỗi tra cứu khách hàng. Vui lòng thử lại.');
@@ -216,7 +219,8 @@ export function useCheckout() {
                     items: invoice.items || [],
                     customer: customer || invoice.customer
                 });
-            } catch {
+            } catch (cacheErr) {
+                console.warn("[useCheckout] Failed to cache sales order to offline DB:", cacheErr);
             }
 
             return { ok: true, order: invoice, invoice: invoiceData, customer };

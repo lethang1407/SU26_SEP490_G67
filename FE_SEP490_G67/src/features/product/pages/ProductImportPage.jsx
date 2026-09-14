@@ -138,19 +138,25 @@ export default function ProductImportPage() {
   useEffect(() => {
     try {
       localStorage.setItem('pi_draft_selected_ids', JSON.stringify(Array.from(selectedIds)));
-    } catch { }
+    } catch (e) {
+      console.warn('[ProductImport] Failed to save selectedIds to localStorage:', e);
+    }
   }, [selectedIds]);
 
   useEffect(() => {
     try {
       localStorage.setItem('pi_draft_panel_items', JSON.stringify(panelItems));
-    } catch { }
+    } catch (e) {
+      console.warn('[ProductImport] Failed to save panelItems to localStorage:', e);
+    }
   }, [panelItems]);
 
   useEffect(() => {
     try {
       localStorage.setItem('pi_draft_overrides', JSON.stringify(overrides));
-    } catch { }
+    } catch (e) {
+      console.warn('[ProductImport] Failed to save overrides to localStorage:', e);
+    }
   }, [overrides]);
 
   const loadCategories = useCallback(() => {
@@ -598,7 +604,9 @@ export default function ProductImportPage() {
       localStorage.removeItem('pi_draft_selected_ids');
       localStorage.removeItem('pi_draft_panel_items');
       localStorage.removeItem('pi_draft_overrides');
-    } catch { }
+    } catch (e) {
+      console.warn('[ProductImport] Failed to clear draft from localStorage:', e);
+    }
   };
 
   const handleCreate = async () => {

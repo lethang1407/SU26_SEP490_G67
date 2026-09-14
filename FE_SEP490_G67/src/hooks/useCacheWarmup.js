@@ -36,8 +36,8 @@ export function useCacheWarmup(authenticated) {
                 // 1. Warmup store payment info for QR codes
                 try {
                     await api.get('/store/payment-info');
-                } catch {
-                    // Ignore
+                } catch (err) {
+                    console.warn('[CacheWarmup] Store payment info warmup failed:', err);
                 }
 
                 // Small pause to avoid network congestion
@@ -52,7 +52,8 @@ export function useCacheWarmup(authenticated) {
                         await db.meta.put({ key: 'last_product_sync', value: Date.now() });
                         console.info(`[CacheWarmup] Delta synced ${count} products to offline DB`);
                     }
-                } catch {
+                } catch (err) {
+                    console.warn('[CacheWarmup] Products search warmup failed, trying suggestions fallback:', err);
                     // Fallback to import suggestions endpoint if search requires min query
                     try {
                         const sugRes = await api.get('/import/suggestions', { params: { size: 100 } });
@@ -62,8 +63,8 @@ export function useCacheWarmup(authenticated) {
                             await db.meta.put({ key: 'last_product_sync', value: Date.now() });
                             console.info(`[CacheWarmup] Cached ${items.length} products via suggestions`);
                         }
-                    } catch {
-                        // Ignore
+                    } catch (fallbackErr) {
+                        console.warn('[CacheWarmup] Product suggestions fallback warmup failed:', fallbackErr);
                     }
                 }
 
@@ -78,8 +79,8 @@ export function useCacheWarmup(authenticated) {
                         await saveOfflineCustomers(customers);
                         console.info(`[CacheWarmup] Cached ${customers.length} customers`);
                     }
-                } catch {
-                    // Ignore
+                } catch (err) {
+                    console.warn('[CacheWarmup] Customers warmup failed:', err);
                 }
 
                 // Small pause
@@ -118,8 +119,8 @@ export function useCacheWarmup(authenticated) {
                                         items: exRes.result.items || []
                                     });
                                 }
-                            } catch {
-                                // Ignore
+                            } catch (ordErr) {
+                                console.warn(`[CacheWarmup] Failed to prefetch exchange detail for order ${ord.id}:`, ordErr);
                             }
                         }
                     }

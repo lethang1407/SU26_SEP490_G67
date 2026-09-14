@@ -85,13 +85,14 @@ export function useOfflineSync() {
                             exchangeDetail: item.type === 'EXCHANGE' ? result : null,
                             items: result.items || []
                         });
-                    } catch (e) {
-                        // Ignore cache write error
+                    } catch (cacheErr) {
+                        console.warn('[OfflineSync] Failed to save synced order to offline cache:', cacheErr);
                     }
                 }
 
                 successCount++;
             } catch (err) {
+                console.error(`[OfflineSync] Sync failed for queue item ${item.id} (${item.type}):`, err);
                 const isNetworkError = !err.response || err.code === 'ERR_NETWORK' || err.message?.includes('Network Error');
                 if (isNetworkError) {
                     // Exponential backoff schedule: lần 1: 5s, lần 2: 15s, lần 3: 30s, lần 4+: 60s

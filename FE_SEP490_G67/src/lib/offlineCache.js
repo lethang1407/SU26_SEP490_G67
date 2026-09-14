@@ -13,7 +13,8 @@ export function normalizeCacheKey(url) {
         searchParams.sort();
         const queryString = searchParams.toString();
         return `${parsed.pathname}${queryString ? `?${queryString}` : ''}`;
-    } catch {
+    } catch (parseErr) {
+        console.warn('[OfflineCache] Failed to normalize cache URL:', url, parseErr);
         return url;
     }
 }

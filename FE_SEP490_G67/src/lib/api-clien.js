@@ -63,7 +63,9 @@ api.interceptors.response.use(
     // Transparent offline caching for successful GET requests
     if (response.config && response.config.method?.toLowerCase() === 'get') {
       const cacheKey = getRequestCacheKey(response.config);
-      setCacheEntry(cacheKey, response.data).catch(() => {});
+      setCacheEntry(cacheKey, response.data).catch((err) => {
+        console.warn('[ApiClient] Failed to cache response:', err);
+      });
 
       // Proactively extract and update structured tables
       try {
