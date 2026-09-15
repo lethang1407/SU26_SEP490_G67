@@ -49,6 +49,7 @@ public class ExchangeOrderService {
     StorageLocationRepository storageLocationRepository;
     DebtPaymentRepository debtPaymentRepository;
     DebtPolicy debtPolicy;
+    StockDeductionService stockDeductionService;
 
     @Transactional(readOnly = true)
     public ExchangeOrderDetailResponse getOrderForExchange(Integer orderId) {
@@ -244,40 +245,15 @@ public class ExchangeOrderService {
                 int baseQuantity = UnitQuantityConverter.toBaseUnits(resolvedUnit,
                         exchangeItem.getQuantity());
 
-                // Resolve batch
-                Integer resolvedBatchId = exchangeItem.getBatchId();
-                StockBatch batch;
-
-                if (resolvedBatchId == null || resolvedBatchId <= 0) {
-                    batch = stockBatchRepository
-                            .findFirstAvailableBatchByProductId(exchangeItem.getProductId())
-                            .orElseThrow(() -> new AppException(
-                                    ErrorCode.NO_AVAILABLE_STOCK_BATCH));
-                    resolvedBatchId = batch.getId();
-                } else {
-                    batch = stockBatchRepository.findById(resolvedBatchId)
-                            .orElseThrow(() -> new AppException(
-                                    ErrorCode.STOCK_BATCH_NOT_FOUND));
-                }
-
-                // Check stock availability
-                int currentStock = stockMovementRepository
-                        .sumQuantityDeltaByBatchId(resolvedBatchId);
-                if (currentStock < baseQuantity) {
-                    throw new AppException(ErrorCode.INSUFFICIENT_STOCK);
-                }
-
-                // Deduct stock
-                StockMovement movement = new StockMovement();
-                movement.setStockBatch(batch);
-                movement.setMovementType("SALE");
-                movement.setReferenceType("EXCHANGE_ORDER");
-                movement.setReferenceId(savedReturnOrder.getId());
-                movement.setQuantityDelta(-baseQuantity);
-                movement.setStockAfter(currentStock - baseQuantity);
-                movement.setCreatedBy(staffId);
-                movement.setCreatedAt(Instant.now());
-                stockMovementRepository.save(movement);
+                // Trừ kho đúng đường của giỏ hàng POS: FEFO khi thu ngân không chọn ô,
+                // và trừ thẳng batch_locations + quantityIn chứ không chỉ ghi một dòng sổ.
+                Integer soldFromBatchId = stockDeductionService.deductStockFromPicks(
+                        exchangeItem.getProductId(),
+                        baseQuantity,
+                        savedReturnOrder.getId(),
+                        staffId,
+                        resolvePicks(exchangeItem),
+                        "EXCHANGE_ORDER");
 
                 BigDecimal exchangeUnitPrice = UnitPriceResolver.resolve(product, resolvedUnit);
 
@@ -291,6 +267,9 @@ public class ExchangeOrderService {
                 SalesOrderDetail detail = new SalesOrderDetail();
                 detail.setSalesOrder(exchangeOrder);
                 detail.setProduct(product);
+                if (soldFromBatchId != null) {
+                    detail.setStockBatch(stockBatchRepository.getReferenceById(soldFromBatchId));
+                }
                 detail.setProductUnit(resolvedUnit);
                 detail.setUnitName(resolvedUnitName);
                 detail.setQuantity(exchangeItem.getQuantity());
@@ -369,6 +348,22 @@ public class ExchangeOrderService {
                 request.getRefundMethod(),
                 settlement,
                 exchangeOrder);
+    }
+
+    /**
+     * Ô/lô thu ngân đã tick cho một dòng hàng lấy mới. Rỗng/null = để FEFO tự chọn.
+     * {@code batchId} kiểu cũ bị bỏ qua: không kèm ô thì không biết trừ kệ nào.
+     */
+    private static List<StockDeductionService.StockPick> resolvePicks(
+            CreateExchangeOrderRequest.ExchangeItemRequest item) {
+        if (item.getPicks() == null || item.getPicks().isEmpty()) {
+            return null;
+        }
+        return item.getPicks().stream()
+                .filter(pick -> pick != null && pick.getLocationId() != null)
+                .map(pick -> new StockDeductionService.StockPick(
+                        pick.getLocationId(), pick.getBatchId()))
+                .toList();
     }
 
     private static boolean isTransferRefund(CreateExchangeOrderRequest request) {

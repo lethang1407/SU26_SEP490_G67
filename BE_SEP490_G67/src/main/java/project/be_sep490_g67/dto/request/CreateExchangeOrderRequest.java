@@ -79,7 +79,19 @@ public class CreateExchangeOrderRequest {
         @NotNull(message = "ID sản phẩm không được để trống")
         Integer productId;
 
+        /**
+         * @deprecated Lô đơn lẻ không nói được lấy ở ô nào. Dùng {@link #picks};
+         * để trống thì trừ FIFO toàn kho.
+         */
+        @Deprecated
         Integer batchId;
+
+        /**
+         * Các ô/lô thu ngân đã tick, theo đúng thứ tự muốn lấy.
+         * Rỗng = trừ FIFO toàn kho, giống giỏ hàng POS.
+         */
+        @Valid
+        List<CreateSalesOrderRequest.StockPickRequest> picks;
 
         Integer productUnitId;
 
