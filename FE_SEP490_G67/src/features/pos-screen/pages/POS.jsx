@@ -234,7 +234,7 @@ const POSScreen = () => {
             productUnitId: defaultUnit?.id ?? null,
             unit: defaultUnit?.name ?? 'N/A',
             locations,
-            // Không auto-pick → checkout FEFO; thu ngân vẫn chọn ô/lô khi cần
+            // Không auto-pick → checkout FIFO; thu ngân vẫn chọn ô/lô khi cần
             pickKeys: [],
             stockTotal: posInfo?.availableQuantity ?? null,
             stockSales: posInfo?.salesZoneQuantity ?? null,

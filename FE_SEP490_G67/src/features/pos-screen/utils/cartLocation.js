@@ -41,13 +41,13 @@ export function allocateQuantity(item) {
     return parts;
 }
 
-/** True khi chưa chọn ô/lô tường minh → checkout đi FEFO (không phải lỗi). */
+/** True khi chưa chọn ô/lô tường minh → checkout đi FIFO (không phải lỗi). */
 export const needsLocationPick = (item) => selectedPicks(item).length === 0;
 
 export const isLocationShort = (item) =>
     !needsLocationPick(item) && selectedQuantity(item) < toBaseUnits(item);
 
-/** Chỉ lỗi khi đã chọn ô nhưng không đủ SL. FEFO (không pick) là hợp lệ. */
+/** Chỉ lỗi khi đã chọn ô nhưng không đủ SL. FIFO (không pick) là hợp lệ. */
 export const hasLocationProblem = (item) => isLocationShort(item);
 
 export function formatLocationShort(loc) {
@@ -55,7 +55,7 @@ export function formatLocationShort(loc) {
     return loc.label || loc.zoneCode || String(loc.locationId);
 }
 
-/** Nhãn gọn trên nút chọn; null → UI hiện 「Tự động (FEFO)」. */
+/** Nhãn gọn trên nút chọn; null → UI hiện 「Tự động (FIFO)」. */
 export function locationSummary(item) {
     const picked = selectedPicks(item);
     if (picked.length === 0) return null;
@@ -63,19 +63,20 @@ export function locationSummary(item) {
     return picked.length === 1 ? first : `${first} +${picked.length - 1} lô`;
 }
 
-/** Payload gửi BE: rỗng = FEFO; có phần tử = trừ đúng ô/lô đã chọn. */
+/** Payload gửi BE: rỗng = FIFO; có phần tử = trừ đúng ô/lô đã chọn. */
 export const toStockPicks = (item) =>
     selectedPicks(item).map((loc) => ({
         locationId: loc.locationId,
         batchId: loc.batchId ?? null,
     }));
 
-/** Sắp dòng vị trí theo FEFO (HSD rồi ngày nhập). */
-export function sortLocationsByFefo(locations) {
+/**
+ * Sắp dòng vị trí theo FIFO (ngày nhập): lô về kho trước đứng trước.
+ * Phải khớp ORDER BY của BE (BatchLocationRepository) — lệch nhau là thu ngân nhìn
+ * một thứ tự mà checkout lại trừ theo thứ tự khác.
+ */
+export function sortLocationsByFifo(locations) {
     return [...(locations ?? [])].sort((a, b) => {
-        const expA = a?.expiryDate ? Date.parse(a.expiryDate) : Number.POSITIVE_INFINITY;
-        const expB = b?.expiryDate ? Date.parse(b.expiryDate) : Number.POSITIVE_INFINITY;
-        if (expA !== expB) return expA - expB;
         const recvA = a?.receivedDate ? Date.parse(a.receivedDate) : Number.POSITIVE_INFINITY;
         const recvB = b?.receivedDate ? Date.parse(b.receivedDate) : Number.POSITIVE_INFINITY;
         if (recvA !== recvB) return recvA - recvB;

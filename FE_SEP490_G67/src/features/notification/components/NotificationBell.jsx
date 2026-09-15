@@ -95,14 +95,20 @@ export default function NotificationBell() {
     }, []);
 
     useEffect(() => {
+        const syncVisibleState = () => {
+            refreshUnreadCount();
+            const { isOpen: panelOpen, filter: activeFilter } = viewRef.current;
+            if (panelOpen) loadNotifications(activeFilter, 1, false);
+        };
+
+        // Trả thẳng close() làm cleanup: unmount (đăng xuất, rời layout) là đóng kênh,
+        // không để lại fetch treo hay timer nối lại chạy ngầm.
         return openNotificationStream({
-            onCreated: () => {
-                refreshUnreadCount();
-                const { isOpen: panelOpen, filter: activeFilter } = viewRef.current;
-                if (panelOpen) loadNotifications(activeFilter, 1, false);
-            },
+            onCreated: syncVisibleState,
             // Đọc ở tab khác thì badge tab này phải giảm theo.
             onRead: () => refreshUnreadCount(),
+            // Vừa nối lại sau khi đứt hoặc tab hiện lại: sự kiện trong khoảng đó đã lỡ.
+            onOpen: syncVisibleState,
         });
     }, [refreshUnreadCount, loadNotifications]);
 

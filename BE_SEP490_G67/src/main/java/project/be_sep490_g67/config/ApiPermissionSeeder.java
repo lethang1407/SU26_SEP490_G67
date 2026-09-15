@@ -69,6 +69,7 @@ public class ApiPermissionSeeder implements CommandLineRunner {
         }
 
         ensurePermission("GET", "/api/warehouse-report/**", "WAREHOUSE:VIEW", "Xem báo cáo kho hàng");
+        ensurePermission("GET", "/api/revenue-report/**", "AUDIT:VIEW", "Xem báo cáo doanh thu");
     }
 
     private void ensurePermission(String method, String path, String permissionCode, String description) {

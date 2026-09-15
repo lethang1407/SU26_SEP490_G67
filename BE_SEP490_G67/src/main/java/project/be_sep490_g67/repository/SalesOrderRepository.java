@@ -321,5 +321,110 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer>
             @Param("originalOrderIds") List<Integer> originalOrderIds,
             @Param("start") Instant start,
             @Param("end") Instant end);
-}
 
+    // Revenue Report
+    // Mọi query nhận cùng bộ lọc: allMethods = true thì bỏ qua :methods (vẫn phải truyền
+    // list khác rỗng vì IN () không hợp lệ). Nhóm PTTT: đơn bán nợ (isDebt) là DEBT bất kể
+    // paymentMethod; đơn chưa ghi PTTT coi là tiền mặt, giống sumCashSalesBetween.
+
+    /**
+     * Tổng hợp đơn bán trong kỳ. Một dòng duy nhất:
+     * [Σ totalAmount, Σ CK hóa đơn, số đơn có doanh thu (totalAmount > 0),
+     *  totalAmount lớn nhất, totalAmount nhỏ nhất trong các đơn có doanh thu].
+     * Đơn đổi trả 0đ vẫn cộng vào tổng (bằng 0) nhưng không được đếm là một đơn.
+     */
+    @Query("""
+            SELECT COALESCE(SUM(o.totalAmount), 0),
+                   COALESCE(SUM(o.discountAmount), 0),
+                   COUNT(CASE WHEN o.totalAmount > 0 THEN 1 END),
+                   MAX(CASE WHEN o.totalAmount > 0 THEN o.totalAmount END),
+                   MIN(CASE WHEN o.totalAmount > 0 THEN o.totalAmount END)
+            FROM SalesOrder o
+            WHERE o.isRemoved = false
+              AND o.orderStatus <> 'CANCELLED'
+              AND o.createdAt >= :from
+              AND o.createdAt < :to
+              AND (:allMethods = true OR (CASE WHEN o.isDebt = true THEN 'DEBT' ELSE COALESCE(o.paymentMethod, 'CASH') END) IN :methods)
+              AND (:staffId IS NULL OR o.createdBy = :staffId)
+            """)
+    List<Object[]> sumRevenueOrderTotals(
+            @Param("from") Instant from,
+            @Param("to") Instant to,
+            @Param("allMethods") boolean allMethods,
+            @Param("methods") List<String> methods,
+            @Param("staffId") Integer staffId);
+
+    /**
+     * Doanh thu theo phương thức thanh toán — tab PTTT.
+     * Mỗi phần tử: [nhóm PTTT (đơn bán nợ = DEBT, chưa ghi PTTT = CASH), Σ totalAmount, số đơn có doanh thu].
+     */
+    @Query("""
+            SELECT (CASE WHEN o.isDebt = true THEN 'DEBT' ELSE COALESCE(o.paymentMethod, 'CASH') END),
+                   COALESCE(SUM(o.totalAmount), 0),
+                   COUNT(CASE WHEN o.totalAmount > 0 THEN 1 END)
+            FROM SalesOrder o
+            WHERE o.isRemoved = false
+              AND o.orderStatus <> 'CANCELLED'
+              AND o.createdAt >= :from
+              AND o.createdAt < :to
+              AND (:allMethods = true OR (CASE WHEN o.isDebt = true THEN 'DEBT' ELSE COALESCE(o.paymentMethod, 'CASH') END) IN :methods)
+              AND (:staffId IS NULL OR o.createdBy = :staffId)
+            GROUP BY (CASE WHEN o.isDebt = true THEN 'DEBT' ELSE COALESCE(o.paymentMethod, 'CASH') END)
+            """)
+    List<Object[]> sumRevenueByPaymentMethod(
+            @Param("from") Instant from,
+            @Param("to") Instant to,
+            @Param("allMethods") boolean allMethods,
+            @Param("methods") List<String> methods,
+            @Param("staffId") Integer staffId);
+
+    /**
+     * Phiếu bán trong kỳ cho bảng chi tiết giao dịch: đơn gốc, cùng đơn đổi có tiền
+     * (hàng khách đổi ra được tính doanh thu). Đơn đổi 0đ chỉ là vỏ chứng từ nên bỏ qua.
+     */
+    @Query("""
+            SELECT o FROM SalesOrder o
+            LEFT JOIN FETCH o.customer c
+            WHERE o.isRemoved = false
+              AND o.orderStatus <> 'CANCELLED'
+              AND (o.originalSalesOrderId IS NULL OR o.totalAmount > 0)
+              AND o.createdAt >= :from
+              AND o.createdAt < :to
+              AND (:allMethods = true OR (CASE WHEN o.isDebt = true THEN 'DEBT' ELSE COALESCE(o.paymentMethod, 'CASH') END) IN :methods)
+              AND (:staffId IS NULL OR o.createdBy = :staffId)
+              AND (:keyword IS NULL OR :keyword = ''
+                   OR LOWER(o.orderCode) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                   OR LOWER(COALESCE(c.fullName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+            ORDER BY o.createdAt DESC, o.id DESC
+            """)
+    List<SalesOrder> findRevenueTransactions(
+            @Param("from") Instant from,
+            @Param("to") Instant to,
+            @Param("allMethods") boolean allMethods,
+            @Param("methods") List<String> methods,
+            @Param("staffId") Integer staffId,
+            @Param("keyword") String keyword);
+
+    /**
+     * Đơn bán nợ trong kỳ, để tính phần còn nợ chưa thu.
+     * Mỗi phần tử: [id, totalAmount, paidAmount (trả trước lúc mua)].
+     */
+    @Query("""
+            SELECT o.id, o.totalAmount, o.paidAmount
+            FROM SalesOrder o
+            WHERE o.isRemoved = false
+              AND o.orderStatus <> 'CANCELLED'
+              AND o.isDebt = true
+              AND o.totalAmount > 0
+              AND o.createdAt >= :from
+              AND o.createdAt < :to
+              AND (:allMethods = true OR 'DEBT' IN :methods)
+              AND (:staffId IS NULL OR o.createdBy = :staffId)
+            """)
+    List<Object[]> findRevenueDebtOrders(
+            @Param("from") Instant from,
+            @Param("to") Instant to,
+            @Param("allMethods") boolean allMethods,
+            @Param("methods") List<String> methods,
+            @Param("staffId") Integer staffId);
+}

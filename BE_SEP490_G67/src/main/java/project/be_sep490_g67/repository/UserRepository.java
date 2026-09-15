@@ -72,4 +72,19 @@ public interface UserRepository extends JpaRepository<User, Integer> {
               )
             """)
     List<Integer> findActiveNonAdminUserIds(@Param("adminRoleName") String adminRoleName);
+
+    /**
+     * Người có thể lập đơn bán: chủ cửa hàng (ADMIN) và nhân viên, cho dropdown
+     * "Nhân viên bán hàng" của báo cáo doanh thu.
+     */
+    @EntityGraph(attributePaths = {"roles"})
+    @Query("""
+            SELECT u FROM User u
+            WHERE u.isRemoved = false
+            AND EXISTS (
+                SELECT 1 FROM u.roles r
+                WHERE UPPER(r.name) IN ('ADMIN', 'CASHIER', 'ACCOUNTANT', 'WAREHOUSE')
+            )
+            """)
+    List<User> findAllActiveSellers();
 }
