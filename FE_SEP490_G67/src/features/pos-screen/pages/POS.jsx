@@ -1,10 +1,9 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import {
     Search, X,
     RefreshCcw,
     History,
-    Home,
     RotateCcw,
     ClipboardList,
     Trash2,
@@ -32,6 +31,7 @@ import LocationPicker from '../components/LocationPicker';
 import CustomerSearchDropdown from '../components/CustomerSearchDropdown';
 import QuickAddCustomerModal from '../components/QuickAddCustomerModal';
 import SalesOrderHistoryModal from '../components/SalesOrderHistoryModal';
+import CustomerDebtModal from '../components/CustomerDebtModal';
 import ExchangeOrder from '../components/ExchangeOrder';
 import TransferQrPanel from '../components/TransferQrPanel';
 import PosHeaderMenu from '../components/PosHeaderMenu';
@@ -84,7 +84,6 @@ function createReturnTab(id, orderId) {
 }
 
 const POSScreen = () => {
-    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [tabs, setTabs] = useState(() => {
         const saved = loadActiveCart();
@@ -195,6 +194,7 @@ const POSScreen = () => {
 
     // false | 'exchange' (chọn đơn để trả/đổi) | 'history' (chỉ tra cứu)
     const [historyOpen, setHistoryOpen] = useState(false);
+    const [customerDebtOpen, setCustomerDebtOpen] = useState(false);
     const [searchInput, setSearchInput] = useState('');
     const [posInfoError, setPosInfoError] = useState(null);
     const [cashGivenInput, setCashGivenInput] = useState('');
@@ -759,11 +759,11 @@ const POSScreen = () => {
                             </button>
                             <button
                                 className="cart-action-btn"
-                                onClick={() => navigate('/admin/orders/reconciliation')}
-                                title="Mở trang đơn hàng"
+                                onClick={() => setCustomerDebtOpen(true)}
+                                title="Xem và thu nợ khách hàng"
                             >
                                 <ClipboardList size={18} />
-                                Xem báo cáo
+                                Thu nợ
                             </button>
                         </div>
                     </div>
@@ -1092,6 +1092,10 @@ const POSScreen = () => {
                         handleOpenReturnTab(orderId);
                     }}
                 />
+            )}
+
+            {customerDebtOpen && (
+                <CustomerDebtModal onClose={() => setCustomerDebtOpen(false)} />
             )}
 
         </div>
