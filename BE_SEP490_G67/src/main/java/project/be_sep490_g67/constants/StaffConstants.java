@@ -14,9 +14,9 @@ public final class StaffConstants {
     public static final String DEFAULT_STAFF_ROLE = "staff";
 
     
+    
     public static final Set<String> STAFF_ROLE_NAMES = Set.of(
-            "staff",
-            "manager"
+            "staff"
     );
 
     public static final Map<String, String> ROLE_TO_POSITION = Map.of(
