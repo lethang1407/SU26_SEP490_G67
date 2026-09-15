@@ -67,7 +67,7 @@ const AuthProvider = ({ children }) => {
     const hasPermission = useCallback((perm) => {
         // if (!perm) return true;
         // if (!user) return false;
-        // if (user.roles?.includes('ADMIN') || user.roles?.includes('ROLE_ADMIN')) return true;
+        // if (user.roles?.includes('MANAGER') || user.roles?.includes('ROLE_MANAGER')) return true;
         // if (Array.isArray(perm)) {
         //     return perm.some(p => user.permissions?.includes(p));
         // }

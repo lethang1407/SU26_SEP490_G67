@@ -50,6 +50,25 @@ public interface ReturnOrderDetailRepository extends JpaRepository<ReturnOrderDe
             """)
     List<ReturnOrderDetail> findAwaitingProcessing(@Param("conditions") Collection<String> conditions);
 
+    @Query("""
+            SELECT rd FROM ReturnOrderDetail rd
+            LEFT JOIN rd.salesOrderDetail sod
+            LEFT JOIN sod.stockBatch sb
+            WHERE rd.isRemoved = false
+              AND rd.returnOrder.isRemoved = false
+              AND rd.processedAt IS NULL
+              AND rd.itemCondition IN :conditions
+              AND (
+                    sb.id = :batchId
+                    OR (sb IS NULL AND rd.product.id = :productId)
+                  )
+            ORDER BY rd.createdAt ASC, rd.id ASC
+            """)
+    List<ReturnOrderDetail> findAwaitingProcessingByBatchOrProduct(
+            @Param("batchId") Integer batchId,
+            @Param("productId") Integer productId,
+            @Param("conditions") Collection<String> conditions);
+
     /**
      * Giá trị hoàn của riêng một sản phẩm trong khoảng thời gian.
      *

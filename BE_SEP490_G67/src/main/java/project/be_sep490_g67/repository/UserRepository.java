@@ -38,7 +38,7 @@ public interface UserRepository extends JpaRepository<User, Integer> {
             WHERE u.isRemoved = false
             AND EXISTS (
                 SELECT 1 FROM u.roles r
-                WHERE UPPER(r.name) IN ('CASHIER', 'ACCOUNTANT', 'WAREHOUSE')
+                WHERE UPPER(r.name) IN ('STAFF', 'MANAGER')
             )
             """)
     List<User> findAllActiveStaff();
@@ -55,7 +55,7 @@ public interface UserRepository extends JpaRepository<User, Integer> {
             WHERE u.isRemoved = false
             AND EXISTS (
                 SELECT 1 FROM u.roles r
-                WHERE UPPER(r.name) = 'ADMIN'
+                WHERE UPPER(r.name) = 'MANAGER'
             )
             """)
     List<User> findAllActiveAdmins();
@@ -74,8 +74,7 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     List<Integer> findActiveNonAdminUserIds(@Param("adminRoleName") String adminRoleName);
 
     /**
-     * Người có thể lập đơn bán: chủ cửa hàng (ADMIN) và nhân viên, cho dropdown
-     * "Nhân viên bán hàng" của báo cáo doanh thu.
+     * Người có thể lập đơn bán: quản lý (MANAGER) và nhân viên (STAFF).
      */
     @EntityGraph(attributePaths = {"roles"})
     @Query("""
@@ -83,7 +82,7 @@ public interface UserRepository extends JpaRepository<User, Integer> {
             WHERE u.isRemoved = false
             AND EXISTS (
                 SELECT 1 FROM u.roles r
-                WHERE UPPER(r.name) IN ('ADMIN', 'CASHIER', 'ACCOUNTANT', 'WAREHOUSE')
+                WHERE UPPER(r.name) IN ('MANAGER', 'STAFF')
             )
             """)
     List<User> findAllActiveSellers();

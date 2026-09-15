@@ -17,8 +17,16 @@ public final class ImportReturnConstants {
 
     public static final String MOVEMENT_RESERVE = "IMPORT_RETURN_RESERVE";
     public static final String MOVEMENT_RESTORE = "IMPORT_RETURN_RESTORE";
+    /** Xuất kho khi hình thức Đổi (diễn giải báo cáo khác với Trả). */
+    public static final String MOVEMENT_EXCHANGE_OUT = "IMPORT_RETURN_EXCHANGE_OUT";
     public static final String MOVEMENT_EXCHANGE_IN = "IMPORT_RETURN_EXCHANGE_IN";
     public static final String REFERENCE_TYPE = "IMPORT_RETURN";
+
+    public static String outboundMovementType(String method) {
+        return METHOD_EXCHANGE.equals(normalizeMethod(method))
+                ? MOVEMENT_EXCHANGE_OUT
+                : MOVEMENT_RESERVE;
+    }
 
     /** Prefix lô đổi hàng (khác lô nhập LO-NH...). */
     public static final String EXCHANGE_BATCH_PREFIX = "LO-DH";

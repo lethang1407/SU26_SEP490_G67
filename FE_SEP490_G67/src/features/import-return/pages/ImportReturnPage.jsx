@@ -87,9 +87,13 @@ export default function ImportReturnPage() {
         setLoadingBatchesFor(product.id);
         try {
             const preview = await fetchInventoryCheckProductPreview(product.id);
-            const batches = (preview.batches ?? []).filter((b) => b.importOrderId);
+            const batches = (preview.batches ?? []).filter(
+                (b) => b.importOrderId && !b.isTrial,
+            );
             if (batches.length === 0) {
-                setWarning('Sản phẩm không có lô gắn phiếu nhập để đổi/trả.');
+                setWarning(
+                    'Sản phẩm không có lô thường gắn phiếu nhập để đổi/trả (lô bán thử dùng quyết toán trên phiếu nhập).',
+                );
                 return;
             }
             const first = batches[0];

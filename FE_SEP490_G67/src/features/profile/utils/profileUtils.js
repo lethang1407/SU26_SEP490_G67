@@ -1,8 +1,6 @@
 export  const ROLE_LABELS = {
-	ADMIN: 'Quản trị viên',
-	ACCOUNTANT: 'Nhân viên kế toán',
-	WAREHOUSE: 'Nhân viên kho',
-	CASHIER: 'Nhân viên thu ngân',
+	MANAGER: 'Quản lý',
+	STAFF: 'Nhân viên',
 };
 
 const STATUS_LABELS = {

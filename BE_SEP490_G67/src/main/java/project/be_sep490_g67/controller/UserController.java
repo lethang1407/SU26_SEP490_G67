@@ -30,7 +30,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 public class UserController {
     UserService userService;
 
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('STAFF:VIEW')")
+    @PreAuthorize("hasRole('MANAGER') or hasAuthority('STAFF:VIEW')")
     @GetMapping
     ApiResponse<List<User>> getUsers() {
         return ApiResponse.<List<User>>builder()

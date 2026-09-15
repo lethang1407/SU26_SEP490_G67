@@ -8,7 +8,7 @@ const MANAGE_ROUTE = '/admin/dashboard';
 
 /**
  * Nút góc phải header POS.
- * - ADMIN: giữ nút Home, bấm là về trang quản lý.
+ * - MANAGER: giữ nút Home, bấm là về trang quản lý.
  * - STAFF: nút Menu, mở 2 dòng "Quản lý" và "Tài khoản".
  */
 export default function PosHeaderMenu() {
@@ -17,8 +17,8 @@ export default function PosHeaderMenu() {
     const [open, setOpen] = useState(false);
     const wrapperRef = useRef(null);
 
-    // Bảng roles chỉ có ADMIN và STAFF. Tài khoản có cả hai quyền thì giữ giao diện ADMIN.
-    const isStaff = hasRole('STAFF') && !hasRole('ADMIN');
+    // Chỉ có MANAGER và STAFF. Tài khoản có cả hai thì giữ giao diện quản lý.
+    const isStaff = hasRole('STAFF') && !hasRole('MANAGER');
 
     useEffect(() => {
         if (!open) return undefined;

@@ -218,9 +218,9 @@ public class SalesOrderController {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
     }
 
-    // Check nếu là ADMIN được xem hoá đơn
+    // Check nếu là MANAGER được xem hoá đơn
     private boolean isPrivileged(User user) {
         return user.getRoles().stream()
-                .anyMatch(r -> "ADMIN".equals(r.getName().toUpperCase()));
+                .anyMatch(r -> "MANAGER".equals(r.getName().toUpperCase()));
     }
 }

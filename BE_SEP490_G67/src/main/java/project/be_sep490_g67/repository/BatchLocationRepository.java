@@ -18,6 +18,7 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
             JOIN FETCH bl.batch b
             JOIN FETCH b.product p
             JOIN FETCH bl.location loc
+            LEFT JOIN FETCH loc.storageZone sz
             WHERE bl.id = :id
               AND bl.isRemoved = false
             """)
@@ -59,8 +60,10 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
     Integer sumQuantityByBatchId(@Param("batchId") Integer batchId);
 
     /**
-     * Tổng tồn của nhiều sản phẩm trong một lượt truy vấn — tránh N+1 khi trả về
-     * danh sách kết quả tìm kiếm. Mỗi phần tử là [productId, tổng số lượng].
+     * Tồn bán được theo SP: Σ batch_locations, loại khu RETURN_HOLD
+     * (hàng đổi/trả bán hàng đang giữ / chờ trả NCC).
+     * Hàng đã reserve trả NCC cũng không còn trên kệ nên đã bị trừ sẵn.
+     * Mỗi phần tử là [productId, tổng số lượng].
      */
     @Query("""
             SELECT sb.product.id, COALESCE(SUM(bl.quantity), 0)
@@ -70,6 +73,7 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
             JOIN loc.storageZone sz
             WHERE sb.product.id IN :productIds
               AND bl.isRemoved = false
+              AND (sb.isRemoved = false OR sb.isRemoved IS NULL)
               AND sz.zoneType <> 'RETURN_HOLD'
             GROUP BY sb.product.id
             """)
