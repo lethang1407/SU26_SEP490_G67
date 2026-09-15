@@ -126,4 +126,15 @@ public interface ReturnOrderDetailRepository extends JpaRepository<ReturnOrderDe
     List<Object[]> sumReturnedBaseQuantityByProductsSince(
             @Param("productIds") List<Integer> productIds,
             @Param("since") Instant since);
+
+    /** Dòng hàng của nhiều phiếu trả cùng lúc, kèm sản phẩm — cho danh sách phiếu đổi trả. */
+    @Query("""
+            SELECT rd FROM ReturnOrderDetail rd
+            JOIN FETCH rd.product p
+            WHERE rd.returnOrder.id IN :returnOrderIds
+              AND rd.isRemoved = false
+            ORDER BY rd.id ASC
+            """)
+    List<ReturnOrderDetail> findByReturnOrderIdsWithProduct(
+            @Param("returnOrderIds") Collection<Integer> returnOrderIds);
 }
