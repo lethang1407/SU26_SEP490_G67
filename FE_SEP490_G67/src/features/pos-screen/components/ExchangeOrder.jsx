@@ -337,7 +337,6 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                 stockTotal: posInfo?.availableQuantity ?? null,
                 stockSales: posInfo?.salesZoneQuantity ?? null,
                 stockWarehouse: posInfo?.warehouseQuantity ?? null,
-                batchId: product.stockBatches?.[0]?.id ?? null,
                 productUnitId: defaultUnit?.id ?? null
             };
             setExchangeItems(prev => [...prev, newItem]);
@@ -458,7 +457,8 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                 })),
                 exchangeItems: exchangeItems.map(item => ({
                     productId: item.productId,
-                    batchId: toStockPicks(item)[0]?.batchId ?? item.batchId,
+                    // Rỗng = BE trừ FIFO toàn kho, giống giỏ hàng POS
+                    picks: toStockPicks(item),
                     productUnitId: item.productUnitId,
                     quantity: item.qty,
                     unitPrice: item.price,

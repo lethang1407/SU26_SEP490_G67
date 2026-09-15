@@ -136,4 +136,78 @@ public interface ReturnOrderRepository extends JpaRepository<ReturnOrder, Intege
             """)
     List<Object[]> findExchangeCreditByOriginalOrderBetween(
             @Param("from") Instant from, @Param("to") Instant to);
+
+    //Revenue Report
+    // Bộ lọc PTTT áp theo đơn gốc của phiếu trả; nhân viên là người lập phiếu trả.
+
+    /**
+     * Tổng giá trị hàng đã hoàn cho khách (refundAmount) lập trong kỳ.
+     */
+    @Query("""
+            SELECT COALESCE(SUM(r.refundAmount), 0)
+            FROM ReturnOrder r
+            LEFT JOIN r.salesOrder so
+            WHERE r.isRemoved = false
+              AND r.createdAt >= :from
+              AND r.createdAt < :to
+              AND (:allMethods = true OR (CASE WHEN so.isDebt = true THEN 'DEBT' ELSE COALESCE(so.paymentMethod, 'CASH') END) IN :methods)
+              AND (:staffId IS NULL OR r.createdBy = :staffId)
+            """)
+    BigDecimal sumRevenueRefund(
+            @Param("from") Instant from,
+            @Param("to") Instant to,
+            @Param("allMethods") boolean allMethods,
+            @Param("methods") List<String> methods,
+            @Param("staffId") Integer staffId);
+
+    /**
+     * Top lý do trả hàng — gộp theo returnReason, đếm số phiếu và tổng giá trị.
+     * Mỗi phần tử: [returnReason, count, Σ(refundAmount)].
+     */
+    @Query("""
+            SELECT COALESCE(r.returnReason, 'Không rõ lý do'),
+                   COUNT(r),
+                   COALESCE(SUM(r.refundAmount), 0)
+            FROM ReturnOrder r
+            LEFT JOIN r.salesOrder so
+            WHERE r.isRemoved = false
+              AND r.createdAt >= :from
+              AND r.createdAt < :to
+              AND (:allMethods = true OR (CASE WHEN so.isDebt = true THEN 'DEBT' ELSE COALESCE(so.paymentMethod, 'CASH') END) IN :methods)
+              AND (:staffId IS NULL OR r.createdBy = :staffId)
+            GROUP BY r.returnReason
+            ORDER BY SUM(r.refundAmount) DESC
+            """)
+    List<Object[]> topReturnReasons(
+            @Param("from") Instant from,
+            @Param("to") Instant to,
+            @Param("allMethods") boolean allMethods,
+            @Param("methods") List<String> methods,
+            @Param("staffId") Integer staffId);
+
+    /**
+     * Phiếu trả trong kỳ cho bảng chi tiết giao dịch, kèm đơn gốc và khách.
+     */
+    @Query("""
+            SELECT r FROM ReturnOrder r
+            LEFT JOIN FETCH r.salesOrder so
+            LEFT JOIN FETCH so.customer c
+            WHERE r.isRemoved = false
+              AND r.createdAt >= :from
+              AND r.createdAt < :to
+              AND (:allMethods = true OR (CASE WHEN so.isDebt = true THEN 'DEBT' ELSE COALESCE(so.paymentMethod, 'CASH') END) IN :methods)
+              AND (:staffId IS NULL OR r.createdBy = :staffId)
+              AND (:keyword IS NULL OR :keyword = ''
+                   OR LOWER(r.returnCode) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                   OR LOWER(COALESCE(so.orderCode, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                   OR LOWER(COALESCE(c.fullName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
+            ORDER BY r.createdAt DESC, r.id DESC
+            """)
+    List<ReturnOrder> findRevenueReturns(
+            @Param("from") Instant from,
+            @Param("to") Instant to,
+            @Param("allMethods") boolean allMethods,
+            @Param("methods") List<String> methods,
+            @Param("staffId") Integer staffId,
+            @Param("keyword") String keyword);
 }

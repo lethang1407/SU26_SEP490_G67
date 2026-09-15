@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import project.be_sep490_g67.entity.StockMovement;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -84,4 +85,65 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, In
             @Param("productIds") Collection<Integer> productIds,
             @Param("productIdsEmpty") boolean productIdsEmpty
     );
+
+    // ═══════════════════════ Revenue Report — COGS ═══════════════════════
+
+    /**
+     * Giá vốn hàng xuất bán trong kỳ: Σ(−quantityDelta × batch.costPerUnit) của movement SALE.
+     * costPerUnit tính theo đơn vị cơ sở, khớp với quantityDelta. Dùng movement thay vì
+     * SalesOrderDetail.stockBatch vì một dòng bán có thể trừ nhiều lô giá khác nhau.
+     *
+     * <p>referenceId trỏ đơn bán (SALES_ORDER) hoặc phiếu trả (EXCHANGE_ORDER — hàng
+     * khách đổi ra), nên bộ lọc PTTT/nhân viên phải đi qua đúng chứng từ tương ứng.
+     */
+    @Query("""
+        SELECT COALESCE(SUM(-sm.quantityDelta * sb.costPerUnit), 0)
+        FROM StockMovement sm
+        JOIN sm.stockBatch sb
+        LEFT JOIN SalesOrder so
+               ON sm.referenceType = 'SALES_ORDER' AND so.id = sm.referenceId
+        LEFT JOIN ReturnOrder ro
+               ON sm.referenceType = 'EXCHANGE_ORDER' AND ro.id = sm.referenceId
+        LEFT JOIN ro.salesOrder rso
+        WHERE (sm.isRemoved = false OR sm.isRemoved IS NULL)
+          AND sm.movementType = 'SALE'
+          AND sm.createdAt >= :from
+          AND sm.createdAt < :to
+          AND (so.id IS NULL OR so.orderStatus <> 'CANCELLED')
+          AND (:allMethods = true
+               OR (CASE WHEN so.id IS NOT NULL THEN (CASE WHEN so.isDebt = true THEN 'DEBT' ELSE COALESCE(so.paymentMethod, 'CASH') END) ELSE (CASE WHEN rso.isDebt = true THEN 'DEBT' ELSE COALESCE(rso.paymentMethod, 'CASH') END) END) IN :methods)
+          AND (:staffId IS NULL OR COALESCE(so.createdBy, ro.createdBy) = :staffId)
+        """)
+    BigDecimal sumRevenueSaleCogs(
+            @Param("from") Instant from,
+            @Param("to") Instant to,
+            @Param("allMethods") boolean allMethods,
+            @Param("methods") List<String> methods,
+            @Param("staffId") Integer staffId);
+
+    /**
+     * Giá vốn của hàng khách trả trong kỳ, cộng lại vào kho: Σ(quantityDelta × costPerUnit).
+     * Tính cả RETURN (hàng bán lại được) lẫn RETURN_HOLD_IN (hàng lỗi vào khu đổi trả),
+     * vì doanh thu đã trừ toàn bộ refund của cả hai loại.
+     */
+    @Query("""
+        SELECT COALESCE(SUM(sm.quantityDelta * sb.costPerUnit), 0)
+        FROM StockMovement sm
+        JOIN sm.stockBatch sb
+        JOIN ReturnOrder ro ON ro.id = sm.referenceId
+        LEFT JOIN ro.salesOrder rso
+        WHERE (sm.isRemoved = false OR sm.isRemoved IS NULL)
+          AND sm.movementType IN ('RETURN', 'RETURN_HOLD_IN')
+          AND sm.referenceType = 'RETURN_ORDER'
+          AND sm.createdAt >= :from
+          AND sm.createdAt < :to
+          AND (:allMethods = true OR (CASE WHEN rso.isDebt = true THEN 'DEBT' ELSE COALESCE(rso.paymentMethod, 'CASH') END) IN :methods)
+          AND (:staffId IS NULL OR ro.createdBy = :staffId)
+        """)
+    BigDecimal sumRevenueReturnCogs(
+            @Param("from") Instant from,
+            @Param("to") Instant to,
+            @Param("allMethods") boolean allMethods,
+            @Param("methods") List<String> methods,
+            @Param("staffId") Integer staffId);
 }

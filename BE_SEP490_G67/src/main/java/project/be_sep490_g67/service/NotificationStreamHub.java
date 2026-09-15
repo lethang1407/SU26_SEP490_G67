@@ -18,6 +18,20 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *
  * <p>Giữ các kết nối SSE đang mở, theo từng người dùng, để khi có thông báo mới thì
  * chuông sáng lên ngay thay vì chờ vòng polling 60 giây kế tiếp.
+ *
+ * <p><b>Vòng đời một kết nối</b> — ai kết thúc async request trong từng trường hợp:
+ * <ul>
+ *   <li><b>Client ngắt</b> (đóng tab, mất mạng): chỉ lộ ra khi ghi và nhận
+ *       {@link IOException}. Hub gỡ emitter khỏi map, <b>không</b> gọi {@code complete()}:
+ *       Tomcat đã tự báo lỗi cho request, còn {@code complete()} sẽ flush vào socket
+ *       chết và sinh thêm một lỗi nữa (Spring 7 không còn chặn trường hợp này).</li>
+ *   <li><b>Gửi lỗi không phải IO</b> (converter hỏng, emitter đã đóng): không ai khác kết
+ *       thúc request, nên hub gỡ rồi tự {@code complete()}.</li>
+ *   <li><b>Hết hạn</b>: hub gỡ rồi {@code complete()}. Bỏ bước này thì Spring ném
+ *       {@code AsyncRequestTimeoutException}, rơi vào exception handler và cố ghi JSON vào
+ *       luồng {@code text/event-stream}.</li>
+ *   <li><b>Kết thúc bình thường / container báo lỗi</b>: request đã xong, chỉ gỡ.</li>
+ * </ul>
  */
 @Component
 @Slf4j
@@ -47,8 +61,11 @@ public class NotificationStreamHub {
         // Cả ba callback đều phải dọn: thiếu một cái là rò rỉ bộ nhớ chậm, mỗi ngày
         // một ít, và chỉ lộ ra sau nhiều tuần chạy.
         emitter.onCompletion(() -> remove(userId, emitter));
-        emitter.onTimeout(() -> remove(userId, emitter));
         emitter.onError(throwable -> remove(userId, emitter));
+        emitter.onTimeout(() -> {
+            remove(userId, emitter);
+            complete(emitter);
+        });
         return emitter;
     }
 
@@ -67,7 +84,7 @@ public class NotificationStreamHub {
     }
 
     /**
-     * Nhịp tim giữ kết nối sống.
+     * Nhịp tim giữ kết nối sống — và cũng là thứ phát hiện kết nối đã chết.
      */
     @Scheduled(fixedRate = HEARTBEAT_MS)
     public void heartbeat() {
@@ -93,12 +110,30 @@ public class NotificationStreamHub {
         for (SseEmitter emitter : List.copyOf(emitters)) {
             try {
                 emitter.send(event);
-            } catch (IOException | RuntimeException exception) {
-                // Kết nối chết chỉ lộ ra lúc ghi.
+            } catch (IOException exception) {
+                // Client đã ngắt: chuyện bình thường của SSE, không phải sự cố — DEBUG.
+                // Kết nối coi như đã chết từ đây; container tự kết thúc request.
+                log.debug("Client đã ngắt kết nối thông báo của người dùng {}: {}",
+                        userId, exception.getMessage());
+                remove(userId, emitter);
+            } catch (RuntimeException exception) {
                 log.warn("Gỡ kết nối thông báo hỏng của người dùng {}: {}",
                         userId, exception.getMessage());
                 remove(userId, emitter);
+                complete(emitter);
             }
+        }
+    }
+
+    /**
+     * Kết thúc request sạch sẽ. Dùng {@code complete()} chứ không {@code completeWithError()}:
+     * cách sau dispatch lỗi vào exception handler — đúng thứ đang phải tránh.
+     */
+    private void complete(SseEmitter emitter) {
+        try {
+            emitter.complete();
+        } catch (RuntimeException exception) {
+            log.debug("Kết thúc kết nối thông báo đã đóng sẵn: {}", exception.getMessage());
         }
     }
 

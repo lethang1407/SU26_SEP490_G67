@@ -103,10 +103,37 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
                     AND  sb.isRemoved = false
                     AND ls.isRemoved = false
                     AND sz.zoneType <> 'RETURN_HOLD'
-                    ORDER BY sb.expiryDate ASC, sb.receivedDate ASC
+                    ORDER BY CASE WHEN sb.receivedDate IS NULL THEN 1 ELSE 0 END,
+                             sb.receivedDate ASC, sb.id ASC
                     """
     )
     List<BatchLocation> findAvailableByProductId(@Param("productId") Integer productId);
+
+    /**
+     * Hàng BÁN ĐƯỢC của một SP, sắp FIFO: lô nhập trước bán trước theo
+     * {@code received_date}. Lô chưa có ngày nhập xuống cuối (MySQL xếp NULL lên đầu khi
+     * ASC - để nguyên thì lô không rõ ngày nhập lại bị bán trước lô nhập sớm nhất).
+     * Lô đã hết hạn vẫn bị loại hẳn khỏi đường bán.
+     *
+     * <p>Tách khỏi {@link #findAvailableByProductId} vì trả hàng NCC và kiểm kho vẫn phải
+     * nhìn thấy lô quá hạn; chỉ đường bán hàng mới được lọc.
+     */
+    @Query("""
+            SELECT bl FROM BatchLocation bl
+            JOIN FETCH bl.batch sb
+            JOIN FETCH bl.location ls
+            JOIN FETCH ls.storageZone sz
+            WHERE sb.product.id = :productId
+              AND bl.quantity > 0
+              AND bl.isRemoved = false
+              AND sb.isRemoved = false
+              AND ls.isRemoved = false
+              AND sz.zoneType <> 'RETURN_HOLD'
+              AND (sb.expiryDate IS NULL OR sb.expiryDate >= CURRENT_DATE)
+            ORDER BY CASE WHEN sb.receivedDate IS NULL THEN 1 ELSE 0 END,
+                     sb.receivedDate ASC, sb.id ASC
+            """)
+    List<BatchLocation> findSellableByProductId(@Param("productId") Integer productId);
     @Query("""
         SELECT COALESCE(SUM(bl.quantity), 0)
         FROM BatchLocation bl
@@ -121,7 +148,7 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
     Long sumOnHandByProductId(@Param("productId") Integer productId);
 
     /**
-     * Ô đang giữ nhiều hàng nhất của lô — dùng khi nhập hàng trả bán lại được về kho.
+     * Ô đang giữ nhiều hàng nhất của lô - dùng khi nhập hàng trả bán lại được về kho.
      * Loại khu RT để hàng RESELLABLE không bị nhập ngược vào chỗ chứa hàng hỏng.
      */
     @Query("""
@@ -138,7 +165,8 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
 
     /**
      * Mọi dòng (vị trí, lô) còn hàng của một SP — dùng cho dropdown chọn vị trí ở POS.
-     * Sắp FEFO theo HSD rồi ngày nhập; loại khu RETURN_HOLD.
+     * Sắp FIFO theo ngày nhập (lô chưa có ngày nhập xuống cuối); loại khu RETURN_HOLD
+     * và lô đã hết hạn.
      */
     @Query("""
             SELECT bl FROM BatchLocation bl
@@ -152,12 +180,14 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
               AND loc.isRemoved = false
               AND (sz.isRemoved = false OR sz.isRemoved IS NULL)
               AND sz.zoneType <> 'RETURN_HOLD'
-            ORDER BY sb.expiryDate ASC, sb.receivedDate ASC, sb.id ASC
+              AND (sb.expiryDate IS NULL OR sb.expiryDate >= CURRENT_DATE)
+            ORDER BY CASE WHEN sb.receivedDate IS NULL THEN 1 ELSE 0 END,
+                     sb.receivedDate ASC, sb.id ASC
             """)
     List<BatchLocation> findPosLinesByProductId(@Param("productId") Integer productId);
 
     /**
-     * Hàng còn lại của một SP tại đúng một ô, FEFO theo HSD rồi ngày nhập.
+     * Hàng còn lại của một SP tại đúng một ô, FIFO theo ngày nhập.
      * Dùng khi thu ngân đã chốt vị trí lấy hàng trên POS.
      */
     @Query("""
@@ -172,7 +202,9 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
               AND sb.isRemoved = false
               AND loc.isRemoved = false
               AND sz.zoneType <> 'RETURN_HOLD'
-            ORDER BY sb.expiryDate ASC, sb.receivedDate ASC, sb.id ASC
+              AND (sb.expiryDate IS NULL OR sb.expiryDate >= CURRENT_DATE)
+            ORDER BY CASE WHEN sb.receivedDate IS NULL THEN 1 ELSE 0 END,
+                     sb.receivedDate ASC, sb.id ASC
             """)
     List<BatchLocation> findAvailableByProductIdAndLocationId(
             @Param("productId") Integer productId,

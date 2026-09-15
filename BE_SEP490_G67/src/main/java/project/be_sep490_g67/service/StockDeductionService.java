@@ -60,12 +60,23 @@ public class StockDeductionService {
      *
      * @param picks các lô-tại-ô thu ngân đã tick, theo đúng thứ tự muốn lấy.
      *              Trừ hết cái trước rồi mới sang cái sau. Lô null thì lấy FIFO
-     *              trong ô đó. Null/rỗng thì trừ FEFO toàn kho như cũ.
+     *              trong ô đó. Null/rỗng thì trừ FEFO toàn kho (bỏ qua lô đã hết hạn).
      * @return lô đầu tiên bị trừ, dùng để gắn vào chi tiết đơn hàng.
      */
     @Transactional
     public Integer deductStockFromPicks(Integer productId, Integer quantityNeed, Integer orderId,
                                         Integer userId, List<StockPick> picks) {
+        return deductStockFromPicks(productId, quantityNeed, orderId, userId, picks, "SALES_ORDER");
+    }
+
+    /**
+     * @param referenceType chứng từ gây ra việc trừ kho: "SALES_ORDER" cho đơn bán thường,
+     *                      "EXCHANGE_ORDER" cho hàng khách lấy đi ở phiếu đổi trả. Báo cáo
+     *                      kho dựa vào cặp referenceType/referenceId để tra ngược mã chứng từ.
+     */
+    @Transactional
+    public Integer deductStockFromPicks(Integer productId, Integer quantityNeed, Integer orderId,
+                                        Integer userId, List<StockPick> picks, String referenceType) {
         List<BatchLocation> availableList = resolveAvailable(productId, picks);
 
         //Check stock
@@ -104,7 +115,7 @@ public class StockDeductionService {
                     .quantityDelta(-deduct)
                     .stockAfter(stockAfter)
                     .movementType("SALE")
-                    .referenceType("SALES_ORDER")
+                    .referenceType(referenceType)
                     .referenceId(orderId)
                     .build();
 
@@ -124,7 +135,7 @@ public class StockDeductionService {
      */
     private List<BatchLocation> resolveAvailable(Integer productId, List<StockPick> picks) {
         if (picks == null || picks.isEmpty()) {
-            return batchLocationRepository.findAvailableByProductId(productId);
+            return batchLocationRepository.findSellableByProductId(productId);
         }
         List<BatchLocation> merged = new ArrayList<>();
         Set<Integer> seen = new LinkedHashSet<>();
@@ -149,9 +160,9 @@ public class StockDeductionService {
     private String buildShortageMessage(Integer productId, int quantityNeed, int totalAvailable,
                                         List<StockPick> picks, List<BatchLocation> availableList) {
         if (picks == null || picks.isEmpty()) {
-//            return "Sản phẩm với ID: " + productId
-//                    + " Không đủ tồn kho. Cần " + quantityNeed + ", nhưng chỉ còn " + totalAvailable;
-            return "Không đủ tồn kho";
+            // Không nhắc lại số khách cần: thu ngân đang nhìn thẳng vào ô số lượng,
+            // cái họ thiếu là con số còn bán được để chốt lại với khách.
+            return "Số lượng sản phẩm không đủ, chỉ còn " + totalAvailable + " sản phẩm";
         }
 
         String locationLabels = availableList.stream()
@@ -168,7 +179,7 @@ public class StockDeductionService {
         Set<Integer> pickedBatchLocationIds = availableList.stream()
                 .map(BatchLocation::getId)
                 .collect(Collectors.toSet());
-        int elsewhere = batchLocationRepository.findAvailableByProductId(productId).stream()
+        int elsewhere = batchLocationRepository.findSellableByProductId(productId).stream()
                 .filter(bl -> !pickedBatchLocationIds.contains(bl.getId()))
                 .mapToInt(BatchLocation::getQuantity)
                 .sum();

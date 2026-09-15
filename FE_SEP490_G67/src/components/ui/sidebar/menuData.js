@@ -32,20 +32,20 @@ export const menus = [
                 path: "/admin/reports/warehouse",
                 permission: "WAREHOUSE:VIEW"
             },
-            {
-                title: "Báo cáo Bán hàng",
-                path: "/admin/reports/sales",
-                permission: "SALES_ORDER:VIEW_ALL"
-            }
+            // {
+            //     title: "Báo cáo Bán hàng",
+            //     path: "/admin/reports/sales",
+            //     permission: "SALES_ORDER:VIEW_ALL"
+            // }
         ]
     },
-    {
-        id: "orders",
-        title: "Đơn hàng",
-        icon: ShoppingCart,
-        path: "/admin/orders/reconciliation",
-        permission: "AUDIT:VIEW"
-    },
+    // {
+    //     id: "orders",
+    //     title: "Đơn hàng",
+    //     icon: ShoppingCart,
+    //     path: "/admin/orders/reconciliation",
+    //     permission: "AUDIT:VIEW"
+    // },
     {
         id: "products",
         title: "Sản phẩm",
@@ -86,7 +86,7 @@ export const menus = [
         ]
     },
     {
-        id:"supplier",
+        id: "supplier",
         title: "Nhà cung cấp",
         icon: Users,
         path: "/admin/warehouse/supplier",
