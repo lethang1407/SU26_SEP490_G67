@@ -274,7 +274,7 @@ public class SalesOrderService {
         }
         return userRepository.findActiveStaffByIdWithRoles(userId)
                 .map(user -> user.getRoles().stream()
-                        .anyMatch(role -> "ADMIN".equalsIgnoreCase(role.getName())))
+                        .anyMatch(role -> "MANAGER".equalsIgnoreCase(role.getName())))
                 .orElse(false);
     }
 

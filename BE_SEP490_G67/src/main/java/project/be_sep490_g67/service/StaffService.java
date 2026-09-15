@@ -239,6 +239,6 @@ public class StaffService {
         }
 
         return user.getRoles().stream()
-                .allMatch(role -> StaffConstants.ADMIN_ROLE_NAME.equalsIgnoreCase(role.getName()));
+                .allMatch(role -> StaffConstants.MANAGER_ROLE_NAME.equalsIgnoreCase(role.getName()));
     }
 }

@@ -6,11 +6,11 @@
 export const ROUTE_PERMISSIONS = [
   // Dashboard & System Config
   { path: '/admin/dashboard', permission: null },
-  { path: '/admin/api-permissions', role: ['ADMIN'] },
-  { path: '/admin/store-info', role: ['ADMIN'] },
+  { path: '/admin/api-permissions', role: ['MANAGER'] },
+  { path: '/admin/store-info', role: ['MANAGER'] },
 
   // Staff Management
-  { path: '/admin/staff/add', role: ['ADMIN'], permission: 'STAFF:CREATE' },
+  { path: '/admin/staff/add', role: ['MANAGER'], permission: 'STAFF:CREATE' },
   { path: '/admin/staff/:id', permission: 'STAFF:VIEW' },
   { path: '/admin/staff', permission: 'STAFF:VIEW' },
 

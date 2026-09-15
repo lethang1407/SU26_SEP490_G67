@@ -119,7 +119,7 @@ public class CustomerService {
         }
         return userRepository.findActiveByUsernameWithRole(authentication.getName())
                 .map(user -> user.getRoles().stream()
-                        .anyMatch(role -> "ADMIN".equalsIgnoreCase(role.getName())))
+                        .anyMatch(role -> "MANAGER".equalsIgnoreCase(role.getName())))
                 .orElse(false);
     }
 
