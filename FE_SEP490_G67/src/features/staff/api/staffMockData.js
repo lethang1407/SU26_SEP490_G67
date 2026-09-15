@@ -3,45 +3,25 @@ export const STAFF_LIST = [
         id: 1,
         name: 'Nguyễn Thành Nam',
         phone: '0912 345 678',
-        position: 'Thu ngân',
+        position: 'Nhân viên',
         username: 'nv.thanhnam',
         password: '12345678',
-        systemRole: 'cashier',
+        systemRole: 'staff',
         permissions: ['pos'],
     },
     {
         id: 2,
         name: 'Nguyễn Thành A',
         phone: '0912 345 678',
-        position: 'Kiểm kho',
+        position: 'Quản lý',
         username: 'nv.thanha',
         password: '12345678',
-        systemRole: 'warehouse',
+        systemRole: 'manager',
         permissions: ['warehouse'],
-    },
-    {
-        id: 3,
-        name: 'Nguyễn Thành B',
-        phone: '0912 345 678',
-        position: 'Kế toán',
-        username: 'nv.thanhb',
-        password: '12345678',
-        systemRole: 'accountant',
-        permissions: ['reports'],
-    },
-    {
-        id: 4,
-        name: 'Nguyễn Thành C',
-        phone: '0912 345 678',
-        position: 'Thu ngân',
-        username: 'nv.thanhc',
-        password: '12345678',
-        systemRole: 'pos',
-        permissions: ['pos', 'products'],
     },
 ];
 
-export const STAFF_POSITIONS = ['Thu ngân', 'Kiểm kho', 'Kế toán'];
+export const STAFF_POSITIONS = ['Nhân viên', 'Quản lý'];
 
 export const ALL_POSITIONS = 'Tất cả vị trí';
 

@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Spinner } from 'react-bootstrap';
 import { Plus, Settings2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import AdjustStorageLocationModal from '../components/AdjustStorageLocationModal';
-import { fetchStorageLocations, fetchUnplacedBatches, setStorageLocationFull } from '../api';
+import {
+    cancelReturnHold,
+    createSupplierReturnFromHold,
+    fetchStorageLocations,
+    fetchUnplacedBatches,
+    releaseReturnHold,
+    setStorageLocationFull,
+} from '../api';
 import CreateStorageLocationModal from '../components/CreateStorageLocationModal';
 import StorageLocationDetailModal from '../components/StorageLocationDetailModal';
 import StorageLocationGrid from '../components/StorageLocationGrid';
@@ -13,6 +21,7 @@ import ReturnHoldPanel from '../components/ReturnHoldPanel';
 import UnplacedBatchesPanel from '../components/UnplacedBatchesPanel';
 import ZoneDetailModal from '../components/ZoneDetailModal';
 import { LOCATION_STATUS } from '../constants';
+import { IMPORT_RETURN_ROUTES } from '../../import-return/constants';
 import {
     filterStorageLocations,
     getFloorOptions,
@@ -61,6 +70,7 @@ function buildLocationSearchSuggestions(locations, keyword) {
 }
 
 export default function StorageLocationListPage() {
+    const navigate = useNavigate();
     const [allLocations, setAllLocations] = useState([]);
     const [unplacedBatches, setUnplacedBatches] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -190,6 +200,30 @@ export default function StorageLocationListPage() {
         setShowAdjustModal(false);
         setDraftLocations(null);
         setReloadKey((prev) => prev + 1);
+    };
+
+    const handleReturnHoldProcessed = async (mode, payload) => {
+        try {
+            if (mode === 'release') {
+                await releaseReturnHold(payload);
+            } else if (mode === 'cancel') {
+                await cancelReturnHold(payload);
+            } else if (mode === 'supplier') {
+                const result = await createSupplierReturnFromHold(payload);
+                setReloadKey((prev) => prev + 1);
+                if (result?.id) {
+                    navigate(IMPORT_RETURN_ROUTES.page, {
+                        state: { highlightReturnId: result.id },
+                    });
+                }
+                return;
+            }
+            setReloadKey((prev) => prev + 1);
+        } catch (err) {
+            throw new Error(
+                getApiErrorMessage(err, 'Không xử lý được hàng đổi trả. Vui lòng thử lại.'),
+            );
+        }
     };
 
     const handleApplyFilters = () => {
@@ -350,7 +384,9 @@ export default function StorageLocationListPage() {
 
                                 <ReturnHoldPanel
                                     location={returnHoldLocation}
+                                    locations={locationsData}
                                     loading={isLoading}
+                                    onProcessed={handleReturnHoldProcessed}
                                 />
                             </div>
                         </>

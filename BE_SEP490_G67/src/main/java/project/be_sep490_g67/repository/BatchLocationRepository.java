@@ -18,6 +18,7 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
             JOIN FETCH bl.batch b
             JOIN FETCH b.product p
             JOIN FETCH bl.location loc
+            LEFT JOIN FETCH loc.storageZone sz
             WHERE bl.id = :id
               AND bl.isRemoved = false
             """)

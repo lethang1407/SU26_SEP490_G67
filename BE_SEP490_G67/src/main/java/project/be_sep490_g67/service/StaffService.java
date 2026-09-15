@@ -159,13 +159,14 @@ public class StaffService {
     }
 
     private Set<Role> resolveStaffRoles(List<String> requestedRoles) {
-        List<String> normalizedRoles = requestedRoles.stream()
+        List<String> normalizedRoles = (requestedRoles == null ? List.<String>of() : requestedRoles).stream()
+                .filter(role -> role != null && !role.isBlank())
                 .map(role -> role.trim().toLowerCase(Locale.ROOT))
                 .distinct()
                 .toList();
 
         if (normalizedRoles.isEmpty()) {
-            throw new AppException(ErrorCode.ROLE_NOT_FOUND);
+            normalizedRoles = List.of(StaffConstants.DEFAULT_STAFF_ROLE);
         }
 
         LinkedHashSet<Role> roles = new LinkedHashSet<>();
