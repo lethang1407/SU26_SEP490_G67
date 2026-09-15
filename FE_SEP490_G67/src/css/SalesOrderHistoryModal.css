@@ -9,6 +9,138 @@
     animation: hist-fade-in 0.15s ease;
 }
 
+/* Debt alerts must apply on desktop as well as mobile. */
+.customer-debt-modal .customer-debt-table tbody tr.customer-debt-row--unstable>td {
+    background-color: #fef3c7 !important;
+}
+
+.customer-debt-modal .customer-debt-table tbody tr.customer-debt-row--denied>td {
+    background-color: #fee2e2 !important;
+}
+
+.customer-debt-modal .customer-debt-action-cell {
+    width: 1%;
+    white-space: nowrap;
+    text-align: right;
+}
+
+.customer-debt-modal .hist-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    color: #2563eb;
+    background: #fff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.customer-debt-modal .customer-debt-payment-btn {
+    margin-left: 6px;
+    color: #15803d;
+    border-color: #bbf7d0;
+}
+
+.customer-debt-modal .customer-debt-payment-btn:hover:not(:disabled) {
+    color: #166534;
+    background: #f0fdf4;
+}
+
+.customer-debt-modal .customer-debt-payment-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.customer-debt-modal .hist-action-btn:hover {
+    color: #1d4ed8;
+    background: #eff6ff;
+}
+
+.customer-debt-orders-overlay {
+    z-index: 1100;
+}
+
+.customer-debt-orders-modal {
+    width: 1160px;
+}
+
+.customer-debt-orders-table {
+    min-width: 900px;
+}
+
+.customer-debt-detail-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 10px 24px 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.customer-debt-detail-tabs button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 14px;
+    color: #6b7280;
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.customer-debt-detail-tabs button.active {
+    color: #2563eb;
+    border-bottom-color: #2563eb;
+    font-weight: 600;
+}
+
+.customer-debt-payment-table {
+    min-width: 920px;
+}
+
+.customer-debt-payment-amount {
+    color: #15803d !important;
+    font-weight: 700;
+}
+
+.customer-debt-order-remaining {
+    color: #b45309 !important;
+    font-weight: 700;
+}
+
+.customer-debt-order-code {
+    padding: 0;
+    background: none;
+    border: 0;
+    font: inherit;
+    text-align: left;
+}
+
+.customer-debt-order-status {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 20px;
+    color: #92400e;
+    background: #fef3c7;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.customer-debt-order-status--paid {
+    color: #166534;
+    background: #dcfce7;
+}
+
+.customer-debt-order-status--overdue,
+.customer-debt-order-status--unpaid {
+    color: #991b1b;
+    background: #fee2e2;
+}
+
+/* Debt row alerts apply at every viewport size, not only the mobile modal layout. */
 @keyframes hist-fade-in {
     from {
         opacity: 0;
@@ -522,7 +654,106 @@
         border-radius: 0;
     }
 
+    /* Customer debt modal keeps the same shell as order history while using debt-specific filters and columns. */
+    .customer-debt-modal {
+        width: 1180px;
+    }
+
+    .customer-debt-modal .customer-debt-filters {
+        align-items: center;
+    }
+
+    .customer-debt-modal .customer-debt-search {
+        min-width: 240px;
+    }
+
+    .customer-debt-modal .customer-debt-select {
+        height: 34px;
+        padding: 0 9px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        background: #fff;
+        color: #374151;
+        font-size: 13px;
+        outline: none;
+    }
+
+    .customer-debt-modal .customer-debt-select:focus,
+    .customer-debt-modal .customer-debt-date-filters input:focus {
+        border-color: #2563eb;
+    }
+
+    .customer-debt-modal .customer-debt-table {
+        min-width: 920px;
+    }
+
+    .customer-debt-modal .customer-debt-table tbody tr.customer-debt-row--unstable td {
+        background: #fef3c7;
+    }
+
+    .customer-debt-modal .customer-debt-table tbody tr.customer-debt-row--denied td {
+        background: #fee2e2;
+    }
+
+    .customer-debt-modal .customer-debt-error {
+        margin: 0;
+        padding: 12px;
+    }
+
+    .customer-debt-modal .customer-debt-empty {
+        height: 180px;
+    }
+
+    .customer-debt-modal .customer-debt-pagination span {
+        min-width: 86px;
+        text-align: center;
+        color: #6b7280;
+        font-size: 13px;
+    }
+
+    @media (max-width: 640px) {
+        .customer-debt-modal {
+            width: 100vw;
+        }
+    }
+
     .hist-date-pills {
         flex-wrap: wrap;
     }
+}
+
+.customer-debt-modal .customer-debt-table {
+    width: 100%;
+    min-width: 920px;
+    table-layout: fixed;
+}
+
+.customer-debt-modal .customer-debt-table th:nth-child(1),
+.customer-debt-modal .customer-debt-table td:nth-child(1) {
+    width: 17%;
+}
+
+.customer-debt-modal .customer-debt-table th:nth-child(2),
+.customer-debt-modal .customer-debt-table td:nth-child(2) {
+    width: 14%;
+}
+
+.customer-debt-modal .customer-debt-table th:nth-child(3),
+.customer-debt-modal .customer-debt-table td:nth-child(3) {
+    width: 15%;
+}
+
+.customer-debt-modal .customer-debt-table th:nth-child(4),
+.customer-debt-modal .customer-debt-table td:nth-child(4) {
+    width: 15%;
+}
+
+.customer-debt-modal .customer-debt-table th:nth-child(5),
+.customer-debt-modal .customer-debt-table td:nth-child(5) {
+    width: 10%;
+}
+
+.customer-debt-modal .customer-debt-table th:nth-child(6),
+.customer-debt-modal .customer-debt-table td:nth-child(6) {
+    width: 19%;
 }

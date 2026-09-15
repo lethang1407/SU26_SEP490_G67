@@ -22,11 +22,17 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
         """)
     List<StockBatch> findAvailableByProductId(@Param("productId") Integer productId);
 
+    /**
+     * Tồn sổ cái theo SP = Σ stock_movements.quantity_delta (mọi khu, kể cả RT).
+     * Không dùng cho dropdown POS — POS dùng {@code BatchLocationRepository#sumQuantityByProductIds}.
+     */
     @Query("""
-            SELECT sb.product.id, COALESCE(SUM(sb.quantityIn), 0)
-            FROM StockBatch sb
+            SELECT sb.product.id, COALESCE(SUM(sm.quantityDelta), 0)
+            FROM StockMovement sm
+            JOIN sm.stockBatch sb
             WHERE sb.product.id IN :productIds
               AND sb.isRemoved = false
+              AND (sm.isRemoved = false OR sm.isRemoved IS NULL)
             GROUP BY sb.product.id
             """)
     List<Object[]> sumStockByProductIds(@Param("productIds") List<Integer> productIds);

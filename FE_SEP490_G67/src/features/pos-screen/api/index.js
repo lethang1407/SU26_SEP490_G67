@@ -26,6 +26,23 @@ export async function searchCustomers(keyword, size = 8) {
     return response.result?.content ?? [];
 }
 
+export async function getCustomerDebts(params = {}) {
+    const response = await api.get('/customers/debts', { params });
+    return response.result;
+}
+
+export async function getCustomerDebtOrders(customerId, params = {}) {
+    const response = await api.get(`/customers/${customerId}/debt-orders`, { params });
+    return response.result;
+}
+
+export async function getCustomerDebtPaymentHistory(customerId, params = {}) {
+    const response = await api.get('/debt-payments', {
+        params: { ...params, customerId },
+    });
+    return response.result;
+}
+
 export async function createQuickCustomer(payload) {
     const response = await api.post('/customers', payload);
     return response.result;

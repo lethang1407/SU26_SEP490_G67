@@ -14,7 +14,7 @@ const LEVEL_META = {
 
 /**
  * Đỏ   = bị cấm nợ (allowDebt = false) -> không được ghi nợ thêm
- * Vàng = đang nợ, kể cả khi có đơn quá hạn -> vẫn cho nợ, cần xác nhận
+ * Vàng = đang nợ, kể cả khi có đơn lâu -> vẫn cho nợ, cần xác nhận
  * Xanh = không nợ -> cho nợ
  */
 export function debtLevel(customer) {
@@ -59,7 +59,7 @@ export function debtSummaryText(customer) {
     }
 
     const parts = [`${orders} đơn nợ`, formatMoney(total)];
-    if (overdue > 0) parts.unshift(`${overdue} đơn quá hạn`);
+    if (overdue > 0) parts.unshift(`${overdue} đơn lâu`);
     if (customer.allowDebt === false) parts.push('không được phép nợ');
     return parts.join(' · ');
 }
@@ -75,13 +75,13 @@ export function debtBlockReason(customer) {
 }
 
 /**
- * Cảnh báo (không chặn) khi khách còn đơn quá hạn — thu ngân vẫn ghi nợ được,
+ * Cảnh báo (không chặn) khi khách còn đơn lâu — thu ngân vẫn ghi nợ được,
  * nhưng nên biết để nhắc khách trả nợ cũ.
  */
 export function debtOverdueWarning(customer) {
     if (!isOverdueCustomer(customer)) return null;
     const overdue = Number(customer.totalOverdueOrders ?? 0);
     return overdue > 0
-        ? `${customer.fullName} đang có ${overdue} đơn nợ quá hạn — nên nhắc khách thu xếp trả nợ cũ.`
-        : `${customer.fullName} đang có đơn nợ quá hạn — nên nhắc khách thu xếp trả nợ cũ.`;
+        ? `${customer.fullName} đang có ${overdue} đơn nợ lâu — nên nhắc khách thu xếp trả nợ cũ.`
+        : `${customer.fullName} đang có đơn nợ lâu — nên nhắc khách thu xếp trả nợ cũ.`;
 }
