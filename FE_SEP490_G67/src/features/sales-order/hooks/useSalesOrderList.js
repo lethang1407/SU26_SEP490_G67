@@ -56,7 +56,8 @@ export function useSalesOrderList() {
 
         getSalesOrders(params)
             .then((result) => setData(result ?? EMPTY_PAGE))
-            .catch(() => {
+            .catch((error) => {
+                console.error("Failed to fetch sales orders:", error);
                 setData(EMPTY_PAGE);
                 setError('Không thể tải danh sách đơn hàng');
             })

@@ -6,10 +6,10 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.be_sep490_g67.dto.response.RestockAdviceResponse;
+import project.be_sep490_g67.entity.AlertThresholdConfig;
 import project.be_sep490_g67.entity.Product;
 import project.be_sep490_g67.entity.RestockAdviceDismissal;
 import project.be_sep490_g67.entity.ProductUnit;
-import project.be_sep490_g67.entity.StoreConfig;
 import project.be_sep490_g67.enums.RestockPriority;
 import project.be_sep490_g67.enums.StockState;
 import project.be_sep490_g67.exception.AppException;
@@ -58,26 +58,26 @@ public class RestockAdviceService {
     SalesOrderDetailRepository salesOrderDetailRepository;
     ReturnOrderDetailRepository returnOrderDetailRepository;
     ImportOrderDetailRepository importOrderDetailRepository;
-    StoreConfigRepository storeConfigRepository;
+    AlertThresholdConfigRepository alertThresholdConfigRepository;
     RestockAdviceDismissalRepository dismissalRepository;
 
     /**
-     * @param limit      số dòng trả về; null thì lấy từ store_config
-     * @param windowDays cửa sổ đánh giá sản lượng bán; null thì lấy từ store_config
+     * @param limit      số dòng trả về; null thì lấy từ alert_threshold_config
+     * @param windowDays cửa sổ đánh giá sản lượng bán; null thì lấy từ alert_threshold_config
      */
     @Transactional(readOnly = true)
     public RestockAdviceResponse getRestockAdvice(Integer limit, Integer windowDays) {
-        StoreConfig config = storeConfigRepository.findFirstByOrderByIdAsc().orElse(null);
+        AlertThresholdConfig config = alertThresholdConfigRepository.findFirstByOrderByIdAsc().orElse(null);
 
         int window = positiveOrDefault(
-                windowDays != null ? windowDays : configValue(config, StoreConfig::getHighVolumeWindowDays),
+                windowDays != null ? windowDays : configValue(config, AlertThresholdConfig::getHighVolumeWindowDays),
                 DEFAULT_WINDOW_DAYS);
         int highVolumeUnits = positiveOrDefault(
-                configValue(config, StoreConfig::getHighVolumeSoldUnits), DEFAULT_HIGH_VOLUME_UNITS);
+                configValue(config, AlertThresholdConfig::getHighVolumeSoldUnits), DEFAULT_HIGH_VOLUME_UNITS);
         int slowMovingUnits = positiveOrDefault(
-                configValue(config, StoreConfig::getSlowMovingSoldUnits), DEFAULT_SLOW_MOVING_UNITS);
+                configValue(config, AlertThresholdConfig::getSlowMovingSoldUnits), DEFAULT_SLOW_MOVING_UNITS);
         int previewLimit = positiveOrDefault(
-                limit != null ? limit : configValue(config, StoreConfig::getRestockAdvicePreviewLimit),
+                limit != null ? limit : configValue(config, AlertThresholdConfig::getRestockAdvicePreviewLimit),
                 DEFAULT_PREVIEW_LIMIT);
 
         // Ngưỡng "bán tốt" phải cao hơn ngưỡng "bán chậm", nếu không mức "cần xem xét"
@@ -386,7 +386,8 @@ public class RestockAdviceService {
                 .build();
     }
 
-    private Integer configValue(StoreConfig config, java.util.function.Function<StoreConfig, Integer> getter) {
+    private Integer configValue(AlertThresholdConfig config,
+                                java.util.function.Function<AlertThresholdConfig, Integer> getter) {
         return config == null ? null : getter.apply(config);
     }
 

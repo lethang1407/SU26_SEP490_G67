@@ -1,12 +1,19 @@
-import { Trash2 } from 'lucide-react';
+import { Minus, Plus, Trash2 } from 'lucide-react';
 import {
     formatCurrency,
     formatMoneyInput,
     parseMoneyInput,
+    parseQtyInput,
+    normalizeQty,
+    MAX_IMPORT_QUANTITY,
     suggestCostForUnit,
     getLinePriceWarning,
-    formatProductAttributes,
+    resolveLineType,
 } from '../utils/importOrderUtils';
+
+function bumpQty(current, delta) {
+    return Math.min(MAX_IMPORT_QUANTITY, Math.max(1, normalizeQty(current) + delta));
+}
 
 export default function ImportOrderLineTable({
     lines,
@@ -21,24 +28,40 @@ export default function ImportOrderLineTable({
     const isPromoSection = section === 'promo';
     const colSpan = 8;
 
-    const handleTogglePromotion = (line) => {
-        onChangeLine(line.key, { isPromotion: !line.isPromotion });
+    const handleToggleLineType = (line, nextType) => {
+        const current = resolveLineType(line);
+        const lineType = current === nextType ? 'REGULAR' : nextType;
+        onChangeLine(line.key, {
+            lineType,
+            isPromotion: lineType === 'PROMOTION',
+            isTrial: lineType === 'TRIAL',
+        });
     };
 
     return (
         <div className="ioc-lines-card">
             <div className="ioc-lines-wrapper">
                 <table className="ioc-lines-table">
+                    <colgroup>
+                        <col className="ioc-lines-table__col--stt" />
+                        <col className="ioc-lines-table__col--name" />
+                        <col className="ioc-lines-table__col--unit" />
+                        <col className="ioc-lines-table__col--qty" />
+                        <col className="ioc-lines-table__col--price" />
+                        <col className="ioc-lines-table__col--date" />
+                        <col className="ioc-lines-table__col--note" />
+                        <col className="ioc-lines-table__col--total" />
+                    </colgroup>
                     <thead>
                         <tr>
                             <th className="ioc-lines-table__stt">STT</th>
-                            <th>Tên hàng</th>
-                            <th>ĐVT</th>
-                            <th>Số lượng</th>
-                            <th>Đơn giá</th>
-                            <th>Hạn sử dụng</th>
+                            <th className="ioc-lines-table__col--name">Tên hàng</th>
+                            <th className="ioc-lines-table__col--unit">ĐVT</th>
+                            <th className="ioc-lines-table__col--qty">Số lượng</th>
+                            <th className="ioc-lines-table__col--price">Đơn giá *</th>
+                            <th className="ioc-lines-table__col--date">Hạn sử dụng</th>
                             <th className="ioc-lines-table__note">Ghi chú</th>
-                            <th>Thành tiền</th>
+                            <th className="ioc-lines-table__col--total">Thành tiền</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -50,17 +73,28 @@ export default function ImportOrderLineTable({
                             </tr>
                         ) : null}
                         {lines.map((line, index) => {
-                            const attributeLabel = formatProductAttributes(line.attributes);
-                            const isPromotion = isPromoSection || Boolean(line.isPromotion);
+                            const lineType = isPromoSection ? 'PROMOTION' : resolveLineType(line);
+                            const isPromotion = lineType === 'PROMOTION';
+                            const isTrial = lineType === 'TRIAL';
                             const computedTotal =
                                 (Number(line.quantity) || 0) * (Number(line.costPerUnit) || 0);
-                            const lineTotal = isPromotion ? 0 : computedTotal;
+                            const missingExpiry = !String(line.expiryDate || '').trim();
+                            const displayTotal =
+                                isPromotion
+                                    ? 0
+                                    : isTrial && line.trialStatus === 'SETTLED'
+                                      ? Number(line.lineTotal) || 0
+                                      : computedTotal;
                             const noteText = line.note?.trim() || '';
+                            const costValue = Number(line.costPerUnit) || 0;
                             const priceWarning = canEdit ? getLinePriceWarning(line) : null;
-                            const rowClass = isPromotion
-                                ? 'ioc-lines-table__row--promo'
-                                : undefined;
-                            const showMeta = canEdit || isPromotion;
+                            const rowClass = isTrial
+                                ? 'ioc-lines-table__row--trial'
+                                : isPromotion
+                                  ? 'ioc-lines-table__row--promo'
+                                  : undefined;
+                            const showMeta = canEdit || isPromotion || isTrial;
+                            const canMarkTrial = !Boolean(line.alreadyInStore);
 
                             return (
                                 <tr key={line.key} className={rowClass}>
@@ -78,29 +112,55 @@ export default function ImportOrderLineTable({
                                             </button>
                                         ) : null}
                                     </td>
-                                    <td>
+                                    <td className="ioc-lines-table__col--name">
                                         <div className="ioc-lines-table__name">{line.productName}</div>
-                                        {attributeLabel ? (
-                                            <div className="ioc-lines-table__attrs">{attributeLabel}</div>
-                                        ) : null}
                                         {showMeta ? (
                                             <div className="ioc-line-meta">
                                                 {canEdit ? (
-                                                    <button
-                                                        type="button"
-                                                        className={`ioc-promo-chip ${
-                                                            isPromotion ? 'ioc-promo-chip--on' : ''
-                                                        }`}
-                                                        onClick={() => handleTogglePromotion(line)}
-                                                        aria-pressed={isPromotion}
-                                                        title={
-                                                            isPromotion
-                                                                ? 'Bỏ đánh dấu hàng khuyến mãi'
-                                                                : 'Đánh dấu hàng KM / trả thưởng — không thu tiền, vẫn nhập kho'
-                                                        }
-                                                    >
-                                                        Hàng KM
-                                                    </button>
+                                                    <>
+                                                        <button
+                                                            type="button"
+                                                            className={`ioc-promo-chip ${
+                                                                isPromotion ? 'ioc-promo-chip--on' : ''
+                                                            }`}
+                                                            onClick={() =>
+                                                                handleToggleLineType(line, 'PROMOTION')
+                                                            }
+                                                            aria-pressed={isPromotion}
+                                                            title={
+                                                                isPromotion
+                                                                    ? 'Bỏ đánh dấu hàng khuyến mãi'
+                                                                    : 'Đánh dấu hàng KM / trả thưởng — không thu tiền, vẫn nhập kho'
+                                                            }
+                                                        >
+                                                            Hàng KM
+                                                        </button>
+                                                        {canMarkTrial || isTrial ? (
+                                                            <button
+                                                                type="button"
+                                                                className={`ioc-promo-chip ioc-trial-chip ${
+                                                                    isTrial ? 'ioc-trial-chip--on' : ''
+                                                                }`}
+                                                                onClick={() =>
+                                                                    handleToggleLineType(line, 'TRIAL')
+                                                                }
+                                                                aria-pressed={isTrial}
+                                                                title={
+                                                                    isTrial
+                                                                        ? 'Bỏ đánh dấu hàng bán thử'
+                                                                        : 'Hàng bán thử — chỉ cho sản phẩm mới, chưa từng có ở cửa hàng'
+                                                                }
+                                                            >
+                                                                Bán thử
+                                                            </button>
+                                                        ) : null}
+                                                    </>
+                                                ) : isTrial ? (
+                                                    <span className="ioc-promo-chip ioc-trial-chip ioc-trial-chip--on">
+                                                        {line.trialStatus === 'SETTLED'
+                                                            ? 'Bán thử · đã quyết toán'
+                                                            : 'Bán thử'}
+                                                    </span>
                                                 ) : (
                                                     <span className="ioc-promo-chip ioc-promo-chip--on">
                                                         Hàng KM
@@ -109,7 +169,7 @@ export default function ImportOrderLineTable({
                                             </div>
                                         ) : null}
                                     </td>
-                                    <td>
+                                    <td className="ioc-lines-table__col--unit">
                                         {canEdit && (line.productUnits || []).length > 0 ? (
                                             <select
                                                 className="ioc-lines-table__input ioc-lines-table__input--unit ioc-lines-table__select"
@@ -143,27 +203,63 @@ export default function ImportOrderLineTable({
                                             </span>
                                         )}
                                     </td>
-                                    <td>
+                                    <td className="ioc-lines-table__col--qty">
                                         {canEdit ? (
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                className="ioc-lines-table__input ioc-lines-table__input--qty"
-                                                value={line.quantity}
-                                                onChange={(event) =>
-                                                    onChangeLine(line.key, {
-                                                        quantity: Math.max(
-                                                            1,
-                                                            Number(event.target.value) || 1,
-                                                        ),
-                                                    })
-                                                }
-                                            />
+                                            <div className="ioc-lines-table__qty-stepper">
+                                                <button
+                                                    type="button"
+                                                    className="ioc-lines-table__qty-btn"
+                                                    disabled={normalizeQty(line.quantity) <= 1}
+                                                    onClick={() =>
+                                                        onChangeLine(line.key, {
+                                                            quantity: bumpQty(line.quantity, -1),
+                                                        })
+                                                    }
+                                                    aria-label={`Giảm số lượng ${line.productName}`}
+                                                >
+                                                    <Minus size={12} />
+                                                </button>
+                                                <input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    maxLength={6}
+                                                    className="ioc-lines-table__input ioc-lines-table__input--qty"
+                                                    value={line.quantity ?? ''}
+                                                    onChange={(event) =>
+                                                        onChangeLine(line.key, {
+                                                            quantity: parseQtyInput(event.target.value),
+                                                        })
+                                                    }
+                                                    onBlur={(event) =>
+                                                        onChangeLine(line.key, {
+                                                            quantity: normalizeQty(
+                                                                parseQtyInput(event.target.value),
+                                                            ),
+                                                        })
+                                                    }
+                                                    aria-label={`Số lượng ${line.productName}`}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="ioc-lines-table__qty-btn"
+                                                    disabled={
+                                                        normalizeQty(line.quantity) >= MAX_IMPORT_QUANTITY
+                                                    }
+                                                    onClick={() =>
+                                                        onChangeLine(line.key, {
+                                                            quantity: bumpQty(line.quantity, 1),
+                                                        })
+                                                    }
+                                                    aria-label={`Tăng số lượng ${line.productName}`}
+                                                >
+                                                    <Plus size={12} />
+                                                </button>
+                                            </div>
                                         ) : (
                                             <span>{line.quantity ?? '—'}</span>
                                         )}
                                     </td>
-                                    <td>
+                                    <td className="ioc-lines-table__col--price">
                                         {canEdit ? (
                                             <div className="ioc-lines-table__price-cell">
                                                 <input
@@ -174,7 +270,12 @@ export default function ImportOrderLineTable({
                                                             ? ` ioc-lines-table__input--price-${priceWarning.level}`
                                                             : ''
                                                     }`}
-                                                    value={formatMoneyInput(line.costPerUnit)}
+                                                    value={
+                                                        !isPromotion && costValue <= 0
+                                                            ? ''
+                                                            : formatMoneyInput(line.costPerUnit)
+                                                    }
+                                                    placeholder={isPromotion ? '0' : 'Nhập giá'}
                                                     onChange={(event) =>
                                                         onChangeLine(line.key, {
                                                             costPerUnit: parseMoneyInput(
@@ -182,15 +283,22 @@ export default function ImportOrderLineTable({
                                                             ),
                                                         })
                                                     }
+                                                    aria-invalid={
+                                                        priceWarning?.level === 'danger' ? true : undefined
+                                                    }
                                                     aria-label={
-                                                        isPromotion
-                                                            ? 'Đơn giá tham chiếu (không tính tiền)'
-                                                            : 'Đơn giá (VND)'
+                                                        isTrial
+                                                            ? 'Giá thỏa thuận (quyết toán sau)'
+                                                            : isPromotion
+                                                              ? 'Đơn giá tham chiếu (không tính tiền)'
+                                                              : 'Đơn giá (VND)'
                                                     }
                                                     title={
-                                                        isPromotion
-                                                            ? 'Giá tham chiếu trên phiếu NCC — không tính vào tổng thanh toán'
-                                                            : priceWarning?.message
+                                                        isTrial
+                                                            ? 'Giá thỏa thuận với nhân viên NCC — chưa thu lúc nhận'
+                                                            : isPromotion
+                                                              ? 'Giá tham chiếu trên phiếu NCC — không tính vào tổng thanh toán'
+                                                              : priceWarning?.message
                                                     }
                                                 />
                                                 {priceWarning ? (
@@ -205,16 +313,26 @@ export default function ImportOrderLineTable({
                                             <span>{formatCurrency(line.costPerUnit)}</span>
                                         )}
                                     </td>
-                                    <td>
+                                    <td className="ioc-lines-table__col--date">
                                         {canEdit ? (
                                             <input
                                                 type="date"
-                                                className="ioc-lines-table__input ioc-lines-table__input--date"
+                                                className={`ioc-lines-table__input ioc-lines-table__input--date${
+                                                    missingExpiry
+                                                        ? ' ioc-lines-table__input--date-warn'
+                                                        : ''
+                                                }`}
                                                 value={line.expiryDate}
                                                 onChange={(event) =>
                                                     onChangeLine(line.key, {
                                                         expiryDate: event.target.value,
                                                     })
+                                                }
+                                                title={missingExpiry ? 'Chưa nhập hạn sử dụng' : undefined}
+                                                aria-label={
+                                                    missingExpiry
+                                                        ? `Hạn sử dụng ${line.productName} (chưa nhập)`
+                                                        : `Hạn sử dụng ${line.productName}`
                                                 }
                                             />
                                         ) : (
@@ -248,13 +366,25 @@ export default function ImportOrderLineTable({
                                     </td>
                                     <td
                                         className={`ioc-lines-table__total ${
-                                            isPromotion ? 'ioc-lines-table__total--promo' : ''
+                                            isTrial
+                                                ? 'ioc-lines-table__total--trial'
+                                                : isPromotion
+                                                  ? 'ioc-lines-table__total--promo'
+                                                  : ''
                                         }`}
                                     >
                                         {isPromotion ? (
                                             <span title="Không thu tiền">0đ</span>
                                         ) : (
-                                            formatCurrency(lineTotal)
+                                            <span
+                                                title={
+                                                    isTrial && line.trialStatus !== 'SETTLED'
+                                                        ? 'Giá trị thỏa thuận — đã ghi vào công nợ NCC'
+                                                        : undefined
+                                                }
+                                            >
+                                                {formatCurrency(displayTotal)}
+                                            </span>
                                         )}
                                     </td>
                                 </tr>

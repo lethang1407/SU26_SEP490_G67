@@ -27,6 +27,7 @@ import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.BatchLocationRepository;
 import project.be_sep490_g67.repository.ProductUnitRepository;
 import project.be_sep490_g67.repository.StockBatchRepository;
+import project.be_sep490_g67.repository.StockMovementRepository;
 import project.be_sep490_g67.repository.StorageLocationRepository;
 import project.be_sep490_g67.utils.StockBatchUtils;
 
@@ -44,6 +45,7 @@ public class StorageLocationService {
     StockBatchRepository stockBatchRepository;
     ProductUnitRepository productUnitRepository;
     StorageZoneService storageZoneService;
+    StockMovementRepository stockMovementRepository;
 
     @Transactional(readOnly = true)
     public List<StorageLocationResponse> getAllLocations() {
@@ -142,10 +144,6 @@ public class StorageLocationService {
             throw new AppException(ErrorCode.INSUFFICIENT_UNPLACED_QUANTITY);
         }
 
-        // Khu kho: mỗi ô 1 loại SP. Khu bán: mỗi SP chỉ 1 mã lô (được tách nhiều ô).
-        assertWarehouseSingleProduct(location, batch.getProduct().getId());
-        assertSalesZoneBatchRule(batch, location);
-
         upsertBatchLocation(batch, location, quantity);
 
         StorageLocation refreshed = storageLocationRepository.findActiveWithContentsById(location.getId())
@@ -174,8 +172,6 @@ public class StorageLocationService {
         }
 
         StockBatch batch = source.getBatch();
-        assertWarehouseSingleProduct(destination, batch.getProduct().getId());
-        assertSalesZoneBatchRule(batch, destination);
 
         int remainingOnSource = available - quantity;
         if (remainingOnSource <= 0) {
@@ -220,8 +216,6 @@ public class StorageLocationService {
 
         for (BatchLocation line : activeLines) {
             StockBatch batch = line.getBatch();
-            assertWarehouseSingleProduct(destination, batch.getProduct().getId());
-            assertSalesZoneBatchRule(batch, destination);
 
             int quantity = line.getQuantity();
             line.setQuantity(0);
@@ -308,54 +302,15 @@ public class StorageLocationService {
     }
 
     /**
-     * Khu bán: mỗi SP tối đa 1 StockBatch trên toàn bộ khu bán.
-     * Cùng một lô được tách sang nhiều ô bán.
+     * Số chưa xếp kệ = tồn thực theo sổ cái (cộng/trừ movements) trừ phần đã gán ô.
+     * Không dùng {@code quantityIn - placed} vì bán hàng chỉ trừ {@code batch_locations}
+     * mà không trừ {@code quantityIn}, khiến hàng vừa bán bị tính nhầm vào “chưa xếp”.
      */
-    private void assertSalesZoneBatchRule(StockBatch batch, StorageLocation destination) {
-        if (!storageZoneService.isSalesZone(destination.getStorageZone())) {
-            return;
-        }
-
-        Integer productId = batch.getProduct().getId();
-        Integer batchId = batch.getId();
-        List<BatchLocation> salesLines =
-                batchLocationRepository.findActiveOnSalesZonesByProductId(productId);
-
-        for (BatchLocation existing : salesLines) {
-            Integer existingBatchId = existing.getBatch().getId();
-            if (!Objects.equals(existingBatchId, batchId)) {
-                throw new AppException(ErrorCode.SALES_ZONE_PRODUCT_BATCH_EXISTS);
-            }
-        }
-    }
-
-    /**
-     * Khu kho: mỗi ô chỉ chứa 1 loại sản phẩm (có thể nhiều lô cùng SP).
-     * Khu bán: bỏ ràng buộc này — 1 ô được nhiều mặt hàng / nhiều lô.
-     */
-    private void assertWarehouseSingleProduct(StorageLocation location, Integer productId) {
-        if (storageZoneService.isSalesZone(location.getStorageZone())
-                || storageZoneService.isReturnHoldZone(location.getStorageZone())) {
-            return;
-        }
-
-        Integer occupiedProductId = location.getBatchLocations().stream()
-                .filter(bl -> !Boolean.TRUE.equals(bl.getIsRemoved()))
-                .filter(bl -> bl.getQuantity() != null && bl.getQuantity() > 0)
-                .map(bl -> bl.getBatch().getProduct().getId())
-                .findFirst()
-                .orElse(null);
-
-        if (occupiedProductId != null && !Objects.equals(occupiedProductId, productId)) {
-            throw new AppException(ErrorCode.STORAGE_LOCATION_PRODUCT_MISMATCH);
-        }
-    }
-
     private int getUnplacedQuantity(StockBatch batch) {
-        int quantityIn = batch.getQuantityIn() != null ? batch.getQuantityIn() : 0;
+        int remaining = stockMovementRepository.sumQuantityDeltaByBatchId(batch.getId());
         Integer placed = batchLocationRepository.sumQuantityByBatchId(batch.getId());
         int placedQty = placed != null ? placed : 0;
-        return Math.max(0, quantityIn - placedQty);
+        return Math.max(0, remaining - placedQty);
     }
 
     private StorageLocationResponse toResponse(StorageLocation location) {

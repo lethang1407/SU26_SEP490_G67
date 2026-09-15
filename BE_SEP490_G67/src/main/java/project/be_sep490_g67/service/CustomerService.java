@@ -158,18 +158,22 @@ public class CustomerService {
             // Sort in memory
             responses.sort(getPriorityComparator());
 
-            // Manual pagination
-            int start = (page - 1) * size;
-            int end = Math.min(start + size, responses.size());
-            List<CustomerResponse> paginatedResponses = responses.subList(start, end);
+            return paginateResponses(responses, page, size);
 
-            return PageResponse.<CustomerResponse>builder()
-                    .content(paginatedResponses)
-                    .page(page)
-                    .size(size)
-                    .totalElements(responses.size())
-                    .totalPages((int) Math.ceil((double) responses.size() / size))
-                    .build();
+        } else if ("debtPriorityLatest".equalsIgnoreCase(sortBy)) {
+            customers = customerRepository.findFilteredCustomers(keyword, statusQuery, allowDebt, from, to, now, isOverdue);
+
+            List<CustomerResponse> responses = customers.stream().map(customer -> {
+                boolean hasOverdue = customer.getSalesOrders().stream().anyMatch(so ->
+                        Boolean.TRUE.equals(so.getIsDebt()) &&
+                                so.getDueDate() != null && so.getDueDate().isBefore(now) &&
+                                isOrderUnpaid(so));
+                return buildCustomerResponse(customer, hasOverdue, now);
+            }).collect(Collectors.toList());
+
+            responses.sort(getDebtPriorityLatestComparator());
+
+            return paginateResponses(responses, page, size);
 
         } else {
             // Default sorting logic
@@ -194,6 +198,21 @@ public class CustomerService {
                     .totalPages(customerPage.getTotalPages())
                     .build();
         }
+    }
+
+    private PageResponse<CustomerResponse> paginateResponses(List<CustomerResponse> responses, Integer page, Integer size) {
+        int safePage = page != null && page > 0 ? page : 1;
+        int safeSize = size != null && size > 0 ? size : 10;
+        int start = Math.min((safePage - 1) * safeSize, responses.size());
+        int end = Math.min(start + safeSize, responses.size());
+
+        return PageResponse.<CustomerResponse>builder()
+                .content(responses.subList(start, end))
+                .page(safePage)
+                .size(safeSize)
+                .totalElements(responses.size())
+                .totalPages((int) Math.ceil((double) responses.size() / safeSize))
+                .build();
     }
 
     private boolean isOrderUnpaid(SalesOrder so) {
@@ -253,12 +272,29 @@ public class CustomerService {
                 .thenComparing(CustomerResponse::getTotalDebt, Comparator.reverseOrder());
     }
 
+    private Comparator<CustomerResponse> getDebtPriorityLatestComparator() {
+        return Comparator.<CustomerResponse, Boolean>comparing(
+                        c -> Boolean.TRUE.equals(c.getIsCheckDebtUnstable()),
+                        Comparator.reverseOrder()
+                )
+                .thenComparing(this::hasCustomerDebt, Comparator.reverseOrder())
+                .thenComparing(
+                        CustomerResponse::getLatestDebtDate,
+                        Comparator.nullsLast(Comparator.reverseOrder())
+                );
+    }
+
+    private boolean hasCustomerDebt(CustomerResponse customer) {
+        BigDecimal totalDebt = customer.getTotalDebt() != null ? customer.getTotalDebt() : BigDecimal.ZERO;
+        return totalDebt.compareTo(BigDecimal.ZERO) > 0;
+    }
+
     private int calculatePriorityScore(CustomerResponse c) {
         if (Boolean.TRUE.equals(c.getIsCheckDebtUnstable())) {
             return 7;
         }
 
-        boolean isInDebt = c.getTotalDebt().compareTo(BigDecimal.ZERO) > 0;
+        boolean isInDebt = hasCustomerDebt(c);
 
         if (isInDebt) {
             // 1. Đang nợ, chưa quá hạn, không được phép nợ

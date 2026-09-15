@@ -5,9 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import project.be_sep490_g67.entity.BatchLocation;
+import project.be_sep490_g67.entity.StockBatch;
 import project.be_sep490_g67.entity.StockMovement;
 import project.be_sep490_g67.exception.InsufficientStockException;
 import project.be_sep490_g67.repository.BatchLocationRepository;
+import project.be_sep490_g67.repository.StockBatchRepository;
 import project.be_sep490_g67.repository.StockMovementRepository;
 
 import java.time.Instant;
@@ -23,10 +25,11 @@ import java.util.stream.Collectors;
 public class StockDeductionService {
     private final BatchLocationRepository batchLocationRepository;
     private final StockMovementRepository stockMovementRepository;
+    private final StockBatchRepository stockBatchRepository;
 
     @Transactional
-    public Integer deductStock(Integer productId, Integer quantityNeed, Integer orderId, Integer userId) {
-        return deductStock(productId, quantityNeed, orderId, userId, null);
+    public void deductStock(Integer productId, Integer quantityNeed, Integer orderId, Integer userId) {
+        deductStock(productId, quantityNeed, orderId, userId, null);
     }
 
     /**
@@ -34,9 +37,9 @@ public class StockDeductionService {
      *                   toàn kho như cũ (client chưa cập nhật).
      */
     @Transactional
-    public Integer deductStock(Integer productId, Integer quantityNeed, Integer orderId,
-                               Integer userId, Integer locationId) {
-        return deductStockFromLocations(productId, quantityNeed, orderId, userId,
+    public void deductStock(Integer productId, Integer quantityNeed, Integer orderId,
+                            Integer userId, Integer locationId) {
+        deductStockFromLocations(productId, quantityNeed, orderId, userId,
                 locationId == null ? null : List.of(locationId));
     }
 
@@ -87,9 +90,16 @@ public class StockDeductionService {
             bl.setUpdatedAt(Instant.now());
             batchLocationRepository.save(bl);
 
+            // Đồng bộ quantityIn với tồn thực — tránh “hàng vừa bán” bị tính vào chưa xếp kệ
+            StockBatch batch = bl.getBatch();
+            int quantityIn = batch.getQuantityIn() != null ? batch.getQuantityIn() : 0;
+            batch.setQuantityIn(Math.max(0, quantityIn - deduct));
+            batch.setUpdatedAt(Instant.now());
+            stockBatchRepository.save(batch);
+
             //Add stock movement
             StockMovement movement = StockMovement.builder()
-                    .stockBatch(bl.getBatch())
+                    .stockBatch(batch)
                     .batchLocation(bl)
                     .quantityDelta(-deduct)
                     .stockAfter(stockAfter)
@@ -134,14 +144,14 @@ public class StockDeductionService {
     }
 
     /**
-     * Khi thu ngân đã chốt lô, báo rõ những lô đó còn bao nhiêu và còn bao
-     * nhiêu ở chỗ khác — để họ biết cần tick thêm lô chứ không phải hết hàng.
+     * Khi thu ngân đã chốt lô, báo rõ những lô đó còn bao nhiêu và còn bao nhiêu ở chỗ khác
      */
     private String buildShortageMessage(Integer productId, int quantityNeed, int totalAvailable,
                                         List<StockPick> picks, List<BatchLocation> availableList) {
         if (picks == null || picks.isEmpty()) {
-            return "Sản phẩm với ID: " + productId
-                    + " Không đủ tồn kho. Cần " + quantityNeed + ", nhưng chỉ còn " + totalAvailable;
+//            return "Sản phẩm với ID: " + productId
+//                    + " Không đủ tồn kho. Cần " + quantityNeed + ", nhưng chỉ còn " + totalAvailable;
+            return "Không đủ tồn kho";
         }
 
         String locationLabels = availableList.stream()
@@ -165,10 +175,12 @@ public class StockDeductionService {
 
         return "Vị trí " + locationLabels + " chỉ còn " + totalAvailable
                 + ", cần " + quantityNeed + ". Còn " + elsewhere
-                + " ở lô khác — tick thêm lô để lấy đủ hàng.";
+                + " ở lô khác - tick thêm lô để lấy đủ hàng.";
     }
 
-    /** Một lô đang nằm ở một ô. batchId null = FIFO mọi lô trong ô đó. */
+    /**
+     * Một lô đang nằm ở một ô. batchId null = FIFO mọi lô trong ô đó.
+     */
     public record StockPick(Integer locationId, Integer batchId) {
     }
 }

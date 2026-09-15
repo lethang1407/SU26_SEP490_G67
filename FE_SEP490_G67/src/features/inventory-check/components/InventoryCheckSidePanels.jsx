@@ -1,9 +1,23 @@
 import { formatDateTime, formatCurrency, buildCheckSummary } from '../utils/inventoryCheckUtils';
 
-export function InventoryCheckInfoPanel({ check }) {
+export function InventoryCheckInfoPanel({ check, showSummary = false, lines = [] }) {
     if (!check) {
         return null;
     }
+
+    const summary = showSummary ? buildCheckSummary(lines) : null;
+    const diffQtyClass =
+        summary && summary.totalDiffQty < 0
+            ? 'inventory-check-diff--negative'
+            : summary && summary.totalDiffQty > 0
+              ? 'inventory-check-diff--positive'
+              : '';
+    const diffValueClass =
+        summary && summary.totalDiffValue < 0
+            ? 'inventory-check-diff--negative'
+            : summary && summary.totalDiffValue > 0
+              ? 'inventory-check-diff--positive'
+              : '';
 
     return (
         <section className="inventory-check-side-card">
@@ -14,38 +28,58 @@ export function InventoryCheckInfoPanel({ check }) {
                     <dd>{check.code}</dd>
                 </div>
                 <div className="inventory-check-info-list__item">
-                    <dt>Kho kiểm</dt>
-                    <dd>{check.warehouse}</dd>
-                </div>
-                <div className="inventory-check-info-list__item">
-                    <dt>Thời gian tạo</dt>
-                    <dd>{formatDateTime(check.createdAt)}</dd>
-                </div>
-                <div className="inventory-check-info-list__item">
-                    <dt>Người tạo</dt>
-                    <dd>{check.createdBy}</dd>
-                </div>
-                <div className="inventory-check-info-list__item">
-                    <dt>Ngày kiểm</dt>
-                    <dd>{formatDateTime(check.checkDate)}</dd>
+                    <dt>Thời gian kiểm</dt>
+                    <dd>{formatDateTime(check.checkDate || check.createdAt)}</dd>
                 </div>
                 <div className="inventory-check-info-list__item">
                     <dt>Người kiểm</dt>
-                    <dd>{check.checker}</dd>
+                    <dd>{check.checker || check.createdBy || '—'}</dd>
                 </div>
+                {showSummary ? (
+                    <>
+                        <div className="inventory-check-info-list__item">
+                            <dt>Số sản phẩm chênh lệch</dt>
+                            <dd>
+                                {summary.countedLines === summary.totalLines
+                                    ? summary.mismatchLineCount
+                                    : '—'}
+                            </dd>
+                        </div>
+                        <div className="inventory-check-info-list__item">
+                            <dt>Chênh lệch số lượng</dt>
+                            <dd className={diffQtyClass}>{summary.totalDiffQty ?? '—'}</dd>
+                        </div>
+                        <div className="inventory-check-info-list__item">
+                            <dt>Giá trị chênh lệch</dt>
+                            <dd className={diffValueClass}>
+                                {summary.totalDiffValue !== null
+                                    ? formatCurrency(summary.totalDiffValue)
+                                    : '—'}
+                            </dd>
+                        </div>
+                        <div className="inventory-check-info-list__item">
+                            <dt>Ghi chú</dt>
+                            <dd>{check.generalNote || check.note || 'Không có ghi chú.'}</dd>
+                        </div>
+                    </>
+                ) : null}
             </dl>
         </section>
     );
 }
 
-function SummaryField({ label, children, className = '', required = false }) {
+function SummaryField({ label, children, className = '', required = false, plain = false }) {
     return (
         <div className={`inventory-check-summary-field ${className}`.trim()}>
             <span className="inventory-check-summary-field__label">
                 {label}
                 {required ? <span className="inventory-check-summary-field__required"> *</span> : null}
             </span>
-            <div className="inventory-check-summary-field__box">{children}</div>
+            {plain ? (
+                <div className="inventory-check-summary-field__plain">{children}</div>
+            ) : (
+                <div className="inventory-check-summary-field__box">{children}</div>
+            )}
         </div>
     );
 }
@@ -77,6 +111,7 @@ export function InventoryCheckSummaryPanel({
     checkDate,
     checkerName,
     showMeta = false,
+    plainDisplay = false,
 }) {
     const summary = buildCheckSummary(lines);
     const includeNote = showNote || noteEditable || note !== undefined;
@@ -101,34 +136,38 @@ export function InventoryCheckSummaryPanel({
     return (
         <section className="inventory-check-side-card inventory-check-summary-card">
             <h3 className="inventory-check-side-card__title">Tóm tắt kiểm kho</h3>
-            <div className="inventory-check-summary-fields">
+            <div
+                className={`inventory-check-summary-fields${
+                    plainDisplay ? ' inventory-check-summary-fields--plain' : ''
+                }`}
+            >
                 {includeMeta ? (
                     <>
-                        <SummaryField label="Ngày kiểm kê" required>
+                        <SummaryField label="Ngày kiểm kê" required plain={plainDisplay}>
                             <span className="inventory-check-summary-field__value">
                                 {formatDateOnly(checkDate)}
                             </span>
                         </SummaryField>
-                        <SummaryField label="Người kiểm kê">
+                        <SummaryField label="Người kiểm kê" plain={plainDisplay}>
                             <span className="inventory-check-summary-field__value">
                                 {checkerName || '—'}
                             </span>
                         </SummaryField>
                     </>
                 ) : null}
-                <SummaryField label="Số sản phẩm chênh lệch">
+                <SummaryField label="Số sản phẩm chênh lệch" plain={plainDisplay}>
                     <span className="inventory-check-summary-field__value">
                         {summary.countedLines === summary.totalLines
                             ? summary.mismatchLineCount
                             : '—'}
                     </span>
                 </SummaryField>
-                <SummaryField label="Chênh lệch số lượng">
+                <SummaryField label="Chênh lệch số lượng" plain={plainDisplay}>
                     <span className={`inventory-check-summary-field__value ${diffQtyClass}`.trim()}>
                         {summary.totalDiffQty ?? '—'}
                     </span>
                 </SummaryField>
-                <SummaryField label="Giá trị chênh lệch">
+                <SummaryField label="Giá trị chênh lệch" plain={plainDisplay}>
                     <span
                         className={`inventory-check-summary-field__value ${diffValueClass}`.trim()}
                     >
@@ -141,6 +180,7 @@ export function InventoryCheckSummaryPanel({
                     <SummaryField
                         label="Ghi chú"
                         className="inventory-check-summary-field--note"
+                        plain={plainDisplay && !noteEditable}
                     >
                         {noteEditable ? (
                             <textarea

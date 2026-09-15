@@ -9,6 +9,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import project.be_sep490_g67.entity.NotificationRecipient;
 
+import java.time.Instant;
+import java.util.Collection;
 import java.util.Optional;
 
 @Repository
@@ -21,6 +23,31 @@ public interface NotificationRecipientRepository extends JpaRepository<Notificat
             ORDER BY n.createdAt DESC
             """)
     Page<NotificationRecipient> findInboxByUserId(@Param("userId") Integer userId, Pageable pageable);
+
+    /**
+     * Hộp thư có bộ lọc. Ba mệnh đề đầu ({@code user.id}, hai cờ {@code isRemoved})
+     * nằm ngoài mọi điều kiện lọc
+     */
+    @Query("""
+            SELECT nr FROM NotificationRecipient nr
+            JOIN FETCH nr.notification n
+            WHERE nr.user.id = :userId AND nr.isRemoved = false AND n.isRemoved = false
+              AND (:byType = false OR n.notificationType IN :types)
+              AND (:byRead = false
+                   OR (:isRead = true AND nr.isRead = true)
+                   OR (:isRead = false AND (nr.isRead IS NULL OR nr.isRead = false)))
+              AND (:from IS NULL OR n.createdAt >= :from)
+              AND (:to IS NULL OR n.createdAt <= :to)
+            ORDER BY n.createdAt DESC
+            """)
+    Page<NotificationRecipient> searchInboxByUserId(@Param("userId") Integer userId,
+                                                    @Param("byType") boolean byType,
+                                                    @Param("types") Collection<String> types,
+                                                    @Param("byRead") boolean byRead,
+                                                    @Param("isRead") boolean isRead,
+                                                    @Param("from") Instant from,
+                                                    @Param("to") Instant to,
+                                                    Pageable pageable);
 
     @Query("""
             SELECT COUNT(nr) FROM NotificationRecipient nr

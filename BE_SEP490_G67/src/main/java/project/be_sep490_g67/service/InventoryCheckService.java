@@ -157,9 +157,7 @@ public class InventoryCheckService {
         }
 
         Instant now = Instant.now();
-        Instant checkAt = request.getCheckDate() != null
-                ? request.getCheckDate().atStartOfDay(ZoneId.systemDefault()).toInstant()
-                : now;
+        Instant checkAt = now;
         InventoryCheck check = new InventoryCheck();
         check.setCheckCode(generateCheckCode(now));
         check.setCheckDate(checkAt);
@@ -397,6 +395,17 @@ public class InventoryCheckService {
                 .map(this::toBatchOption)
                 .toList();
         int systemQty = options.stream().mapToInt(b -> b.getQuantity() != null ? b.getQuantity() : 0).sum();
+        List<ProductUnit> productUnits = productUnitRepository
+                .findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(product.getId());
+        List<InventoryCheckProductPreviewResponse.UnitOption> units = productUnits.stream()
+                .map(unit -> InventoryCheckProductPreviewResponse.UnitOption.builder()
+                        .id(unit.getId())
+                        .name(unit.getName())
+                        .unitBase(unit.getUnitBase() != null ? unit.getUnitBase() : BigDecimal.ONE)
+                        .isBase(unit.getUnitBase() != null
+                                && unit.getUnitBase().compareTo(BigDecimal.ONE) == 0)
+                        .build())
+                .toList();
 
         return InventoryCheckProductPreviewResponse.builder()
                 .productId(product.getId())
@@ -406,6 +415,7 @@ public class InventoryCheckService {
                 .systemQty(systemQty)
                 .importPrice(product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO)
                 .batches(options)
+                .units(units)
                 .build();
     }
 
@@ -420,6 +430,7 @@ public class InventoryCheckService {
                 .importOrderId(importOrder != null ? importOrder.getId() : null)
                 .supplierId(supplier != null ? supplier.getId() : null)
                 .supplierName(supplier != null ? supplier.getName() : null)
+                .costPerUnit(batch.getCostPerUnit())
                 .build();
     }
 

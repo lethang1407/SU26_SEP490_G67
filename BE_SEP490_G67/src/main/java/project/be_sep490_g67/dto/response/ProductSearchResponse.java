@@ -26,6 +26,11 @@ public class ProductSearchResponse {
     BigDecimal lastCostPerBase;
     /** Tổng tồn kho theo đơn vị cơ bản, gộp mọi lô và mọi vị trí. */
     Integer stockQuantity;
+    /**
+     * true nếu SP đã từng nhập kho hoặc còn lô.
+     * Hàng bán thử chỉ được chọn khi false.
+     */
+    Boolean alreadyInStore;
     Integer parentId;
     String parentName;
     List<ProductAttributeResponse> attributes;

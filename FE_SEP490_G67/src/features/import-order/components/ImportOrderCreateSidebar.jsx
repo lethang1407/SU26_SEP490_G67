@@ -23,8 +23,8 @@ export default function ImportOrderCreateSidebar({
     note,
     invoiceImageUrl = '',
     invoiceImageName = '',
-    uploadingInvoiceImage = false,
     totalAmount,
+    openTrialAmount = 0,
     discountAmount,
     returnDeductionAmount = 0,
     amountDue,
@@ -33,6 +33,7 @@ export default function ImportOrderCreateSidebar({
     debtAmount,
     submitting,
     importItemCount = 0,
+    showDiscount = true,
     onSelectSupplier,
     onClearSupplier,
     onOpenAddSupplier,
@@ -105,6 +106,7 @@ export default function ImportOrderCreateSidebar({
     const idleResults = useMemo(() => suppliers.slice(0, 5), [suppliers]);
     const isQuerying = supplierKeyword.trim().length >= MIN_QUERY_LENGTH;
     const showDropdown = supplierOpen && !supplier;
+    const maxPaidNow = Math.max((Number(amountDue) || 0) - (Number(openTrialAmount) || 0), 0);
 
     return (
         <aside className="ioc-sidebar">
@@ -114,7 +116,6 @@ export default function ImportOrderCreateSidebar({
                     <div className="ioc-sidebar__selected">
                         <div>
                             <strong>{supplier.name}</strong>
-                            <div className="ioc-sidebar__selected-code">{supplier.supplierCode}</div>
                         </div>
                         <button
                             type="button"
@@ -160,7 +161,6 @@ export default function ImportOrderCreateSidebar({
                                                     }}
                                                 >
                                                     <strong>{item.name}</strong>
-                                                    <span>{item.supplierCode}</span>
                                                 </button>
                                             ))
                                         )
@@ -180,7 +180,6 @@ export default function ImportOrderCreateSidebar({
                                                 }}
                                             >
                                                 <strong>{item.name}</strong>
-                                                <span>{item.supplierCode}</span>
                                             </button>
                                         ))
                                     )}
@@ -206,19 +205,35 @@ export default function ImportOrderCreateSidebar({
                     <strong>{formatCurrency(totalAmount)}</strong>
                 </div>
 
-                <div className="ioc-sidebar__discount-row">
-                    <span>Giảm giá</span>
-                    <div className="ioc-sidebar__discount-input">
-                        <input
-                            type="text"
-                            inputMode="numeric"
-                            value={formatMoneyInput(discountAmount)}
-                            onChange={(event) => onDiscountAmountChange(parseMoneyInput(event.target.value))}
-                            aria-label="Giảm giá theo đơn (VND)"
-                        />
-                        <span className="ioc-sidebar__discount-unit">đ</span>
+                {openTrialAmount > 0 ? (
+                    <div className="ioc-sidebar__summary-row ioc-sidebar__summary-row--trial">
+                        <span>Hàng bán thử</span>
+                        <strong>{formatCurrency(openTrialAmount)}</strong>
                     </div>
-                </div>
+                ) : null}
+
+                {showDiscount ? (
+                    <>
+                        <div className="ioc-sidebar__discount-row">
+                            <span>Giảm giá</span>
+                            <div className="ioc-sidebar__discount-input">
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={formatMoneyInput(discountAmount)}
+                                    onChange={(event) => onDiscountAmountChange(parseMoneyInput(event.target.value))}
+                                    aria-label="Giảm giá theo đơn (VND)"
+                                />
+                                <span className="ioc-sidebar__discount-unit">đ</span>
+                            </div>
+                        </div>
+                        {openTrialAmount > 0 ? (
+                            <p className="ioc-sidebar__upload-hint">
+                                Giảm giá chỉ áp cho hàng nhập thường, không trừ vào hàng bán thử.
+                            </p>
+                        ) : null}
+                    </>
+                ) : null}
 
                 {returnDeductionAmount > 0 ? (
                     <div className="ioc-sidebar__summary-row ioc-sidebar__summary-row--return">
@@ -235,11 +250,11 @@ export default function ImportOrderCreateSidebar({
                 ) : (
                     <div className="ioc-sidebar__summary-row ioc-sidebar__summary-row--emphasis">
                         <span>Cần trả nhà cung cấp</span>
-                        <strong>{formatCurrency(amountDue)}</strong>
+                        <strong>{formatCurrency(maxPaidNow)}</strong>
                     </div>
                 )}
 
-                {amountDue > 0 && (
+                {maxPaidNow > 0 ? (
                     <>
                         <div className="ioc-sidebar__discount-row">
                             <span>Tiền trả nhà cung cấp</span>
@@ -254,13 +269,21 @@ export default function ImportOrderCreateSidebar({
                                 <span className="ioc-sidebar__discount-unit">đ</span>
                             </div>
                         </div>
-
-                        <div className="ioc-sidebar__summary-row ioc-sidebar__summary-row--debt">
-                            <span>Tính vào công nợ</span>
-                            <strong>{formatCurrency(debtAmount)}</strong>
-                        </div>
                     </>
-                )}
+                ) : null}
+
+                {openTrialAmount > 0 ? (
+                    <p className="ioc-sidebar__upload-hint">
+                        Tiền bán thử trả khi nhân viên NCC đến quyết toán, không trả lúc nhập.
+                    </p>
+                ) : null}
+
+                {maxPaidNow - (Number(paidAmount) || 0) > 0 ? (
+                    <div className="ioc-sidebar__summary-row ioc-sidebar__summary-row--debt">
+                        <span>Tính vào công nợ</span>
+                        <strong>{formatCurrency(debtAmount)}</strong>
+                    </div>
+                ) : null}
             </div>
 
             <div className="ioc-sidebar__field">
@@ -302,7 +325,7 @@ export default function ImportOrderCreateSidebar({
                                         type="file"
                                         accept="image/jpeg,image/png,image/webp"
                                         hidden
-                                        disabled={submitting || uploadingInvoiceImage}
+                                        disabled={submitting}
                                         onChange={(event) => {
                                             const file = event.target.files?.[0];
                                             onInvoiceImageChange?.(file || null);
@@ -313,7 +336,7 @@ export default function ImportOrderCreateSidebar({
                                 <button
                                     type="button"
                                     className="ioc-sidebar__invoice-clear"
-                                    disabled={submitting || uploadingInvoiceImage}
+                                    disabled={submitting}
                                     onClick={onClearInvoiceImage}
                                 >
                                     <X size={14} />
@@ -323,22 +346,14 @@ export default function ImportOrderCreateSidebar({
                         </div>
                     </div>
                 ) : (
-                    <label
-                        className={`ioc-sidebar__upload ${
-                            uploadingInvoiceImage ? 'ioc-sidebar__upload--busy' : ''
-                        }`}
-                    >
+                    <label className="ioc-sidebar__upload">
                         <ImagePlus size={16} />
-                        <span>
-                            {uploadingInvoiceImage
-                                ? 'Đang upload ảnh...'
-                                : 'Chọn ảnh hóa đơn giấy'}
-                        </span>
+                        <span>Chọn ảnh hóa đơn giấy</span>
                         <input
                             type="file"
                             accept="image/jpeg,image/png,image/webp"
                             hidden
-                            disabled={submitting || uploadingInvoiceImage}
+                            disabled={submitting}
                             onChange={(event) => {
                                 const file = event.target.files?.[0];
                                 onInvoiceImageChange?.(file || null);
@@ -347,9 +362,9 @@ export default function ImportOrderCreateSidebar({
                         />
                     </label>
                 )}
-                {!invoiceImageUrl && (
-                    <p className="ioc-sidebar__upload-hint">Tối đa 5MB · JPG, PNG, WebP</p>
-                )}
+                <p className="ioc-sidebar__upload-hint">
+                    JPG, PNG, WebP · tối đa 5MB
+                </p>
             </div>
 
             <div className="ioc-sidebar__actions">

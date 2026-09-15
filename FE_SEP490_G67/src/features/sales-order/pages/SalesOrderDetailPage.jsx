@@ -21,7 +21,8 @@ export default function SalesOrderDetailPage() {
         try {
             const invoice = await getInvoiceData(orderId);
             printInvoice(invoice);
-        } catch {
+        } catch (error) {
+            console.error("Failed to load invoice for printing:", error);
             alert('Không thể tải hóa đơn để in.');
         }
     };

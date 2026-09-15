@@ -2,7 +2,7 @@ import { formatVnd as formatMoney } from '../utils/money';
 
 const DEBT_CONFIG = {
     IN_DEBT: { label: 'Còn nợ', cls: 'badge-debt' },
-    OVERDUE: { label: 'Quá hạn', cls: 'badge-overdue' },
+    OVERDUE: { label: 'lâu', cls: 'badge-overdue' },
     PAID: { label: 'Đã trả nợ', cls: 'badge-paid' },
 };
 
@@ -13,7 +13,7 @@ function buildTitle(debtStatus, remainingDebt, dueDate) {
 
     const due = formatVnDate(dueDate);
     const parts = [`Còn nợ ${formatMoney(remainingDebt)}`];
-    if (due) parts.push(debtStatus === 'OVERDUE' ? `quá hạn ${due}` : `hạn trả ${due}`);
+    if (due) parts.push(debtStatus === 'OVERDUE' ? `lâu ${due}` : `hạn trả ${due}`);
     return parts.join(' · ');
 }
 

@@ -1,5 +1,4 @@
-import { ZONE_TYPE, ZONE_TYPE_LABEL } from '../constants';
-import { groupZoneGroupsByType } from '../utils/storageLocationUtils';
+import { getAssignableZoneGroups } from '../utils/storageLocationUtils';
 
 function ZoneSummaryPills({ stats }) {
     return (
@@ -25,9 +24,6 @@ function ZoneSummaryPills({ stats }) {
 }
 
 function ZoneSection({ group, onOpenZone }) {
-    const typeLabel = ZONE_TYPE_LABEL[group.zoneType] ?? ZONE_TYPE_LABEL[ZONE_TYPE.WAREHOUSE];
-    const isSales = group.zoneType === ZONE_TYPE.SALES;
-
     return (
         <section className="storage-location-zone storage-location-zone--clickable">
             <button
@@ -39,20 +35,8 @@ function ZoneSection({ group, onOpenZone }) {
                     <div className="storage-location-zone__heading">
                         <div className="storage-location-zone__title-row">
                             <h2 className="storage-location-zone__title">KỆ {group.zone}</h2>
-                            <span
-                                className={[
-                                    'storage-location-zone__type-badge',
-                                    isSales
-                                        ? 'storage-location-zone__type-badge--sales'
-                                        : 'storage-location-zone__type-badge--warehouse',
-                                ].join(' ')}
-                            >
-                                {typeLabel}
-                            </span>
                         </div>
-                        <p className="storage-location-zone__subtitle">
-                            {group.productPreview}
-                        </p>
+                        <p className="storage-location-zone__subtitle">{group.productPreview}</p>
                     </div>
                     <ZoneSummaryPills stats={group.stats} />
                 </div>
@@ -61,25 +45,10 @@ function ZoneSection({ group, onOpenZone }) {
     );
 }
 
-function ZoneTypeBlock({ title, groups, onOpenZone }) {
-    return (
-        <div className="storage-location-zone-block">
-            <h3 className="storage-location-zone-block__title">{title}</h3>
-            {groups.length === 0 ? (
-                <div className="storage-location-empty storage-location-empty--compact">
-                    <p>Chưa có khu nào.</p>
-                </div>
-            ) : (
-                groups.map((group) => (
-                    <ZoneSection key={group.zone} group={group} onOpenZone={onOpenZone} />
-                ))
-            )}
-        </div>
-    );
-}
-
 export default function StorageLocationGrid({ groups, onOpenZone }) {
-    if (groups.length === 0) {
+    const assignable = getAssignableZoneGroups(groups);
+
+    if (assignable.length === 0) {
         return (
             <div className="storage-location-empty">
                 <p>Không tìm thấy vị trí phù hợp với bộ lọc.</p>
@@ -87,12 +56,11 @@ export default function StorageLocationGrid({ groups, onOpenZone }) {
         );
     }
 
-    const { sales, warehouse } = groupZoneGroupsByType(groups);
-
     return (
-        <div className="storage-location-grid storage-location-grid--split">
-            <ZoneTypeBlock title="Bán hàng" groups={sales} onOpenZone={onOpenZone} />
-            <ZoneTypeBlock title="Kho" groups={warehouse} onOpenZone={onOpenZone} />
+        <div className="storage-location-grid">
+            {assignable.map((group) => (
+                <ZoneSection key={group.zone} group={group} onOpenZone={onOpenZone} />
+            ))}
         </div>
     );
 }

@@ -61,15 +61,6 @@ export default function StaffInfoForm({
         setErrors((prev) => ({ ...prev, [name]: null }));
     };
 
-    const toggleRole = (roleValue) => {
-        setRoles((prev) =>
-            prev.includes(roleValue)
-                ? prev.filter((value) => value !== roleValue)
-                : [...prev, roleValue],
-        );
-        setErrors((prev) => ({ ...prev, roles: null }));
-    };
-
     const validateForm = () => {
         const nextErrors = {};
 
@@ -84,9 +75,6 @@ export default function StaffInfoForm({
         }
         if (isNewStaff && !form.password.trim()) {
             nextErrors.password = 'Vui lòng nhập mật khẩu.';
-        }
-        if (roles.length === 0) {
-            nextErrors.roles = 'Vui lòng chọn ít nhất một vai trò.';
         }
 
         setErrors(nextErrors);
@@ -210,39 +198,6 @@ export default function StaffInfoForm({
                                 <span className="add-staff-field__error">{errors.password}</span>
                             )}
                         </div>
-                    </div>
-
-                    <div className="add-staff-field add-staff-field--full">
-                        <span className="add-staff-field__label">
-                            Vai trò hệ thống <span className="add-staff-field__required">*</span>
-                        </span>
-                        <p className="add-staff-field__hint">
-                            Chọn một hoặc nhiều vai trò cho nhân viên.
-                        </p>
-                        <ul className="add-staff-roles">
-                            {STAFF_ROLES.map((role) => {
-                                const isChecked = roles.includes(role.value);
-
-                                return (
-                                    <li key={role.value}>
-                                        <label
-                                            className={`add-staff-role${isChecked ? ' add-staff-role--checked' : ''}`}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                className="add-staff-role__checkbox"
-                                                checked={isChecked}
-                                                onChange={() => toggleRole(role.value)}
-                                            />
-                                            <span className="add-staff-role__label">{role.label}</span>
-                                        </label>
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                        {errors.roles && (
-                            <span className="add-staff-field__error">{errors.roles}</span>
-                        )}
                     </div>
                 </section>
             </div>
