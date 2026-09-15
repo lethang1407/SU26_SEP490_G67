@@ -223,6 +223,9 @@ public class ImportReturnService {
         StockBatch batch = holdLine.getBatch();
         batch = stockBatchRepository.findActiveWithProductAndImportById(batch.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.STOCK_BATCH_NOT_FOUND));
+        if (Boolean.TRUE.equals(batch.getIsTrial())) {
+            throw new AppException(ErrorCode.TRIAL_BATCH_NOT_RETURNABLE);
+        }
         ImportOrder importOrder = batch.getImportOrder();
         if (importOrder == null || importOrder.getSupplier() == null) {
             throw new AppException(ErrorCode.BATCH_NOT_RETURNABLE);
@@ -636,6 +639,9 @@ public class ImportReturnService {
             String returnReason) {
         StockBatch batch = stockBatchRepository.findActiveWithProductAndImportById(batchId)
                 .orElseThrow(() -> new AppException(ErrorCode.STOCK_BATCH_NOT_FOUND));
+        if (Boolean.TRUE.equals(batch.getIsTrial())) {
+            throw new AppException(ErrorCode.TRIAL_BATCH_NOT_RETURNABLE);
+        }
         ImportOrder importOrder = batch.getImportOrder();
         if (importOrder == null || importOrder.getSupplier() == null) {
             throw new AppException(ErrorCode.BATCH_NOT_RETURNABLE);

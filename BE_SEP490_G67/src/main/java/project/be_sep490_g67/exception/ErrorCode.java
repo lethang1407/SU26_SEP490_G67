@@ -117,6 +117,9 @@ public enum ErrorCode {
             HttpStatus.BAD_REQUEST),
     IMPORT_ORDER_NOT_IMPORTED(1091, "Chỉ quyết toán hàng bán thử trên phiếu đã nhập kho.", HttpStatus.BAD_REQUEST),
     INVALID_TRIAL_DISCOUNT(1092, "Giảm giá quyết toán không được âm và không vượt tiền lô thử phải trả.", HttpStatus.BAD_REQUEST),
+    TRIAL_BATCH_NOT_RETURNABLE(1093,
+            "Hàng bán thử không đổi/trả qua phiếu NCC — hãy quyết toán bán thử trên phiếu nhập.",
+            HttpStatus.BAD_REQUEST),
 
     // Product / category errors (11xx)
     PRODUCT_NAME_REQUIRED(1101, "Vui lòng nhập tên sản phẩm", HttpStatus.BAD_REQUEST),

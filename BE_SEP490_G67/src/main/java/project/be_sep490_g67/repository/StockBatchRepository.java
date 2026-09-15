@@ -112,6 +112,7 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
             LEFT JOIN FETCH sb.importOrder io
             LEFT JOIN FETCH io.supplier
             WHERE sb.isRemoved = false
+              AND COALESCE(sb.isTrial, false) = false
               AND COALESCE(sb.quantityIn, 0) > 0
               AND sb.expiryDate IS NOT NULL
               AND sb.expiryDate < CURRENT_DATE
@@ -125,6 +126,7 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
             LEFT JOIN FETCH sb.importOrder io
             LEFT JOIN FETCH io.supplier
             WHERE sb.isRemoved = false
+              AND COALESCE(sb.isTrial, false) = false
               AND COALESCE(sb.quantityIn, 0) > 0
               AND sb.expiryDate IS NOT NULL
               AND sb.expiryDate >= CURRENT_DATE
@@ -164,6 +166,7 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
             JOIN bl.location loc
             JOIN loc.storageZone sz
             WHERE sb.isRemoved = false
+              AND COALESCE(sb.isTrial, false) = false
               AND sz.zoneType <> 'RETURN_HOLD'
               AND sb.expiryDate IS NOT NULL
               AND sb.expiryDate < :today
@@ -192,6 +195,7 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
             JOIN bl.location loc
             JOIN loc.storageZone sz
             WHERE sb.isRemoved = false
+              AND COALESCE(sb.isTrial, false) = false
               AND sz.zoneType <> 'RETURN_HOLD'
               AND sb.expiryDate IS NOT NULL
               AND sb.expiryDate >= :today

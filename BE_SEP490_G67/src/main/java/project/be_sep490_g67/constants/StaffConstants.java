@@ -8,23 +8,25 @@ public final class StaffConstants {
 
     private StaffConstants() {}
 
+    /** Role quản trị trong DB (bảng roles.name). */
     public static final String ADMIN_ROLE_NAME = "ADMIN";
 
     public static final String DEFAULT_STAFF_ROLE = "staff";
 
+    /** Các role được gán trên form nhân viên (lowercase để so khớp FE). */
     public static final Set<String> STAFF_ROLE_NAMES = Set.of(
             "staff",
-            "manager"
+            "admin"
     );
 
     public static final Map<String, String> ROLE_TO_POSITION = Map.of(
             "staff", "Nhân viên",
-            "manager", "Quản lý"
+            "admin", "Quản lý"
     );
 
     public static final Map<String, Set<String>> POSITION_TO_ROLES = Map.of(
             "Nhân viên", Set.of("staff"),
-            "Quản lý", Set.of("manager")
+            "Quản lý", Set.of("admin")
     );
 
     public static String resolvePosition(String roleName) {

@@ -38,7 +38,7 @@ public interface UserRepository extends JpaRepository<User, Integer> {
             WHERE u.isRemoved = false
             AND EXISTS (
                 SELECT 1 FROM u.roles r
-                WHERE UPPER(r.name) IN ('STAFF', 'MANAGER')
+                WHERE UPPER(r.name) IN ('STAFF', 'ADMIN')
             )
             """)
     List<User> findAllActiveStaff();

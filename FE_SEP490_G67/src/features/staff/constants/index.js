@@ -6,7 +6,7 @@ export const STAFF_ROUTES = {
 
 export const STAFF_ROLES = [
     { value: 'staff', label: 'Nhân viên' },
-    { value: 'manager', label: 'Quản lý' },
+    { value: 'admin', label: 'Quản lý' },
 ];
 
 /** Role mặc định khi thêm nhân viên (khớp DB). */
