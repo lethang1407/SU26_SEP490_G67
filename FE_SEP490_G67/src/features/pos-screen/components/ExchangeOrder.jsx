@@ -388,13 +388,13 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
         ? {
             title: 'Hóa đơn đã hết hạn đổi trả',
             detail: originalOrder?.returnDeadline
-                ? `Hạn đổi trả của hóa đơn này là hết ngày ${formatVnDate(originalOrder.returnDeadline)}. Quá hạn thì không đổi/trả được, kể cả hàng hỏng hay hết hạn.`
-                : 'Quá hạn thì không đổi/trả được, kể cả hàng hỏng hay hết hạn.',
+                ? `Hạn đổi trả của hóa đơn này là hết ngày ${formatVnDate(originalOrder.returnDeadline)}. lâu thì không đổi/trả được, kể cả hàng hỏng hay hết hạn.`
+                : 'lâu thì không đổi/trả được, kể cả hàng hỏng hay hết hạn.',
         }
         : originalOrder?.debtOverdue
             ? {
-                title: 'Đơn nợ đã quá hạn trả',
-                detail: `Hóa đơn này còn nợ ${formatVnd(originalOrder.debtRemaining)} và đã quá hạn ${formatVnDate(originalOrder.dueDate)}. Khách cần thanh toán hết nợ trước, sau đó mới xử lý đổi/trả.`,
+                title: 'Đơn nợ đã lâu trả',
+                detail: `Hóa đơn này còn nợ ${formatVnd(originalOrder.debtRemaining)} và đã lâu ${formatVnDate(originalOrder.dueDate)}. Khách cần thanh toán hết nợ trước, sau đó mới xử lý đổi/trả.`,
             }
             : null;
 

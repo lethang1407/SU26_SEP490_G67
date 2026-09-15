@@ -58,7 +58,7 @@ const getStatusBadge = (status) => {
     case "OVERDUE":
       return (
         <Badge bg="danger" {...commonProps}>
-          Nợ quá hạn
+          Nợ lâu
         </Badge>
       );
     default:

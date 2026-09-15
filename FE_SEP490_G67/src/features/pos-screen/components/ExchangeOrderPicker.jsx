@@ -17,7 +17,7 @@ const DATE_FILTERS = [
 ];
 
 /**
- * Đơn nợ quá hạn không được đổi/trả.
+ * Đơn nợ lâu không được đổi/trả.
  */
 const isOverdueDebt = (order) => order.debtStatus === 'OVERDUE';
 
@@ -148,7 +148,7 @@ export default function ExchangeOrderPicker() {
                                             key={order.id}
                                             className={`hist-row exchange-picker-row${overdue ? ' exchange-picker-row--blocked' : ''}`}
                                             title={overdue
-                                                ? 'Đơn nợ đã quá hạn trả - không thể đổi/trả'
+                                                ? 'Đơn nợ đã lâu trả - không thể đổi/trả'
                                                 : undefined}
                                             onClick={overdue
                                                 ? undefined
@@ -170,7 +170,7 @@ export default function ExchangeOrderPicker() {
                                                         {formatVnd(order.remainingDebt)}
                                                         {order.dueDate && (
                                                             <div className={`exchange-picker-due${overdue ? ' is-overdue' : ''}`}>
-                                                                {overdue ? 'Quá hạn ' : 'Hạn '}
+                                                                {overdue ? 'lâu ' : 'Hạn '}
                                                                 {formatVnDateTime(order.dueDate)}
                                                             </div>
                                                         )}
@@ -188,7 +188,7 @@ export default function ExchangeOrderPicker() {
                                                         className="hist-action-btn"
                                                         disabled={overdue}
                                                         title={overdue
-                                                            ? 'Đơn nợ quá hạn - không thể đổi/trả'
+                                                            ? 'Đơn nợ lâu - không thể đổi/trả'
                                                             : 'Đổi/trả hóa đơn này'}
                                                     >
                                                         <ChevronRight size={16} />
