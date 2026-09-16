@@ -83,7 +83,19 @@ public class ProductCommandService {
         mergeUnits(product, request.getUnits());
         mergeAttributes(product, request.getAttributes());
 
-        if (request.getVariants() != null && !request.getVariants().isEmpty()) {
+        // Nếu đây là sản phẩm Cha (parent == null): Đồng bộ danh mục, trạng thái và cập nhật variants
+        if (product.getParent() == null) {
+            // Đồng bộ Category & Trạng thái inactive xuống các biến thể con hiện có
+            List<Product> existingChildren = productRepository.findByParent_IdAndIsRemovedFalse(product.getId());
+            for (Product child : existingChildren) {
+                child.setCategory(category);
+                if ("inactive".equalsIgnoreCase(product.getStatus())) {
+                    child.setStatus("inactive");
+                }
+                productRepository.save(child);
+            }
+
+            // Luôn gọi upsertChildVariants để đồng bộ (nếu request.getVariants() rỗng thì soft-delete biến thể cũ)
             upsertChildVariants(product, request.getVariants(), category, request.getUnits());
         }
 
@@ -153,15 +165,15 @@ public class ProductCommandService {
             Product parent = productRepository.findById(request.getParentId()).orElse(null);
             if (parent != null) {
                 product.setParent(parent);
-                // Format child name as ParentName-Attr1-Attr2 without appending unit of measure
-                if (name.isBlank() || !name.contains("-")) {
+                // Chỉ tự động ghép tên nếu người dùng không truyền tên cụ thể
+                if (name.isBlank()) {
                     String cleanParent = parent.getName().replaceAll("(?i)\\s*\\([^)]*\\)", "").trim();
                     StringBuilder sb = new StringBuilder(cleanParent);
 
                     if (request.getAttributes() != null && !request.getAttributes().isEmpty()) {
                         for (UpsertProductRequest.AttributeRequest a : request.getAttributes()) {
                             if (a.getValue() != null && !a.getValue().isBlank()) {
-                                sb.append("-").append(a.getValue().trim());
+                                sb.append(" - ").append(a.getValue().trim());
                             }
                         }
                     }
@@ -732,80 +744,108 @@ public class ProductCommandService {
                                      List<UpsertProductRequest.VariantRequest> variantRequests,
                                      Category category,
                                      List<UpsertProductRequest.UnitRequest> parentUnits) {
-        if (variantRequests == null || variantRequests.isEmpty()) {
-            return;
-        }
-
         List<Product> existingChildren = productRepository.findByParent_IdAndIsRemovedFalse(parentProduct.getId());
         Map<Integer, Product> existingMap = existingChildren.stream()
                 .collect(Collectors.toMap(Product::getId, Function.identity()));
 
         Set<Integer> keptIds = new HashSet<>();
 
-        for (UpsertProductRequest.VariantRequest vr : variantRequests) {
-            Product child;
-            if (vr.getId() != null && existingMap.containsKey(vr.getId())) {
-                child = existingMap.get(vr.getId());
-            } else {
-                child = new Product();
-                child.setParent(parentProduct);
-                child.setIsRemoved(false);
-            }
-
-            child.setCategory(category);
-            child.setName(vr.getName() != null && !vr.getName().isBlank() ? vr.getName().trim() : parentProduct.getName());
-            child.setBarcode(blankToNull(vr.getBarcode()));
-
-            if (vr.getSku() != null && !vr.getSku().isBlank()) {
-                child.setSku(vr.getSku().trim());
-            } else if (child.getSku() == null || child.getSku().isBlank()) {
-                String parentSku = parentProduct.getSku() != null ? parentProduct.getSku() : "SP" + parentProduct.getId();
-                String slug = vr.getName() != null ? vr.getName().replaceAll("[^a-zA-Z0-9-]", "").toUpperCase() : "";
-                if (slug.isBlank() && vr.getAttributes() != null) {
-                    slug = vr.getAttributes().stream()
-                            .map(UpsertProductRequest.AttributeRequest::getValue)
-                            .filter(Objects::nonNull)
-                            .collect(Collectors.joining("-"))
-                            .replaceAll("[^a-zA-Z0-9-]", "")
-                            .toUpperCase();
+        if (variantRequests != null && !variantRequests.isEmpty()) {
+            for (UpsertProductRequest.VariantRequest vr : variantRequests) {
+                Product child;
+                if (vr.getId() != null && existingMap.containsKey(vr.getId())) {
+                    child = existingMap.get(vr.getId());
+                } else {
+                    child = new Product();
+                    child.setParent(parentProduct);
+                    child.setIsRemoved(false);
                 }
-                child.setSku(generateUniqueChildSku(parentSku, slug, child.getId()));
+
+                child.setCategory(category);
+                child.setName(vr.getName() != null && !vr.getName().isBlank() ? vr.getName().trim() : parentProduct.getName());
+                child.setBarcode(blankToNull(vr.getBarcode()));
+
+                if (vr.getSku() != null && !vr.getSku().isBlank()) {
+                    child.setSku(vr.getSku().trim());
+                } else if (child.getSku() == null || child.getSku().isBlank()) {
+                    String parentSku = parentProduct.getSku() != null ? parentProduct.getSku() : "SP" + parentProduct.getId();
+                    String slug = vr.getName() != null ? vr.getName().replaceAll("[^a-zA-Z0-9-]", "").toUpperCase() : "";
+                    if (slug.isBlank() && vr.getAttributes() != null) {
+                        slug = vr.getAttributes().stream()
+                                .map(UpsertProductRequest.AttributeRequest::getValue)
+                                .filter(Objects::nonNull)
+                                .collect(Collectors.joining("-"))
+                                .replaceAll("[^a-zA-Z0-9-]", "")
+                                .toUpperCase();
+                    }
+                    child.setSku(generateUniqueChildSku(parentSku, slug, child.getId()));
+                }
+
+                BigDecimal cost = nullToZero(vr.getCostPrice());
+                BigDecimal sell = nullToZero(vr.getSellingPrice());
+                if (cost.compareTo(BigDecimal.ZERO) == 0 && parentProduct.getCostPrice() != null) {
+                    cost = parentProduct.getCostPrice();
+                }
+                if (sell.compareTo(BigDecimal.ZERO) == 0 && parentProduct.getSellingPrice() != null) {
+                    sell = parentProduct.getSellingPrice();
+                }
+
+                child.setCostPrice(cost);
+                child.setSellingPrice(sell);
+                String childStatus = vr.getStatus() != null ? vr.getStatus() : parentProduct.getStatus();
+                if ("inactive".equalsIgnoreCase(parentProduct.getStatus())) {
+                    childStatus = "inactive";
+                }
+                child.setStatus(childStatus);
+                child.setDescription(parentProduct.getDescription());
+                child.setSeasonTag(parentProduct.getSeasonTag());
+
+                child = productRepository.save(child);
+                keptIds.add(child.getId());
+
+                mergeUnitsForChild(child, parentUnits);
+                mergeAttributes(child, vr.getAttributes());
             }
-
-            BigDecimal cost = nullToZero(vr.getCostPrice());
-            BigDecimal sell = nullToZero(vr.getSellingPrice());
-            if (cost.compareTo(BigDecimal.ZERO) == 0 && parentProduct.getCostPrice() != null) {
-                cost = parentProduct.getCostPrice();
-            }
-            if (sell.compareTo(BigDecimal.ZERO) == 0 && parentProduct.getSellingPrice() != null) {
-                sell = parentProduct.getSellingPrice();
-            }
-
-            child.setCostPrice(cost);
-            child.setSellingPrice(sell);
-            child.setStatus(vr.getStatus() != null ? vr.getStatus() : parentProduct.getStatus());
-            child.setDescription(parentProduct.getDescription());
-            child.setSeasonTag(parentProduct.getSeasonTag());
-
-            child = productRepository.save(child);
-            keptIds.add(child.getId());
-
-            mergeUnits(child, parentUnits);
-            mergeAttributes(child, vr.getAttributes());
         }
 
         // Soft delete child variants that were removed in UI
         for (Product existing : existingChildren) {
             if (!keptIds.contains(existing.getId())) {
                 existing.setIsRemoved(true);
+                long ts = System.currentTimeMillis();
                 if (existing.getSku() != null && !existing.getSku().contains("_del_")) {
-                    existing.setSku(existing.getSku() + "_del_" + System.currentTimeMillis());
+                    String base = existing.getSku();
+                    if (base.length() > 30) base = base.substring(0, 30);
+                    existing.setSku(base + "_del_" + ts);
                 }
                 if (existing.getBarcode() != null && !existing.getBarcode().contains("_del_")) {
-                    existing.setBarcode(existing.getBarcode() + "_del_" + System.currentTimeMillis());
+                    String base = existing.getBarcode();
+                    if (base.length() > 30) base = base.substring(0, 30);
+                    existing.setBarcode(base + "_del_" + ts);
                 }
                 productRepository.save(existing);
             }
         }
+    }
+
+    private void mergeUnitsForChild(Product child, List<UpsertProductRequest.UnitRequest> parentUnits) {
+        if (parentUnits == null || parentUnits.isEmpty()) {
+            mergeUnits(child, null);
+            return;
+        }
+        List<UpsertProductRequest.UnitRequest> childUnits = parentUnits.stream().map(pu -> {
+            UpsertProductRequest.UnitRequest cu = new UpsertProductRequest.UnitRequest();
+            cu.setName(pu.getName());
+            cu.setUnitBase(pu.getUnitBase());
+            cu.setIsBase(pu.getIsBase());
+            // Tính giá bán quy đổi theo giá bán cơ bản của chính biến thể con đó
+            if (Boolean.TRUE.equals(pu.getIsBase()) || (pu.getUnitBase() != null && pu.getUnitBase().compareTo(BigDecimal.ONE) == 0)) {
+                cu.setSellingPrice(child.getSellingPrice());
+            } else {
+                cu.setSellingPrice(derivePrice(child.getSellingPrice(), pu.getUnitBase()));
+            }
+            return cu;
+        }).toList();
+        mergeUnits(child, childUnits);
     }
 }
