@@ -79,6 +79,32 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
             """)
     List<Object[]> sumQuantityByProductIds(@Param("productIds") Collection<Integer> productIds);
 
+    /**
+     * Tồn BÁN ĐƯỢC của nhiều sản phẩm trong một lượt truy vấn. Dùng đúng bộ lọc của
+     * {@link #findPosLinesByProductId} để con số hiện trên ô tìm kiếm POS khớp với
+     * lượng mà checkout thật sự trừ được.
+     *
+     * <p>Khác {@link #sumQuantityByProductIds}: ở đây loại thêm lô đã hết hạn, ô/lô đã
+     * xoá mềm và dòng đã hết hàng. Mỗi phần tử là [productId, tổng số lượng].
+     */
+    @Query("""
+            SELECT sb.product.id, COALESCE(SUM(bl.quantity), 0)
+            FROM BatchLocation bl
+            JOIN bl.batch sb
+            JOIN bl.location loc
+            JOIN loc.storageZone sz
+            WHERE sb.product.id IN :productIds
+              AND bl.quantity > 0
+              AND bl.isRemoved = false
+              AND sb.isRemoved = false
+              AND loc.isRemoved = false
+              AND (sz.isRemoved = false OR sz.isRemoved IS NULL)
+              AND sz.zoneType <> 'RETURN_HOLD'
+              AND (sb.expiryDate IS NULL OR sb.expiryDate >= CURRENT_DATE)
+            GROUP BY sb.product.id
+            """)
+    List<Object[]> sumSellableByProductIds(@Param("productIds") Collection<Integer> productIds);
+
     @Query("""
             SELECT bl FROM BatchLocation bl
             JOIN FETCH bl.batch b
