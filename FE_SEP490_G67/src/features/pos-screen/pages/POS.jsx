@@ -27,6 +27,7 @@ import { useCustomerSearch } from '../hooks/useCustomerSearch';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useOfflineSync } from '../hooks/useOfflineSync';
 import { pickKey, hasLocationProblem } from '../utils/cartLocation';
+import { hasNoSellableLocation, unsellableMessage } from '../utils/productStock';
 import {
     debtLevelMeta, canSellOnDebt, debtSummaryText, debtBlockReason, formatMoney,
     isOverdueCustomer, debtOverdueWarning,
@@ -275,6 +276,12 @@ const POSScreen = () => {
         // Vị trí + lô lấy từ api pos-info
         try {
             const posInfo = await getProductPosInfo(product.id);
+            // Hàng chưa xếp vào ô nào thì checkout chắc chắn hụt kho. Chặn ngay lúc thêm
+            // thay vì để thu ngân phát hiện khi bấm thanh toán, lúc khách đã đứng chờ.
+            if (hasNoSellableLocation(posInfo)) {
+                setPosInfoError(unsellableMessage(product.name));
+                return;
+            }
             setPosInfoError(null);
             addProductToCart(product, posInfo);
         } catch (error) {

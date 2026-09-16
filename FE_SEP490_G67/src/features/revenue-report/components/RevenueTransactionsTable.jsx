@@ -86,7 +86,11 @@ export default function RevenueTransactionsTable({
 
   const openOrder = (row) => {
     if (!row.orderId) return;
-    navigate(`/admin/orders/${row.orderId}`);
+    // Báo trước cho trang chi tiết biết đường về, nếu không nút "Quay lại" đổ người dùng
+    // sang danh sách đơn hàng thay vì trả về đúng báo cáo họ đang xem.
+    navigate(`/admin/orders/${row.orderId}`, {
+      state: { backTo: '/admin/reports/revenue', backLabel: 'Quay lại báo cáo doanh thu' },
+    });
   };
 
   return (

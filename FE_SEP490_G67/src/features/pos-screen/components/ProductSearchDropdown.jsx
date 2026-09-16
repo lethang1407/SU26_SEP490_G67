@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { Loader2, PackageSearch } from 'lucide-react';
+import { Ban, Loader2, PackageSearch } from 'lucide-react';
+import { displayStock, isUnsellable, UNSELLABLE_HINT } from '../utils/productStock';
 
 export default function ProductSearchDropdown({ results, loading, error, onSelect, onClose }) {
     const ref = useRef(null);
@@ -46,27 +47,39 @@ export default function ProductSearchDropdown({ results, loading, error, onSelec
 
             {!loading && !error && results.length > 0 && (
                 <ul className="psd-list">
-                    {results.map((product) => (
-                        <li
-                            key={product.id}
-                            className="psd-item"
-                            onMouseDown={(e) => {
-                                e.preventDefault();
-                                onSelect(product);
-                            }}
-                        >
-                            <div className="psd-item-name">{product.name}</div>
-                            <div className="psd-item-meta">
-                                {product.barcode && (
-                                    <span className="psd-barcode">{product.barcode}</span>
-                                )}
-                                {/* Tồn kho để thu ngân biết còn hàng hay không trước khi thêm */}
-                                <span className={`psd-stock${Number(product.stockQuantity ?? 0) <= 0 ? ' psd-stock--empty' : ''}`}>
-                                    Tồn kho: {Number(product.stockQuantity ?? 0).toLocaleString('vi-VN')}
-                                </span>
-                            </div>
-                        </li>
-                    ))}
+                    {results.map((product) => {
+                        const blocked = isUnsellable(product);
+                        const stock = displayStock(product);
+                        return (
+                            <li
+                                key={product.id}
+                                className={`psd-item${blocked ? ' psd-item--blocked' : ''}`}
+                                title={blocked ? UNSELLABLE_HINT : undefined}
+                                onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    if (blocked) return;
+                                    onSelect(product);
+                                }}
+                            >
+                                <div className="psd-item-name">
+                                    {product.name}
+                                    {blocked && <Ban size={13} className="psd-blocked-icon" />}
+                                </div>
+                                <div className="psd-item-meta">
+                                    {product.barcode && (
+                                        <span className="psd-barcode">{product.barcode}</span>
+                                    )}
+                                    {/* Tồn bán được, không phải lượng nhập — xem utils/productStock */}
+                                    <span className={`psd-stock${stock <= 0 ? ' psd-stock--empty' : ''}`}>
+                                        Tồn kho: {stock.toLocaleString('vi-VN')}
+                                    </span>
+                                    {blocked && (
+                                        <span className="psd-debt-summary">Chưa xếp vị trí kho</span>
+                                    )}
+                                </div>
+                            </li>
+                        );
+                    })}
                 </ul>
             )}
         </div>

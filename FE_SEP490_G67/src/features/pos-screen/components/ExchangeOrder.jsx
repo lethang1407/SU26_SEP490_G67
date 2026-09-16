@@ -20,6 +20,9 @@ import { useStorePaymentInfo } from '../hooks/useStorePaymentInfo';
 import { buildPaymentReference } from '../utils/vietqr';
 import { getOrderForExchange, processExchangeOrder, searchProductsByName, getInvoiceData, getProductPosInfo } from "../api";
 import { pickKey, hasLocationProblem, toStockPicks } from '../utils/cartLocation';
+import {
+    displayStock, hasNoSellableLocation, isUnsellable, UNSELLABLE_HINT, unsellableMessage,
+} from '../utils/productStock';
 import { isValidQtyInput, isValidQtyValue, isQtyInvalid, parseQty } from '../utils/validation';
 import { printInvoice } from '../utils/printInvoice';
 import { getApiErrorMessage } from "../../../utils/api-utils";
@@ -472,6 +475,12 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                     setPosInfoError(`Không tải được vị trí để hàng của "${product.name}". Vui lòng thử lại.`);
                     return;
                 }
+            }
+
+            // Giống giỏ POS: chưa xếp vị trí thì không lấy đi được, chặn ngay ở đây.
+            if (hasNoSellableLocation(posInfo)) {
+                setPosInfoError(unsellableMessage(product.name));
+                return;
             }
 
             const units = product.productUnits ?? [];
@@ -932,21 +941,29 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                     {searchLoading ? (
                         <div className="exchange-dropdown-state">Đang tìm...</div>
                     ) : searchResults.length > 0 ? (
-                        searchResults.map(product => (
-                            <div
-                                key={product.id}
-                                className="exchange-dropdown-item"
-                                onClick={() => handleAddExchangeProduct(product)}
-                            >
-                                <div className="exchange-dropdown-item-name">{product.name}</div>
-                                <div className="exchange-dropdown-item-price">
-                                    Giá: {formatVnd(product.sellingPrice)}
-                                    <span className={`psd-stock${Number(product.stockQuantity ?? 0) <= 0 ? ' psd-stock--empty' : ''}`}>
-                                        Tồn kho: {Number(product.stockQuantity ?? 0).toLocaleString('vi-VN')}
-                                    </span>
+                        searchResults.map(product => {
+                            const blocked = isUnsellable(product);
+                            const stock = displayStock(product);
+                            return (
+                                <div
+                                    key={product.id}
+                                    className={`exchange-dropdown-item${blocked ? ' psd-item--blocked' : ''}`}
+                                    title={blocked ? UNSELLABLE_HINT : undefined}
+                                    onClick={() => {
+                                        if (blocked) return;
+                                        handleAddExchangeProduct(product);
+                                    }}
+                                >
+                                    <div className="exchange-dropdown-item-name">{product.name}</div>
+                                    <div className="exchange-dropdown-item-price">
+                                        Giá: {formatVnd(product.sellingPrice)}
+                                        <span className={`psd-stock${stock <= 0 ? ' psd-stock--empty' : ''}`}>
+                                            Tồn kho: {stock.toLocaleString('vi-VN')}
+                                        </span>
+                                    </div>
                                 </div>
-                            </div>
-                        ))
+                            );
+                        })
                     ) : (
                         <div className="exchange-dropdown-state exchange-dropdown-empty">Không tìm thấy sản phẩm</div>
                     )}
