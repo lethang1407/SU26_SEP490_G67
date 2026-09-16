@@ -10,6 +10,7 @@ import ImportOrderReturnSection from '../components/ImportOrderReturnSection';
 import ImportOrderStatusBadge from '../components/ImportOrderStatusBadge';
 import ImportOrderSummaryPanel from '../components/ImportOrderSummaryPanel';
 import ImportTrialSettleModal from '../components/ImportTrialSettleModal';
+import ImportTrialHistory from '../components/ImportTrialHistory';
 import { IMPORT_ORDER_ROUTES } from '../constants';
 import { mapPendingReturnLine } from '../utils/importReturnAttachUtils';
 import '../../../css/AdminDashboard.css';
@@ -57,7 +58,8 @@ export default function ImportOrderDetailPage() {
 
     const returnLines = (order?.returnLines ?? []).map(mapPendingReturnLine);
     const lines = (order?.items ?? []).map((item, index) => ({
-        id: item.batchId ?? `item-${index}`,
+        key: item.id ?? `item-${index}`,
+        id: item.id,
         productId: item.productId,
         productCode: item.productCode,
         productName: item.parentName || item.productName,
@@ -78,6 +80,7 @@ export default function ImportOrderDetailPage() {
         lineType: item.lineType || (item.isTrial ? 'TRIAL' : item.isPromotion ? 'PROMOTION' : 'REGULAR'),
         trialStatus: item.trialStatus || '',
         lineTotal: Number(item.lineTotal) || 0,
+        settledPayableAmount: item.settledPayableAmount,
         note: item.note || '',
     }));
 
@@ -167,7 +170,22 @@ export default function ImportOrderDetailPage() {
 
                         <div className="import-order-create-layout">
                             <div className="import-order-create-main">
-                                <ImportOrderLineTable lines={lines} readOnly />
+                                <ImportOrderLineTable
+                                    lines={lines}
+                                    readOnly
+                                    trialSettlements={order.trialSettlements || []}
+                                />
+                                {(order.trialSettlements || []).length > 0 ? (
+                                    <section className="ioc-section" style={{ marginTop: 16 }}>
+                                        <header className="ioc-section__head">
+                                            <h2 className="ioc-section__title">Quyết toán bán thử</h2>
+                                        </header>
+                                        <ImportTrialHistory
+                                            settlements={order.trialSettlements}
+                                            hideOrderCode
+                                        />
+                                    </section>
+                                ) : null}
                                 {returnLines.length > 0 ? (
                                     <ImportOrderReturnSection
                                         lines={returnLines}
@@ -179,7 +197,11 @@ export default function ImportOrderDetailPage() {
 
                             <aside className="import-order-detail-sidebar">
                                 <ImportOrderDetailInfo order={order} />
-                                <ImportOrderSummaryPanel lines={lines} note={order.note} />
+                                <ImportOrderSummaryPanel
+                                    lines={lines}
+                                    note={order.note}
+                                    amountDue={order.totalCost}
+                                />
                             </aside>
                         </div>
                         <ImportTrialSettleModal

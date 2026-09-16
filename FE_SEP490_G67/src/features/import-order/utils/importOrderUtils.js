@@ -102,16 +102,13 @@ export function computeLineTotal(line) {
 }
 
 /**
- * Thành tiền hiển thị trên dòng: KM = 0; bán thử OPEN = qty × giá;
- * bán thử đã quyết toán lấy lineTotal đã ghi.
+ * Thành tiền hiển thị trên dòng: KM = 0;
+ * bán thử (kể cả đã quyết toán) = qty × giá lúc nhận — không lấy line_total sau chốt.
  */
 export function computeDisplayLineTotal(line) {
     if (isPromotionLine(line)) return 0;
     const quantity = Number(line.quantity) || 0;
     const costPerUnit = Number(line.costPerUnit) || 0;
-    if (isTrialLine(line) && line.trialStatus === 'SETTLED') {
-        return Number(line.lineTotal) || 0;
-    }
     return quantity * costPerUnit;
 }
 
@@ -124,6 +121,54 @@ export function computeOpenTrialAmount(lines) {
         if (!isTrialLine(line) || line.trialStatus === 'SETTLED') return sum;
         return sum + (Number(line.quantity) || 0) * (Number(line.costPerUnit) || 0);
     }, 0);
+}
+
+/** Tổng phải trả sau khi đã chốt các dòng bán thử (0 = trả hết hàng). */
+export function computeSettledTrialAmount(lines) {
+    return (lines || []).reduce((sum, line) => {
+        if (!isTrialLine(line) || line.trialStatus !== 'SETTLED') return sum;
+        if (line.settledPayableAmount != null && line.settledPayableAmount !== '') {
+            return sum + (Number(line.settledPayableAmount) || 0);
+        }
+        return sum;
+    }, 0);
+}
+
+export function hasSettledTrial(lines) {
+    return (lines || []).some((line) => isTrialLine(line) && line.trialStatus === 'SETTLED');
+}
+
+export function settlementLineByDetailId(settlements) {
+    const map = new Map();
+    (settlements || []).forEach((settlement) => {
+        (settlement.lines || []).forEach((line) => {
+            if (line?.importOrderDetailId != null && !map.has(line.importOrderDetailId)) {
+                map.set(line.importOrderDetailId, line);
+            }
+        });
+    });
+    return map;
+}
+
+/** Chú thích dòng bán thử đã chốt: trả lại / giữ hết / phải trả. */
+export function describeSettledTrial(line, settlementLine) {
+    const unit = settlementLine?.unitName
+        || settlementLine?.baseUnitName
+        || line?.unitName
+        || '';
+    const unitLabel = unit ? ` ${unit}` : '';
+    const returned = Number(settlementLine?.returnedQty) || 0;
+    const parts = [];
+    if (returned > 0) {
+        parts.push(`Trả lại ${returned}${unitLabel}`);
+    } else if (settlementLine?.decision === 'PAY_ALL_KEEP') {
+        parts.push('Giữ hết');
+    }
+    const payableRaw = settlementLine?.payableAmount ?? line?.settledPayableAmount;
+    if (payableRaw != null && payableRaw !== '') {
+        parts.push(`Phải trả ${formatMoneyPlain(payableRaw)}`);
+    }
+    return parts.length > 0 ? parts.join(' · ') : 'Đã quyết toán';
 }
 
 /** Trần giảm giá lúc nhập: chỉ hàng thường, không KM / bán thử. */

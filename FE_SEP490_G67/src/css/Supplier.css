@@ -515,10 +515,15 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    min-width: 0;
 }
 
+.supplier-toolbar__date-input.vi-datepicker__trigger,
 .supplier-toolbar__date-input {
+    width: auto;
+    min-width: 148px;
+    flex: 0 0 auto;
     padding: 7px 12px;
     border: 1px solid #e2e8f0;
     border-radius: 8px;

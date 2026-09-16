@@ -356,9 +356,14 @@ public class ImportTrialSettlementService {
 
     @Transactional(readOnly = true)
     public List<ImportTrialSettleResponse> listByOrder(Integer orderId) {
-        if (importOrderRepository.findActiveByIdForUpdate(orderId).isEmpty()) {
+        if (importOrderRepository.findDetailById(orderId).isEmpty()) {
             throw new AppException(ErrorCode.NOT_FOUND_IMPORT_ORDER);
         }
+        return listHistory(orderId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ImportTrialSettleResponse> listHistory(Integer orderId) {
         return settlementRepository.findByImportOrderIdWithLines(orderId).stream()
                 .map(this::toHistoryResponse)
                 .toList();

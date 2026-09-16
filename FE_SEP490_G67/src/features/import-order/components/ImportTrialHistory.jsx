@@ -34,6 +34,7 @@ function paymentOf(settlement) {
 export default function ImportTrialHistory({
     settlements = [],
     emptyText = 'Chưa có lần quyết toán bán thử.',
+    hideOrderCode = false,
 }) {
     if (!settlements.length) {
         return <p className="supplier-detail-empty-text">{emptyText}</p>;
@@ -45,7 +46,7 @@ export default function ImportTrialHistory({
                 <thead>
                     <tr>
                         <th>Ngày</th>
-                        <th>Phiếu</th>
+                        {hideOrderCode ? null : <th>Phiếu</th>}
                         <th>Sản phẩm</th>
                         <th>Kết quả</th>
                         <th className="trial-settle-table__num">Tiền</th>
@@ -68,9 +69,11 @@ export default function ImportTrialHistory({
                                         <td rowSpan={rowSpan} className="import-trial-history-table__meta">
                                             {formatDateTime(settlement.settledAt)}
                                         </td>
-                                        <td rowSpan={rowSpan} className="import-trial-history-table__code">
-                                            {settlement.orderCode || '—'}
-                                        </td>
+                                        {hideOrderCode ? null : (
+                                            <td rowSpan={rowSpan} className="import-trial-history-table__code">
+                                                {settlement.orderCode || '—'}
+                                            </td>
+                                        )}
                                     </>
                                 ) : null}
                                 <td>{line?.productName || '—'}</td>

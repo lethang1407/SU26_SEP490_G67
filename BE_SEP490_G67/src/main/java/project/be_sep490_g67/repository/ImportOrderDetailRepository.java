@@ -150,11 +150,7 @@ public interface ImportOrderDetailRepository extends JpaRepository<ImportOrderDe
     @Query("""
         SELECT d
         FROM ImportOrderDetail d
-        JOIN FETCH d.product p
-        LEFT JOIN FETCH p.parent
-        LEFT JOIN FETCH d.productUnit
-        JOIN FETCH d.importOrder o
-        WHERE o.id = :orderId
+        WHERE d.importOrder.id = :orderId
           AND (d.isRemoved = false OR d.isRemoved IS NULL)
           AND d.lineType = 'TRIAL'
           AND d.trialStatus = 'OPEN'
@@ -177,12 +173,9 @@ public interface ImportOrderDetailRepository extends JpaRepository<ImportOrderDe
     @Query("""
         SELECT d
         FROM ImportOrderDetail d
-        JOIN FETCH d.product p
-        LEFT JOIN FETCH p.parent
-        LEFT JOIN FETCH d.productUnit
-        JOIN FETCH d.importOrder o
-        LEFT JOIN FETCH o.supplier
-        WHERE o.supplier.id = :supplierId
+        JOIN d.importOrder o
+        JOIN o.supplier s
+        WHERE s.id = :supplierId
           AND (d.isRemoved = false OR d.isRemoved IS NULL)
           AND (o.isRemoved = false OR o.isRemoved IS NULL)
           AND UPPER(o.orderStatus) = 'IMPORTED'

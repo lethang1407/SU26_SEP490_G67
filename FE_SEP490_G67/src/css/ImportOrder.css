@@ -964,6 +964,22 @@ a.supplier-btn {
     background: #99f6e4;
 }
 
+.ioc-trial-chip--settled,
+.ioc-trial-chip--on.ioc-trial-chip--settled {
+    border-color: #86efac;
+    background: #f0fdf4;
+    color: #15803d;
+}
+
+.import-order-expand__settle-note {
+    flex: 1 0 100%;
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: #0f766e;
+    line-height: 1.4;
+}
+
 .ioc-trial-chip:disabled {
     opacity: 0.45;
     cursor: not-allowed;
@@ -1307,6 +1323,11 @@ a.supplier-btn {
     display: flex;
     flex-direction: column;
     gap: 20px;
+}
+
+.supplier-trial-tab__error {
+    color: #dc2626;
+    margin: 0;
 }
 
 .ioc-promo-badge {
