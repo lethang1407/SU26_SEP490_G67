@@ -22,6 +22,11 @@ db.version(2).stores({
     sales_orders: 'id, orderCode, createdAt, customerId'
 });
 
+db.version(3).stores({
+    // Store customer debt orders for offline debt collection
+    debt_orders: 'id, customerId, orderId, orderCode, status'
+});
+
 /**
  * Upsert products into offline Dexie database with smart delta tracking
  */
@@ -83,41 +88,72 @@ export async function getOfflineProductByBarcode(barcode) {
 }
 
 /**
- * Upsert customers into offline Dexie database
+ * Upsert customers into offline Dexie database with full customer details
  */
 export async function saveOfflineCustomers(customersList) {
-    if (!Array.isArray(customersList) || customersList.length === 0) return;
+    if (!Array.isArray(customersList) || customersList.length === 0) return 0;
     const now = Date.now();
     const records = customersList
         .filter(c => c && (c.id != null || c.customerId != null))
-        .map(c => ({
-            id: c.id ?? c.customerId,
-            phone: c.phone || '',
-            name: c.name || c.customerName || '',
-            debtAmount: c.debtAmount ?? c.currentDebt ?? 0,
-            maxDebtLimit: c.maxDebtLimit ?? 0,
-            raw: c,
-            updatedAt: now
-        }));
+        .map(c => {
+            const id = c.id ?? c.customerId;
+            const phone = c.phoneNumber || c.phone || '';
+            const name = c.fullName || c.name || c.customerName || '';
+            const totalDebt = Number(c.totalDebt ?? c.debtAmount ?? c.currentDebt ?? 0);
+            return {
+                id,
+                phone,
+                name,
+                fullName: name,
+                phoneNumber: phone,
+                address: c.address || '',
+                debtAmount: totalDebt,
+                totalDebt,
+                debtStatus: c.debtStatus || (totalDebt > 0 ? 'IN_DEBT' : 'NO_DEBT'),
+                allowDebt: c.allowDebt !== undefined ? Boolean(c.allowDebt) : true,
+                latestDebtDate: c.latestDebtDate || null,
+                note: c.note || '',
+                isOverdue: Boolean(c.isOverdue || c.debtStatus === 'OVERDUE'),
+                isCheckDebtUnstable: Boolean(c.isCheckDebtUnstable),
+                totalOrdersInDebt: Number(c.totalOrdersInDebt ?? 0),
+                totalOverdueOrders: Number(c.totalOverdueOrders ?? 0),
+                maxDebtLimit: Number(c.maxDebtLimit ?? 0),
+                raw: { ...c, id, phone, name, fullName: name, phoneNumber: phone, totalDebt, debtAmount: totalDebt },
+                updatedAt: now
+            };
+        });
 
     await db.customers.bulkPut(records);
+    return records.length;
 }
 
 /**
- * Search customers offline by phone or name
+ * Search customers offline by phone or name (returns full normalized objects)
  */
-export async function searchOfflineCustomers(keyword, limit = 10) {
+export async function searchOfflineCustomers(keyword, limit = 20) {
     if (!keyword?.trim()) return [];
     const lower = keyword.trim().toLowerCase();
 
-    return await db.customers
+    const items = await db.customers
         .filter(c => {
-            const phoneMatch = c.phone && c.phone.toLowerCase().includes(lower);
-            const nameMatch = c.name && c.name.toLowerCase().includes(lower);
+            const phoneMatch = (c.phone && c.phone.toLowerCase().includes(lower)) ||
+                               (c.phoneNumber && c.phoneNumber.toLowerCase().includes(lower));
+            const nameMatch = (c.name && c.name.toLowerCase().includes(lower)) ||
+                              (c.fullName && c.fullName.toLowerCase().includes(lower));
             return !!(phoneMatch || nameMatch);
         })
         .limit(limit)
         .toArray();
+
+    return items.map(c => ({
+        ...(c.raw || {}),
+        ...c,
+        id: c.id,
+        fullName: c.fullName || c.name,
+        phoneNumber: c.phoneNumber || c.phone,
+        totalDebt: Number(c.totalDebt ?? c.debtAmount ?? 0),
+        debtAmount: Number(c.totalDebt ?? c.debtAmount ?? 0)
+    }));
 }
 
 /**
@@ -126,8 +162,243 @@ export async function searchOfflineCustomers(keyword, limit = 10) {
 export async function getOfflineCustomerByPhone(phone) {
     if (!phone?.trim()) return null;
     const target = phone.trim();
-    const found = await db.customers.where('phone').equals(target).first();
-    return found ? (found.raw || found) : null;
+    let found = await db.customers.where('phone').equals(target).first();
+    if (!found) {
+        found = await db.customers.filter(c => (c.phoneNumber === target || c.phone === target)).first();
+    }
+    if (!found) return null;
+    return {
+        ...(found.raw || {}),
+        ...found,
+        id: found.id,
+        fullName: found.fullName || found.name,
+        phoneNumber: found.phoneNumber || found.phone,
+        totalDebt: Number(found.totalDebt ?? found.debtAmount ?? 0),
+        debtAmount: Number(found.totalDebt ?? found.debtAmount ?? 0)
+    };
+}
+
+/**
+ * Get filtered customers for offline CustomerDebtModal
+ */
+export async function getOfflineCustomerDebts({
+    keyword = '',
+    status,
+    allowDebt,
+    fromDate,
+    toDate,
+    page = 1,
+    size = 10,
+    sortBy = 'debtPriorityLatest'
+} = {}) {
+    let all = await db.customers.toArray();
+
+    all = all.map(c => ({
+        ...(c.raw || {}),
+        ...c,
+        id: c.id,
+        fullName: c.fullName || c.name,
+        phoneNumber: c.phoneNumber || c.phone,
+        totalDebt: Number(c.totalDebt ?? c.debtAmount ?? 0),
+        debtAmount: Number(c.totalDebt ?? c.debtAmount ?? 0)
+    }));
+
+    // Keyword filter
+    if (keyword?.trim()) {
+        const lower = keyword.trim().toLowerCase();
+        all = all.filter(c =>
+            (c.fullName && c.fullName.toLowerCase().includes(lower)) ||
+            (c.phoneNumber && c.phoneNumber.toLowerCase().includes(lower))
+        );
+    }
+
+    // Status filter: IN_DEBT, OVERDUE, NO_DEBT
+    if (status) {
+        if (status === 'IN_DEBT') {
+            all = all.filter(c => c.debtStatus === 'IN_DEBT' || (c.totalDebt > 0 && c.debtStatus !== 'OVERDUE'));
+        } else if (status === 'OVERDUE') {
+            all = all.filter(c => c.debtStatus === 'OVERDUE' || c.isOverdue === true);
+        } else if (status === 'NO_DEBT') {
+            all = all.filter(c => c.debtStatus === 'NO_DEBT' || c.totalDebt === 0);
+        }
+    }
+
+    // AllowDebt filter: 'true' / 'false'
+    if (allowDebt !== undefined && allowDebt !== '') {
+        const isAllow = String(allowDebt) === 'true';
+        all = all.filter(c => Boolean(c.allowDebt) === isAllow);
+    }
+
+    // Date range filter based on latestDebtDate
+    if (fromDate || toDate) {
+        all = all.filter(c => {
+            if (!c.latestDebtDate) return false;
+            const dateStr = String(c.latestDebtDate).slice(0, 10);
+            if (fromDate && dateStr < fromDate) return false;
+            if (toDate && dateStr > toDate) return false;
+            return true;
+        });
+    }
+
+    // Sorting: default debtPriorityLatest (debt > 0 first, then newest latestDebtDate)
+    all.sort((a, b) => {
+        if (b.totalDebt !== a.totalDebt) {
+            return (b.totalDebt > 0 ? 1 : 0) - (a.totalDebt > 0 ? 1 : 0) || (b.totalDebt - a.totalDebt);
+        }
+        const tA = a.latestDebtDate ? new Date(a.latestDebtDate).getTime() : 0;
+        const tB = b.latestDebtDate ? new Date(b.latestDebtDate).getTime() : 0;
+        return tB - tA;
+    });
+
+    const totalElements = all.length;
+    const totalPages = Math.max(1, Math.ceil(totalElements / size));
+    const start = Math.max(0, (page - 1) * size);
+    const content = all.slice(start, start + size);
+
+    return {
+        content,
+        totalElements,
+        totalPages,
+        page,
+        size
+    };
+}
+
+/**
+ * Save customer debt orders to offline debt_orders store
+ */
+export async function saveOfflineDebtOrders(customerId, ordersList) {
+    if (!customerId || !Array.isArray(ordersList) || ordersList.length === 0) return;
+    const now = Date.now();
+    const records = ordersList
+        .filter(o => o && (o.id != null || o.orderId != null))
+        .map(o => ({
+            id: o.id ?? o.orderId,
+            customerId: Number(customerId),
+            orderId: o.orderId ?? o.id,
+            orderCode: o.orderCode || `#${o.orderId || o.id}`,
+            orderDate: o.orderDate || o.createdAt || new Date().toISOString(),
+            dueDate: o.dueDate || null,
+            totalAmount: Number(o.totalAmount ?? 0),
+            amountPaid: Number(o.amountPaid ?? 0),
+            amountRemaining: Number(o.amountRemaining ?? o.debtRemaining ?? 0),
+            status: o.status || (Number(o.amountRemaining ?? 0) > 0 ? 'IN_DEBT' : 'PAID'),
+            createdBy: o.createdBy || '',
+            raw: o,
+            updatedAt: now
+        }));
+
+    await db.debt_orders.bulkPut(records);
+}
+
+/**
+ * Get offline debt orders for a customer
+ */
+export async function getOfflineDebtOrders(customerId) {
+    if (!customerId) return { content: [], totalElements: 0, totalPages: 0 };
+    const numId = Number(customerId);
+    let orders = await db.debt_orders.where('customerId').equals(numId).toArray();
+
+    // If debt_orders table doesn't have it, fallback to db.sales_orders for this customer
+    if (orders.length === 0) {
+        const salesOrders = await db.sales_orders.where('customerId').equals(numId).toArray();
+        orders = salesOrders
+            .filter(so => so.isDebt || Number(so.debtRemaining || 0) > 0)
+            .map(so => ({
+                id: so.id,
+                customerId: numId,
+                orderId: so.id,
+                orderCode: so.orderCode,
+                orderDate: so.createdAt,
+                dueDate: so.dueDate,
+                totalAmount: so.totalAmount,
+                amountPaid: so.paidAmount,
+                amountRemaining: so.debtRemaining,
+                status: so.debtStatus || 'IN_DEBT',
+                createdBy: so.staffName || ''
+            }));
+    }
+
+    orders = orders.filter(o => Number(o.amountRemaining) > 0);
+    orders.sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
+
+    return {
+        content: orders,
+        totalElements: orders.length,
+        totalPages: Math.max(1, Math.ceil(orders.length / 10))
+    };
+}
+
+/**
+ * Optimistically update customer debt in Dexie after offline debt collection
+ */
+export async function optimisticallyUpdateCustomerDebt(customerId, amountPaid, selectedOrderIds = []) {
+    if (!customerId || !amountPaid || amountPaid <= 0) return;
+    const numId = Number(customerId);
+    const paid = Number(amountPaid);
+
+    // 1. Update customer total debt in db.customers
+    const customer = await db.customers.get(numId);
+    if (customer) {
+        const prevDebt = Number(customer.totalDebt ?? customer.debtAmount ?? 0);
+        const newDebt = Math.max(0, prevDebt - paid);
+        const newDebtStatus = newDebt <= 0 ? 'NO_DEBT' : (customer.debtStatus || 'IN_DEBT');
+        const ordersInDebt = Number(customer.totalOrdersInDebt ?? 0);
+        const newOrdersInDebt = newDebt <= 0 ? 0 : Math.max(0, ordersInDebt - (selectedOrderIds.length > 0 ? 1 : 0));
+
+        await db.customers.update(numId, {
+            totalDebt: newDebt,
+            debtAmount: newDebt,
+            debtStatus: newDebtStatus,
+            totalOrdersInDebt: newOrdersInDebt,
+            updatedAt: Date.now()
+        });
+    }
+
+    // 2. Sequentially reduce amountRemaining on selected debt orders in db.debt_orders
+    if (Array.isArray(selectedOrderIds) && selectedOrderIds.length > 0) {
+        let remainingToDeduct = paid;
+        for (const orderId of selectedOrderIds) {
+            if (remainingToDeduct <= 0) break;
+            const debtOrder = await db.debt_orders.get(orderId);
+            if (debtOrder) {
+                const curRemaining = Number(debtOrder.amountRemaining || 0);
+                const deduction = Math.min(curRemaining, remainingToDeduct);
+                const newRemaining = curRemaining - deduction;
+                const newPaid = Number(debtOrder.amountPaid || 0) + deduction;
+                const newStatus = newRemaining <= 0 ? 'PAID' : 'PARTIALLY_PAID';
+
+                await db.debt_orders.update(orderId, {
+                    amountRemaining: newRemaining,
+                    amountPaid: newPaid,
+                    status: newStatus,
+                    updatedAt: Date.now()
+                });
+                remainingToDeduct -= deduction;
+            }
+        }
+    }
+}
+
+/**
+ * Revert optimistic customer debt if offline debt collection item is removed from queue
+ */
+export async function revertOptimisticCustomerDebt(customerId, amountPaid, selectedOrderIds = []) {
+    if (!customerId || !amountPaid || amountPaid <= 0) return;
+    const numId = Number(customerId);
+    const paid = Number(amountPaid);
+
+    const customer = await db.customers.get(numId);
+    if (customer) {
+        const curDebt = Number(customer.totalDebt ?? customer.debtAmount ?? 0);
+        const restoredDebt = curDebt + paid;
+        await db.customers.update(numId, {
+            totalDebt: restoredDebt,
+            debtAmount: restoredDebt,
+            debtStatus: 'IN_DEBT',
+            updatedAt: Date.now()
+        });
+    }
 }
 
 /**

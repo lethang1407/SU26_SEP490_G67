@@ -719,11 +719,6 @@ const POSScreen = () => {
                         </div>
                     </div>
 
-                    {!isReturnTab && (
-                        <button className="icon-btn" onClick={handleNewOrder} title="Làm mới đơn hiện tại">
-                            <RefreshCcw size={20} />
-                        </button>
-                    )}
                     <PosHeaderMenu />
                 </div>
             </header>

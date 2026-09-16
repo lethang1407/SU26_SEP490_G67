@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
-import { db, updateOfflineOrderStatus, saveOfflineSalesOrder } from '@/lib/db';
+import { db, updateOfflineOrderStatus, saveOfflineSalesOrder, revertOptimisticCustomerDebt } from '@/lib/db';
 import { createInvoice, createDebtInvoice, processExchangeOrder } from '../api';
+import { createDebtPayment } from '../../customer/api';
 
 export function useOfflineSync() {
     const { isOnline } = useOnlineStatus();
@@ -70,6 +71,8 @@ export function useOfflineSync() {
                     result = await processExchangeOrder(item.payload);
                 } else if (item.type === 'DEBT') {
                     result = await createDebtInvoice(item.payload);
+                } else if (item.type === 'DEBT_PAYMENT') {
+                    result = await createDebtPayment(item.payload);
                 } else {
                     result = await createInvoice(item.payload);
                 }
@@ -151,6 +154,15 @@ export function useOfflineSync() {
 
     const removeQueueItem = useCallback(async (id) => {
         try {
+            const item = await db.offline_queue.get(id);
+            if (item && item.type === 'DEBT_PAYMENT') {
+                const custId = item.customer?.id || item.orderSnapshot?.customerId;
+                const amount = item.payload?.amountPaid || item.orderSnapshot?.amountPaid || 0;
+                const orderIds = item.payload?.salesOrderIds || item.orderSnapshot?.selectedOrderIds || [];
+                if (custId && amount > 0) {
+                    await revertOptimisticCustomerDebt(custId, amount, orderIds);
+                }
+            }
             await db.offline_queue.delete(id);
             if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('offline-queue-changed'));

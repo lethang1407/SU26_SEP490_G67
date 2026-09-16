@@ -32,6 +32,20 @@ export function useCustomerSearch(query) {
         setLoading(true);
 
         debounceRef.current = setTimeout(async () => {
+            if (typeof window !== 'undefined' && !window.navigator.onLine) {
+                try {
+                    const offlineCustomers = await searchOfflineCustomers(trimmed);
+                    setResults(offlineCustomers || []);
+                    setError(null);
+                } catch (offlineErr) {
+                    console.warn("[useCustomerSearch] Offline customer search failed:", offlineErr);
+                    setResults([]);
+                } finally {
+                    setLoading(false);
+                }
+                return;
+            }
+
             try {
                 const data = await searchCustomers(trimmed);
                 setResults(data ?? []);

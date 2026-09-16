@@ -4,6 +4,7 @@ import { getCustomerDebtOrders, getCustomerDebtPaymentHistory } from '../api';
 import { formatVnd } from '../utils/money';
 import '../../../css/SalesOrderHistoryModal.css';
 import SalesOrderDetailModal from './SalesOrderDetailModal';
+import { getOfflineDebtOrders, saveOfflineDebtOrders, db } from '@/lib/db';
 
 const PAGE_SIZE = 10;
 
@@ -49,19 +50,47 @@ export default function CustomerDebtOrdersModal({ customer, onClose }) {
     const fetchOrders = useCallback(async () => {
         setLoading(true);
         setError(null);
+
+        // Check offline first
+        if (typeof window !== 'undefined' && !window.navigator.onLine) {
+            try {
+                const offOrders = await getOfflineDebtOrders(customer.id);
+                setData(offOrders);
+            } catch (offErr) {
+                console.warn('Failed to get offline debt orders:', offErr);
+                setError('Không thể tải danh sách đơn nợ từ bộ nhớ.');
+            } finally {
+                setLoading(false);
+            }
+            return;
+        }
+
         try {
             const result = await getCustomerDebtOrders(customer.id, {
                 page: Math.max(1, page),
                 size: PAGE_SIZE,
             });
+            const content = result?.content ?? [];
             setData({
-                content: result?.content ?? [],
+                content,
                 totalElements: result?.totalElements ?? 0,
                 totalPages: result?.totalPages ?? 0,
             });
+            if (content.length > 0) {
+                saveOfflineDebtOrders(customer.id, content).catch(err => {
+                    console.warn('Failed to cache debt orders:', err);
+                });
+            }
         } catch (requestError) {
-            console.error('Failed to fetch customer debt orders:', requestError);
-            setError('Không thể tải danh sách đơn nợ của khách hàng.');
+            console.error('Failed to fetch customer debt orders, trying offline fallback:', requestError);
+            try {
+                const offOrders = await getOfflineDebtOrders(customer.id);
+                setData(offOrders);
+                setError(null);
+            } catch (offErr) {
+                console.warn('Offline debt orders fallback failed:', offErr);
+                setError('Không thể tải danh sách đơn nợ của khách hàng.');
+            }
         } finally {
             setLoading(false);
         }
@@ -84,19 +113,59 @@ export default function CustomerDebtOrdersModal({ customer, onClose }) {
     const fetchPaymentHistory = useCallback(async () => {
         setPaymentLoading(true);
         setPaymentError(null);
+
+        const getOfflinePendingPayments = async () => {
+            try {
+                const queueItems = await db.offline_queue
+                    .filter(item => item.type === 'DEBT_PAYMENT' && (item.customer?.id === customer.id || item.orderSnapshot?.customerId === customer.id))
+                    .toArray();
+                return queueItems.map(item => ({
+                    id: `off-${item.id}`,
+                    paymentDate: item.createdAt,
+                    paymentCode: item.orderSnapshot?.paymentCode || item.clientUuid,
+                    orderCode: 'Phiếu thu ngoại tuyến',
+                    amountPaid: item.payload?.amountPaid || item.orderSnapshot?.amountPaid || 0,
+                    paymentMethod: item.payload?.paymentMethod || 'CASH',
+                    staffName: 'Chờ đồng bộ',
+                    note: item.payload?.note || item.orderSnapshot?.note || ''
+                }));
+            } catch (err) {
+                console.warn('Failed to read offline queue for payments:', err);
+                return [];
+            }
+        };
+
+        if (typeof window !== 'undefined' && !window.navigator.onLine) {
+            const pending = await getOfflinePendingPayments();
+            setPaymentData({
+                content: pending,
+                totalElements: pending.length,
+                totalPages: Math.max(1, Math.ceil(pending.length / PAGE_SIZE))
+            });
+            setPaymentLoading(false);
+            return;
+        }
+
         try {
             const result = await getCustomerDebtPaymentHistory(customer.id, {
                 page: Math.max(1, paymentPage),
                 size: PAGE_SIZE,
             });
+            const pending = await getOfflinePendingPayments();
+            const combinedContent = [...pending, ...(result?.content ?? [])];
             setPaymentData({
-                content: result?.content ?? [],
-                totalElements: result?.totalElements ?? 0,
+                content: combinedContent,
+                totalElements: (result?.totalElements ?? 0) + pending.length,
                 totalPages: result?.totalPages ?? 0,
             });
         } catch (requestError) {
-            console.error('Failed to fetch customer debt payment history:', requestError);
-            setPaymentError('Không thể tải lịch sử thu nợ của khách hàng.');
+            console.error('Failed to fetch customer debt payment history, falling back to offline queue:', requestError);
+            const pending = await getOfflinePendingPayments();
+            setPaymentData({
+                content: pending,
+                totalElements: pending.length,
+                totalPages: Math.max(1, Math.ceil(pending.length / PAGE_SIZE))
+            });
         } finally {
             setPaymentLoading(false);
         }

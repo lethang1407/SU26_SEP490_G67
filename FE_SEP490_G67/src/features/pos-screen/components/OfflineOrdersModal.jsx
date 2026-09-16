@@ -26,8 +26,9 @@ export default function OfflineOrdersModal({
     // Filter by type
     const filteredQueue = sortedQueue.filter(item => {
         if (selectedType === 'ALL') return true;
-        if (selectedType === 'SALE') return item.type !== 'EXCHANGE';
+        if (selectedType === 'SALE') return item.type !== 'EXCHANGE' && item.type !== 'DEBT_PAYMENT';
         if (selectedType === 'EXCHANGE') return item.type === 'EXCHANGE';
+        if (selectedType === 'DEBT_PAYMENT') return item.type === 'DEBT_PAYMENT';
         return true;
     });
 
@@ -82,6 +83,7 @@ export default function OfflineOrdersModal({
                             <option value="ALL">---Tất cả---</option>
                             <option value="SALE">Hóa đơn</option>
                             <option value="EXCHANGE">Đổi trả</option>
+                            <option value="DEBT_PAYMENT">Thu nợ</option>
                         </select>
                     </div>
 
@@ -160,10 +162,12 @@ export default function OfflineOrdersModal({
                                 filteredQueue.map((item) => {
                                     const snapshot = item.orderSnapshot || {};
                                     const isExchange = item.type === 'EXCHANGE';
-                                    const docType = isExchange ? 'Đổi trả' : 'Hóa Đơn';
-                                    const docCode = snapshot.orderCode || item.clientUuid;
+                                    const isDebtPayment = item.type === 'DEBT_PAYMENT';
+                                    const docType = isDebtPayment ? 'Thu nợ' : isExchange ? 'Đổi trả' : (item.type === 'DEBT' ? 'Đơn nợ' : 'Hóa Đơn');
+                                    const docTypeColor = isDebtPayment ? '#059669' : isExchange ? '#d97706' : '#1e88e5';
+                                    const docCode = snapshot.paymentCode || snapshot.orderCode || item.clientUuid;
                                     const dateText = formatDate(item.createdAt);
-                                    const valueText = formatValue(snapshot.totalAmount || 0);
+                                    const valueText = formatValue(snapshot.amountPaid ?? snapshot.totalAmount ?? 0);
 
                                     /**
                                      * Nguyên tắc nút "Chọn":
@@ -172,16 +176,16 @@ export default function OfflineOrdersModal({
                                      *   để thu ngân có thể xem lại rồi quyết định.
                                      * - OFFLINE: nút "Chọn" hiện — cho phép nạp lại đơn hoặc mở lại đổi trả
                                      *   để tiếp tục xử lý ngay mà không cần mạng.
-                                     *   Đổi trả offline chỉ "Chọn" được nếu có originalOrderId để mở tab.
+                                     *   Phiếu thu nợ không cần nạp vào giỏ.
                                      */
-                                    const showSelectBtn = !isOnline || item.status === 'FAILED';
+                                    const showSelectBtn = (!isOnline || item.status === 'FAILED') && !isDebtPayment;
 
                                     return (
                                         <tr key={item.id}>
                                             <td>
                                                 <span style={{
                                                     fontWeight: 600,
-                                                    color: isExchange ? '#d97706' : '#1e88e5'
+                                                    color: docTypeColor
                                                 }}>
                                                     {docType}
                                                 </span>

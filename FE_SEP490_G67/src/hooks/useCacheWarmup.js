@@ -4,6 +4,7 @@ import {
     db,
     saveOfflineProducts,
     saveOfflineCustomers,
+    saveOfflineDebtOrders,
     saveOfflineSalesOrders,
     saveOfflineSalesOrder,
     cleanupOldSalesOrders
@@ -71,13 +72,48 @@ export function useCacheWarmup(authenticated) {
                 // Small pause
                 await new Promise(r => setTimeout(r, 600));
 
-                // 3. Warmup customer list
+                // 3. Warmup ALL customers and debt orders (cache hết theo yêu cầu)
                 try {
-                    const customersRes = await api.get('/customers/debts', { params: { page: 1, size: 100 } });
-                    const customers = customersRes?.result?.content || [];
-                    if (Array.isArray(customers) && customers.length > 0) {
-                        await saveOfflineCustomers(customers);
-                        console.info(`[CacheWarmup] Cached ${customers.length} customers`);
+                    let page = 1;
+                    let totalPages = 1;
+                    const allCustomers = [];
+                    while (page <= totalPages && page <= 20) {
+                        try {
+                            const res = await api.get('/customers/debts', { params: { page, size: 100 } });
+                            const content = res?.result?.content || [];
+                            totalPages = res?.result?.totalPages || 1;
+                            if (Array.isArray(content) && content.length > 0) {
+                                allCustomers.push(...content);
+                            }
+                            page++;
+                        } catch (pageErr) {
+                            console.warn(`[CacheWarmup] Customers warmup failed on page ${page}:`, pageErr);
+                            break;
+                        }
+                    }
+
+                    if (allCustomers.length > 0) {
+                        await saveOfflineCustomers(allCustomers);
+                        await db.meta.put({ key: 'last_customer_sync', value: Date.now() });
+                        console.info(`[CacheWarmup] Cached all ${allCustomers.length} customers to offline DB`);
+
+                        // Prefetch debt orders for indebted customers
+                        const indebtedCustomers = allCustomers.filter(c =>
+                            Number(c.totalDebt ?? c.debtAmount ?? 0) > 0 || Number(c.totalOrdersInDebt ?? 0) > 0
+                        );
+                        for (const cust of indebtedCustomers.slice(0, 30)) {
+                            try {
+                                const debtOrdersRes = await api.get(`/customers/${cust.id}/debt-orders`, {
+                                    params: { size: 100, status: 'IN_DEBT' }
+                                });
+                                const orders = debtOrdersRes?.result?.content || [];
+                                if (orders.length > 0) {
+                                    await saveOfflineDebtOrders(cust.id, orders);
+                                }
+                            } catch (debtErr) {
+                                console.warn(`[CacheWarmup] Debt orders prefetch failed for customer ${cust.id}:`, debtErr);
+                            }
+                        }
                     }
                 } catch (err) {
                     console.warn('[CacheWarmup] Customers warmup failed:', err);
