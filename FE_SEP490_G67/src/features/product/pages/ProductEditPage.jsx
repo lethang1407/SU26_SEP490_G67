@@ -66,6 +66,7 @@ function mapDetailToForm(detail) {
     brand: detail.brand || '',
     description: detail.description || '',
     status: detail.status || 'active',
+    baseUnitId: base?.id || null,
     baseUnit: detail.baseUnitName || base?.name || 'Chai',
     baseSellPrice: String(detail.sellingPrice ?? base?.sellingPrice ?? 0),
     costPrice: String(detail.costPrice ?? 0),
@@ -97,6 +98,7 @@ function toUpsertPayload(formData) {
 
   const units = [
     {
+      id: formData.baseUnitId ? Number(formData.baseUnitId) : undefined,
       name: baseUnit,
       unitBase: 1,
       sellingPrice: Number(formData.sellingPrice) || 0,
@@ -105,6 +107,7 @@ function toUpsertPayload(formData) {
     ...(formData.conversionUnits || [])
       .filter((u) => u.unitName?.trim())
       .map((u) => ({
+        id: u.id ? Number(u.id) : undefined,
         name: u.unitName,
         unitBase: abs[u.unitName] != null ? abs[u.unitName] : 1,
         sellingPrice: Number(u.sellPrice) || 0,

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertCircle, Eye, HandCoins, LoaderCircle, Search, X } from 'lucide-react';
+import { AlertCircle, Eye, HandCoins, LoaderCircle, Search, WifiOff, X } from 'lucide-react';
 import { getCustomerDebts } from '../api';
 import { formatVnd } from '../utils/money';
 import '../../../css/SalesOrderHistoryModal.css';
 import CustomerDebtOrdersModal from './CustomerDebtOrdersModal';
 import CreatePaymentModal from '../../customer/components/CreatePaymentModal';
+import { getOfflineCustomerDebts, saveOfflineCustomers } from '@/lib/db';
 
 const PAGE_SIZE = 10;
 
@@ -32,6 +33,7 @@ export default function CustomerDebtModal({ onClose }) {
     const [data, setData] = useState({ content: [], totalElements: 0, totalPages: 0 });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [isOfflineData, setIsOfflineData] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
     const [paymentCustomer, setPaymentCustomer] = useState(null);
     const searchTimerRef = useRef(null);
@@ -49,6 +51,30 @@ export default function CustomerDebtModal({ onClose }) {
     const fetchCustomers = useCallback(async () => {
         setLoading(true);
         setError(null);
+
+        // Check offline state first
+        if (typeof window !== 'undefined' && !window.navigator.onLine) {
+            try {
+                const offResult = await getOfflineCustomerDebts({
+                    keyword: keyword || undefined,
+                    status: getFilterValue(status),
+                    allowDebt: getFilterValue(allowDebt),
+                    fromDate: fromDate || undefined,
+                    toDate: toDate || undefined,
+                    page: Math.max(1, page),
+                    size: PAGE_SIZE,
+                });
+                setData(offResult);
+                setIsOfflineData(true);
+            } catch (offErr) {
+                console.warn('Failed to fetch offline customer debts:', offErr);
+                setError('Không thể tải danh sách công nợ từ bộ nhớ.');
+            } finally {
+                setLoading(false);
+            }
+            return;
+        }
+
         try {
             const result = await getCustomerDebts({
                 keyword: keyword || undefined,
@@ -65,9 +91,31 @@ export default function CustomerDebtModal({ onClose }) {
                 totalElements: result?.totalElements ?? 0,
                 totalPages: result?.totalPages ?? 0,
             });
+            setIsOfflineData(false);
+            if (Array.isArray(result?.content) && result.content.length > 0) {
+                saveOfflineCustomers(result.content).catch(err => {
+                    console.warn('Failed to cache customer debts:', err);
+                });
+            }
         } catch (requestError) {
-            console.error('Failed to fetch customer debts:', requestError);
-            setError('Không thể tải danh sách công nợ.');
+            console.error('Failed to fetch customer debts, trying offline fallback:', requestError);
+            try {
+                const offResult = await getOfflineCustomerDebts({
+                    keyword: keyword || undefined,
+                    status: getFilterValue(status),
+                    allowDebt: getFilterValue(allowDebt),
+                    fromDate: fromDate || undefined,
+                    toDate: toDate || undefined,
+                    page: Math.max(1, page),
+                    size: PAGE_SIZE,
+                });
+                setData(offResult);
+                setIsOfflineData(true);
+                setError(null);
+            } catch (offErr) {
+                console.warn('Offline fallback also failed:', offErr);
+                setError('Không thể tải danh sách công nợ.');
+            }
         } finally {
             setLoading(false);
         }
@@ -127,6 +175,22 @@ export default function CustomerDebtModal({ onClose }) {
                         <X size={20} />
                     </button>
                 </div>
+
+                {isOfflineData && (
+                    <div style={{
+                        padding: '6px 16px',
+                        backgroundColor: '#fef3c7',
+                        color: '#92400e',
+                        fontSize: '13px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        borderBottom: '1px solid #fde68a'
+                    }}>
+                        <WifiOff size={14} />
+                        <span>Chế độ ngoại tuyến: Dữ liệu công nợ được nạp từ bộ nhớ máy</span>
+                    </div>
+                )}
 
                 <div className="hist-toolbar customer-debt-filters">
                     <div className="hist-search-wrap customer-debt-search">

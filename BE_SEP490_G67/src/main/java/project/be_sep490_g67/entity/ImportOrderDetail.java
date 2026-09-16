@@ -30,8 +30,12 @@ public class ImportOrderDetail extends BaseEntity {
     private Product product;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @OnDelete(action = OnDeleteAction.SET_NULL)
     @JoinColumn(name = "product_unit_id")
     private ProductUnit productUnit;
+
+    @Column(name = "unit_name", length = 50)
+    private String unitName;
 
     @Column(name = "quantity", nullable = false)
     private Integer quantity;

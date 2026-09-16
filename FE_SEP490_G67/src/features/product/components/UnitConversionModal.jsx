@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Trash2, ArrowRight, Plus } from 'lucide-react';
 import { productsApi } from '../api';
+import MoneyInput from '../../../components/ui/MoneyInput';
 import '../../../css/Product.css';
 
 const COMMON_CONVERSION_UNITS = [
@@ -22,7 +23,7 @@ export default function UnitConversionModal({
   product,
   onUnitUpdated,
 }) {
-  const [baseUnit, setBaseUnit] = useState('Cái');
+  const [baseUnit, setBaseUnit] = useState('');
   const [fromUnit, setFromUnit] = useState('Thùng');
   const [customFromUnit, setCustomFromUnit] = useState('');
   const [rate, setRate] = useState('');
@@ -49,7 +50,7 @@ export default function UnitConversionModal({
             setFullProduct(detail);
             const units = Array.isArray(detail.units) ? detail.units : [];
             const base = units.find((u) => u.isBase || Number(u.unitBase) === 1) || units[0];
-            const baseName = base?.name || detail.baseUnitName || product.unitName || 'Cái';
+            const baseName = base?.name || detail.baseUnitName || product.unitName || '';
             setBaseUnit(baseName);
 
             const convList = units
@@ -65,7 +66,7 @@ export default function UnitConversionModal({
         })
         .catch(() => {
           setFullProduct(product);
-          setBaseUnit(product.unitName || product.baseUnitName || 'Cái');
+          setBaseUnit(product.unitName || product.baseUnitName || '');
           setConversions([]);
         });
     }
@@ -277,12 +278,11 @@ export default function UnitConversionModal({
 
             <div className="pi-unit-field">
               <label className="pi-unit-label">Giá bán đơn vị này (VNĐ)</label>
-              <input
-                type="number"
+              <MoneyInput
                 className="pi-unit-input"
-                placeholder="VD: 250000"
+                placeholder="VD: 250.000"
                 value={sellPrice}
-                onChange={(e) => setSellPrice(e.target.value)}
+                onChange={(val) => setSellPrice(val)}
               />
             </div>
 
@@ -317,11 +317,9 @@ export default function UnitConversionModal({
                         {item.unitBase} {baseUnit}
                       </span>
                     </div>
-                    {item.sellingPrice > 0 && (
-                      <div className="pi-unit-item-note">
-                        Giá bán: {item.sellingPrice.toLocaleString()} đ
-                      </div>
-                    )}
+                    <div className="pi-unit-item-note">
+                      Giá bán: {item.sellingPrice > 0 ? `${Number(item.sellingPrice).toLocaleString('vi-VN')} đ` : 'N/A'}
+                    </div>
                     <button
                       type="button"
                       className="pi-unit-item-del"

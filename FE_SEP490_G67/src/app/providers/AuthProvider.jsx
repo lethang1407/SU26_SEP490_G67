@@ -1,6 +1,7 @@
 import { createContext, useState, useEffect, useCallback } from 'react';
 import auth from '@/features/auth/api';
 import { getProfile } from '@/features/profile/api';
+import { useCacheWarmup } from '@/hooks/useCacheWarmup';
 
 export const AuthContext = createContext(null);
 
@@ -9,6 +10,9 @@ const AuthProvider = ({ children }) => {
     const [authenticated, setAuthenticated] = useState(() => !!localStorage.getItem('accessToken'));
     const [user, setUser] = useState(null);
     const [loadingUser, setLoadingUser] = useState(true);
+
+    // Warm up offline cache when user is authenticated
+    useCacheWarmup(authenticated);
 
     const fetchUserProfile = useCallback(async () => {
         if (!localStorage.getItem('accessToken')) {

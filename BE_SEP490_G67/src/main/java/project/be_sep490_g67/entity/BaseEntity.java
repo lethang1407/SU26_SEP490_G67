@@ -39,5 +39,20 @@ public abstract class BaseEntity {
     @LastModifiedBy
     @Column(name = "updated_by")
     private Integer updatedBy;
+
+    @jakarta.persistence.PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = Instant.now();
+        }
+        if (updatedAt == null) {
+            updatedAt = Instant.now();
+        }
+    }
+
+    @jakarta.persistence.PreUpdate
+    protected void onUpdate() {
+        updatedAt = Instant.now();
+    }
 }
 

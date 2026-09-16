@@ -8,7 +8,8 @@ import {
     CornerUpLeft,
     ShoppingCart,
     Ban,
-    QrCode
+    QrCode,
+    WifiOff
 } from "lucide-react";
 import "../../../css/POS.css";
 import "../../../css/ExchangeOrder.css";
@@ -27,6 +28,60 @@ import { printInvoice } from '../utils/printInvoice';
 import { getApiErrorMessage } from "../../../utils/api-utils";
 import { formatVnd } from "../utils/money";
 import { previewSettlement, refundForQty } from "../utils/exchangeSettlement";
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { enqueueOfflineOrder, getOfflineSalesOrder, saveOfflineSalesOrder, searchOfflineProducts } from '@/lib/db';
+import { showOfflineToast } from './OfflineToast';
+
+function generateOfflineExchangeCode() {
+    const now = new Date();
+    const datePart = now.toISOString().slice(2, 10).replace(/-/g, '');
+    const randPart = Math.floor(100000 + Math.random() * 900000);
+    return `DTO${datePart}_${randPart}`;
+}
+
+function buildExchangeDataFromCache(cached) {
+    if (!cached) return null;
+    const createdAt = cached.createdAt ? new Date(cached.createdAt) : new Date();
+    // 7 days return policy
+    const deadline = new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const isExpired = now > deadline;
+
+    return {
+        orderId: cached.id,
+        orderCode: cached.orderCode,
+        totalAmount: cached.totalAmount ?? 0,
+        paymentMethod: cached.paymentMethod || 'CASH',
+        orderStatus: cached.orderStatus || 'COMPLETED',
+        createdAt: cached.createdAt,
+        customer: cached.customer ? {
+            id: cached.customer.id,
+            fullName: cached.customer.fullName || cached.customer.name,
+            phoneNumber: cached.customer.phoneNumber || cached.customer.phone
+        } : null,
+        items: (cached.items || []).map((item, idx) => ({
+            salesOrderDetailId: item.salesOrderDetailId ?? (item.id || idx + 1),
+            productId: item.productId,
+            productCode: item.productCode || '',
+            productName: item.productName || item.name || '',
+            unitName: item.unitName || '',
+            quantityPurchased: item.quantityPurchased ?? item.quantity ?? 1,
+            quantityReturned: item.quantityReturned ?? 0,
+            quantityReturnable: item.quantityReturnable ?? ((item.quantityPurchased ?? item.quantity ?? 1) - (item.quantityReturned ?? 0)),
+            productReturnable: item.productReturnable ?? true,
+            unitPrice: item.unitPrice ?? 0,
+            lineTotal: item.lineTotal ?? ((item.unitPrice ?? 0) * (item.quantityPurchased ?? item.quantity ?? 1))
+        })),
+        isDebt: Boolean(cached.isDebt),
+        dueDate: cached.dueDate || null,
+        paidAmount: cached.paidAmount ?? 0,
+        debtRemaining: cached.debtRemaining ?? 0,
+        debtOverdue: cached.dueDate ? (new Date(cached.dueDate) < now && (cached.debtRemaining > 0)) : false,
+        returnWindowExpired: isExpired,
+        returnDeadline: deadline.toISOString(),
+        isOfflineCached: true
+    };
+}
 
 
 /** Tiền hoàn của một dòng trả, đã trừ phần giảm giá hóa đơn phân bổ cho dòng đó. */
@@ -102,6 +157,7 @@ const ExchNewTableHead = () => (
 );
 
 export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, onDone, onDirtyChange, ref }) {
+    const { isOnline } = useOnlineStatus();
     const params = useParams();
     const orderId = orderIdProp ?? params.orderId;
     const navigate = useNavigate();
@@ -131,8 +187,42 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
             try {
                 setLoading(true);
                 setError(null);
+                const isOffline = !isOnline || (typeof window !== 'undefined' && !window.navigator.onLine);
+
+                if (isOffline) {
+                    const cached = await getOfflineSalesOrder(orderId);
+                    if (cached) {
+                        const exchangeData = cached.exchangeDetail || buildExchangeDataFromCache(cached);
+                        setOriginalOrder(exchangeData);
+                        const initialReturnItems = (exchangeData.items || []).map(item => ({
+                            salesOrderDetailId: item.salesOrderDetailId,
+                            productId: item.productId,
+                            productCode: item.productCode,
+                            productName: item.productName,
+                            unitName: item.unitName,
+                            quantityPurchased: item.quantityPurchased,
+                            quantityReturned: item.quantityReturned ?? 0,
+                            quantityReturnable: item.quantityReturnable ?? item.quantityPurchased,
+                            productReturnable: item.productReturnable ?? true,
+                            selected: false,
+                            returnQty: 0,
+                            itemCondition: '',
+                            note: '',
+                            unitPrice: item.unitPrice,
+                            total: 0
+                        }));
+                        setReturnItems(initialReturnItems);
+                        return;
+                    }
+                }
+
                 const data = await getOrderForExchange(orderId);
                 setOriginalOrder(data);
+                await saveOfflineSalesOrder({
+                    ...data,
+                    exchangeDetail: data,
+                    items: data.items || []
+                });
 
                 const initialReturnItems = data.items.map(item => ({
                     salesOrderDetailId: item.salesOrderDetailId,
@@ -156,6 +246,35 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                 setReturnItems(initialReturnItems);
             } catch (err) {
                 console.error("Failed to fetch order for exchange:", err);
+                // Fallback to offline Dexie cache if network failed
+                try {
+                    const cached = await getOfflineSalesOrder(orderId);
+                    if (cached) {
+                        const exchangeData = cached.exchangeDetail || buildExchangeDataFromCache(cached);
+                        setOriginalOrder(exchangeData);
+                        const initialReturnItems = (exchangeData.items || []).map(item => ({
+                            salesOrderDetailId: item.salesOrderDetailId,
+                            productId: item.productId,
+                            productCode: item.productCode,
+                            productName: item.productName,
+                            unitName: item.unitName,
+                            quantityPurchased: item.quantityPurchased,
+                            quantityReturned: item.quantityReturned ?? 0,
+                            quantityReturnable: item.quantityReturnable ?? item.quantityPurchased,
+                            productReturnable: item.productReturnable ?? true,
+                            selected: false,
+                            returnQty: 0,
+                            itemCondition: '',
+                            note: '',
+                            unitPrice: item.unitPrice,
+                            total: 0
+                        }));
+                        setReturnItems(initialReturnItems);
+                        return;
+                    }
+                } catch (cacheErr) {
+                    console.warn("[ExchangeOrder] Failed to load order from offline cache:", cacheErr);
+                }
                 setError(getApiErrorMessage(err, 'Không thể tải thông tin đơn hàng'));
             } finally {
                 setLoading(false);
@@ -165,7 +284,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
         if (orderId) {
             loadOrder();
         }
-    }, [orderId]);
+    }, [orderId, isOnline]);
 
     // Search products
     useEffect(() => {
@@ -177,10 +296,41 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
 
             try {
                 setSearchLoading(true);
+                const isOffline = !isOnline || (typeof window !== 'undefined' && !window.navigator.onLine);
+                if (isOffline) {
+                    const offlineResults = await searchOfflineProducts(searchInput);
+                    setSearchResults(offlineResults.map(p => ({
+                        id: p.id,
+                        name: p.name,
+                        sellingPrice: p.price,
+                        stockQuantity: p.stockQuantity,
+                        baseUnit: p.unit,
+                        units: p.units || [],
+                        locations: p.locations || []
+                    })));
+                    return;
+                }
+
                 const results = await searchProductsByName(searchInput);
                 setSearchResults(results);
             } catch (err) {
-                console.error("Failed to search products by name:", err);
+                // Fallback to offline search on network error
+                try {
+                    const offlineResults = await searchOfflineProducts(searchInput);
+                    setSearchResults(offlineResults.map(p => ({
+                        id: p.id,
+                        name: p.name,
+                        sellingPrice: p.price,
+                        stockQuantity: p.stockQuantity,
+                        baseUnit: p.unit,
+                        units: p.units || [],
+                        locations: p.locations || []
+                    })));
+                    return;
+                } catch (offlineSearchErr) {
+                    console.warn("[ExchangeOrder] Offline search fallback failed:", offlineSearchErr);
+                }
+                console.error('Search error:', err);
                 setSearchResults([]);
             } finally {
                 setSearchLoading(false);
@@ -189,7 +339,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
 
         const debounce = setTimeout(searchProducts, 300);
         return () => clearTimeout(debounce);
-    }, [searchInput]);
+    }, [searchInput, isOnline]);
 
     const onDirtyChangeRef = useRef(onDirtyChange);
     useEffect(() => {
@@ -314,8 +464,17 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                 setPosInfoError(null);
             } catch (error) {
                 console.error("Failed to fetch product POS info:", error);
-                setPosInfoError(`Không tải được vị trí để hàng của "${product.name}". Vui lòng thử lại.`);
-                return;
+                if (!isOnline || (typeof window !== 'undefined' && !window.navigator.onLine)) {
+                    posInfo = {
+                        locations: product.locations || [],
+                        units: product.units || [],
+                        batches: product.batches || [],
+                        availableQuantity: product.stockQuantity ?? 0
+                    };
+                } else {
+                    setPosInfoError(`Không tải được vị trí để hàng của "${product.name}". Vui lòng thử lại.`);
+                    return;
+                }
             }
 
             // Giống giỏ POS: chưa xếp vị trí thì không lấy đi được, chặn ngay ở đây.
@@ -431,8 +590,8 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
             }
         });
 
-        if (exchangeItems.some(hasLocationProblem)) {
-            errors.exchangeItems = 'Các vị trí đã chọn không đủ số lượng.';
+        if (isOnline && exchangeItems.some(hasLocationProblem)) {
+            errors.exchangeItems = 'Chưa chọn vị trí lấy hàng hoặc các vị trí đã chọn không đủ số lượng.';
         }
 
         if (settlement.hasCashMovement && !refundMethod) {
@@ -450,37 +609,121 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
             return { ok: false, error: null };
         }
 
+        const buildExchangeReceipt = (code) => ({
+            returnCode: code,
+            direction,
+            isExchange,
+            netAmount,
+            returnSubtotal,
+            exchangeSubtotal,
+            refundMethod: refundMethod.toUpperCase(),
+            isDebtOrder: !!originalOrder?.isDebt,
+            debtOffsetAmount: settlement?.debtOffsetAmount ?? 0,
+            exchangeCreditAmount: settlement?.exchangeCreditAmount ?? 0,
+            cashRefundAmount: settlement?.cashRefundAmount ?? 0,
+            cashCollectAmount: settlement?.cashCollectAmount ?? 0,
+            newDebtOnExchange: settlement?.newDebtOnExchange ?? 0,
+            debtPaymentCollected: 0,
+            debtRemainingAfter: 0,
+            exchangeOrderCode: code,
+            returnLines: selectedItems.map(item => ({
+                productName: item.productName,
+                unitName: item.unitName,
+                quantity: item.returnQty,
+                unitPrice: item.unitPrice,
+                lineTotal: item.total,
+            })),
+            exchangeLines: exchangeItems.map(item => ({
+                productName: item.productName,
+                unitName: item.unitName,
+                quantity: item.qty,
+                unitPrice: item.price,
+                lineTotal: item.total,
+            })),
+        });
+
+        const payload = {
+            originalOrderId: parseInt(orderId),
+            returnItems: selectedItems.map(item => ({
+                salesOrderDetailId: item.salesOrderDetailId,
+                productId: item.productId,
+                quantity: item.returnQty,
+                unitName: item.unitName,
+                itemCondition: item.itemCondition,
+                itemNote: item.note.trim() || null
+            })),
+            exchangeItems: exchangeItems.map(item => ({
+                productId: item.productId,
+                // Rỗng = BE trừ FIFO toàn kho, giống giỏ hàng POS
+                picks: toStockPicks(item),
+                productUnitId: item.productUnitId || null,
+                quantity: item.qty,
+                unitPrice: item.price,
+                discountAmount: 0
+            })),
+            returnNote: returnNote.trim() || null,
+            refundMethod: refundMethod.toUpperCase(),
+            // Chuyen khoan: noi dung da in tren ma QR, de doi soat voi sao ke.
+            ...(paymentReference ? { paymentReference } : {}),
+            returnDiscount: 0,
+            exchangeDiscount: 0,
+            debtPaymentAmount: null
+        };
+
+        const isOfflineMode = !isOnline || (typeof window !== 'undefined' && !window.navigator.onLine);
+        if (isOfflineMode) {
+            try {
+                setSubmitting(true);
+                setSubmitError(null);
+                const offlineCode = generateOfflineExchangeCode();
+                const offlineUuid = `off-exch-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                const receipt = buildExchangeReceipt(offlineCode);
+
+                const snapshot = {
+                    id: offlineUuid,
+                    orderCode: offlineCode,
+                    originalOrderId: orderId,
+                    originalOrderCode: originalOrder?.orderCode || String(orderId),
+                    isOffline: true,
+                    totalAmount: Math.abs(netAmount),
+                    refundMethod: refundMethod.toUpperCase(),
+                    direction,
+                    isExchange,
+                    note: returnNote.trim() || '',
+                    createdAt: new Date().toISOString(),
+                    customer: originalOrder?.customer ? {
+                        id: originalOrder.customer.id,
+                        fullName: originalOrder.customer.fullName || originalOrder.customer.name,
+                        phoneNumber: originalOrder.customer.phoneNumber || originalOrder.customer.phone
+                    } : null,
+                    returnLines: receipt.returnLines,
+                    exchangeLines: receipt.exchangeLines
+                };
+
+                await enqueueOfflineOrder({
+                    clientUuid: offlineUuid,
+                    type: 'EXCHANGE',
+                    payload,
+                    orderSnapshot: snapshot,
+                    customer: originalOrder?.customer || null
+                });
+
+                showOfflineToast();
+                await printExchangeReceipt(receipt);
+                finishExchange();
+                return { ok: true, isOffline: true };
+            } catch (err) {
+                console.error('[OfflineQueue] Failed to enqueue exchange order:', err);
+                setSubmitError('Không thể lưu phiếu đổi trả ngoại tuyến');
+                return { ok: false, error: 'Không thể lưu phiếu đổi trả ngoại tuyến' };
+            } finally {
+                setSubmitting(false);
+            }
+        }
+
         try {
             setSubmitting(true);
             setSubmitError(null);
-
-            const payload = {
-                originalOrderId: parseInt(orderId),
-                returnItems: selectedItems.map(item => ({
-                    salesOrderDetailId: item.salesOrderDetailId,
-                    productId: item.productId,
-                    quantity: item.returnQty,
-                    unitName: item.unitName,
-                    itemCondition: item.itemCondition,
-                    itemNote: item.note.trim() || null
-                })),
-                exchangeItems: exchangeItems.map(item => ({
-                    productId: item.productId,
-                    // Rỗng = BE trừ FIFO toàn kho, giống giỏ hàng POS
-                    picks: toStockPicks(item),
-                    productUnitId: item.productUnitId,
-                    quantity: item.qty,
-                    unitPrice: item.price,
-                    discountAmount: 0
-                })),
-                returnNote: returnNote.trim() || null,
-                refundMethod: refundMethod.toUpperCase(),
-                // Chuyen khoan: noi dung da in tren ma QR, de doi soat voi sao ke.
-                ...(paymentReference ? { paymentReference } : {}),
-                returnDiscount: 0,
-                exchangeDiscount: 0,
-                debtPaymentAmount: null
-            };
 
             const processed = await processExchangeOrder(payload);
             const receipt = {
@@ -519,7 +762,52 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
             finishExchange();
             return { ok: true };
         } catch (err) {
-            console.error("Failed to submit exchange order:", err);
+            console.error("Exchange order submission failed:", err);
+            const isNetworkError = !err.response || err.code === 'ERR_NETWORK' || err.message?.toLowerCase().includes('network');
+            if (isNetworkError) {
+                try {
+                    const offlineCode = generateOfflineExchangeCode();
+                    const offlineUuid = `off-exch-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                    const receipt = buildExchangeReceipt(offlineCode);
+
+                    const snapshot = {
+                        id: offlineUuid,
+                        orderCode: offlineCode,
+                        originalOrderId: orderId,
+                        originalOrderCode: originalOrder?.orderCode || String(orderId),
+                        isOffline: true,
+                        totalAmount: Math.abs(netAmount),
+                        refundMethod: refundMethod.toUpperCase(),
+                        direction,
+                        isExchange,
+                        note: returnNote.trim() || '',
+                        createdAt: new Date().toISOString(),
+                        customer: originalOrder?.customer ? {
+                            id: originalOrder.customer.id,
+                            fullName: originalOrder.customer.fullName || originalOrder.customer.name,
+                            phoneNumber: originalOrder.customer.phoneNumber || originalOrder.customer.phone
+                        } : null,
+                        returnLines: receipt.returnLines,
+                        exchangeLines: receipt.exchangeLines
+                    };
+
+                    await enqueueOfflineOrder({
+                        clientUuid: offlineUuid,
+                        type: 'EXCHANGE',
+                        payload,
+                        orderSnapshot: snapshot,
+                        customer: originalOrder?.customer || null
+                    });
+
+                    showOfflineToast();
+                    await printExchangeReceipt(receipt);
+                    finishExchange();
+                    return { ok: true, isOffline: true };
+                } catch (queueErr) {
+                    console.error('[OfflineQueue] Failed to enqueue exchange order:', queueErr);
+                }
+            }
+
             const message = getApiErrorMessage(err, 'Không thể xử lý đổi trả hàng');
             setSubmitError(message);
             return { ok: false, error: message };
@@ -703,6 +991,25 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                         </button>
                     </div>
                 </header>
+            )}
+
+            {(!isOnline || originalOrder?.isOfflineCached) && (
+                <div style={{
+                    backgroundColor: '#fffbeb',
+                    borderBottom: '1px solid #fde68a',
+                    color: '#92400e',
+                    padding: '8px 16px',
+                    fontSize: '13px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontWeight: 500
+                }}>
+                    <WifiOff size={15} style={{ flexShrink: 0 }} />
+                    <span>
+                        Chế độ ngoại tuyến: Đang tra cứu đơn hàng từ bộ nhớ đệm (lưu tối đa 7 ngày). Phiếu đổi trả sẽ được lưu vào hàng đợi và tự động đồng bộ khi có Internet.
+                    </span>
+                </div>
             )}
 
             <div className="pos-main">
