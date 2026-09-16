@@ -50,8 +50,8 @@ public class ProductCommandService {
             product = productRepository.save(product);
         }
 
-        replaceUnits(product, request.getUnits());
-        replaceAttributes(product, request.getAttributes());
+        mergeUnits(product, request.getUnits());
+        mergeAttributes(product, request.getAttributes());
 
         if (request.getVariants() != null && !request.getVariants().isEmpty()) {
             upsertChildVariants(product, request.getVariants(), category, request.getUnits());
@@ -80,10 +80,8 @@ public class ProductCommandService {
         applyScalarFields(product, request, category);
         productRepository.save(product);
 
-        productUnitRepository.deleteByProductId(id);
-        productAttributeRepository.deleteByProductId(id);
-        replaceUnits(product, request.getUnits());
-        replaceAttributes(product, request.getAttributes());
+        mergeUnits(product, request.getUnits());
+        mergeAttributes(product, request.getAttributes());
 
         if (request.getVariants() != null && !request.getVariants().isEmpty()) {
             upsertChildVariants(product, request.getVariants(), category, request.getUnits());
@@ -189,27 +187,85 @@ public class ProductCommandService {
         if (product.getCreatedAt() == null) {
             product.setCreatedAt(Instant.now());
         }
+        product.setUpdatedAt(Instant.now());
     }
 
-    private void replaceUnits(Product product, List<UpsertProductRequest.UnitRequest> units) {
+    private void mergeUnits(Product product, List<UpsertProductRequest.UnitRequest> units) {
+        List<ProductUnit> existingUnits = (product.getId() != null)
+                ? productUnitRepository.findByProductIdAndIsRemovedFalse(product.getId())
+                : new ArrayList<>();
+
         if (units == null || units.isEmpty()) {
-            ProductUnit base = new ProductUnit();
-            base.setProduct(product);
-            base.setName("sp");
-            base.setUnitBase(BigDecimal.ONE);
-            base.setSellingPrice(product.getSellingPrice());
-            productUnitRepository.save(base);
+            if (existingUnits.isEmpty()) {
+                ProductUnit base = new ProductUnit();
+                base.setProduct(product);
+                base.setName("sp");
+                base.setUnitBase(BigDecimal.ONE);
+                base.setSellingPrice(product.getSellingPrice());
+                base.setIsRemoved(false);
+                productUnitRepository.save(base);
+            } else {
+                boolean keptBase = false;
+                for (ProductUnit u : existingUnits) {
+                    if (!keptBase && (u.getUnitBase() != null && u.getUnitBase().compareTo(BigDecimal.ONE) == 0)) {
+                        u.setSellingPrice(product.getSellingPrice());
+                        u.setIsRemoved(false);
+                        productUnitRepository.save(u);
+                        keptBase = true;
+                    } else {
+                        u.setIsRemoved(true);
+                        productUnitRepository.save(u);
+                    }
+                }
+                if (!keptBase) {
+                    ProductUnit first = existingUnits.get(0);
+                    first.setIsRemoved(false);
+                    first.setUnitBase(BigDecimal.ONE);
+                    first.setSellingPrice(product.getSellingPrice());
+                    productUnitRepository.save(first);
+                }
+            }
             return;
         }
+
+        Map<Integer, ProductUnit> existingById = existingUnits.stream()
+                .filter(u -> u.getId() != null)
+                .collect(Collectors.toMap(ProductUnit::getId, Function.identity(), (a, b) -> a));
+
+        Map<String, ProductUnit> existingByName = existingUnits.stream()
+                .filter(u -> u.getName() != null)
+                .collect(Collectors.toMap(u -> u.getName().trim().toLowerCase(Locale.ROOT), Function.identity(), (a, b) -> a));
+
+        Set<Integer> keptUnitIds = new HashSet<>();
+
         for (UpsertProductRequest.UnitRequest u : units) {
-            ProductUnit unit = new ProductUnit();
-            unit.setProduct(product);
-            unit.setName(u.getName().trim());
-            unit.setUnitBase(u.getUnitBase());
-            unit.setSellingPrice(u.getSellingPrice() != null
+            ProductUnit target = null;
+            if (u.getId() != null && existingById.containsKey(u.getId())) {
+                target = existingById.get(u.getId());
+            } else if (u.getName() != null && existingByName.containsKey(u.getName().trim().toLowerCase(Locale.ROOT))) {
+                target = existingByName.get(u.getName().trim().toLowerCase(Locale.ROOT));
+            }
+
+            if (target == null) {
+                target = new ProductUnit();
+                target.setProduct(product);
+            }
+
+            target.setName(u.getName().trim());
+            target.setUnitBase(u.getUnitBase());
+            target.setSellingPrice(u.getSellingPrice() != null
                     ? u.getSellingPrice()
                     : derivePrice(product.getSellingPrice(), u.getUnitBase()));
-            productUnitRepository.save(unit);
+            target.setIsRemoved(false);
+            target = productUnitRepository.save(target);
+            keptUnitIds.add(target.getId());
+        }
+
+        for (ProductUnit existing : existingUnits) {
+            if (!keptUnitIds.contains(existing.getId())) {
+                existing.setIsRemoved(true);
+                productUnitRepository.save(existing);
+            }
         }
     }
 
@@ -222,14 +278,34 @@ public class ProductCommandService {
         return price.multiply(ratio).setScale(2, RoundingMode.HALF_UP);
     }
 
-    private void replaceAttributes(Product product, List<UpsertProductRequest.AttributeRequest> attrs) {
+    private void mergeAttributes(Product product, List<UpsertProductRequest.AttributeRequest> attrs) {
+        List<ProductAttribute> existingAttrs = (product.getId() != null)
+                ? productAttributeRepository.findByProduct_IdAndIsRemovedFalse(product.getId())
+                : new ArrayList<>();
+
         if (attrs == null || attrs.isEmpty()) {
+            for (ProductAttribute pa : existingAttrs) {
+                pa.setIsRemoved(true);
+                productAttributeRepository.save(pa);
+            }
             return;
         }
+
+        Map<Integer, ProductAttribute> existingById = existingAttrs.stream()
+                .filter(pa -> pa.getId() != null)
+                .collect(Collectors.toMap(ProductAttribute::getId, Function.identity(), (a, b) -> a));
+
+        Map<String, ProductAttribute> existingByAttrName = existingAttrs.stream()
+                .filter(pa -> pa.getAttribute() != null && pa.getAttribute().getName() != null)
+                .collect(Collectors.toMap(pa -> pa.getAttribute().getName().trim().toLowerCase(Locale.ROOT), Function.identity(), (a, b) -> a));
+
+        Set<Integer> keptAttrIds = new HashSet<>();
+
         for (UpsertProductRequest.AttributeRequest a : attrs) {
             if (a.getName() == null || a.getName().isBlank() || a.getValue() == null || a.getValue().isBlank()) {
                 throw new AppException(ErrorCode.PRODUCT_ATTRIBUTE_INVALID);
             }
+
             Attribute master = attributeRepository.findByNameIgnoreCaseAndIsRemovedFalse(a.getName().trim())
                     .orElseGet(() -> {
                         Attribute created = new Attribute();
@@ -237,11 +313,31 @@ public class ProductCommandService {
                         created.setIsRemoved(false);
                         return attributeRepository.save(created);
                     });
-            ProductAttribute pa = new ProductAttribute();
-            pa.setProduct(product);
-            pa.setAttribute(master);
-            pa.setValue(a.getValue().trim());
-            productAttributeRepository.save(pa);
+
+            ProductAttribute target = null;
+            if (a.getId() != null && existingById.containsKey(a.getId())) {
+                target = existingById.get(a.getId());
+            } else if (existingByAttrName.containsKey(a.getName().trim().toLowerCase(Locale.ROOT))) {
+                target = existingByAttrName.get(a.getName().trim().toLowerCase(Locale.ROOT));
+            }
+
+            if (target == null) {
+                target = new ProductAttribute();
+                target.setProduct(product);
+            }
+
+            target.setAttribute(master);
+            target.setValue(a.getValue().trim());
+            target.setIsRemoved(false);
+            target = productAttributeRepository.save(target);
+            keptAttrIds.add(target.getId());
+        }
+
+        for (ProductAttribute existing : existingAttrs) {
+            if (!keptAttrIds.contains(existing.getId())) {
+                existing.setIsRemoved(true);
+                productAttributeRepository.save(existing);
+            }
         }
     }
 
@@ -602,8 +698,8 @@ public class ProductCommandService {
 
             child = productRepository.save(child);
 
-            replaceUnits(child, request.getUnits());
-            replaceAttributes(child, combo);
+            mergeUnits(child, request.getUnits());
+            mergeAttributes(child, combo);
         }
     }
 
@@ -694,10 +790,8 @@ public class ProductCommandService {
             child = productRepository.save(child);
             keptIds.add(child.getId());
 
-            productUnitRepository.deleteByProductId(child.getId());
-            productAttributeRepository.deleteByProductId(child.getId());
-            replaceUnits(child, parentUnits);
-            replaceAttributes(child, vr.getAttributes());
+            mergeUnits(child, parentUnits);
+            mergeAttributes(child, vr.getAttributes());
         }
 
         // Soft delete child variants that were removed in UI

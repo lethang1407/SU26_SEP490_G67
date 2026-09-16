@@ -800,13 +800,12 @@ export default function ProductImportPage() {
                   title="Lọc theo tình trạng hàng hóa"
                 >
                   <option value="all">-- Tình trạng (Tất cả) --</option>
-                  <option value="new">🆕 Mới tạo (cần nhập lần đầu)</option>
-                  <option value="hot">🔴 Hết hàng – Bán chạy (cần nhập ngay)</option>
-                  <option value="warn">🟠 Cảnh báo sắp hết hàng</option>
-                  <option value="ok">🟢 Đang kinh doanh (tồn an toàn)</option>
-                  <option value="season">🟣 Hàng mùa vụ</option>
-                  <option value="slow">⚪ Hết hàng – Ít bán</option>
-                  <option value="stop">⛔ Ngừng kinh doanh</option>
+                  <option value="new">Mới tạo (cần nhập lần đầu)</option>
+                  <option value="hot">Hết hàng – Bán chạy (cần nhập ngay)</option>
+                  <option value="warn">Cảnh báo sắp hết hàng</option>
+                  <option value="ok">Đang kinh doanh (tồn an toàn)</option>
+                  <option value="slow">Hết hàng – Ít bán</option>
+                  <option value="stop">Ngừng kinh doanh</option>
                 </select>
 
                 {/* Nút Xóa lọc sát lề phải */}

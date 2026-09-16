@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Edit3, ArrowUp, ArrowDown, ArrowUpDown, FileText, ExternalLink } from 'lucide-react';
+import { Edit3, ArrowUp, ArrowDown, ArrowUpDown, FileText, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import '../../../css/Product.css';
 
 function salesPaceStat(product) {
@@ -54,15 +54,25 @@ function renderSalesPaceDisplay(product) {
 }
 
 function ProductThumb({ product }) {
+  const [isHovered, setIsHovered] = useState(false);
   const img = product?.productImg || product?.imageUrl || product?.image || product?.parentImg || product?.parent?.productImg || product?.parent?.imageUrl;
   if (img && (img.startsWith('http') || img.startsWith('/') || img.startsWith('blob:') || img.startsWith('data:'))) {
     return (
-      <div className="pi-img">
-        <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
+      <div
+        className="pi-img"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <img src={img} alt="" className="pi-img-thumb" />
+        {isHovered && (
+          <div className="pi-thumb-preview-popover">
+            <img src={img} alt="" className="pi-thumb-preview-img" />
+          </div>
+        )}
       </div>
     );
   }
-  return <div className="pi-img">{img || '📦'}</div>;
+  return <div className="pi-img" />;
 }
 
 const FACET_CONFIG = {
@@ -159,6 +169,35 @@ function SortHeader({ label, sortKey, currentSort, onSort, className }) {
       </span>
     </div>
   );
+}
+
+function buildPageNumbers(currentPage, totalPages) {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const pages = [1];
+
+  if (currentPage > 3) {
+    pages.push('ellipsis-start');
+  }
+
+  const start = Math.max(2, currentPage - 1);
+  const end = Math.min(totalPages - 1, currentPage + 1);
+
+  for (let p = start; p <= end; p += 1) {
+    pages.push(p);
+  }
+
+  if (currentPage < totalPages - 2) {
+    pages.push('ellipsis-end');
+  }
+
+  if (totalPages > 1) {
+    pages.push(totalPages);
+  }
+
+  return pages;
 }
 
 export default function ProductImportTable({
@@ -267,6 +306,16 @@ export default function ProductImportTable({
 
   return (
     <div className="pi-table-card">
+      {/* Semi-transparent Overlay Loading (KiotViet style) */}
+      {loading && sortedItems.length > 0 && (
+        <div className="pi-table-overlay-loading">
+          <div className="pi-table-spinner-content">
+            <div className="pi-table-spinner" />
+            <span>Đang tải dữ liệu…</span>
+          </div>
+        </div>
+      )}
+
       {/* Sticky header */}
       <div className="pi-thead">
         <div className="pi-th col-cb">
@@ -348,365 +397,146 @@ export default function ProductImportTable({
 
       {/* Scrollable body */}
       <div className="pi-table-scroll pi-autohide-scroll">
-        {loading && (
-          <div style={{ textAlign: 'center', color: '#64748B', padding: 32, fontSize: 14 }}>
-            Đang tải dữ liệu sản phẩm…
+        {loading && sortedItems.length === 0 && (
+          <div className="pi-table-loading-center">
+            <div className="pi-table-spinner" />
+            <span>Đang tải dữ liệu sản phẩm…</span>
           </div>
         )}
+
         {!loading && sortedItems.length === 0 && (
-          <div style={{ textAlign: 'center', color: '#64748B', padding: 32, fontSize: 14 }}>
-            Không có sản phẩm nào phù hợp với bộ lọc.
+          <div className="pi-empty-state">
+            <p>Không có sản phẩm nào phù hợp với bộ lọc.</p>
           </div>
         )}
-        {!loading &&
-          sortedItems.map((p) => {
-            if (p.isGroup) {
-              const allChildren = [];
-              const allChildIds = [];
-              const parentImg = p.productImg || p.imageUrl || p.image;
-              if (Array.isArray(p.children) && p.children.length > 0) {
-                p.children.forEach((c) => {
-                  if (c && c.id) {
-                    allChildIds.push(c.id);
+
+        {sortedItems.map((p) => {
+          if (p.isGroup) {
+            const allChildren = [];
+            const allChildIds = [];
+            const parentImg = p.productImg || p.imageUrl || p.image;
+            if (Array.isArray(p.children) && p.children.length > 0) {
+              p.children.forEach((c) => {
+                if (c && c.id) {
+                  allChildIds.push(c.id);
+                  allChildren.push({
+                    ...c,
+                    productImg: c.productImg || c.imageUrl || c.image || parentImg,
+                    parentId: p.id,
+                    parentName: p.name,
+                    categoryName: p.categoryName,
+                    unitName: c.unitName || p.unitName,
+                  });
+                }
+              });
+            } else if (Array.isArray(p.variantGroups)) {
+              (p.variantGroups || []).forEach((vg) => {
+                (vg.sizes || []).forEach((sz) => {
+                  if (sz.id) {
+                    allChildIds.push(sz.id);
+                    const primaryVal = sz.primaryAttrValue || vg.primaryAttrValue;
+                    const sizeVal = sz.sizeValue;
+                    const unitStr = sz.unitName || p.unitName || 'đôi';
+
+                    let formattedName = sz.name;
+                    if (!formattedName) {
+                      let parts = [p.name];
+                      if (sizeVal) parts.push(sizeVal);
+                      if (primaryVal && primaryVal !== sizeVal) parts.push(primaryVal);
+                      formattedName = parts.join('-');
+                    }
+
                     allChildren.push({
-                      ...c,
-                      productImg: c.productImg || c.imageUrl || c.image || parentImg,
+                      ...sz,
+                      productImg: sz.productImg || sz.imageUrl || sz.image || parentImg,
+                      name: formattedName,
+                      unitName: unitStr,
+                      sellingPrice: sz.sellingPrice || p.sellingPrice,
+                      costPrice: sz.costPrice || p.costPrice,
+                      onHand: sz.onHand ?? sz.stock ?? 0,
+                      sold14Days: sz.sold14Days ?? (sz.avgDailyRate != null ? Math.round(Number(sz.avgDailyRate) * 14) : undefined),
+                      hasOpenPo: sz.hasOpenPo || p.hasOpenPo,
+                      primaryAttrValue: primaryVal,
+                      sizeValue: sizeVal,
+                      categoryName: p.categoryName,
                       parentId: p.id,
                       parentName: p.name,
-                      categoryName: p.categoryName,
-                      unitName: c.unitName || p.unitName,
+                      facetStatus: sz.facetStatus || p.facetStatus,
                     });
                   }
                 });
-              } else if (Array.isArray(p.variantGroups)) {
-                (p.variantGroups || []).forEach((vg) => {
-                  (vg.sizes || []).forEach((sz) => {
-                    if (sz.id) {
-                      allChildIds.push(sz.id);
-                      const primaryVal = sz.primaryAttrValue || vg.primaryAttrValue;
-                      const sizeVal = sz.sizeValue;
-                      const unitStr = sz.unitName || p.unitName || 'đôi';
+              });
+            }
 
-                      let formattedName = sz.name;
-                      if (!formattedName) {
-                        let parts = [p.name];
-                        if (sizeVal) parts.push(sizeVal);
-                        if (primaryVal && primaryVal !== sizeVal) parts.push(primaryVal);
-                        formattedName = parts.join('-');
-                      }
+            const isExpanded = expandedGroupIds.has(p.id);
+            const groupAllChecked =
+              allChildIds.length > 0 && allChildIds.every((id) => selectedIds.has(id));
 
-                      allChildren.push({
-                        ...sz,
-                        productImg: sz.productImg || sz.imageUrl || sz.image || parentImg,
-                        name: formattedName,
-                        unitName: unitStr,
-                        sellingPrice: sz.sellingPrice || p.sellingPrice,
-                        costPrice: sz.costPrice || p.costPrice,
-                        onHand: sz.onHand ?? sz.stock ?? 0,
-                        sold14Days: sz.sold14Days ?? (sz.avgDailyRate != null ? Math.round(Number(sz.avgDailyRate) * 14) : undefined),
-                        hasOpenPo: sz.hasOpenPo || p.hasOpenPo,
-                        primaryAttrValue: primaryVal,
-                        sizeValue: sizeVal,
-                        categoryName: p.categoryName,
-                        parentId: p.id,
-                        parentName: p.name,
-                        facetStatus: sz.facetStatus || p.facetStatus,
-                      });
-                    }
-                  });
-                });
-              }
+            if (allChildIds.length <= 1) {
+              // If parent has 0 or 1 child/variant, display directly as single standalone item
+              const singleTarget = allChildIds.length === 1 ? {
+                ...p,
+                ...allChildren[0],
+                productImg: allChildren[0].productImg || parentImg,
+                name: allChildren[0].name || [p.name, allChildren[0].sizeValue, allChildren[0].primaryAttrValue !== allChildren[0].sizeValue ? allChildren[0].primaryAttrValue : null].filter(Boolean).join('-') || p.name,
+                id: allChildren[0].id,
+                parentId: p.id,
+                categoryName: p.categoryName,
+                unitName: allChildren[0].unitName || p.unitName,
+              } : p;
 
-              const isExpanded = expandedGroupIds.has(p.id);
-              const groupAllChecked =
-                allChildIds.length > 0 && allChildIds.every((id) => selectedIds.has(id));
-
-              if (allChildIds.length <= 1) {
-                // If parent has 0 or 1 child/variant, display directly as single standalone item
-                const singleTarget = allChildIds.length === 1 ? {
-                  ...p,
-                  ...allChildren[0],
-                  productImg: allChildren[0].productImg || parentImg,
-                  name: allChildren[0].name || [p.name, allChildren[0].sizeValue, allChildren[0].primaryAttrValue !== allChildren[0].sizeValue ? allChildren[0].primaryAttrValue : null].filter(Boolean).join('-') || p.name,
-                  id: allChildren[0].id,
-                  parentId: p.id,
-                  categoryName: p.categoryName,
-                  unitName: allChildren[0].unitName || p.unitName,
-                } : p;
-
-                const targetId = singleTarget.id;
-                const checked = selectedIds.has(targetId);
-
-                return (
-                  <div className="pi-variant-wrap" key={`single-${targetId}`}>
-                    <div
-                      className={`pi-row ${checked ? 'row-selected is-selected' : ''}`}
-                      onClick={() => onToggle(targetId)}
-                    >
-                      <div className="pi-td col-cb" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          className="pi-cb"
-                          checked={checked}
-                          onChange={() => onToggle(targetId)}
-                        />
-                      </div>
-                      <div className="pi-td col-img">
-                        <ProductThumb product={singleTarget} />
-                      </div>
-                      <div className="pi-td col-name" style={{ fontWeight: 600, color: '#0F172A' }} title={singleTarget.name}>
-                        <span>{singleTarget.name}</span>
-                        {renderFacetBadge(singleTarget)}
-                        {renderOpenPoBadge(singleTarget, onOpenDraftPo)}
-                      </div>
-                      <div className="pi-td col-unit" style={{ color: '#475569' }}>
-                        {singleTarget.unitName || singleTarget.baseUnitName || 'N/A'}
-                      </div>
-                      <div className="pi-td col-cprod">
-                        <div className="cprod">
-                          <ProductThumb product={singleTarget} />
-                          <div className="cprod-info">
-                            <div className="cprod-name">
-                              <span>{singleTarget.name}</span>
-                              {renderFacetBadge(singleTarget)}
-                            </div>
-                            <div className="cprod-sub">Mã: {singleTarget.sku || singleTarget.barcode || targetId}</div>
-                            {renderOpenPoBadge(singleTarget, onOpenDraftPo)}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="pi-td col-ps">{singleTarget.sellingPrice ? Number(singleTarget.sellingPrice).toLocaleString('vi-VN') : 'N/A'}</div>
-                      <div className="pi-td col-pc">{singleTarget.costPrice ? Number(singleTarget.costPrice).toLocaleString('vi-VN') : 'N/A'}</div>
-                      <div className="pi-td col-st">{renderStockDisplay(singleTarget.onHand)}</div>
-                      <div className="pi-td col-rt">{renderSalesPaceDisplay(singleTarget)}</div>
-                      <div className="pi-td col-act" onClick={(e) => e.stopPropagation()}>
-                        <div className="pi-row-actions">
-                          <button
-                            type="button"
-                            className="pi-act-btn pi-act-btn--primary"
-                            title="Cập nhật sản phẩm"
-                            onClick={() => onEditProduct?.(singleTarget)}
-                          >
-                            <Edit3 size={15} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
+              const targetId = singleTarget.id;
+              const checked = selectedIds.has(targetId);
 
               return (
-                <div key={`grp-${p.id}`} className="pi-group">
-                  {/* Parent Row */}
-                  <div
-                    className={`pi-row parent ${groupAllChecked ? 'row-selected is-selected' : ''}`}
-                    onClick={() => toggleGroupExpand(p.id)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div className="pi-td col-cb" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        className="pi-cb"
-                        checked={groupAllChecked}
-                        onChange={() => onToggle(allChildIds)}
-                      />
-                    </div>
-                    <div className="pi-td col-img">
-                      <ProductThumb product={p} />
-                    </div>
-                    <div className="pi-td col-name" style={{ fontWeight: '700', color: '#1E293B' }}>
-                      <span>{p.name}</span>
-                      <span className="parent-variant-badge" style={{ marginLeft: 8, background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', borderRadius: 12, padding: '2px 8px', fontSize: 11.5, fontWeight: 600 }}>
-                        ({allChildIds.length} phân loại)
-                      </span>
-                      {renderFacetBadge(p)}
-                      {renderOpenPoBadge(p, onOpenDraftPo)}
-                    </div>
-                    <div className="pi-td col-unit" style={{ color: '#475569' }}>
-                      {p.unitName || p.baseUnitName || 'N/A'}
-                    </div>
-                    <div className="pi-td col-cprod">
-                      <div className="cprod">
-                        <ProductThumb product={p} />
-                        <div className="cprod-info">
-                          <div className="cprod-name">
-                            <span>{p.name}</span>
-                            {renderFacetBadge(p)}
-                          </div>
-                          <div className="cprod-sub">({allChildIds.length} mặt hàng con)</div>
-                          {renderOpenPoBadge(p, onOpenDraftPo)}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="pi-td col-ps">
-                      {p.sellingPrice ? Number(p.sellingPrice).toLocaleString('vi-VN') : 'N/A'}
-                    </div>
-                    <div className="pi-td col-pc">
-                      {p.costPrice ? Number(p.costPrice).toLocaleString('vi-VN') : 'N/A'}
-                    </div>
-                    <div className="pi-td col-st">{renderStockDisplay(p.onHand)}</div>
-                    <div className="pi-td col-rt">{renderSalesPaceDisplay(p)}</div>
-                    <div className="pi-td col-act" onClick={(e) => e.stopPropagation()}>
-                      <div className="pi-row-actions">
-                        <button
-                          type="button"
-                          className="pi-act-btn pi-act-btn--primary"
-                          title="Cập nhật sản phẩm"
-                          onClick={() => onEditProduct?.(p)}
-                        >
-                          <Edit3 size={15} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Expanded Child Variant Rows */}
-                  {isExpanded && (
-                    <div className="pi-variant-block" style={{ paddingLeft: 12, backgroundColor: '#F8FAFC' }}>
-                      {allChildren.map((child) => {
-                        const isChildSelected = selectedIds.has(child.id);
-                        const childNameFormatted = child.name || [p.name, child.sizeValue, child.primaryAttrValue !== child.sizeValue ? child.primaryAttrValue : null].filter(Boolean).join('-');
-
-                        const childItem = {
-                          ...child,
-                          name: childNameFormatted,
-                          unitName: child.unitName || p.unitName || 'Đôi',
-                          supplierName: child.supplierName || p.supplierName,
-                          categoryName: p.categoryName || 'Đồ dùng gia đình',
-                        };
-
-                        return (
-                          <div className="pi-variant-wrap" key={`wrap-${child.id}`}>
-                            <div
-                              className={`pi-row variant child-variant-row ${isChildSelected ? 'row-selected is-selected' : ''}`}
-                              style={{ borderLeft: '3px solid #3B82F6', marginTop: 2, marginBottom: 2 }}
-                              onClick={() => onToggle(child.id)}
-                            >
-                              <div className="pi-td col-cb" onClick={(e) => e.stopPropagation()}>
-                                <input
-                                  type="checkbox"
-                                  className="pi-cb"
-                                  checked={isChildSelected}
-                                  onChange={() => onToggle(child.id)}
-                                />
-                              </div>
-                              <div className="pi-td col-img">
-                                <ProductThumb product={child} />
-                              </div>
-                              <div className="pi-td col-name" style={{ fontWeight: 500 }} title={childNameFormatted}>
-                                <span>{childNameFormatted}</span>
-                                {renderFacetBadge(child)}
-                                {renderOpenPoBadge(child, onOpenDraftPo)}
-                              </div>
-                              <div className="pi-td col-unit" style={{ color: '#475569' }}>
-                                {child.unitName || p.unitName || 'N/A'}
-                              </div>
-                              <div className="pi-td col-cprod">
-                                <div className="cprod">
-                                  <ProductThumb product={child} />
-                                  <div className="cprod-info">
-                                    <div className="cprod-name" style={{ fontWeight: 600 }}>
-                                      <span>{childNameFormatted}</span>
-                                      {renderFacetBadge(child)}
-                                    </div>
-                                    <div className="cprod-sub" style={{ display: 'flex', gap: 4, marginTop: 2, flexWrap: 'wrap' }}>
-                                      {child.primaryAttrValue && (
-                                        <span className="vtag" style={{ background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', padding: '1px 6px', borderRadius: 4, fontSize: 11 }}>
-                                          {child.primaryAttrValue}
-                                        </span>
-                                      )}
-                                      {child.sizeValue && (
-                                        <span className="vtag" style={{ background: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1', padding: '1px 6px', borderRadius: 4, fontSize: 11 }}>
-                                          {child.sizeValue}
-                                        </span>
-                                      )}
-                                    </div>
-                                    {renderOpenPoBadge(child, onOpenDraftPo)}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="pi-td col-ps">
-                                {child.sellingPrice ? Number(child.sellingPrice).toLocaleString('vi-VN') : 'N/A'}
-                              </div>
-                              <div className="pi-td col-pc">
-                                {child.costPrice ? Number(child.costPrice).toLocaleString('vi-VN') : 'N/A'}
-                              </div>
-                              <div className="pi-td col-st">{renderStockDisplay(child.onHand)}</div>
-                              <div className="pi-td col-rt">{renderSalesPaceDisplay(child)}</div>
-                              <div className="pi-td col-act" onClick={(e) => e.stopPropagation()}>
-                                <div className="pi-row-actions">
-                                  <button
-                                    type="button"
-                                    className="pi-act-btn pi-act-btn--primary"
-                                    title="Cập nhật sản phẩm"
-                                    onClick={() => onEditProduct?.(child)}
-                                  >
-                                    <Edit3 size={15} />
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            } else {
-              // Standalone product
-              const checked = selectedIds.has(p.id);
-
-              return (
-                <div className="pi-variant-wrap" key={`standalone-${p.id}`}>
+                <div className="pi-variant-wrap" key={`single-${targetId}`}>
                   <div
                     className={`pi-row ${checked ? 'row-selected is-selected' : ''}`}
-                    onClick={() => onToggle(p.id)}
+                    onClick={() => onToggle(targetId)}
                   >
                     <div className="pi-td col-cb" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         className="pi-cb"
                         checked={checked}
-                        onChange={() => onToggle(p.id)}
+                        onChange={() => onToggle(targetId)}
                       />
                     </div>
                     <div className="pi-td col-img">
-                      <ProductThumb product={p} />
+                      <ProductThumb product={singleTarget} />
                     </div>
-                    <div className="pi-td col-name" style={{ fontWeight: 600, color: '#0F172A' }} title={p.name}>
-                      <span>{p.name}</span>
-                      {renderFacetBadge(p)}
-                      {renderOpenPoBadge(p, onOpenDraftPo)}
+                    <div className="pi-td col-name" style={{ fontWeight: 600, color: '#0F172A' }} title={singleTarget.name}>
+                      <span>{singleTarget.name}</span>
+                      {renderFacetBadge(singleTarget)}
+                      {renderOpenPoBadge(singleTarget, onOpenDraftPo)}
                     </div>
                     <div className="pi-td col-unit" style={{ color: '#475569' }}>
-                      {p.unitName || p.baseUnitName || 'N/A'}
+                      {singleTarget.unitName || singleTarget.baseUnitName || 'N/A'}
                     </div>
                     <div className="pi-td col-cprod">
                       <div className="cprod">
-                        <ProductThumb product={p} />
+                        <ProductThumb product={singleTarget} />
                         <div className="cprod-info">
                           <div className="cprod-name">
-                            <span>{p.name}</span>
-                            {renderFacetBadge(p)}
+                            <span>{singleTarget.name}</span>
+                            {renderFacetBadge(singleTarget)}
                           </div>
-                          <div className="cprod-sub">Mã: {p.sku || p.id}</div>
-                          {renderOpenPoBadge(p, onOpenDraftPo)}
+                          <div className="cprod-sub">Mã: {singleTarget.sku || singleTarget.barcode || targetId}</div>
+                          {renderOpenPoBadge(singleTarget, onOpenDraftPo)}
                         </div>
                       </div>
                     </div>
-                    <div className="pi-td col-ps">{p.sellingPrice ? Number(p.sellingPrice).toLocaleString('vi-VN') : 'N/A'}</div>
-                    <div className="pi-td col-pc">{p.costPrice ? Number(p.costPrice).toLocaleString('vi-VN') : 'N/A'}</div>
-                    <div className="pi-td col-st">{renderStockDisplay(p.onHand)}</div>
-                    <div className="pi-td col-rt">{renderSalesPaceDisplay(p)}</div>
+                    <div className="pi-td col-ps">{singleTarget.sellingPrice ? Number(singleTarget.sellingPrice).toLocaleString('vi-VN') : 'N/A'}</div>
+                    <div className="pi-td col-pc">{singleTarget.costPrice ? Number(singleTarget.costPrice).toLocaleString('vi-VN') : 'N/A'}</div>
+                    <div className="pi-td col-st">{renderStockDisplay(singleTarget.onHand)}</div>
+                    <div className="pi-td col-rt">{renderSalesPaceDisplay(singleTarget)}</div>
                     <div className="pi-td col-act" onClick={(e) => e.stopPropagation()}>
                       <div className="pi-row-actions">
                         <button
                           type="button"
                           className="pi-act-btn pi-act-btn--primary"
                           title="Cập nhật sản phẩm"
-                          onClick={() => onEditProduct?.(p)}
+                          onClick={() => onEditProduct?.(singleTarget)}
                         >
                           <Edit3 size={15} />
                         </button>
@@ -716,34 +546,287 @@ export default function ProductImportTable({
                 </div>
               );
             }
-          })}
+
+            return (
+              <div key={`grp-${p.id}`} className="pi-group">
+                {/* Parent Row */}
+                <div
+                  className={`pi-row parent ${groupAllChecked ? 'row-selected is-selected' : ''}`}
+                  onClick={() => toggleGroupExpand(p.id)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div className="pi-td col-cb" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      className="pi-cb"
+                      checked={groupAllChecked}
+                      onChange={() => onToggle(allChildIds)}
+                    />
+                  </div>
+                  <div className="pi-td col-img">
+                    <ProductThumb product={p} />
+                  </div>
+                  <div className="pi-td col-name" style={{ fontWeight: '700', color: '#1E293B' }}>
+                    <span>{p.name}</span>
+                    <span className="parent-variant-badge" style={{ marginLeft: 8, background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', borderRadius: 12, padding: '2px 10px', fontSize: 12.5, fontWeight: 600 }}>
+                      ({allChildIds.length} phân loại)
+                    </span>
+                    {renderFacetBadge(p)}
+                    {renderOpenPoBadge(p, onOpenDraftPo)}
+                  </div>
+                  <div className="pi-td col-unit" style={{ color: '#475569' }}>
+                    {p.unitName || p.baseUnitName || 'N/A'}
+                  </div>
+                  <div className="pi-td col-cprod">
+                    <div className="cprod">
+                      <ProductThumb product={p} />
+                      <div className="cprod-info">
+                        <div className="cprod-name">
+                          <span>{p.name}</span>
+                          {renderFacetBadge(p)}
+                        </div>
+                        <div className="cprod-sub">({allChildIds.length} mặt hàng con)</div>
+                        {renderOpenPoBadge(p, onOpenDraftPo)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pi-td col-ps">
+                    {p.sellingPrice ? Number(p.sellingPrice).toLocaleString('vi-VN') : 'N/A'}
+                  </div>
+                  <div className="pi-td col-pc">
+                    {p.costPrice ? Number(p.costPrice).toLocaleString('vi-VN') : 'N/A'}
+                  </div>
+                  <div className="pi-td col-st">{renderStockDisplay(p.onHand)}</div>
+                  <div className="pi-td col-rt">{renderSalesPaceDisplay(p)}</div>
+                  <div className="pi-td col-act" onClick={(e) => e.stopPropagation()}>
+                    <div className="pi-row-actions">
+                      <button
+                        type="button"
+                        className="pi-act-btn pi-act-btn--primary"
+                        title="Cập nhật sản phẩm"
+                        onClick={() => onEditProduct?.(p)}
+                      >
+                        <Edit3 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expanded Child Variant Rows */}
+                {isExpanded && (
+                  <div className="pi-variant-block" style={{ paddingLeft: 12, backgroundColor: '#F8FAFC' }}>
+                    {allChildren.map((child) => {
+                      const isChildSelected = selectedIds.has(child.id);
+                      const childNameFormatted = child.name || [p.name, child.sizeValue, child.primaryAttrValue !== child.sizeValue ? child.primaryAttrValue : null].filter(Boolean).join('-');
+
+                      const childItem = {
+                        ...child,
+                        name: childNameFormatted,
+                        unitName: child.unitName || p.unitName || 'Đôi',
+                        supplierName: child.supplierName || p.supplierName,
+                        categoryName: p.categoryName || 'Đồ dùng gia đình',
+                      };
+
+                      return (
+                        <div className="pi-variant-wrap" key={`wrap-${child.id}`}>
+                          <div
+                            className={`pi-row variant child-variant-row ${isChildSelected ? 'row-selected is-selected' : ''}`}
+                            style={{ borderLeft: '3px solid #3B82F6', marginTop: 2, marginBottom: 2 }}
+                            onClick={() => onToggle(child.id)}
+                          >
+                            <div className="pi-td col-cb" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                className="pi-cb"
+                                checked={isChildSelected}
+                                onChange={() => onToggle(child.id)}
+                              />
+                            </div>
+                            <div className="pi-td col-img">
+                              <ProductThumb product={child} />
+                            </div>
+                            <div className="pi-td col-name" style={{ fontWeight: 500 }} title={childNameFormatted}>
+                              <span>{childNameFormatted}</span>
+                              {renderFacetBadge(child)}
+                              {renderOpenPoBadge(child, onOpenDraftPo)}
+                            </div>
+                            <div className="pi-td col-unit" style={{ color: '#475569' }}>
+                              {child.unitName || p.unitName || 'N/A'}
+                            </div>
+                            <div className="pi-td col-cprod">
+                              <div className="cprod">
+                                <ProductThumb product={child} />
+                                <div className="cprod-info">
+                                  <div className="cprod-name" style={{ fontWeight: 600 }}>
+                                    <span>{childNameFormatted}</span>
+                                    {renderFacetBadge(child)}
+                                  </div>
+                                  <div className="cprod-sub" style={{ display: 'flex', gap: 4, marginTop: 2, flexWrap: 'wrap' }}>
+                                    {child.primaryAttrValue && (
+                                      <span className="vtag" style={{ background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 500 }}>
+                                        {child.primaryAttrValue}
+                                      </span>
+                                    )}
+                                    {child.sizeValue && (
+                                      <span className="vtag" style={{ background: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1', padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 500 }}>
+                                        {child.sizeValue}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {renderOpenPoBadge(child, onOpenDraftPo)}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="pi-td col-ps">
+                              {child.sellingPrice ? Number(child.sellingPrice).toLocaleString('vi-VN') : 'N/A'}
+                            </div>
+                            <div className="pi-td col-pc">
+                              {child.costPrice ? Number(child.costPrice).toLocaleString('vi-VN') : 'N/A'}
+                            </div>
+                            <div className="pi-td col-st">{renderStockDisplay(child.onHand)}</div>
+                            <div className="pi-td col-rt">{renderSalesPaceDisplay(child)}</div>
+                            <div className="pi-td col-act" onClick={(e) => e.stopPropagation()}>
+                              <div className="pi-row-actions">
+                                <button
+                                  type="button"
+                                  className="pi-act-btn pi-act-btn--primary"
+                                  title="Cập nhật sản phẩm"
+                                  onClick={() => onEditProduct?.(child)}
+                                >
+                                  <Edit3 size={15} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          } else {
+            // Standalone product
+            const checked = selectedIds.has(p.id);
+
+            return (
+              <div className="pi-variant-wrap" key={`standalone-${p.id}`}>
+                <div
+                  className={`pi-row ${checked ? 'row-selected is-selected' : ''}`}
+                  onClick={() => onToggle(p.id)}
+                >
+                  <div className="pi-td col-cb" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      className="pi-cb"
+                      checked={checked}
+                      onChange={() => onToggle(p.id)}
+                    />
+                  </div>
+                  <div className="pi-td col-img">
+                    <ProductThumb product={p} />
+                  </div>
+                  <div className="pi-td col-name" style={{ fontWeight: 600, color: '#0F172A' }} title={p.name}>
+                    <span>{p.name}</span>
+                    {renderFacetBadge(p)}
+                    {renderOpenPoBadge(p, onOpenDraftPo)}
+                  </div>
+                  <div className="pi-td col-unit" style={{ color: '#475569' }}>
+                    {p.unitName || p.baseUnitName || 'N/A'}
+                  </div>
+                  <div className="pi-td col-cprod">
+                    <div className="cprod">
+                      <ProductThumb product={p} />
+                      <div className="cprod-info">
+                        <div className="cprod-name">
+                          <span>{p.name}</span>
+                          {renderFacetBadge(p)}
+                        </div>
+                        <div className="cprod-sub">Mã: {p.sku || p.id}</div>
+                        {renderOpenPoBadge(p, onOpenDraftPo)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pi-td col-ps">{p.sellingPrice ? Number(p.sellingPrice).toLocaleString('vi-VN') : 'N/A'}</div>
+                  <div className="pi-td col-pc">{p.costPrice ? Number(p.costPrice).toLocaleString('vi-VN') : 'N/A'}</div>
+                  <div className="pi-td col-st">{renderStockDisplay(p.onHand)}</div>
+                  <div className="pi-td col-rt">{renderSalesPaceDisplay(p)}</div>
+                  <div className="pi-td col-act" onClick={(e) => e.stopPropagation()}>
+                    <div className="pi-row-actions">
+                      <button
+                        type="button"
+                        className="pi-act-btn pi-act-btn--primary"
+                        title="Cập nhật sản phẩm"
+                        onClick={() => onEditProduct?.(p)}
+                      >
+                        <Edit3 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+        })}
       </div>
 
-      {/* Foot */}
-      <div className="pi-foot">
-        <span>{totalElements} sản phẩm</span>
-        <div className="pi-pages">
-          <button
-            type="button"
-            className="pi-pg"
-            disabled={page <= 0}
-            onClick={() => onPageChange(page - 1)}
-          >
-            ‹
-          </button>
-          <span>
-            Trang {page + 1} / {Math.max(1, totalPages)}
-          </span>
-          <button
-            type="button"
-            className="pi-pg"
-            disabled={page >= totalPages - 1}
-            onClick={() => onPageChange(page + 1)}
-          >
-            ›
-          </button>
-        </div>
-      </div>
+      {/* Foot / Pagination */}
+      {(() => {
+        const pageSize = 10;
+        const safeTotalPages = Math.max(1, totalPages || 1);
+        const currentPage = (page || 0) + 1;
+        const startIndex = totalElements === 0 ? 0 : page * pageSize + 1;
+        const endIndex = Math.min((page + 1) * pageSize, totalElements);
+        const pageNumbers = buildPageNumbers(currentPage, safeTotalPages);
+
+        return (
+          <div className="pi-foot">
+            <p className="pi-foot__info">
+              Hiển thị {startIndex} - {endIndex} trong tổng số {totalElements} sản phẩm
+            </p>
+
+            <div className="pi-pagination__controls">
+              <button
+                type="button"
+                className="pi-page-btn pi-page-btn--nav"
+                disabled={page <= 0}
+                onClick={() => onPageChange(page - 1)}
+                aria-label="Trang trước"
+              >
+                <ChevronLeft size={18} />
+              </button>
+
+              {pageNumbers.map((item, index) =>
+                typeof item === 'string' ? (
+                  <span key={`${item}-${index}`} className="pi-page-ellipsis">
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={item}
+                    type="button"
+                    className={`pi-page-btn pi-page-btn--page ${item === currentPage ? 'pi-page-btn--active' : ''
+                      }`}
+                    onClick={() => onPageChange(item - 1)}
+                  >
+                    {item}
+                  </button>
+                )
+              )}
+
+              <button
+                type="button"
+                className="pi-page-btn pi-page-btn--nav"
+                disabled={page >= safeTotalPages - 1}
+                onClick={() => onPageChange(page + 1)}
+                aria-label="Trang sau"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -445,7 +445,7 @@ public class ImportOrderService {
                                     : null)
                             .unitName(detail.getProductUnit() != null
                                     ? detail.getProductUnit().getName()
-                                    : null)
+                                    : detail.getUnitName())
                             .productUnits(unitOptions)
                             .quantity(detail.getQuantity())
                             .costPerUnit(detail.getCostPerUnit())
@@ -1048,6 +1048,9 @@ public class ImportOrderService {
         ImportOrderDetail detail = new ImportOrderDetail();
         detail.setProduct(product);
         detail.setProductUnit(productUnit);
+        if (productUnit != null) {
+            detail.setUnitName(productUnit.getName());
+        }
         detail.setQuantity(line.getQuantity());
         detail.setCostPerUnit(cost);
         detail.setLineTotal(lineTotal);
@@ -1247,6 +1250,14 @@ public class ImportOrderService {
         if (product != null && costPerUnit != null) {
             product.setCostPrice(costPerUnit);
             productRepository.save(product);
+
+            if (product.getParent() != null) {
+                Product parent = product.getParent();
+                if (parent.getCostPrice() == null || parent.getCostPrice().compareTo(BigDecimal.ZERO) == 0) {
+                    parent.setCostPrice(costPerUnit);
+                    productRepository.save(parent);
+                }
+            }
         }
     }
 

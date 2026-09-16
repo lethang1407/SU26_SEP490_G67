@@ -13,8 +13,6 @@ import java.util.List;
 public interface ProductAttributeRepository extends JpaRepository<ProductAttribute, Integer> {
     List<ProductAttribute> findByProductIdAndIsRemovedFalse(Integer productId);
 
-    void deleteByProductId(Integer productId);
-
     @Query("""
             SELECT pa FROM ProductAttribute pa
             JOIN FETCH pa.attribute

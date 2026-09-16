@@ -375,6 +375,7 @@ export default function ProductEditModal({
     barcode: '',
     categoryId: '',
     parentId: '',
+    baseUnitId: null,
     baseUnitName: '',
     status: 'active',
     description: '',
@@ -445,16 +446,21 @@ export default function ProductEditModal({
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const initialSnapshotRef = useRef(null);
   const savedCreatedIdRef = useRef(null);
+  const userTouchedRef = useRef(false);
+
+  const markUserTouched = () => {
+    userTouchedRef.current = true;
+  };
 
   const takeSnapshot = (fData, pAttrs, iAttrs, convs, vars, minQty, minUnit) => ({
     name: (fData?.name || '').trim(),
     barcode: (fData?.barcode || '').trim(),
     categoryId: String(fData?.categoryId || ''),
     baseUnitName: (fData?.baseUnitName || '').trim(),
-    status: fData?.status || 'active',
+    status: (fData?.status || 'active').toLowerCase(),
     description: (fData?.description || '').trim(),
-    costPrice: fData?.costPrice != null && fData?.costPrice !== '' ? Number(fData.costPrice) : '',
-    sellingPrice: fData?.sellingPrice != null && fData?.sellingPrice !== '' ? Number(fData.sellingPrice) : '',
+    costPrice: Number(fData?.costPrice) || 0,
+    sellingPrice: Number(fData?.sellingPrice) || 0,
     isReturnable: Boolean(fData?.isReturnable),
     minStockInputQty: Number(minQty) || 0,
     minStockUnit: minUnit || '',
@@ -483,6 +489,11 @@ export default function ProductEditModal({
   });
 
   const isFormDirty = () => {
+    // Nếu người dùng chưa từng tương tác/nhập liệu gì, chắc chắn không dirty
+    if (!userTouchedRef.current) {
+      return false;
+    }
+
     if (isCreateMode) {
       if (formData.name?.trim()) return true;
       if (formData.barcode?.trim() && formData.barcode.trim() !== (product?.barcode || '').trim()) return true;
@@ -505,16 +516,17 @@ export default function ProductEditModal({
     if ((formData.barcode || '').trim() !== init.barcode) return true;
     if (String(formData.categoryId || '') !== init.categoryId) return true;
     if ((formData.baseUnitName || '').trim() !== init.baseUnitName) return true;
-    if ((formData.status || 'active') !== init.status) return true;
+    if ((formData.status || 'active').toLowerCase() !== (init.status || 'active').toLowerCase()) return true;
     if ((formData.description || '').trim() !== init.description) return true;
 
-    const currCost = formData.costPrice != null && formData.costPrice !== '' ? Number(formData.costPrice) : '';
-    if (currCost !== init.costPrice) return true;
+    const currCost = Number(formData.costPrice) || 0;
+    const initCost = Number(init.costPrice) || 0;
+    if (currCost !== initCost) return true;
 
-    const currSell = formData.sellingPrice != null && formData.sellingPrice !== '' ? Number(formData.sellingPrice) : '';
-    if (currSell !== init.sellingPrice) return true;
+    const currSell = Number(formData.sellingPrice) || 0;
+    const initSell = Number(init.sellingPrice) || 0;
+    if (currSell !== initSell) return true;
 
-    if (Boolean(formData.isReturnable) !== init.isReturnable) return true;
     if (Number(minStockInputQty) !== init.minStockInputQty) return true;
     if (Boolean(formData.imageFile) !== init.hasImageFile) return true;
 
@@ -680,6 +692,7 @@ export default function ProductEditModal({
   useEffect(() => {
     if (!isOpen) return;
 
+    userTouchedRef.current = false;
     setErrorMsg('');
     setSuccessMsg('');
     setRate('');
@@ -694,6 +707,7 @@ export default function ProductEditModal({
         barcode: product?.barcode || '',
         categoryId: '',
         parentId: '',
+        baseUnitId: null,
         baseUnitName: '',
         status: 'new',
         description: '',
@@ -722,6 +736,7 @@ export default function ProductEditModal({
         barcode: product.barcode || '',
         categoryId: product.categoryId ? String(product.categoryId) : '',
         parentId: product.parentId ? String(product.parentId) : '',
+        baseUnitId: product.baseUnitId || product.unitId || null,
         baseUnitName: baseUnit,
         status: product.status || 'active',
         description: product.description || '',
@@ -735,7 +750,8 @@ export default function ProductEditModal({
       };
 
       setFormData(initFormData);
-      setMinStockInputQty(product.minStock ?? product.safetyStock ?? 5);
+      const initialMinStock = product.minStock ?? product.safetyStock ?? 5;
+      setMinStockInputQty(initialMinStock);
       setMinStockUnit('');
 
       // Parse initial attributes
@@ -820,7 +836,7 @@ export default function ProductEditModal({
         initFlatAttrs,
         [],
         initLoadedVariants,
-        product.minStock ?? product.safetyStock ?? 5,
+        initialMinStock,
         ''
       );
 
@@ -831,6 +847,7 @@ export default function ProductEditModal({
               const units = Array.isArray(detail.units) ? detail.units : [];
               const base = units.find((u) => u.isBase || Number(u.unitBase) === 1) || units[0];
               const baseName = base?.name || detail.baseUnitName || product.unitName || '';
+              const baseId = base?.id || null;
 
               const detailFormData = {
                 ...initFormData,
@@ -839,6 +856,7 @@ export default function ProductEditModal({
                 barcode: detail.barcode || initFormData.barcode,
                 categoryId: detail.categoryId ? String(detail.categoryId) : initFormData.categoryId,
                 parentId: detail.parentId ? String(detail.parentId) : initFormData.parentId,
+                baseUnitId: baseId,
                 baseUnitName: baseName,
                 status: detail.status || initFormData.status,
                 description: detail.description || initFormData.description,
@@ -954,15 +972,19 @@ export default function ProductEditModal({
                 setVariants([]);
               }
 
+              const finalMinStock = detail.minStock ?? product.minStock ?? product.safetyStock ?? 5;
+              setMinStockInputQty(finalMinStock);
+
               initialSnapshotRef.current = takeSnapshot(
                 detailFormData,
                 detailParentArr,
                 detailFlatAttrs,
                 convList,
                 detailLoadedVariants,
-                detail.minStock ?? 5,
+                finalMinStock,
                 ''
               );
+              userTouchedRef.current = false;
             }
           })
           .catch(() => { });
@@ -1031,6 +1053,7 @@ export default function ProductEditModal({
   if (!isOpen) return null;
 
   const handleInputChange = (field, value) => {
+    markUserTouched();
     setFormData((prev) => {
       const next = { ...prev, [field]: value };
       if (field === 'parentId' && value) {
@@ -1051,6 +1074,7 @@ export default function ProductEditModal({
       setErrorMsg('Ảnh không được vượt quá 5MB.');
       return;
     }
+    markUserTouched();
     const previewUrl = URL.createObjectURL(file);
     setFormData((prev) => ({
       ...prev,
@@ -1061,6 +1085,7 @@ export default function ProductEditModal({
 
   // --- Attribute handlers for Parent ---
   const handleAddParentAttr = () => {
+    markUserTouched();
     setParentAttributes((prev) => [
       ...prev,
       { id: `attr-${Date.now()}-${Math.random()}`, name: '', values: [], inputValue: '' },
@@ -1068,6 +1093,7 @@ export default function ProductEditModal({
   };
 
   const handleAddParentAttrValue = (attrId) => {
+    markUserTouched();
     setParentAttributes((prev) =>
       prev.map((a) => {
         if (a.id === attrId && a.inputValue?.trim()) {
@@ -1083,6 +1109,7 @@ export default function ProductEditModal({
   };
 
   const handleRemoveParentAttrValue = (attrId, valToRemove) => {
+    markUserTouched();
     setParentAttributes((prev) =>
       prev.map((a) => {
         if (a.id === attrId) {
@@ -1094,11 +1121,13 @@ export default function ProductEditModal({
   };
 
   const handleRemoveParentAttr = (attrId) => {
+    markUserTouched();
     setParentAttributes((prev) => prev.filter((a) => a.id !== attrId));
   };
 
   // --- Attribute handlers for Standalone / Child ---
   const handleAddItemAttr = () => {
+    markUserTouched();
     setItemAttributes((prev) => [
       ...prev,
       { id: `item-attr-${Date.now()}-${Math.random()}`, name: '', value: '' },
@@ -1106,23 +1135,27 @@ export default function ProductEditModal({
   };
 
   const handleItemAttrChange = (id, field, val) => {
+    markUserTouched();
     setItemAttributes((prev) =>
       prev.map((a) => (a.id === id ? { ...a, [field]: val } : a)),
     );
   };
 
   const handleRemoveItemAttr = (id) => {
+    markUserTouched();
     setItemAttributes((prev) => prev.filter((a) => a.id !== id));
   };
 
   // --- Variant Matrix Handlers ---
   const handleVariantChange = (key, field, val) => {
+    markUserTouched();
     setVariants((prev) =>
       prev.map((v) => (v.key === key ? { ...v, [field]: val } : v)),
     );
   };
 
   const handleApplyParentPricesToAll = () => {
+    markUserTouched();
     setVariants((prev) =>
       prev.map((v) => ({
         ...v,
@@ -1134,6 +1167,7 @@ export default function ProductEditModal({
   };
 
   const handleRemoveVariant = (key) => {
+    markUserTouched();
     setVariants((prev) => prev.filter((v) => v.key !== key));
   };
 
@@ -1148,6 +1182,7 @@ export default function ProductEditModal({
 
   const handleBarcodeCaptured = (code) => {
     playScanBeep(true);
+    markUserTouched();
     if (!barcodeScannerTarget) return;
     if (barcodeScannerTarget.type === 'parent') {
       handleInputChange('barcode', code);
@@ -1186,6 +1221,7 @@ export default function ProductEditModal({
       return;
     }
 
+    markUserTouched();
     const newConv = {
       name: unitName,
       unitBase: numRate,
@@ -1201,6 +1237,7 @@ export default function ProductEditModal({
   };
 
   const handleDeleteConversion = (indexToRemove) => {
+    markUserTouched();
     setConversions((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
@@ -1222,8 +1259,12 @@ export default function ProductEditModal({
       setErrorMsg('Vui lòng nhập đơn vị tính cơ bản (Gốc).');
       return;
     }
-    if (formData.sellingPrice === '' || formData.sellingPrice === null || Number(formData.sellingPrice) < 0) {
-      setErrorMsg('Giá bán không được để trống và phải lớn hơn hoặc bằng 0.');
+    if (formData.sellingPrice !== '' && formData.sellingPrice !== null && Number(formData.sellingPrice) < 0) {
+      setErrorMsg('Giá bán phải lớn hơn hoặc bằng 0.');
+      return;
+    }
+    if (formData.costPrice !== '' && formData.costPrice !== null && Number(formData.costPrice) < 0) {
+      setErrorMsg('Giá vốn phải lớn hơn hoặc bằng 0.');
       return;
     }
 
@@ -1246,6 +1287,7 @@ export default function ProductEditModal({
     // Build units payload
     const unitsPayload = [
       {
+        id: formData.baseUnitId || undefined,
         name: formData.baseUnitName?.trim() || '',
         isBase: true,
         unitBase: 1,
@@ -1443,6 +1485,7 @@ export default function ProductEditModal({
                           type="button"
                           className="pi-edit-btn-remove-img"
                           onClick={() => {
+                            markUserTouched();
                             setFormData((prev) => ({
                               ...prev,
                               imageFile: null,
@@ -1821,7 +1864,10 @@ export default function ProductEditModal({
                         min="0"
                         className="pi-edit-input"
                         value={minStockInputQty}
-                        onChange={(e) => setMinStockInputQty(e.target.value)}
+                        onChange={(e) => {
+                          markUserTouched();
+                          setMinStockInputQty(e.target.value);
+                        }}
                         placeholder="Nhập số lượng an toàn"
                       />
                     </div>
@@ -1831,7 +1877,10 @@ export default function ProductEditModal({
                       <select
                         className="pi-edit-input"
                         value={minStockUnit || formData.baseUnitName || ''}
-                        onChange={(e) => setMinStockUnit(e.target.value)}
+                        onChange={(e) => {
+                          markUserTouched();
+                          setMinStockUnit(e.target.value);
+                        }}
                       >
                         <option value={formData.baseUnitName || ''}>
                           {formData.baseUnitName || 'Đơn vị cơ bản'} (Đơn vị gốc)
@@ -1900,6 +1949,7 @@ export default function ProductEditModal({
                           placeholder="Tên thuộc tính (VD: Vị, Màu sắc, Kích cỡ...)"
                           value={attr.name}
                           onChange={(e) => {
+                            markUserTouched();
                             const val = e.target.value;
                             setParentAttributes((prev) =>
                               prev.map((a) => (a.id === attr.id ? { ...a, name: val } : a)),

@@ -51,6 +51,7 @@ public class ImportSuggestionService {
     static final int DEFAULT_LEAD_DAYS = 3;
     static final int STORE_COVER_DEFAULT = 7;
     static final int HSD_BUFFER_DAYS = 1;
+    static final int NEW_PRODUCT_DAYS = 30;
 
     ProductRepository productRepository;
     SalesOrderDetailRepository salesOrderDetailRepository;
@@ -462,6 +463,8 @@ public class ImportSuggestionService {
                         .supplierName(sug.getSupplierName())
                         .sellingPrice(r.getSellingPrice())
                         .costPrice(r.getCostPrice())
+                        .status(r.getStatus())
+                        .createdAt(r.getCreatedAt())
                         .onHand(sug.getOnHand())
                         .avgDailyRate(sug.getAvgDailyRate())
                         .avgWeeklyRate(sug.getAvgDailyRate().multiply(BigDecimal.valueOf(7)).setScale(1, RoundingMode.HALF_UP))
@@ -510,6 +513,9 @@ public class ImportSuggestionService {
                                 .onHand(sug.getOnHand())
                                 .sellingPrice(c.getSellingPrice())
                                 .costPrice(c.getCostPrice())
+                                .status(c.getStatus())
+                                .createdAt(c.getCreatedAt())
+                                .facetStatus(facetStatusMap.get(c.getId()))
                                 .avgDailyRate(childAvgDaily)
                                 .avgWeeklyRate(childAvgDaily.multiply(BigDecimal.valueOf(7)).setScale(1, RoundingMode.HALF_UP))
                                 .suggestedQty(sug.getSuggestedQty())
@@ -557,6 +563,10 @@ public class ImportSuggestionService {
                 }
 
                 String groupFacet = "ok";
+                boolean isParentNew = "new".equalsIgnoreCase(r.getStatus())
+                        || (r.getCreatedAt() != null && r.getCreatedAt().isAfter(Instant.now().minus(NEW_PRODUCT_DAYS, ChronoUnit.DAYS))
+                            && totalOnHand <= 0 && totalAvgDaily.doubleValue() <= slowThreshold());
+                boolean hasNew = isParentNew;
                 boolean hasHot = false;
                 boolean hasSlow = false;
                 boolean hasWarn = false;
@@ -564,13 +574,15 @@ public class ImportSuggestionService {
                 boolean hasStop = false;
                 for (Product c : children) {
                     String childFacet = facetStatusMap.get(c.getId());
-                    if ("hot".equals(childFacet)) hasHot = true;
+                    if ("new".equals(childFacet)) hasNew = true;
+                    else if ("hot".equals(childFacet)) hasHot = true;
                     else if ("slow".equals(childFacet)) hasSlow = true;
                     else if ("warn".equals(childFacet)) hasWarn = true;
                     else if ("season".equals(childFacet)) hasSeason = true;
                     else if ("stop".equals(childFacet)) hasStop = true;
                 }
-                if (hasHot) groupFacet = "hot";
+                if (hasNew) groupFacet = "new";
+                else if (hasHot) groupFacet = "hot";
                 else if (hasSlow) groupFacet = "slow";
                 else if (hasWarn) groupFacet = "warn";
                 else if (hasSeason) groupFacet = "season";
@@ -587,6 +599,8 @@ public class ImportSuggestionService {
                         .supplierName(variantGroups.isEmpty() ? null : variantGroups.get(0).getSizes().get(0).getCostPerUnit() != null ? children.get(0).getCategory() != null && children.get(0).getCategory().getDefaultSupplier() != null ? children.get(0).getCategory().getDefaultSupplier().getName() : null : null)
                         .sellingPrice(children.get(0).getSellingPrice())
                         .costPrice(children.get(0).getCostPrice())
+                        .status(r.getStatus())
+                        .createdAt(r.getCreatedAt())
                         .onHand(totalOnHand)
                         .avgDailyRate(totalAvgDaily)
                         .avgWeeklyRate(totalAvgDaily.multiply(BigDecimal.valueOf(7)).setScale(1, RoundingMode.HALF_UP))
@@ -602,7 +616,7 @@ public class ImportSuggestionService {
         List<GroupedSuggestionResponse> filteredList = resultList.stream()
                 .filter(g -> {
                     if (categoryId == null) return true;
-                    if (g.getIsGroup()) {
+                    if (Boolean.TRUE.equals(g.getIsGroup())) {
                         List<Product> children = childrenMap.get(g.getId());
                         return children.stream().anyMatch(c -> c.getCategory() != null && Objects.equals(c.getCategory().getId(), categoryId));
                     } else {
@@ -621,7 +635,7 @@ public class ImportSuggestionService {
                         if (gNameNorm.contains(word) || gSkuNorm.contains(word) || gBarcodeNorm.contains(word)) {
                             wordMatched = true;
                         }
-                        if (!wordMatched && g.getIsGroup()) {
+                        if (!wordMatched && Boolean.TRUE.equals(g.getIsGroup())) {
                             List<Product> children = childrenMap.get(g.getId());
                             if (children != null) {
                                 for (Product c : children) {
@@ -651,19 +665,43 @@ public class ImportSuggestionService {
                 })
                 .filter(g -> {
                     if (facet == null || facet.isBlank() || "all".equalsIgnoreCase(facet)) return true;
-                    if (g.getIsGroup()) {
+                    if ("new".equalsIgnoreCase(facet)) {
+                        if (Boolean.TRUE.equals(g.getIsGroup())) {
+                            List<Product> children = childrenMap.get(g.getId());
+                            return "new".equalsIgnoreCase(g.getFacetStatus())
+                                    || "new".equalsIgnoreCase(g.getStatus())
+                                    || (children != null && children.stream().anyMatch(c ->
+                                            "new".equalsIgnoreCase(facetStatusMap.get(c.getId()))
+                                            || "new".equalsIgnoreCase(c.getStatus())
+                                    ));
+                        } else {
+                            Product r = allActive.stream().filter(p -> p.getId().equals(g.getId())).findFirst().orElse(null);
+                            return "new".equalsIgnoreCase(g.getFacetStatus())
+                                    || "new".equalsIgnoreCase(g.getStatus())
+                                    || (r != null && "new".equalsIgnoreCase(r.getStatus()));
+                        }
+                    }
+                    if (Boolean.TRUE.equals(g.getIsGroup())) {
                         List<Product> children = childrenMap.get(g.getId());
-                        return children.stream().anyMatch(c -> facet.equalsIgnoreCase(facetStatusMap.get(c.getId())));
+                        return children != null && children.stream().anyMatch(c -> facet.equalsIgnoreCase(facetStatusMap.get(c.getId())));
                     } else {
                         return facet.equalsIgnoreCase(g.getFacetStatus());
                     }
                 })
                 .toList();
 
-        int total = filteredList.size();
+        // Sort newest products first (createdAt DESC, id DESC)
+        Comparator<GroupedSuggestionResponse> newestFirst = Comparator
+                .comparing(GroupedSuggestionResponse::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(GroupedSuggestionResponse::getId, Comparator.nullsLast(Comparator.reverseOrder()));
+
+        List<GroupedSuggestionResponse> sortedList = new ArrayList<>(filteredList);
+        sortedList.sort(newestFirst);
+
+        int total = sortedList.size();
         int fromIdx = Math.min(page * size, total);
         int toIdx = Math.min(fromIdx + size, total);
-        List<GroupedSuggestionResponse> content = filteredList.subList(fromIdx, toIdx);
+        List<GroupedSuggestionResponse> content = sortedList.subList(fromIdx, toIdx);
         fillOpenPoForSuggestions(content);
 
         return PageResponse.<GroupedSuggestionResponse>builder()
@@ -795,6 +833,14 @@ public class ImportSuggestionService {
         String status = p.getStatus() == null ? "active" : p.getStatus();
         if ("inactive".equalsIgnoreCase(status)) {
             return "stop";
+        }
+        if ("new".equalsIgnoreCase(status)) {
+            return "new";
+        }
+        Instant newThreshold = Instant.now().minus(NEW_PRODUCT_DAYS, ChronoUnit.DAYS);
+        boolean isNew = p.getCreatedAt() != null && p.getCreatedAt().isAfter(newThreshold);
+        if (isNew && onHand <= 0 && avgDaily <= slowThreshold()) {
+            return "new";
         }
         if (onHand <= 0) {
             return avgDaily > slowThreshold() ? "hot" : "slow";

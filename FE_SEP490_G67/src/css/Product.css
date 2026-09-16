@@ -340,7 +340,7 @@
 .product-pagination__controls {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .product-pagination__nav,
@@ -348,23 +348,24 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 36px;
-  height: 36px;
-  padding: 0 10px;
+  min-width: 42px;
+  height: 42px;
+  padding: 0 12px;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #fff;
   color: #475569;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .product-pagination__nav:hover:not(:disabled),
 .product-pagination__page:hover {
   background: #f8fafc;
   border-color: #cbd5e1;
+  color: #1e293b;
 }
 
 .product-pagination__nav:disabled {
@@ -376,6 +377,8 @@
   background: #2563eb;
   border-color: #2563eb;
   color: #fff;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
 }
 
 .product-pagination__page--active:hover {
@@ -384,9 +387,11 @@
 }
 
 .product-pagination__ellipsis {
+  min-width: 24px;
+  text-align: center;
   padding: 0 4px;
   color: #94a3b8;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 /* ============================================
@@ -1980,6 +1985,7 @@
   display: flex;
   flex-direction: column;
   overflow: visible;
+  position: relative;
 }
 
 /* ─── DIV-BASED TABLE ────────────────────────────────────── */
@@ -1996,13 +2002,11 @@
 }
 
 .pi-th {
-  padding: 13px 10px;
-  font-size: 14.5px;
+  padding: 14px 10px;
+  font-size: 15px;
   font-weight: 700;
   color: #334155;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   flex-shrink: 0;
 }
 
@@ -2041,21 +2045,23 @@
 
 .pi-th.col-img,
 .pi-td.col-img {
-  width: 44px;
+  width: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0 4px;
+  overflow: visible !important;
+  position: relative;
 }
 
 .pi-th.col-name,
 .pi-td.col-name {
   flex: 2;
-  min-width: 200px;
+  min-width: 220px;
   white-space: normal !important;
   word-break: break-word;
-  line-height: 1.42;
-  font-size: 14.5px;
+  line-height: 1.45;
+  font-size: 15.5px;
   font-weight: 600;
   color: #0F172A;
   display: flex;
@@ -2063,17 +2069,18 @@
   align-items: center;
   justify-content: flex-start;
   text-align: left;
-  padding: 6px 12px;
+  padding: 8px 12px;
 }
 
 .pi-th.col-unit,
 .pi-td.col-unit {
-  width: 72px;
+  width: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  font-size: 13.5px;
+  font-size: 15px;
+  color: #334155;
   padding: 0 4px;
 }
 
@@ -2087,12 +2094,12 @@
 /* Cột Giá bán */
 .pi-th.col-ps,
 .pi-td.col-ps {
-  width: 105px;
+  width: 115px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   text-align: right;
-  font-size: 14.5px;
+  font-size: 15.5px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: #0F172A;
@@ -2102,12 +2109,12 @@
 /* Cột Giá vốn */
 .pi-th.col-pc,
 .pi-td.col-pc {
-  width: 105px;
+  width: 115px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   text-align: right;
-  font-size: 13.5px;
+  font-size: 15px;
   font-variant-numeric: tabular-nums;
   color: #64748B;
   padding: 0 8px;
@@ -2116,7 +2123,7 @@
 /* Cột Tồn kho */
 .pi-th.col-st,
 .pi-td.col-st {
-  width: 90px;
+  width: 110px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -2128,7 +2135,7 @@
 /* Cột Mức bán */
 .pi-th.col-rt,
 .pi-td.col-rt {
-  width: 125px;
+  width: 135px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -2140,7 +2147,7 @@
 /* Cột Thao tác */
 .pi-th.col-act,
 .pi-td.col-act {
-  width: 90px;
+  width: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2203,8 +2210,6 @@
 
 .pi-th-label {
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .pi-sort-icon {
@@ -2237,7 +2242,7 @@
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 13.5px;
+  font-size: 15px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2252,9 +2257,9 @@
   /* Cam ấm cảnh báo sắp hết */
   background: #FEF3C7;
   border: 1px solid #FDE68A;
-  padding: 1px 7px;
-  border-radius: 5px;
-  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 13.5px;
   font-weight: 700;
 }
 
@@ -2263,23 +2268,23 @@
   /* Đỏ cảnh báo hết hàng */
   background: #FEE2E2;
   border: 1px solid #FECACA;
-  padding: 1px 7px;
-  border-radius: 5px;
-  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 13.5px;
   font-weight: 700;
 }
 
 .pi-sales-pace-pill {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 2px 8px;
+  gap: 4px;
+  padding: 3px 9px;
   border-radius: 6px;
   background: #F0FDF4;
   color: #15803D;
   /* Xanh lá dịu mắt, chuyên nghiệp */
   border: 1px solid #DCFCE7;
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -2313,52 +2318,53 @@
 .pi-row {
   display: flex;
   align-items: center;
-  border-bottom: 1px solid var(--gray-8);
-  background: #fff;
-  transition: background .1s;
+  border-bottom: 1px solid #E2E8F0;
+  background: #ffffff;
+  transition: background 0.12s ease;
   min-height: 62px;
   height: auto;
   padding: 4px 0;
+  position: relative;
 }
 
 .pi-row:last-child {
   border-bottom: none;
 }
 
-.pi-row:hover {
-  background: var(--gray-9);
+/* Đồng nhất màu hover rõ ràng cho tất cả các loại hàng (hàng thường, hàng cha, hàng biến thể) */
+.pi-row:hover,
+.pi-row.parent:hover,
+.pi-row.variant:hover {
+  background: #F0F7FF !important;
 }
 
 .pi-row.parent {
-  background: var(--gray-9);
+  background: #F8FAFC;
   cursor: pointer;
   font-weight: 700;
-}
-
-.pi-row.parent:hover {
-  background: var(--gray-8);
 }
 
 .pi-row.variant {
   cursor: pointer;
   font-weight: 500;
+  background: #ffffff;
 }
 
 .pi-row.row-selected,
 .pi-row.is-selected {
-  background: #FFFDF0 !important;
+  background: #EFF6FF !important;
   box-shadow: inset 4px 0 0 #004AC6 !important;
 }
 
 .pi-row.row-selected:hover,
 .pi-row.is-selected:hover {
-  background: #FEFCE8 !important;
+  background: #E0EFFE !important;
 }
 
 .pi-td {
   padding: 8px 10px;
-  min-height: 52px;
-  font-size: 14.5px;
+  min-height: 56px;
+  font-size: 15.5px;
   color: #1E293B;
   flex-shrink: 0;
   display: flex;
@@ -2367,16 +2373,66 @@
 
 /* Thumbnail */
 .pi-img {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 8px;
-  border: 1px solid var(--border);
+  border: 1px solid #CBD5E1;
   background: #EFF3FC;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
   flex-shrink: 0;
+  position: relative;
+  cursor: pointer;
+}
+
+.pi-img-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 7px;
+  display: block;
+}
+
+/* Hover Preview Popover (KiotViet style) */
+.pi-thumb-preview-popover {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 9999;
+  background: #ffffff;
+  padding: 10px;
+  border-radius: 12px;
+  box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.2), 0 8px 16px -4px rgba(15, 23, 42, 0.08);
+  border: 1px solid #E2E8F0;
+  pointer-events: none;
+  width: 175px;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pi-popover-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pi-thumb-preview-img {
+  width: 100%;
+  height: auto;
+  max-height: 165px;
+  object-fit: contain;
+  border-radius: 8px;
+  display: block;
+}
+
+@keyframes pi-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
 }
 
 .pi-cb {
@@ -2826,7 +2882,88 @@
   overflow-x: auto;
   overflow-y: visible;
   height: auto;
-  min-height: auto;
+  min-height: 580px;
+  position: relative;
+  transition: min-height 0.2s ease;
+}
+
+/* Center Loading Spinner */
+.pi-table-loading-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 540px;
+  gap: 16px;
+  color: #64748b;
+  font-size: 15px;
+  font-weight: 500;
+  background: #ffffff;
+}
+
+/* Semi-transparent Overlay Loading (KiotViet style) */
+.pi-table-overlay-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 50;
+  pointer-events: auto;
+  border-radius: 8px;
+  animation: pi-fade-in 0.15s ease-out;
+}
+
+.pi-table-spinner-content {
+  position: sticky;
+  top: 35vh;
+  margin-top: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 16px 28px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.pi-table-spinner {
+  width: 42px;
+  height: 42px;
+  border: 3.5px solid #E2E8F0;
+  border-top-color: #004AC6;
+  border-radius: 50%;
+  animation: pi-spin 0.75s linear infinite;
+}
+
+@keyframes pi-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.pi-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  color: #64748b;
+  font-size: 15px;
+  text-align: center;
+  padding: 40px 20px;
 }
 
 .pi-foot {
@@ -2834,48 +2971,126 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 12px;
-  border-top: 1px solid var(--border);
-  font-size: 14px;
-  color: var(--gray-4);
+  padding: 16px 20px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 15px;
+  color: #64748b;
   background: #fff;
   border-radius: 0 0 12px 12px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pi-foot__info {
+  margin: 0;
+  font-size: 15px;
+  color: #64748b;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.pi-pagination__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pi-page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+}
+
+.pi-page-btn--nav {
+  color: #64748b;
+  padding: 0;
+}
+
+.pi-page-btn:hover:not(:disabled):not(.pi-page-btn--active) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+.pi-page-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pi-page-btn--active {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+}
+
+.pi-page-btn--active:hover {
+  background: #1d4ed8 !important;
+  border-color: #1d4ed8 !important;
+}
+
+.pi-page-ellipsis {
+  min-width: 24px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 15px;
+  font-weight: 500;
+  padding: 0 4px;
 }
 
 .pi-pages {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  gap: 8px;
 }
 
 .pi-pg {
-  min-width: 34px;
-  height: 34px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--gray-7);
-  background: #fff;
-  font-size: 14px;
-  color: var(--gray-3);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background .12s;
+  min-width: 42px;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .pi-pg:hover:not(:disabled):not(.cur) {
-  background: var(--gray-8);
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #1e293b;
 }
 
 .pi-pg.cur {
-  background: var(--blue);
-  color: #fff;
-  border-color: var(--blue);
-  font-weight: 600;
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
 }
 
 .pi-pg:disabled {
-  opacity: .4;
-  cursor: default;
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* ─── VÙNG 3: ORDER MODAL (CHUẨN BỊ ĐƠN NHẬP POP-UP) ──────────── */

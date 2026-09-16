@@ -58,6 +58,8 @@ public class UpsertProductRequest {
 
     @Data
     public static class UnitRequest {
+        private Integer id;
+
         @NotBlank
         @Size(max = 50)
         private String name;
@@ -73,6 +75,8 @@ public class UpsertProductRequest {
 
     @Data
     public static class AttributeRequest {
+        private Integer id;
+
         @NotBlank
         @Size(max = 60)
         private String name;

@@ -27,6 +27,11 @@ export function useCheckout() {
     const [discount, setDiscount] = useState(0);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
+
+    /**
+     * Lookup customer by phone. Sets invoiceType to 'found' or 'not_found'.
+     * Returns the customer object or null so the caller can decide next action.
+     */
     const lookupCustomer = useCallback(async (phoneValue) => {
         setError(null);
         try {
@@ -34,16 +39,13 @@ export function useCheckout() {
             if (found) {
                 setCustomer(found);
                 setInvoiceType('found');
-                saveOfflineCustomers([found]).catch((cacheErr) => {
-                    console.warn("[useCheckout] Failed to cache customer:", cacheErr);
-                });
+                saveOfflineCustomers([found]).catch(() => { });
             } else {
                 setCustomer(null);
                 setInvoiceType('not_found');
             }
             return found;
-        } catch (error) {
-            console.warn("[useCheckout] Online customer lookup failed, falling back to offline cache:", error);
+        } catch {
             // Offline fallback
             try {
                 const offlineCustomer = await getOfflineCustomerByPhone(phoneValue);
@@ -52,8 +54,8 @@ export function useCheckout() {
                     setInvoiceType('found');
                     return offlineCustomer;
                 }
-            } catch (dbErr) {
-                console.error("[useCheckout] Offline customer lookup error:", dbErr);
+            } catch {
+                // Ignore DB error
             }
 
             setError('Lỗi tra cứu khách hàng. Vui lòng thử lại.');
@@ -74,6 +76,11 @@ export function useCheckout() {
         setError(null);
     }, []);
 
+    /**
+     * Những gì phải đúng trước khi động tới tiền của khách.
+     *
+     * @returns {string|null} câu lỗi tiếng Việt, hoặc null nếu qua hết
+     */
     const validateCheckout = useCallback((cartItems, paymentMethod, debtInfo) => {
         if (!cartItems || cartItems.length === 0) {
             return 'Giỏ hàng trống. Vui lòng thêm sản phẩm.';
@@ -100,7 +107,7 @@ export function useCheckout() {
         return null;
     }, [customer]);
 
-    /** request tạo đơn. */
+    /** Thân request tạo đơn. */
     const buildOrderPayload = useCallback((cartItems, paymentMethod, debtInfo, note, paymentReference) => {
         const discountAmount = discount > 0 ? discount : 0;
         return {
@@ -109,6 +116,9 @@ export function useCheckout() {
             note: note?.trim() ? note.trim() : null,
             items: cartItems.map((item) => ({
                 productId: item.productId,
+                // Lô-tại-ô thu ngân đã tick là một phần của đơn: BE không
+                // được tự suy lại, vì hàng có thể đã được chuyển chỗ kể từ
+                // lúc chọn.
                 picks: toStockPicks(item),
                 productUnitId: item.productUnitId,
                 quantity: item.qty,
@@ -119,6 +129,8 @@ export function useCheckout() {
             ...(paymentReference ? { paymentReference } : {}),
             ...(paymentMethod === 'debt' ? {
                 paidAmount: debtInfo.paidAmount ?? 0,
+                // input[type=date] cho ra yyyy-MM-dd; BE nhận Instant nên
+                // quy về cuối ngày giờ VN để hạn trả tính hết ngày đó.
                 dueDate: endOfDayIso(debtInfo.dueDate),
             } : {}),
         };
@@ -126,6 +138,9 @@ export function useCheckout() {
 
     /**
      * Ghi sổ đơn.
+     *
+     * @param paymentReference nội dung chuyển khoản đã in trên mã QR khách vừa quét.
+     *        Chỉ đơn TRANSFER mới có; BE từ chối chuỗi này trên mọi hình thức khác.
      */
     const submitCheckout = useCallback(async (cartItems, paymentMethod, debtInfo, note, paymentReference) => {
         const validationError = validateCheckout(cartItems, paymentMethod, debtInfo);
@@ -208,8 +223,7 @@ export function useCheckout() {
             let invoiceData = null;
             try {
                 invoiceData = await getInvoiceData(invoice.id);
-            } catch (error) {
-                console.error("Failed to fetch invoice data after checkout:", error);
+            } catch {
             }
 
             // Cache newly created order to offline sales_orders store for 7-day exchange/return
@@ -219,13 +233,11 @@ export function useCheckout() {
                     items: invoice.items || [],
                     customer: customer || invoice.customer
                 });
-            } catch (cacheErr) {
-                console.warn("[useCheckout] Failed to cache sales order to offline DB:", cacheErr);
+            } catch {
             }
 
             return { ok: true, order: invoice, invoice: invoiceData, customer };
         } catch (err) {
-            console.error("Checkout failed:", err);
             // Check if network error occurred while attempting to submit
             const isNetworkError = !err.response || err.code === 'ERR_NETWORK' || err.message?.toLowerCase().includes('network');
             if (isNetworkError) {
