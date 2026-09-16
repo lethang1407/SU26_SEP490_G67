@@ -44,6 +44,8 @@ public class InventoryCheckProductPreviewResponse {
         Integer supplierId;
         String supplierName;
         BigDecimal costPerUnit;
+        /** Lô bán thử — không gợi ý đổi/trả NCC (quyết toán trên phiếu nhập). */
+        Boolean isTrial;
     }
 
     @Data

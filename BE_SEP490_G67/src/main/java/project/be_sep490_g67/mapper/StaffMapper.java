@@ -69,9 +69,8 @@ public class StaffMapper {
 
     private int positionOrder(String position) {
         return switch (position) {
-            case "Thu ngân" -> 0;
-            case "Kiểm kho" -> 1;
-            case "Kế toán" -> 2;
+            case "Nhân viên" -> 0;
+            case "Quản lý" -> 1;
             default -> 99;
         };
     }

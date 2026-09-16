@@ -448,17 +448,22 @@ public class ProductService {
         }
     }
 
+    /**
+     * Tồn hiển thị tìm SP / POS = tồn bán được trên kệ
+     * (Σ batch_locations, loại RETURN_HOLD — hàng đổi/trả khách đang giữ).
+     * Hàng đã reserve trả NCC đã trừ khỏi kệ nên không còn trong tổng này.
+     */
     private Map<Integer, Integer> loadStockMap(List<Product> products) {
         if (products.isEmpty()) {
             return Collections.emptyMap();
         }
 
         List<Integer> productIds = products.stream().map(Product::getId).toList();
-        return productMapper.toStockMap(stockBatchRepository.sumStockByProductIds(productIds));
+        return productMapper.toStockMap(batchLocationRepository.sumQuantityByProductIds(productIds));
     }
 
     private int loadStock(Integer productId) {
-        return productMapper.toStockMap(stockBatchRepository.sumStockByProductIds(List.of(productId)))
+        return productMapper.toStockMap(batchLocationRepository.sumQuantityByProductIds(List.of(productId)))
                 .getOrDefault(productId, 0);
     }
 

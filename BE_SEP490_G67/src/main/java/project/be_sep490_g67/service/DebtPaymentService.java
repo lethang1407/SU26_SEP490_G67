@@ -145,7 +145,7 @@ public class DebtPaymentService {
         }
 
         Set<Integer> staffIds = new HashSet<>(
-                userRepository.findActiveNonAdminUserIds(StaffConstants.ADMIN_ROLE_NAME));
+                userRepository.findActiveNonAdminUserIds(StaffConstants.MANAGER_ROLE_NAME));
 
         // Đơn thiếu createdBy (dữ liệu cũ) không quy được cho ai nên không tính là của
         // nhân viên. Đơn không gắn khách thì không có hồ sơ công nợ để chủ cửa hàng rà lại.

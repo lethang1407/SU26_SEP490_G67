@@ -8,7 +8,7 @@ import {
     pickKey,
     selectedKeys,
     selectedQuantity,
-    sortLocationsByFefo,
+    sortLocationsByFifo,
 } from '../utils/cartLocation';
 
 const fmt = (n) => Number(n ?? 0).toLocaleString('vi-VN');
@@ -42,7 +42,7 @@ export default function LocationPicker({ item, onToggle }) {
     }, [open]);
 
     const options = useMemo(
-        () => sortLocationsByFefo(item.locations ?? []),
+        () => sortLocationsByFifo(item.locations ?? []),
         [item.locations],
     );
     const pickedKeys = selectedKeys(item);
@@ -60,10 +60,10 @@ export default function LocationPicker({ item, onToggle }) {
                 disabled={options.length === 0}
                 title={options.length === 0
                     ? 'Sản phẩm chưa có hàng ở vị trí nào'
-                    : 'Tự động FEFO hoặc chọn ô/lô'}
+                    : 'Tự động FIFO hoặc chọn ô/lô'}
             >
                 <span className="loc-picker-label">
-                    {options.length === 0 ? 'Không có hàng' : (summary ?? 'Tự động (FEFO)')}
+                    {options.length === 0 ? 'Không có hàng' : (summary ?? 'Tự động (FIFO)')}
                 </span>
                 {options.length > 0 && <ChevronDown size={13} />}
             </button>

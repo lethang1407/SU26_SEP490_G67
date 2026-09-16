@@ -1,14 +1,18 @@
 package project.be_sep490_g67.exception;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.server.ResponseStatusException;
 import project.be_sep490_g67.dto.response.ApiResponse;
+
+import java.io.IOException;
 
 @Slf4j
 @RestControllerAdvice
@@ -61,8 +65,34 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(exception.getStatusCode().value(), message));
     }
 
+    /**
+     * Client đã ngắt một request bất đồng bộ — thực tế là kênh SSE thông báo khi người dùng
+     * đóng tab hay mất mạng. Tomcat báo lỗi, Spring dispatch vào đây.
+     *
+     * <p>Không có ai để trả lời: socket đã đóng. Trả {@code null} để Spring coi là đã xử lý
+     * và không ghi gì. Trước đây nó rơi xuống catch-all, bị log ERROR kèm stack trace rồi
+     * cố ghi JSON vào luồng {@code text/event-stream} và hỏng thêm lần nữa.
+     */
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public ResponseEntity<Void> handleClientDisconnected(AsyncRequestNotUsableException exception) {
+        log.debug("Client đã ngắt request bất đồng bộ: {}", exception.getMessage());
+        return null;
+    }
+
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handleUnhandledException(Exception exception) {
+    public ResponseEntity<ApiResponse<Void>> handleUnhandledException(Exception exception,
+                                                                      HttpServletResponse response) {
+        // Luồng streaming (SSE) đã gửi header text/event-stream, hoặc response đã commit:
+        // không thể đổi sang JSON nữa. Ghi log rồi dừng, không cố viết body.
+        if (isStreamingOrCommitted(response)) {
+            if (isClientAbort(exception)) {
+                log.debug("Client đã ngắt luồng streaming: {}", exception.getMessage());
+            } else {
+                log.error("Lỗi trên response streaming/đã commit, không thể trả body", exception);
+            }
+            return null;
+        }
+
         log.error("Unhandled exception", exception);
 
         Throwable root = exception;
@@ -74,12 +104,12 @@ public class GlobalExceptionHandler {
                 ? ErrorCode.UNCATEGORIZED_EXCEPTION.getMessage() + ": " + detail
                 : ErrorCode.UNCATEGORIZED_EXCEPTION.getMessage();
 
-        ApiResponse<Void> response = ApiResponse.<Void>builder()
+        ApiResponse<Void> body = ApiResponse.<Void>builder()
                 .code(ErrorCode.UNCATEGORIZED_EXCEPTION.getCode())
                 .message(message)
                 .build();
 
-        return ResponseEntity.status(ErrorCode.UNCATEGORIZED_EXCEPTION.getStatusCode()).body(response);
+        return ResponseEntity.status(ErrorCode.UNCATEGORIZED_EXCEPTION.getStatusCode()).body(body);
     }
 
     @ExceptionHandler(InsufficientStockException.class)
@@ -96,5 +126,27 @@ public class GlobalExceptionHandler {
                         .message("Kích thước tệp quá lớn. Vui lòng tải ảnh tối đa 10MB.")
                         .build()
         );
+    }
+
+    private boolean isStreamingOrCommitted(HttpServletResponse response) {
+        if (response == null) {
+            return false;
+        }
+        String contentType = response.getContentType();
+        return response.isCommitted()
+                || (contentType != null && contentType.startsWith(MediaType.TEXT_EVENT_STREAM_VALUE));
+    }
+
+    /** Ngắt kết nối từ phía client luôn mang một IOException ở đâu đó trong chuỗi cause. */
+    private boolean isClientAbort(Throwable exception) {
+        for (Throwable current = exception; current != null; current = current.getCause()) {
+            if (current instanceof IOException) {
+                return true;
+            }
+            if (current.getCause() == current) {
+                break;
+            }
+        }
+        return false;
     }
 }

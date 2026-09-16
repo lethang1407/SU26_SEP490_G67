@@ -431,6 +431,7 @@ public class InventoryCheckService {
                 .supplierId(supplier != null ? supplier.getId() : null)
                 .supplierName(supplier != null ? supplier.getName() : null)
                 .costPerUnit(batch.getCostPerUnit())
+                .isTrial(Boolean.TRUE.equals(batch.getIsTrial()))
                 .build();
     }
 

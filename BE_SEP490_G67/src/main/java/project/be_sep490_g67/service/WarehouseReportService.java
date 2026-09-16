@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import project.be_sep490_g67.constants.ImportReturnConstants;
 import project.be_sep490_g67.constants.WarehouseReportConstants;
 import project.be_sep490_g67.dto.response.WarehouseIoLineDTO;
 import project.be_sep490_g67.dto.response.WarehouseIoProductDTO;
@@ -33,6 +34,7 @@ public class WarehouseReportService {
     SalesOrderRepository salesOrderRepository;
     ReturnOrderRepository returnOrderRepository;
     ImportReturnRepository importReturnRepository;
+    ImportReturnDetailRepository importReturnDetailRepository;
     StockBatchRepository stockBatchRepository;
     ProductUnitRepository productUnitRepository;
     ProductRepository productRepository;
@@ -62,6 +64,7 @@ public class WarehouseReportService {
         );
 
         DocumentLookup docs = loadDocumentCodes(periodMovements);
+        Map<String, String> importReturnMethods = loadImportReturnMethods(periodMovements);
 
         LinkedHashSet<Integer> productOrder = new LinkedHashSet<>();
         if (!productIdsEmpty) {
@@ -94,7 +97,7 @@ public class WarehouseReportService {
                         unitNames.getOrDefault(productId, "sp"));
                 byProduct.put(productId, agg);
             }
-            agg.addLine(sm, docs);
+            agg.addLine(sm, docs, importReturnMethods);
         }
 
         List<WarehouseIoProductDTO> allProducts = byProduct.values().stream()
@@ -292,6 +295,42 @@ public class WarehouseReportService {
         return new DocumentLookup(codes, links);
     }
 
+    /**
+     * Map {@code returnId#batchId} → method (EXCHANGE/RETURN) để diễn giải khớp hình thức hiện tại.
+     */
+    private Map<String, String> loadImportReturnMethods(List<StockMovement> movements) {
+        Set<Integer> returnIds = new HashSet<>();
+        for (StockMovement sm : movements) {
+            if (ImportReturnConstants.REFERENCE_TYPE.equals(sm.getReferenceType())
+                    && sm.getReferenceId() != null) {
+                returnIds.add(sm.getReferenceId());
+            }
+        }
+        if (returnIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> methods = new HashMap<>();
+        for (ImportReturnDetail d : importReturnDetailRepository.findActiveByReturnIds(returnIds)) {
+            String method = ImportReturnConstants.normalizeMethod(d.getMethod());
+            Integer returnId = d.getImportReturn() != null ? d.getImportReturn().getId() : null;
+            if (returnId == null) {
+                continue;
+            }
+            if (d.getStockBatch() != null && d.getStockBatch().getId() != null) {
+                methods.put(batchMethodKey(returnId, d.getStockBatch().getId()), method);
+            }
+            if (d.getExchangeBatch() != null && d.getExchangeBatch().getId() != null) {
+                methods.put(batchMethodKey(returnId, d.getExchangeBatch().getId()), method);
+            }
+            methods.putIfAbsent(String.valueOf(returnId), method);
+        }
+        return methods;
+    }
+
+    private static String batchMethodKey(Integer returnId, Integer batchId) {
+        return returnId + "#" + batchId;
+    }
+
     private Map<Integer, String> loadUnitNames(Collection<Integer> productIds) {
         Map<Integer, String> result = new HashMap<>();
         for (Integer productId : productIds) {
@@ -453,7 +492,7 @@ public class WarehouseReportService {
             return !lines.isEmpty() || openingQty != 0 || runningQty != 0;
         }
 
-        void addLine(StockMovement sm, DocumentLookup docs) {
+        void addLine(StockMovement sm, DocumentLookup docs, Map<String, String> importReturnMethods) {
             int delta = sm.getQuantityDelta() == null ? 0 : sm.getQuantityDelta();
             BigDecimal unitCost = costOf(sm);
             BigDecimal lineAmount = unitCost.multiply(BigDecimal.valueOf(Math.abs(delta)));
@@ -484,6 +523,7 @@ public class WarehouseReportService {
             }
 
             DocLink link = docs.link(sm.getReferenceType(), sm.getReferenceId());
+            String method = resolveImportReturnMethod(sm, importReturnMethods);
 
             lines.add(WarehouseIoLineDTO.builder()
                     .occurredAt(sm.getCreatedAt())
@@ -495,7 +535,7 @@ public class WarehouseReportService {
                     .documentKind(link != null ? link.kind() : null)
                     .movementType(sm.getMovementType())
                     .direction(inbound ? "Nhập" : "Xuất")
-                    .description(WarehouseReportConstants.descriptionFor(sm.getMovementType()))
+                    .description(WarehouseReportConstants.descriptionFor(sm.getMovementType(), method))
                     .openingQty(lineOpeningQty)
                     .openingAmount(lineOpeningAmt)
                     .importQty(lineImportQty)
@@ -505,6 +545,24 @@ public class WarehouseReportService {
                     .closingQty(runningQty)
                     .closingAmount(runningAmount)
                     .build());
+        }
+
+        private static String resolveImportReturnMethod(StockMovement sm, Map<String, String> methods) {
+            if (methods == null || methods.isEmpty()) {
+                return null;
+            }
+            if (!ImportReturnConstants.REFERENCE_TYPE.equals(sm.getReferenceType())
+                    || sm.getReferenceId() == null) {
+                return null;
+            }
+            Integer batchId = sm.getStockBatch() != null ? sm.getStockBatch().getId() : null;
+            if (batchId != null) {
+                String byBatch = methods.get(sm.getReferenceId() + "#" + batchId);
+                if (byBatch != null) {
+                    return byBatch;
+                }
+            }
+            return methods.get(String.valueOf(sm.getReferenceId()));
         }
 
         WarehouseIoProductDTO toDto() {

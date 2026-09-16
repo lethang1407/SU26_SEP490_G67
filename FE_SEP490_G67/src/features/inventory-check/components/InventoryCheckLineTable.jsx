@@ -180,7 +180,7 @@ export default function InventoryCheckLineTable({
                                     {editable ? (
                                         <td>
                                             <div className="inventory-check-line-table__actions">
-                                                {hasSpecificBatch ? (
+                                                {hasSpecificBatch && !line.isTrial ? (
                                                     <div className="inventory-check-line-table__batch-actions">
                                                         <button
                                                             type="button"
@@ -219,6 +219,13 @@ export default function InventoryCheckLineTable({
                                                             Trả NCC
                                                         </button>
                                                     </div>
+                                                ) : hasSpecificBatch && line.isTrial ? (
+                                                    <span
+                                                        className="text-muted"
+                                                        title="Hàng bán thử quyết toán trên phiếu nhập"
+                                                    >
+                                                        Bán thử
+                                                    </span>
                                                 ) : null}
                                                 <button
                                                     type="button"

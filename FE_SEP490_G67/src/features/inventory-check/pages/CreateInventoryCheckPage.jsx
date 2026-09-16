@@ -75,6 +75,7 @@ function buildLineFromPreview(preview, stockBatchId = null) {
         supplierId: selected?.supplierId ?? null,
         supplierName: selected?.supplierName ?? null,
         importOrderId: selected?.importOrderId ?? null,
+        isTrial: Boolean(selected?.isTrial),
     };
 }
 
@@ -300,6 +301,7 @@ export default function CreateInventoryCheckPage() {
                     supplierId: selected?.supplierId ?? null,
                     supplierName: selected?.supplierName ?? null,
                     importOrderId: selected?.importOrderId ?? null,
+                    isTrial: Boolean(selected?.isTrial),
                 };
             }),
         );

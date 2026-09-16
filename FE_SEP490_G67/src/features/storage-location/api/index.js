@@ -46,6 +46,34 @@ export async function moveAllBatchesFromLocation({ fromLocationId, toLocationId 
     return response.result;
 }
 
+export async function releaseReturnHold({ batchLocationId, toLocationId, quantity }) {
+    const response = await api.post('/storage-locations/return-hold/release', {
+        batchLocationId,
+        toLocationId,
+        quantity,
+    });
+    return response.result;
+}
+
+export async function cancelReturnHold({ batchLocationId, quantity, reason }) {
+    const response = await api.post('/storage-locations/return-hold/cancel', {
+        batchLocationId,
+        quantity,
+        reason,
+    });
+    return response.result;
+}
+
+export async function createSupplierReturnFromHold({ batchLocationId, quantity, method, note }) {
+    const response = await api.post('/storage-locations/return-hold/supplier-return', {
+        batchLocationId,
+        quantity,
+        method,
+        note,
+    });
+    return response.result;
+}
+
 export async function unassignBatchFromLocation({ batchLocationId }) {
     const response = await api.post('/storage-locations/unassign-batch', {
         batchLocationId,

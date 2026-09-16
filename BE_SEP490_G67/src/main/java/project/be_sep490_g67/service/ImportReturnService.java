@@ -24,6 +24,7 @@ import project.be_sep490_g67.entity.ImportReturnDetail;
 import project.be_sep490_g67.entity.InventoryCheck;
 import project.be_sep490_g67.entity.Product;
 import project.be_sep490_g67.entity.ProductUnit;
+import project.be_sep490_g67.entity.ReturnOrderDetail;
 import project.be_sep490_g67.entity.StockBatch;
 import project.be_sep490_g67.entity.StockMovement;
 import project.be_sep490_g67.entity.Supplier;
@@ -34,9 +35,11 @@ import project.be_sep490_g67.repository.BatchLocationRepository;
 import project.be_sep490_g67.repository.ImportReturnDetailRepository;
 import project.be_sep490_g67.repository.ImportReturnRepository;
 import project.be_sep490_g67.repository.InventoryCheckRepository;
+import project.be_sep490_g67.repository.ReturnOrderDetailRepository;
 import project.be_sep490_g67.repository.StockBatchRepository;
 import project.be_sep490_g67.repository.StockMovementRepository;
 import project.be_sep490_g67.repository.UserRepository;
+import project.be_sep490_g67.enums.ItemCondition;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -63,6 +66,7 @@ public class ImportReturnService {
     BatchLocationRepository batchLocationRepository;
     StockMovementRepository stockMovementRepository;
     InventoryCheckRepository inventoryCheckRepository;
+    ReturnOrderDetailRepository returnOrderDetailRepository;
     UserRepository userRepository;
 
     @Transactional(readOnly = true)
@@ -199,6 +203,130 @@ public class ImportReturnService {
     public ImportReturnDetailResponse createAndSubmit(Integer userId, SaveImportReturnRequest request) {
         ImportReturnDetailResponse draft = createDraft(userId, request);
         return submit(userId, draft.getId());
+    }
+
+    /**
+     * Tạo phiếu đổi/trả NCC từ hàng đang nằm ở RT-HOLD (đổi trả khách).
+     * Trừ đúng dòng batch_locations trên khu đổi trả — không đụng kệ bán.
+     */
+    @Transactional
+    public ImportReturnDetailResponse createFromReturnHold(
+            Integer userId,
+            Integer batchLocationId,
+            Integer quantity,
+            String method,
+            String note) {
+        BatchLocation holdLine = batchLocationRepository.findActiveWithDetailsById(batchLocationId)
+                .orElseThrow(() -> new AppException(ErrorCode.BATCH_LOCATION_NOT_FOUND));
+        assertReturnHoldLine(holdLine);
+
+        StockBatch batch = holdLine.getBatch();
+        batch = stockBatchRepository.findActiveWithProductAndImportById(batch.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.STOCK_BATCH_NOT_FOUND));
+        if (Boolean.TRUE.equals(batch.getIsTrial())) {
+            throw new AppException(ErrorCode.TRIAL_BATCH_NOT_RETURNABLE);
+        }
+        ImportOrder importOrder = batch.getImportOrder();
+        if (importOrder == null || importOrder.getSupplier() == null) {
+            throw new AppException(ErrorCode.BATCH_NOT_RETURNABLE);
+        }
+
+        int available = holdLine.getQuantity() != null ? holdLine.getQuantity() : 0;
+        int qty = quantity != null ? quantity : available;
+        if (qty < 1 || qty > available) {
+            throw new AppException(ErrorCode.RETURN_HOLD_INSUFFICIENT_QTY);
+        }
+
+        String normalizedMethod = ImportReturnConstants.normalizeMethod(method);
+
+        ImportReturn draft = newEmptyReturn(
+                ImportReturnConstants.STATUS_DRAFT,
+                ImportReturnConstants.SOURCE_MANUAL,
+                null);
+        draft.setNote(note);
+        draft.setCreatedBy(userId);
+        importReturnRepository.save(draft);
+
+        reserveFromReturnHold(holdLine, batch, qty, draft.getId(), normalizedMethod);
+
+        ImportReturnDetail detail = new ImportReturnDetail();
+        detail.setImportReturn(draft);
+        detail.setProduct(batch.getProduct());
+        detail.setStockBatch(batch);
+        detail.setSupplier(importOrder.getSupplier());
+        detail.setImportOrder(importOrder);
+        detail.setQuantity(qty);
+        detail.setReturnPrice(batch.getCostPerUnit() != null ? batch.getCostPerUnit() : BigDecimal.ZERO);
+        detail.setReturnReason("Từ kho đổi trả bán hàng");
+        detail.setNote(note);
+        detail.setMethod(normalizedMethod);
+        detail.setLineStatus(ImportReturnConstants.LINE_WAITING);
+        detail.setStockReserved(true);
+        detail.setIsRemoved(false);
+        importReturnDetailRepository.save(detail);
+
+        recalculateTotal(draft);
+        markReturnOrderDetailsProcessed(batch.getId(), batch.getProduct().getId(), qty, userId);
+
+        return submit(userId, draft.getId());
+    }
+
+    private void reserveFromReturnHold(
+            BatchLocation holdLine, StockBatch batch, int qty, Integer returnId, String method) {
+        int available = holdLine.getQuantity() != null ? holdLine.getQuantity() : 0;
+        int remainingOnHold = available - qty;
+        if (remainingOnHold <= 0) {
+            holdLine.setQuantity(0);
+            holdLine.setIsRemoved(true);
+        } else {
+            holdLine.setQuantity(remainingOnHold);
+        }
+        batchLocationRepository.save(holdLine);
+
+        int ledgerAfter = stockMovementRepository.sumQuantityDeltaByBatchId(batch.getId()) - qty;
+
+        StockMovement movement = new StockMovement();
+        movement.setStockBatch(batch);
+        movement.setBatchLocation(holdLine);
+        movement.setMovementType(ImportReturnConstants.outboundMovementType(method));
+        movement.setReferenceType(ImportReturnConstants.REFERENCE_TYPE);
+        movement.setReferenceId(returnId);
+        movement.setQuantityDelta(-qty);
+        movement.setStockAfter(Math.max(0, ledgerAfter));
+        movement.setIsRemoved(false);
+        stockMovementRepository.save(movement);
+    }
+
+    private void assertReturnHoldLine(BatchLocation line) {
+        if (line.getLocation() == null
+                || line.getLocation().getStorageZone() == null
+                || !"RETURN_HOLD".equalsIgnoreCase(String.valueOf(line.getLocation().getStorageZone().getZoneType()))) {
+            throw new AppException(ErrorCode.RETURN_HOLD_LINE_REQUIRED);
+        }
+    }
+
+    private void markReturnOrderDetailsProcessed(
+            Integer batchId, Integer productId, int quantity, Integer userId) {
+        if (quantity <= 0 || batchId == null || productId == null) {
+            return;
+        }
+        List<String> conditions = List.of(
+                ItemCondition.DAMAGED.name(),
+                ItemCondition.EXPIRED.name(),
+                ItemCondition.OPENED.name());
+        List<ReturnOrderDetail> waiting = returnOrderDetailRepository
+                .findAwaitingProcessingByBatchOrProduct(batchId, productId, conditions);
+        int remaining = quantity;
+        Instant now = Instant.now();
+        for (ReturnOrderDetail line : waiting) {
+            if (remaining <= 0) {
+                break;
+            }
+            line.setProcessedAt(now);
+            line.setProcessedBy(userId);
+            returnOrderDetailRepository.save(line);
+            remaining -= line.getQuantity() != null ? line.getQuantity() : 0;
+        }
     }
 
     @Transactional(readOnly = true)
@@ -447,7 +575,8 @@ public class ImportReturnService {
 
         detail.setMethod(newMethod);
 
-        // Đồng bộ sổ kho: Đổi (EXCHANGE_IN) ↔ Trả (chỉ RESERVE) — không để tồn dòng nhập + thêm dòng xuất.
+        // Đồng bộ sổ kho + diễn giải báo cáo theo hình thức Đổi/Trả.
+        retagOutboundMovement(detail, newMethod);
         if (ImportReturnConstants.METHOD_EXCHANGE.equals(oldMethod)
                 && ImportReturnConstants.METHOD_RETURN.equals(newMethod)) {
             voidExchangeIn(detail);
@@ -510,6 +639,9 @@ public class ImportReturnService {
             String returnReason) {
         StockBatch batch = stockBatchRepository.findActiveWithProductAndImportById(batchId)
                 .orElseThrow(() -> new AppException(ErrorCode.STOCK_BATCH_NOT_FOUND));
+        if (Boolean.TRUE.equals(batch.getIsTrial())) {
+            throw new AppException(ErrorCode.TRIAL_BATCH_NOT_RETURNABLE);
+        }
         ImportOrder importOrder = batch.getImportOrder();
         if (importOrder == null || importOrder.getSupplier() == null) {
             throw new AppException(ErrorCode.BATCH_NOT_RETURNABLE);
@@ -519,7 +651,7 @@ public class ImportReturnService {
             throw new AppException(ErrorCode.INVALID_IMPORT_RETURN_QTY);
         }
 
-        reserveStock(batch, quantity, draft.getId());
+        reserveStock(batch, quantity, draft.getId(), method);
 
         ImportReturnDetail detail = new ImportReturnDetail();
         detail.setImportReturn(draft);
@@ -538,7 +670,7 @@ public class ImportReturnService {
         importReturnDetailRepository.save(detail);
     }
 
-    private void reserveStock(StockBatch batch, int qty, Integer returnId) {
+    private void reserveStock(StockBatch batch, int qty, Integer returnId, String method) {
         int batchQty = batch.getQuantityIn() != null ? batch.getQuantityIn() : 0;
         if (qty > batchQty) {
             throw new AppException(ErrorCode.INVALID_IMPORT_RETURN_QTY);
@@ -550,13 +682,40 @@ public class ImportReturnService {
 
         StockMovement movement = new StockMovement();
         movement.setStockBatch(batch);
-        movement.setMovementType(ImportReturnConstants.MOVEMENT_RESERVE);
+        movement.setMovementType(ImportReturnConstants.outboundMovementType(method));
         movement.setReferenceType(ImportReturnConstants.REFERENCE_TYPE);
         movement.setReferenceId(returnId);
         movement.setQuantityDelta(-qty);
         movement.setStockAfter(remaining);
         movement.setIsRemoved(false);
         stockMovementRepository.save(movement);
+    }
+
+    /** Đổi movement_type xuất (RESERVE ↔ EXCHANGE_OUT) để diễn giải báo cáo khớp hình thức. */
+    private void retagOutboundMovement(ImportReturnDetail detail, String method) {
+        StockBatch batch = detail.getStockBatch();
+        Integer returnId = detail.getImportReturn() != null ? detail.getImportReturn().getId() : null;
+        if (batch == null || batch.getId() == null || returnId == null) {
+            return;
+        }
+        String targetType = ImportReturnConstants.outboundMovementType(method);
+        List<StockMovement> outbounds = new ArrayList<>();
+        outbounds.addAll(stockMovementRepository.findActiveByBatchReferenceAndType(
+                batch.getId(),
+                ImportReturnConstants.REFERENCE_TYPE,
+                returnId,
+                ImportReturnConstants.MOVEMENT_RESERVE));
+        outbounds.addAll(stockMovementRepository.findActiveByBatchReferenceAndType(
+                batch.getId(),
+                ImportReturnConstants.REFERENCE_TYPE,
+                returnId,
+                ImportReturnConstants.MOVEMENT_EXCHANGE_OUT));
+        for (StockMovement sm : outbounds) {
+            if (!Objects.equals(targetType, sm.getMovementType())) {
+                sm.setMovementType(targetType);
+                stockMovementRepository.save(sm);
+            }
+        }
     }
 
     /**
@@ -585,6 +744,11 @@ public class ImportReturnService {
                     ImportReturnConstants.REFERENCE_TYPE,
                     returnId,
                     ImportReturnConstants.MOVEMENT_RESERVE));
+            softRemoveMovements(stockMovementRepository.findActiveByBatchReferenceAndType(
+                    batch.getId(),
+                    ImportReturnConstants.REFERENCE_TYPE,
+                    returnId,
+                    ImportReturnConstants.MOVEMENT_EXCHANGE_OUT));
             // Dọn artifact cũ (trước đây restore tạo RESTORE thay vì void RESERVE)
             softRemoveMovements(stockMovementRepository.findActiveByBatchReferenceAndType(
                     batch.getId(),

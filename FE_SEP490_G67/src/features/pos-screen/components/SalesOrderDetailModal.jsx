@@ -3,6 +3,7 @@ import { X, Printer, FileText } from 'lucide-react';
 import { getInvoiceData } from '../api';
 import { printInvoice } from '../utils/printInvoice';
 import OrderStatusBadge from './OrderStatusBadge';
+import CreatePaymentModal from '../../customer/components/CreatePaymentModal';
 import { formatVnd } from '../utils/money';
 import '../../../css/SalesOrderDetailModal.css';
 
@@ -53,13 +54,19 @@ const TotalRow = ({ label, value, grand }) => (
     </div>
 );
 
-export default function SalesOrderDetailModal({ orderId, onClose }) {
+export default function SalesOrderDetailModal({ orderId, onClose, allowDebtPayment = false }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [paymentOpen, setPaymentOpen] = useState(false);
+    const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
         let alive = true;
+        // Reset the request state before loading the refreshed invoice detail.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setLoading(true);
+        setError('');
         getInvoiceData(orderId)
             .then((result) => { if (alive) setData(result); })
             .catch((error) => {
@@ -68,7 +75,7 @@ export default function SalesOrderDetailModal({ orderId, onClose }) {
             })
             .finally(() => { if (alive) setLoading(false); });
         return () => { alive = false; };
-    }, [orderId]);
+    }, [orderId, reloadKey]);
 
     useEffect(() => {
         const handler = (e) => { if (e.key === 'Escape') onClose(); };
@@ -77,6 +84,7 @@ export default function SalesOrderDetailModal({ orderId, onClose }) {
     }, [onClose]);
 
     const isExchange = data?.kind === 'EXCHANGE';
+    const hasRemainingDebt = data?.isDebt && Number(data.remainingDebt ?? 0) > 0;
     const relatedDocuments = data?.relatedDocuments ?? [];
     const methodLabel = isExchange
         ? PAYMENT_LABELS[data?.refundMethod] ?? data?.refundMethod
@@ -216,16 +224,37 @@ export default function SalesOrderDetailModal({ orderId, onClose }) {
 
                 <div className="sod-footer">
                     <button className="sod-btn" onClick={onClose}>Đóng</button>
-                    <button
-                        className="sod-btn sod-btn--primary"
-                        disabled={!data}
-                        onClick={() => printInvoice(data)}
-                    >
-                        <Printer size={15} />
-                        In hóa đơn
-                    </button>
+                    {allowDebtPayment && hasRemainingDebt ? (
+                        <button
+                            className="sod-btn sod-btn--primary"
+                            disabled={!data}
+                            onClick={() => setPaymentOpen(true)}
+                        >
+                            Thanh toán
+                        </button>
+                    ) : (
+                        <button
+                            className="sod-btn sod-btn--primary"
+                            disabled={!data}
+                            onClick={() => printInvoice(data)}
+                        >
+                            <Printer size={15} />
+                            In hóa đơn
+                        </button>
+                    )}
                 </div>
             </div>
+            {paymentOpen && (
+                <CreatePaymentModal
+                    show={paymentOpen}
+                    onHide={() => setPaymentOpen(false)}
+                    customer={data?.customer}
+                    onSuccess={() => {
+                        setPaymentOpen(false);
+                        setReloadKey((key) => key + 1);
+                    }}
+                />
+            )}
         </div>
     );
 }

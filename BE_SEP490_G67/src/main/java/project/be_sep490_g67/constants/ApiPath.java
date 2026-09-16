@@ -23,4 +23,5 @@ public class ApiPath {
     public static final String SALES_HISTORY = BASE_URL_V1 + "/sales-history";
     public static final String NOTIFICATIONS = BASE_URL_V1 + "/notifications";
     public static final String WAREHOUSE_REPORT = BASE_URL_V1 + "/warehouse-report";
+    public static final String REVENUE_REPORT = BASE_URL_V1 + "/revenue-report";
 }
