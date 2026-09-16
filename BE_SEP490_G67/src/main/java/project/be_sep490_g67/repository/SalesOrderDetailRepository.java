@@ -108,4 +108,46 @@ public interface SalesOrderDetailRepository extends JpaRepository<SalesOrderDeta
             GROUP BY sod.product.id
             """)
     List<Object[]> findLastSoldAtByProducts(@Param("productIds") List<Integer> productIds);
+
+    // Revenue Report
+
+    /**
+     * Tiền hàng (gross) + chiết khấu dòng trong kỳ, loại đơn CANCELLED.
+     * Một dòng duy nhất: [Σ(unitPrice × quantity), Σ(detail.discountAmount)].
+     * Bộ lọc giống SalesOrderRepository.sumRevenueOrderTotals.
+     */
+    @Query("""
+            SELECT COALESCE(SUM(d.unitPrice * d.quantity), 0),
+                   COALESCE(SUM(d.discountAmount), 0)
+            FROM SalesOrderDetail d
+            JOIN d.salesOrder o
+            WHERE d.isRemoved = false
+              AND o.isRemoved = false
+              AND o.orderStatus <> 'CANCELLED'
+              AND o.createdAt >= :from
+              AND o.createdAt < :to
+              AND (:allMethods = true OR (CASE WHEN o.isDebt = true THEN 'DEBT' ELSE COALESCE(o.paymentMethod, 'CASH') END) IN :methods)
+              AND (:staffId IS NULL OR o.createdBy = :staffId)
+            """)
+    List<Object[]> sumGrossAndDetailDiscount(
+            @Param("from") Instant from,
+            @Param("to") Instant to,
+            @Param("allMethods") boolean allMethods,
+            @Param("methods") List<String> methods,
+            @Param("staffId") Integer staffId);
+
+    /**
+     * Tiền hàng và chiết khấu dòng của từng đơn, cho bảng chi tiết giao dịch.
+     * Mỗi phần tử: [salesOrderId, Σ(unitPrice × quantity), Σ(detail.discountAmount)].
+     */
+    @Query("""
+            SELECT d.salesOrder.id,
+                   COALESCE(SUM(d.unitPrice * d.quantity), 0),
+                   COALESCE(SUM(d.discountAmount), 0)
+            FROM SalesOrderDetail d
+            WHERE d.salesOrder.id IN :orderIds
+              AND d.isRemoved = false
+            GROUP BY d.salesOrder.id
+            """)
+    List<Object[]> sumGrossAndDiscountByOrderIds(@Param("orderIds") List<Integer> orderIds);
 }

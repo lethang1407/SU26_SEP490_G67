@@ -20,9 +20,11 @@ import {
   ChevronDown,
   Check,
   FolderPlus,
+  AlertTriangle,
 } from 'lucide-react';
 import { productsApi } from '../api';
 import { categoriesApi } from '../../category/api';
+import MoneyInput from '../../../components/ui/MoneyInput';
 import '../../../css/Product.css';
 
 const COMMON_UNITS = ['Cái', 'Gói', 'Chai', 'Hộp', 'Thùng', 'Lon', 'Đôi', 'Kg', 'Gram', 'Lốc', 'Bao', 'Túi'];
@@ -120,7 +122,7 @@ function findMatchingVariant(variantsList, combo) {
   return null;
 }
 
-function UnitAutocompleteInput({ value, onChange, options, placeholder, required = false, disabled = false }) {
+function UnitAutocompleteInput({ value, onChange, options, placeholder, required = false, disabled = false, hasError = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState(-1);
   const containerRef = useRef(null);
@@ -180,6 +182,7 @@ function UnitAutocompleteInput({ value, onChange, options, placeholder, required
         className="pi-edit-input"
         placeholder={placeholder}
         value={value || ''}
+        style={hasError ? { borderColor: '#EF4444', backgroundColor: '#FEF2F2' } : {}}
         onChange={(e) => {
           if (disabled) return;
           onChange(e.target.value);
@@ -372,11 +375,12 @@ export default function ProductEditModal({
     barcode: '',
     categoryId: '',
     parentId: '',
-    baseUnitName: 'Cái',
+    baseUnitId: null,
+    baseUnitName: '',
     status: 'active',
     description: '',
-    costPrice: 0,
-    sellingPrice: 0,
+    costPrice: '',
+    sellingPrice: '',
     minStock: 5,
     seasonTag: '',
     isReturnable: true,
@@ -437,6 +441,167 @@ export default function ProductEditModal({
   const fileInputRef = useRef(null);
   const barcodeInputRef = useRef(null);
   const [barcodeScannerTarget, setBarcodeScannerTarget] = useState(null);
+
+  // Unsaved changes protection & confirmation state
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const initialSnapshotRef = useRef(null);
+  const savedCreatedIdRef = useRef(null);
+  const userTouchedRef = useRef(false);
+
+  const markUserTouched = () => {
+    userTouchedRef.current = true;
+  };
+
+  const takeSnapshot = (fData, pAttrs, iAttrs, convs, vars, minQty, minUnit) => ({
+    name: (fData?.name || '').trim(),
+    barcode: (fData?.barcode || '').trim(),
+    categoryId: String(fData?.categoryId || ''),
+    baseUnitName: (fData?.baseUnitName || '').trim(),
+    status: (fData?.status || 'active').toLowerCase(),
+    description: (fData?.description || '').trim(),
+    costPrice: Number(fData?.costPrice) || 0,
+    sellingPrice: Number(fData?.sellingPrice) || 0,
+    isReturnable: Boolean(fData?.isReturnable),
+    minStockInputQty: Number(minQty) || 0,
+    minStockUnit: minUnit || '',
+    hasImageFile: Boolean(fData?.imageFile),
+    parentAttributes: (pAttrs || []).map((a) => ({
+      name: (a.name || '').trim(),
+      values: [...(a.values || []).map((v) => String(v).trim())],
+    })),
+    itemAttributes: (iAttrs || []).map((a) => ({
+      name: (a.name || '').trim(),
+      value: (a.value || '').trim(),
+    })),
+    conversions: (convs || []).map((c) => ({
+      name: (c.name || '').trim(),
+      unitBase: Number(c.unitBase) || 0,
+      sellingPrice: Number(c.sellingPrice) || 0,
+    })),
+    variants: (vars || []).map((v) => ({
+      key: v.key,
+      sku: (v.sku || '').trim(),
+      barcode: (v.barcode || '').trim(),
+      costPrice: Number(v.costPrice) || 0,
+      sellingPrice: Number(v.sellingPrice) || 0,
+      isRemoved: Boolean(v.isRemoved),
+    })),
+  });
+
+  const isFormDirty = () => {
+    // Nếu người dùng chưa từng tương tác/nhập liệu gì, chắc chắn không dirty
+    if (!userTouchedRef.current) {
+      return false;
+    }
+
+    if (isCreateMode) {
+      if (formData.name?.trim()) return true;
+      if (formData.barcode?.trim() && formData.barcode.trim() !== (product?.barcode || '').trim()) return true;
+      if (formData.categoryId) return true;
+      if (formData.baseUnitName?.trim()) return true;
+      if (formData.description?.trim()) return true;
+      if (formData.costPrice !== '' && formData.costPrice !== null && Number(formData.costPrice) > 0) return true;
+      if (formData.sellingPrice !== '' && formData.sellingPrice !== null && Number(formData.sellingPrice) > 0) return true;
+      if (formData.imageFile) return true;
+      if (parentAttributes.some((a) => a.name?.trim() || (a.values && a.values.length > 0))) return true;
+      if (conversions.length > 0) return true;
+      if (itemAttributes.some((a) => a.name?.trim() || a.value?.trim())) return true;
+      return false;
+    }
+
+    const init = initialSnapshotRef.current;
+    if (!init) return false;
+
+    if ((formData.name || '').trim() !== init.name) return true;
+    if ((formData.barcode || '').trim() !== init.barcode) return true;
+    if (String(formData.categoryId || '') !== init.categoryId) return true;
+    if ((formData.baseUnitName || '').trim() !== init.baseUnitName) return true;
+    if ((formData.status || 'active').toLowerCase() !== (init.status || 'active').toLowerCase()) return true;
+    if ((formData.description || '').trim() !== init.description) return true;
+
+    const currCost = Number(formData.costPrice) || 0;
+    const initCost = Number(init.costPrice) || 0;
+    if (currCost !== initCost) return true;
+
+    const currSell = Number(formData.sellingPrice) || 0;
+    const initSell = Number(init.sellingPrice) || 0;
+    if (currSell !== initSell) return true;
+
+    if (Number(minStockInputQty) !== init.minStockInputQty) return true;
+    if (Boolean(formData.imageFile) !== init.hasImageFile) return true;
+
+    // Attributes comparison
+    const currentPAttrs = (parentAttributes || []).map((a) => ({
+      name: (a.name || '').trim(),
+      values: [...(a.values || []).map((v) => String(v).trim())],
+    }));
+    if (JSON.stringify(currentPAttrs) !== JSON.stringify(init.parentAttributes)) return true;
+
+    const currentIAttrs = (itemAttributes || []).map((a) => ({
+      name: (a.name || '').trim(),
+      value: (a.value || '').trim(),
+    }));
+    if (JSON.stringify(currentIAttrs) !== JSON.stringify(init.itemAttributes)) return true;
+
+    // Conversions comparison
+    const currentConvs = (conversions || []).map((c) => ({
+      name: (c.name || '').trim(),
+      unitBase: Number(c.unitBase) || 0,
+      sellingPrice: Number(c.sellingPrice) || 0,
+    }));
+    if (JSON.stringify(currentConvs) !== JSON.stringify(init.conversions)) return true;
+
+    // Variants comparison
+    const currentVars = (variants || []).map((v) => ({
+      key: v.key,
+      sku: (v.sku || '').trim(),
+      barcode: (v.barcode || '').trim(),
+      costPrice: Number(v.costPrice) || 0,
+      sellingPrice: Number(v.sellingPrice) || 0,
+      isRemoved: Boolean(v.isRemoved),
+    }));
+    if (JSON.stringify(currentVars) !== JSON.stringify(init.variants)) return true;
+
+    return false;
+  };
+
+  const handleRequestClose = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (isFormDirty()) {
+      setShowDiscardConfirm(true);
+    } else {
+      onClose();
+    }
+  };
+
+  // Keyboard Escape protection listener
+  useEffect(() => {
+    if (!isOpen) {
+      setShowDiscardConfirm(false);
+      return;
+    }
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (showDiscardConfirm) {
+          setShowDiscardConfirm(false);
+          return;
+        }
+        if (isCreateCategoryModalOpen) {
+          setIsCreateCategoryModalOpen(false);
+          return;
+        }
+        if (barcodeScannerTarget) {
+          setBarcodeScannerTarget(null);
+          return;
+        }
+        handleRequestClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, showDiscardConfirm, isCreateCategoryModalOpen, barcodeScannerTarget]);
 
   // Click outside to close category dropdown
   useEffect(() => {
@@ -527,6 +692,7 @@ export default function ProductEditModal({
   useEffect(() => {
     if (!isOpen) return;
 
+    userTouchedRef.current = false;
     setErrorMsg('');
     setSuccessMsg('');
     setRate('');
@@ -534,18 +700,19 @@ export default function ProductEditModal({
     setFromUnit('');
 
     if (isCreateMode) {
-      const randomCode = `SP${Math.floor(100000000 + Math.random() * 900000000)}`;
+      savedCreatedIdRef.current = null;
       setFormData({
         name: '',
-        sku: randomCode,
+        sku: '',
         barcode: product?.barcode || '',
         categoryId: '',
         parentId: '',
-        baseUnitName: 'Cái',
+        baseUnitId: null,
+        baseUnitName: '',
         status: 'new',
         description: '',
-        costPrice: 0,
-        sellingPrice: 0,
+        costPrice: '',
+        sellingPrice: '',
         minStock: 5,
         seasonTag: '',
         isReturnable: true,
@@ -559,32 +726,40 @@ export default function ProductEditModal({
       setVariants([]);
       setConversions([]);
       setStockHistory([]);
+      initialSnapshotRef.current = null;
     } else if (product) {
-      const baseUnit = product.unitName || product.baseUnitName || product.unit || 'Cái';
+      const baseUnit = product.unitName || product.baseUnitName || product.unit || '';
 
-      setFormData({
+      const initFormData = {
         name: product.name || '',
         sku: product.sku || `SP${product.id}`,
         barcode: product.barcode || '',
         categoryId: product.categoryId ? String(product.categoryId) : '',
         parentId: product.parentId ? String(product.parentId) : '',
+        baseUnitId: product.baseUnitId || product.unitId || null,
         baseUnitName: baseUnit,
         status: product.status || 'active',
         description: product.description || '',
-        costPrice: product.costPrice ?? 0,
-        sellingPrice: product.sellingPrice ?? 0,
+        costPrice: product.costPrice != null ? product.costPrice : '',
+        sellingPrice: product.sellingPrice != null ? product.sellingPrice : '',
         minStock: product.minStock ?? product.safetyStock ?? 5,
         seasonTag: '',
         isReturnable: false,
         imagePreview: product.imageUrl || product.productImg || product.image || (product.images && product.images[0]?.url) || product.parentImg || product.parent?.imageUrl || product.parent?.productImg || null,
         imageFile: null,
-      });
-      setMinStockInputQty(product.minStock ?? product.safetyStock ?? 5);
+      };
+
+      setFormData(initFormData);
+      const initialMinStock = product.minStock ?? product.safetyStock ?? 5;
+      setMinStockInputQty(initialMinStock);
       setMinStockUnit('');
 
       // Parse initial attributes
       const rawAttrs = product.attributes || product.productAttributes || [];
       const isParentGroup = Boolean(product?.isGroup || (product?.variantGroups && product.variantGroups.length > 0));
+      let initParentArr = [];
+      let initFlatAttrs = [];
+      let initLoadedVariants = [];
 
       if (isParentGroup || !product.parentId) {
         const map = new Map();
@@ -615,15 +790,14 @@ export default function ProductEditModal({
           });
         });
 
-        const parentArr = [];
         map.forEach((vals, name) => {
-          parentArr.push({ id: `attr-${Date.now()}-${Math.random()}`, name, values: vals, inputValue: '' });
+          initParentArr.push({ id: `attr-${Date.now()}-${Math.random()}`, name, values: vals, inputValue: '' });
         });
-        setParentAttributes(parentArr);
+        setParentAttributes(initParentArr);
 
         // Preload variants from existing children
         if (existingChildren.length > 0) {
-          const loadedVariants = existingChildren.map((sz) => {
+          initLoadedVariants = existingChildren.map((sz) => {
             const pVal = sz.primaryAttrValue;
             const sVal = sz.sizeValue;
             const keyParts = [pVal, sVal].filter(Boolean);
@@ -644,17 +818,27 @@ export default function ProductEditModal({
               isRemoved: false,
             };
           });
-          setVariants(loadedVariants);
+          setVariants(initLoadedVariants);
         }
       } else {
-        const flatAttrs = rawAttrs.map((a) => ({
+        initFlatAttrs = rawAttrs.map((a) => ({
           id: a.id || `attr-${Date.now()}-${Math.random()}`,
           name: a.name || a.attribute?.name || '',
           value: a.value || '',
         }));
-        setItemAttributes(flatAttrs);
+        setItemAttributes(initFlatAttrs);
         setVariants([]);
       }
+
+      initialSnapshotRef.current = takeSnapshot(
+        initFormData,
+        initParentArr,
+        initFlatAttrs,
+        [],
+        initLoadedVariants,
+        initialMinStock,
+        ''
+      );
 
       if (product.id) {
         productsApi.getById(product.id)
@@ -662,25 +846,29 @@ export default function ProductEditModal({
             if (detail) {
               const units = Array.isArray(detail.units) ? detail.units : [];
               const base = units.find((u) => u.isBase || Number(u.unitBase) === 1) || units[0];
-              const baseName = base?.name || detail.baseUnitName || product.unitName || 'Cái';
+              const baseName = base?.name || detail.baseUnitName || product.unitName || '';
+              const baseId = base?.id || null;
 
-              setFormData((prev) => ({
-                ...prev,
-                name: detail.name || prev.name,
-                sku: detail.sku || prev.sku,
-                barcode: detail.barcode || prev.barcode,
-                categoryId: detail.categoryId ? String(detail.categoryId) : prev.categoryId,
-                parentId: detail.parentId ? String(detail.parentId) : prev.parentId,
+              const detailFormData = {
+                ...initFormData,
+                name: detail.name || initFormData.name,
+                sku: detail.sku || initFormData.sku,
+                barcode: detail.barcode || initFormData.barcode,
+                categoryId: detail.categoryId ? String(detail.categoryId) : initFormData.categoryId,
+                parentId: detail.parentId ? String(detail.parentId) : initFormData.parentId,
+                baseUnitId: baseId,
                 baseUnitName: baseName,
-                status: detail.status || prev.status,
-                description: detail.description || prev.description,
-                costPrice: detail.costPrice ?? prev.costPrice,
-                sellingPrice: detail.sellingPrice ?? prev.sellingPrice,
-                minStock: detail.minStock ?? prev.minStock,
-                seasonTag: detail.seasonTag || prev.seasonTag,
-                isReturnable: detail.isReturnable ?? prev.isReturnable,
-                imagePreview: detail.imageUrl || detail.productImg || (detail.images && detail.images[0]?.url) || detail.parentImg || detail.parent?.imageUrl || detail.parent?.productImg || product.imageUrl || product.productImg || prev.imagePreview,
-              }));
+                status: detail.status || initFormData.status,
+                description: detail.description || initFormData.description,
+                costPrice: detail.costPrice ?? initFormData.costPrice,
+                sellingPrice: detail.sellingPrice ?? initFormData.sellingPrice,
+                minStock: detail.minStock ?? initFormData.minStock,
+                seasonTag: detail.seasonTag || initFormData.seasonTag,
+                isReturnable: detail.isReturnable ?? initFormData.isReturnable,
+                imagePreview: detail.imageUrl || detail.productImg || (detail.images && detail.images[0]?.url) || detail.parentImg || detail.parent?.imageUrl || detail.parent?.productImg || product.imageUrl || product.productImg || initFormData.imagePreview,
+              };
+
+              setFormData(detailFormData);
 
               const convList = units
                 .filter((u) => u !== base && Number(u.unitBase) !== 1)
@@ -700,6 +888,10 @@ export default function ProductEditModal({
                 detailVariants.length > 0 ||
                 (product?.variantGroups && product.variantGroups.length > 0)
               );
+
+              let detailParentArr = [];
+              let detailFlatAttrs = [];
+              let detailLoadedVariants = [];
 
               if (isParentProd) {
                 const map = new Map();
@@ -741,15 +933,14 @@ export default function ProductEditModal({
                   });
                 });
 
-                const parentArr = [];
                 map.forEach((vals, name) => {
-                  parentArr.push({ id: `attr-${Date.now()}-${Math.random()}`, name, values: vals, inputValue: '' });
+                  detailParentArr.push({ id: `attr-${Date.now()}-${Math.random()}`, name, values: vals, inputValue: '' });
                 });
-                setParentAttributes(parentArr);
+                setParentAttributes(detailParentArr);
 
                 // 4. Map loaded variants into variants matrix state
                 if (detailVariants.length > 0) {
-                  const loaded = detailVariants.map((v) => {
+                  detailLoadedVariants = detailVariants.map((v) => {
                     const vAttrs = (v.attributes || []).map((a) => ({
                       name: a.name || a.attribute?.name || 'Thuộc tính',
                       value: a.value || '',
@@ -768,18 +959,32 @@ export default function ProductEditModal({
                       isRemoved: false,
                     };
                   });
-                  setVariants(loaded);
+                  setVariants(detailLoadedVariants);
                 }
               } else {
                 // Child / Standalone
-                const flatAttrs = detailAttrs.map((a) => ({
+                detailFlatAttrs = detailAttrs.map((a) => ({
                   id: a.id || `attr-${Date.now()}-${Math.random()}`,
                   name: a.name || a.attribute?.name || '',
                   value: a.value || '',
                 }));
-                setItemAttributes(flatAttrs);
+                setItemAttributes(detailFlatAttrs);
                 setVariants([]);
               }
+
+              const finalMinStock = detail.minStock ?? product.minStock ?? product.safetyStock ?? 5;
+              setMinStockInputQty(finalMinStock);
+
+              initialSnapshotRef.current = takeSnapshot(
+                detailFormData,
+                detailParentArr,
+                detailFlatAttrs,
+                convList,
+                detailLoadedVariants,
+                finalMinStock,
+                ''
+              );
+              userTouchedRef.current = false;
             }
           })
           .catch(() => { });
@@ -848,6 +1053,7 @@ export default function ProductEditModal({
   if (!isOpen) return null;
 
   const handleInputChange = (field, value) => {
+    markUserTouched();
     setFormData((prev) => {
       const next = { ...prev, [field]: value };
       if (field === 'parentId' && value) {
@@ -868,6 +1074,7 @@ export default function ProductEditModal({
       setErrorMsg('Ảnh không được vượt quá 5MB.');
       return;
     }
+    markUserTouched();
     const previewUrl = URL.createObjectURL(file);
     setFormData((prev) => ({
       ...prev,
@@ -878,6 +1085,7 @@ export default function ProductEditModal({
 
   // --- Attribute handlers for Parent ---
   const handleAddParentAttr = () => {
+    markUserTouched();
     setParentAttributes((prev) => [
       ...prev,
       { id: `attr-${Date.now()}-${Math.random()}`, name: '', values: [], inputValue: '' },
@@ -885,6 +1093,7 @@ export default function ProductEditModal({
   };
 
   const handleAddParentAttrValue = (attrId) => {
+    markUserTouched();
     setParentAttributes((prev) =>
       prev.map((a) => {
         if (a.id === attrId && a.inputValue?.trim()) {
@@ -900,6 +1109,7 @@ export default function ProductEditModal({
   };
 
   const handleRemoveParentAttrValue = (attrId, valToRemove) => {
+    markUserTouched();
     setParentAttributes((prev) =>
       prev.map((a) => {
         if (a.id === attrId) {
@@ -911,11 +1121,13 @@ export default function ProductEditModal({
   };
 
   const handleRemoveParentAttr = (attrId) => {
+    markUserTouched();
     setParentAttributes((prev) => prev.filter((a) => a.id !== attrId));
   };
 
   // --- Attribute handlers for Standalone / Child ---
   const handleAddItemAttr = () => {
+    markUserTouched();
     setItemAttributes((prev) => [
       ...prev,
       { id: `item-attr-${Date.now()}-${Math.random()}`, name: '', value: '' },
@@ -923,23 +1135,27 @@ export default function ProductEditModal({
   };
 
   const handleItemAttrChange = (id, field, val) => {
+    markUserTouched();
     setItemAttributes((prev) =>
       prev.map((a) => (a.id === id ? { ...a, [field]: val } : a)),
     );
   };
 
   const handleRemoveItemAttr = (id) => {
+    markUserTouched();
     setItemAttributes((prev) => prev.filter((a) => a.id !== id));
   };
 
   // --- Variant Matrix Handlers ---
   const handleVariantChange = (key, field, val) => {
+    markUserTouched();
     setVariants((prev) =>
       prev.map((v) => (v.key === key ? { ...v, [field]: val } : v)),
     );
   };
 
   const handleApplyParentPricesToAll = () => {
+    markUserTouched();
     setVariants((prev) =>
       prev.map((v) => ({
         ...v,
@@ -951,6 +1167,7 @@ export default function ProductEditModal({
   };
 
   const handleRemoveVariant = (key) => {
+    markUserTouched();
     setVariants((prev) => prev.filter((v) => v.key !== key));
   };
 
@@ -965,6 +1182,7 @@ export default function ProductEditModal({
 
   const handleBarcodeCaptured = (code) => {
     playScanBeep(true);
+    markUserTouched();
     if (!barcodeScannerTarget) return;
     if (barcodeScannerTarget.type === 'parent') {
       handleInputChange('barcode', code);
@@ -978,6 +1196,11 @@ export default function ProductEditModal({
   const handleAddConversion = () => {
     setErrorMsg('');
     setSuccessMsg('');
+
+    if (!formData.baseUnitName?.trim()) {
+      setErrorMsg('Vui lòng thiết lập Đơn vị tính cơ bản (Gốc) trước khi thêm đơn vị quy đổi.');
+      return;
+    }
 
     const unitName = (fromUnit || '').trim();
     if (!unitName) {
@@ -998,10 +1221,13 @@ export default function ProductEditModal({
       return;
     }
 
+    markUserTouched();
     const newConv = {
       name: unitName,
       unitBase: numRate,
-      sellingPrice: Number(convSellPrice) || Number(formData.sellingPrice) * numRate || 0,
+      sellingPrice: convSellPrice !== '' && convSellPrice !== null && !isNaN(Number(convSellPrice))
+        ? Number(convSellPrice)
+        : (formData.sellingPrice !== '' && Number(formData.sellingPrice) > 0 ? Number(formData.sellingPrice) * numRate : null),
     };
 
     setConversions((prev) => [...prev, newConv]);
@@ -1011,6 +1237,7 @@ export default function ProductEditModal({
   };
 
   const handleDeleteConversion = (indexToRemove) => {
+    markUserTouched();
     setConversions((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
@@ -1028,8 +1255,16 @@ export default function ProductEditModal({
       setErrorMsg('Vui lòng chọn danh mục hàng hóa.');
       return;
     }
-    if (formData.sellingPrice === '' || Number(formData.sellingPrice) < 0) {
+    if (!formData.baseUnitName?.trim()) {
+      setErrorMsg('Vui lòng nhập đơn vị tính cơ bản (Gốc).');
+      return;
+    }
+    if (formData.sellingPrice !== '' && formData.sellingPrice !== null && Number(formData.sellingPrice) < 0) {
       setErrorMsg('Giá bán phải lớn hơn hoặc bằng 0.');
+      return;
+    }
+    if (formData.costPrice !== '' && formData.costPrice !== null && Number(formData.costPrice) < 0) {
+      setErrorMsg('Giá vốn phải lớn hơn hoặc bằng 0.');
       return;
     }
 
@@ -1052,7 +1287,8 @@ export default function ProductEditModal({
     // Build units payload
     const unitsPayload = [
       {
-        name: formData.baseUnitName?.trim() || 'Cái',
+        id: formData.baseUnitId || undefined,
+        name: formData.baseUnitName?.trim() || '',
         isBase: true,
         unitBase: 1,
         sellingPrice: Number(formData.sellingPrice) || 0,
@@ -1105,24 +1341,33 @@ export default function ProductEditModal({
     try {
       // Step 1: Save/Update Parent or Child Product
       let savedProduct;
-      if (isCreateMode) {
-        savedProduct = await productsApi.create(payload);
+      const effectiveId = !isCreateMode ? product?.id : savedCreatedIdRef.current;
+      if (effectiveId) {
+        savedProduct = await productsApi.update(effectiveId, payload);
       } else {
-        savedProduct = await productsApi.update(product.id, payload);
+        savedProduct = await productsApi.create(payload);
+        if (savedProduct?.id) {
+          savedCreatedIdRef.current = savedProduct.id;
+        }
       }
 
-      const parentId = savedProduct?.id || product?.id;
+      const parentId = savedProduct?.id || product?.id || savedCreatedIdRef.current;
 
       // Step 2: Upload Image if selected
       if (formData.imageFile && parentId) {
         try {
           await productsApi.uploadImage(parentId, formData.imageFile);
-        } catch {
-          console.error('Lỗi khi tải ảnh lên');
+        } catch (imgErr) {
+          console.error('Lỗi khi tải ảnh lên:', imgErr);
+          const imgErrMsg = imgErr.response?.data?.message || imgErr.message || 'Không thể tải ảnh sản phẩm lên Cloudinary.';
+          setErrorMsg(`Sản phẩm đã được tạo/lưu thành công nhưng tải ảnh thất bại: ${imgErrMsg}. Bạn có thể bấm Lưu lại khi có mạng.`);
+          onProductUpdated?.();
+          return;
         }
       }
 
       setSuccessMsg(isCreateMode ? 'Đã tạo hàng hóa và các biến thể thành công!' : 'Đã cập nhật hàng hóa và biến thể thành công!');
+      savedCreatedIdRef.current = null;
       onProductUpdated?.();
       setTimeout(() => {
         onClose();
@@ -1135,7 +1380,7 @@ export default function ProductEditModal({
   };
 
   return (
-    <div className="pi-modal-backdrop" onClick={onClose}>
+    <div className="pi-modal-backdrop" onClick={handleRequestClose}>
       <div className="pi-modal-dialog pi-edit-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="pi-modal-header">
@@ -1151,7 +1396,7 @@ export default function ProductEditModal({
               )}
             </div>
           </div>
-          <button type="button" className="pi-modal-close" onClick={onClose} aria-label="Đóng">
+          <button type="button" className="pi-modal-close" onClick={handleRequestClose} aria-label="Đóng">
             <X size={20} />
           </button>
         </div>
@@ -1240,6 +1485,7 @@ export default function ProductEditModal({
                           type="button"
                           className="pi-edit-btn-remove-img"
                           onClick={() => {
+                            markUserTouched();
                             setFormData((prev) => ({
                               ...prev,
                               imageFile: null,
@@ -1433,16 +1679,29 @@ export default function ProductEditModal({
 
                 {/* Đơn vị cơ bản (Gốc) */}
                 <div className="pi-conv-add-card" style={{ marginBottom: 16 }}>
-                  <div className="pi-edit-field" style={{ maxWidth: 360 }}>
-                    <label className="pi-edit-label">Đơn vị tính cơ bản (Gốc) *</label>
+                  <div className="pi-edit-field" style={{ maxWidth: 380 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <label className="pi-edit-label" style={{ marginBottom: 0 }}>Đơn vị tính cơ bản (Gốc) *</label>
+                      {!formData.baseUnitName?.trim() && !isChild && (
+                        <span style={{ fontSize: 11.5, color: '#DC2626', fontWeight: 600, background: '#FEE2E2', padding: '1px 6px', borderRadius: 4 }}>
+                          Chưa điền
+                        </span>
+                      )}
+                    </div>
                     <UnitAutocompleteInput
                       value={formData.baseUnitName}
                       onChange={(val) => handleInputChange('baseUnitName', val)}
                       options={COMMON_UNITS}
-                      placeholder="Ví dụ: Chai, Cái, Hộp, Lon…"
+                      placeholder="Nhập hoặc chọn đơn vị cơ bản (VD: Lon, Chai, Cái...)"
                       required
                       disabled={isChild}
+                      hasError={!formData.baseUnitName?.trim() && !isChild}
                     />
+                    {!formData.baseUnitName?.trim() && !isChild && (
+                      <span style={{ fontSize: 12, color: '#DC2626', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
+                        ⚠️ Bắt buộc điền: Vui lòng nhập đơn vị tính cơ bản (đơn vị nhỏ nhất khi bán lẻ)
+                      </span>
+                    )}
                     {isChild && (
                       <span className="pi-field-lock-hint">
                         🔒 Đơn vị tính cơ bản được cố định theo sản phẩm cha
@@ -1470,12 +1729,14 @@ export default function ProductEditModal({
                           <tbody>
                             {conversions.map((conv, idx) => (
                               <tr key={conv.id || conv.name || idx}>
-                                <td style={{ fontWeight: 600, color: '#0F172A' }}>{conv.name}</td>
+                                <td style={{ fontWeight: 600, color: '#0F172A' }}>{conv.name || 'N/A'}</td>
                                 <td style={{ color: '#0369A1', fontWeight: 600 }}>
-                                  1 {conv.name} = {conv.unitBase} {formData.baseUnitName}
+                                  1 {conv.name || 'ĐV'} = {conv.unitBase} {formData.baseUnitName || 'N/A'}
                                 </td>
                                 <td style={{ fontWeight: 600 }}>
-                                  {conv.sellingPrice ? `${Number(conv.sellingPrice).toLocaleString()} đ` : '—'}
+                                  {(conv.sellingPrice != null && conv.sellingPrice !== '' && Number(conv.sellingPrice) > 0)
+                                    ? `${Number(conv.sellingPrice).toLocaleString('vi-VN')} đ`
+                                    : 'N/A'}
                                 </td>
                               </tr>
                             ))}
@@ -1521,13 +1782,11 @@ export default function ProductEditModal({
 
                       <div className="pi-edit-field">
                         <label className="pi-edit-label">Giá bán theo ĐV này (VNĐ)</label>
-                        <input
-                          type="number"
-                          min="0"
+                        <MoneyInput
                           className="pi-edit-input"
                           placeholder="Mặc định = Tỷ lệ × Giá gốc"
                           value={convSellPrice}
-                          onChange={(e) => setConvSellPrice(e.target.value)}
+                          onChange={(val) => setConvSellPrice(val)}
                         />
                       </div>
 
@@ -1544,7 +1803,7 @@ export default function ProductEditModal({
 
                     {fromUnit.trim() && rate && Number(rate) > 0 && (
                       <div className="pi-conv-rate-preview" style={{ marginTop: 10 }}>
-                        Công thức: <strong>1 {fromUnit.trim()} = {rate} {formData.baseUnitName || 'ĐV gốc'}</strong>
+                        Công thức: <strong>1 {fromUnit.trim()} = {rate} {formData.baseUnitName || 'N/A'}</strong>
                       </div>
                     )}
 
@@ -1563,12 +1822,14 @@ export default function ProductEditModal({
                           <tbody>
                             {conversions.map((conv, idx) => (
                               <tr key={conv.id || conv.name || idx}>
-                                <td style={{ fontWeight: 600, color: '#0F172A' }}>{conv.name}</td>
+                                <td style={{ fontWeight: 600, color: '#0F172A' }}>{conv.name || 'N/A'}</td>
                                 <td style={{ color: '#0369A1', fontWeight: 600 }}>
-                                  1 {conv.name} = {conv.unitBase} {formData.baseUnitName}
+                                  1 {conv.name || 'ĐV'} = {conv.unitBase} {formData.baseUnitName || 'N/A'}
                                 </td>
                                 <td style={{ fontWeight: 600 }}>
-                                  {conv.sellingPrice ? `${Number(conv.sellingPrice).toLocaleString()} đ` : '—'}
+                                  {(conv.sellingPrice != null && conv.sellingPrice !== '' && Number(conv.sellingPrice) > 0)
+                                    ? `${Number(conv.sellingPrice).toLocaleString('vi-VN')} đ`
+                                    : 'N/A'}
                                 </td>
                                 <td style={{ textAlign: 'center' }}>
                                   <button
@@ -1603,7 +1864,10 @@ export default function ProductEditModal({
                         min="0"
                         className="pi-edit-input"
                         value={minStockInputQty}
-                        onChange={(e) => setMinStockInputQty(e.target.value)}
+                        onChange={(e) => {
+                          markUserTouched();
+                          setMinStockInputQty(e.target.value);
+                        }}
                         placeholder="Nhập số lượng an toàn"
                       />
                     </div>
@@ -1613,7 +1877,10 @@ export default function ProductEditModal({
                       <select
                         className="pi-edit-input"
                         value={minStockUnit || formData.baseUnitName || ''}
-                        onChange={(e) => setMinStockUnit(e.target.value)}
+                        onChange={(e) => {
+                          markUserTouched();
+                          setMinStockUnit(e.target.value);
+                        }}
                       >
                         <option value={formData.baseUnitName || ''}>
                           {formData.baseUnitName || 'Đơn vị cơ bản'} (Đơn vị gốc)
@@ -1682,6 +1949,7 @@ export default function ProductEditModal({
                           placeholder="Tên thuộc tính (VD: Vị, Màu sắc, Kích cỡ...)"
                           value={attr.name}
                           onChange={(e) => {
+                            markUserTouched();
                             const val = e.target.value;
                             setParentAttributes((prev) =>
                               prev.map((a) => (a.id === attr.id ? { ...a, name: val } : a)),
@@ -1820,23 +2088,21 @@ export default function ProductEditModal({
                                   </div>
                                 </td>
                                 <td>
-                                  <input
-                                    type="number"
-                                    min="0"
+                                  <MoneyInput
                                     className="pi-edit-input"
                                     value={v.costPrice}
-                                    onChange={(e) => handleVariantChange(v.key, 'costPrice', e.target.value)}
+                                    onChange={(val) => handleVariantChange(v.key, 'costPrice', val)}
                                     style={{ fontSize: 13, padding: '5px 8px', textAlign: 'right' }}
+                                    placeholder="0"
                                   />
                                 </td>
                                 <td>
-                                  <input
-                                    type="number"
-                                    min="0"
+                                  <MoneyInput
                                     className="pi-edit-input"
                                     value={v.sellingPrice}
-                                    onChange={(e) => handleVariantChange(v.key, 'sellingPrice', e.target.value)}
+                                    onChange={(val) => handleVariantChange(v.key, 'sellingPrice', val)}
                                     style={{ fontSize: 13, padding: '5px 8px', textAlign: 'right', fontWeight: 600 }}
+                                    placeholder="0"
                                   />
                                 </td>
                                 <td>
@@ -1892,25 +2158,21 @@ export default function ProductEditModal({
                 <div className="pi-edit-field-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
                   <div className="pi-edit-field">
                     <label className="pi-edit-label">Giá vốn (VNĐ)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
+                    <MoneyInput
                       className="pi-edit-input"
                       value={formData.costPrice}
-                      onChange={(e) => handleInputChange('costPrice', e.target.value)}
+                      onChange={(val) => handleInputChange('costPrice', val)}
+                      placeholder="0"
                     />
                   </div>
 
                   <div className="pi-edit-field">
                     <label className="pi-edit-label">Giá bán (VNĐ) *</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
+                    <MoneyInput
                       className="pi-edit-input"
                       value={formData.sellingPrice}
-                      onChange={(e) => handleInputChange('sellingPrice', e.target.value)}
+                      onChange={(val) => handleInputChange('sellingPrice', val)}
+                      placeholder="0"
                       required
                     />
                   </div>
@@ -1919,268 +2181,320 @@ export default function ProductEditModal({
             </div>
 
             {/* Footer */}
-        <div className="pi-modal-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div className="pi-modal-footer-left" style={{ display: 'flex', alignItems: 'center' }}>
-            {!isCreateMode && (
-              <label
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 7,
-                  cursor: 'pointer',
-                  fontSize: 13.5,
-                  fontWeight: 500,
-                  color: '#1E293B',
-                  userSelect: 'none',
-                }}
-              >
-                <input
-                  type="checkbox"
-                  className="pi-cb"
-                  checked={formData.status !== 'inactive'}
-                  onChange={(e) => handleInputChange('status', e.target.checked ? 'active' : 'inactive')}
-                  style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#004AC6' }}
-                />
-                <span>Đang kinh doanh</span>
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 15,
-                    height: 15,
-                    borderRadius: '50%',
-                    border: '1.2px solid #94A3B8',
-                    color: '#64748B',
-                    fontSize: 10,
-                    fontWeight: 700,
-                    cursor: 'help',
-                  }}
-                  title="Cho phép kinh doanh và hiển thị hàng hóa này trên hệ thống bán hàng"
-                >
-                  i
-                </span>
-              </label>
-            )}
-          </div>
-
-          <div className="pi-modal-footer-right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button
-              type="button"
-              className="pi-modal-btn pi-modal-btn--secondary"
-              onClick={onClose}
-              disabled={submitting}
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              className="pi-modal-btn pi-modal-btn--primary"
-              disabled={submitting}
-            >
-              {submitting
-                ? (isCreateMode ? 'Đang tạo…' : 'Đang cập nhật…')
-                : (isCreateMode ? 'Lưu sản phẩm' : 'Lưu thay đổi')}
-            </button>
-          </div>
-        </div>
-      </form>
-        )}
-
-      {/* TAB 2: THẺ KHO & LỊCH SỬ GIÁ */}
-      {modalTab === 'stockCard' && (
-        <div className="pi-modal-body pi-stock-card-body">
-          {/* Overview Stats Bar */}
-          <div className="pi-stock-overview-bar" style={{ marginBottom: 20 }}>
-            <div className="pi-stock-stat-item">
-              <span className="pi-stock-stat-label">Tồn kho hiện tại</span>
-              <span className="pi-stock-stat-val pi-stock-stat-val--blue">
-                {product?.onHand ?? product?.stock ?? 0} {formData.baseUnitName}
-              </span>
-            </div>
-            <div className="pi-stock-stat-item">
-              <span className="pi-stock-stat-label">Giá vốn hiện tại</span>
-              <span className="pi-stock-stat-val">
-                {formData.costPrice ? `${Number(formData.costPrice).toLocaleString()} đ` : '—'}
-              </span>
-            </div>
-            <div className="pi-stock-stat-item">
-              <span className="pi-stock-stat-label">Giá bán niêm yết</span>
-              <span className="pi-stock-stat-val pi-stock-stat-val--green">
-                {formData.sellingPrice ? `${Number(formData.sellingPrice).toLocaleString()} đ` : '—'}
-              </span>
-            </div>
-          </div>
-
-          {/* Body: History Table */}
-          <h3 className="pi-unit-section-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Clock size={15} color="#64748B" />
-            Lịch sử biến động giá nhập & Giao dịch kho
-          </h3>
-
-          {loadingStockHistory && (
-            <div className="pi-stock-loading">
-              Đang tải dữ liệu thẻ kho…
-            </div>
-          )}
-
-          {!loadingStockHistory && stockHistory.length === 0 && (
-            <div className="pi-stock-empty">
-              <Package size={36} color="#CBD5E1" />
-              <p>Chưa có biến động giao dịch hoặc lịch sử giá cho sản phẩm này.</p>
-            </div>
-          )}
-
-          {!loadingStockHistory && stockHistory.length > 0 && (
-            <div className="pi-stock-table-wrap">
-              <table className="pi-stock-table">
-                <thead>
-                  <tr>
-                    <th>Thời gian</th>
-                    <th>Loại biến động</th>
-                    <th>Giá vốn (Cũ → Mới)</th>
-                    <th>Giá bán (Cũ → Mới)</th>
-                    <th>Số lượng</th>
-                    <th>Ghi chú</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stockHistory.map((item, idx) => (
-                    <tr key={item.id || idx}>
-                      <td style={{ color: '#64748B', whiteSpace: 'nowrap' }}>
-                        {item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : (item.date || '—')}
-                      </td>
-                      <td>
-                        <span className="pi-badge-parent" style={{ background: '#F1F5F9', color: '#334155' }}>
-                          {item.changeType || item.type || 'Cập nhật giá'}
-                        </span>
-                      </td>
-                      <td>
-                        {item.oldCostPrice != null && item.newCostPrice != null ? (
-                          <span>
-                            {Number(item.oldCostPrice).toLocaleString()} → <strong>{Number(item.newCostPrice).toLocaleString()} đ</strong>
-                          </span>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td>
-                        {item.oldSellingPrice != null && item.newSellingPrice != null ? (
-                          <span style={{ color: '#059669', fontWeight: 600 }}>
-                            {Number(item.oldSellingPrice).toLocaleString()} → <strong>{Number(item.newSellingPrice).toLocaleString()} đ</strong>
-                          </span>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td style={{ fontWeight: 600 }}>
-                        {item.quantity != null ? `${item.quantity > 0 ? `+${item.quantity}` : item.quantity} ${formData.baseUnitName}` : '—'}
-                      </td>
-                      <td style={{ color: '#64748B', fontSize: 12.5 }}>
-                        {item.note || item.reason || '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Footer for StockCard tab */}
-      {modalTab !== 'info' && (
-        <div className="pi-modal-footer">
-          <button
-            type="button"
-            className="pi-modal-btn pi-modal-btn--secondary"
-            onClick={onClose}
-          >
-            Đóng
-          </button>
-        </div>
-      )}
-
-      {/* Interactive Barcode Capture Modal */}
-      <BarcodeCaptureModal
-        isOpen={Boolean(barcodeScannerTarget)}
-        onClose={() => setBarcodeScannerTarget(null)}
-        onCapture={handleBarcodeCaptured}
-        targetTitle={barcodeScannerTarget?.title || 'hàng hóa'}
-      />
-
-      {/* Pop-up Thêm nhanh nhóm hàng hóa (Danh mục) */}
-      {isCreateCategoryModalOpen && (
-        <div className="pi-nested-modal-backdrop" onClick={() => setIsCreateCategoryModalOpen(false)}>
-          <div className="pi-nested-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="pi-nested-modal-header">
-              <h3 className="pi-nested-modal-title">
-                <FolderPlus size={18} color="#004AC6" />
-                Thêm nhanh nhóm hàng hóa (Danh mục)
-              </h3>
-              <button
-                type="button"
-                className="pi-nested-modal-close"
-                onClick={() => setIsCreateCategoryModalOpen(false)}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveNewCategory}>
-              <div className="pi-nested-modal-body">
-                {createCategoryError && (
-                  <div style={{ padding: '8px 12px', background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 6, color: '#DC2626', fontSize: 13 }}>
-                    {createCategoryError}
-                  </div>
+            <div className="pi-modal-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div className="pi-modal-footer-left" style={{ display: 'flex', alignItems: 'center' }}>
+                {!isCreateMode && (
+                  <label
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 7,
+                      cursor: 'pointer',
+                      fontSize: 13.5,
+                      fontWeight: 500,
+                      color: '#1E293B',
+                      userSelect: 'none',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      className="pi-cb"
+                      checked={formData.status !== 'inactive'}
+                      onChange={(e) => handleInputChange('status', e.target.checked ? 'active' : 'inactive')}
+                      style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#004AC6' }}
+                    />
+                    <span>Đang kinh doanh</span>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 15,
+                        height: 15,
+                        borderRadius: '50%',
+                        border: '1.2px solid #94A3B8',
+                        color: '#64748B',
+                        fontSize: 10,
+                        fontWeight: 700,
+                        cursor: 'help',
+                      }}
+                      title="Cho phép kinh doanh và hiển thị hàng hóa này trên hệ thống bán hàng"
+                    >
+                      i
+                    </span>
+                  </label>
                 )}
-                <div className="pi-edit-field">
-                  <label className="pi-edit-label">Tên nhóm hàng hóa (Danh mục) *</label>
-                  <input
-                    type="text"
-                    className="pi-edit-input"
-                    placeholder="Nhập tên danh mục (ví dụ: Nước giải khát, Bánh kẹo...)"
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    required
-                    autoFocus
-                  />
-                </div>
-                <div className="pi-edit-field">
-                  <label className="pi-edit-label">Mô tả danh mục (Tùy chọn)</label>
-                  <textarea
-                    className="pi-edit-input"
-                    style={{ minHeight: 70, resize: 'vertical' }}
-                    placeholder="Mô tả ngắn về nhóm hàng hóa..."
-                    value={newCategoryDescription}
-                    onChange={(e) => setNewCategoryDescription(e.target.value)}
-                  />
-                </div>
               </div>
 
-              <div className="pi-nested-modal-footer">
+              <div className="pi-modal-footer-right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <button
                   type="button"
-                  className="pi-edit-btn-cancel"
-                  onClick={() => setIsCreateCategoryModalOpen(false)}
-                  disabled={creatingCategory}
+                  className="pi-modal-btn pi-modal-btn--secondary"
+                  onClick={handleRequestClose}
+                  disabled={submitting}
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="pi-edit-btn-save"
-                  disabled={creatingCategory}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  className="pi-modal-btn pi-modal-btn--primary"
+                  disabled={submitting}
                 >
-                  {creatingCategory ? 'Đang lưu...' : 'Lưu danh mục'}
+                  {submitting
+                    ? (isCreateMode ? 'Đang tạo…' : 'Đang cập nhật…')
+                    : (isCreateMode ? 'Lưu sản phẩm' : 'Lưu thay đổi')}
                 </button>
               </div>
-            </form>
+            </div>
+          </form>
+        )}
+
+        {/* TAB 2: THẺ KHO & LỊCH SỬ GIÁ */}
+        {modalTab === 'stockCard' && (
+          <div className="pi-modal-body pi-stock-card-body">
+            {/* Overview Stats Bar */}
+            <div className="pi-stock-overview-bar" style={{ marginBottom: 20 }}>
+              <div className="pi-stock-stat-item">
+                <span className="pi-stock-stat-label">Tồn kho hiện tại</span>
+                <span className="pi-stock-stat-val pi-stock-stat-val--blue">
+                  {product?.onHand ?? product?.stock ?? 0} {formData.baseUnitName}
+                </span>
+              </div>
+              <div className="pi-stock-stat-item">
+                <span className="pi-stock-stat-label">Giá vốn hiện tại</span>
+                <span className="pi-stock-stat-val">
+                  {(formData.costPrice != null && formData.costPrice !== '' && Number(formData.costPrice) > 0)
+                    ? `${Number(formData.costPrice).toLocaleString('vi-VN')} đ`
+                    : 'N/A'}
+                </span>
+              </div>
+              <div className="pi-stock-stat-item">
+                <span className="pi-stock-stat-label">Giá bán niêm yết</span>
+                <span className="pi-stock-stat-val pi-stock-stat-val--green">
+                  {(formData.sellingPrice != null && formData.sellingPrice !== '' && Number(formData.sellingPrice) > 0)
+                    ? `${Number(formData.sellingPrice).toLocaleString('vi-VN')} đ`
+                    : 'N/A'}
+                </span>
+              </div>
+            </div>
+
+            {/* Body: History Table */}
+            <h3 className="pi-unit-section-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Clock size={15} color="#64748B" />
+              Lịch sử biến động giá nhập & Giao dịch kho
+            </h3>
+
+            {loadingStockHistory && (
+              <div className="pi-stock-loading">
+                Đang tải dữ liệu thẻ kho…
+              </div>
+            )}
+
+            {!loadingStockHistory && stockHistory.length === 0 && (
+              <div className="pi-stock-empty">
+                <Package size={36} color="#CBD5E1" />
+                <p>Chưa có biến động giao dịch hoặc lịch sử giá cho sản phẩm này.</p>
+              </div>
+            )}
+
+            {!loadingStockHistory && stockHistory.length > 0 && (
+              <div className="pi-stock-table-wrap">
+                <table className="pi-stock-table">
+                  <thead>
+                    <tr>
+                      <th>Thời gian</th>
+                      <th>Loại biến động</th>
+                      <th>Giá vốn (Cũ → Mới)</th>
+                      <th>Giá bán (Cũ → Mới)</th>
+                      <th>Số lượng</th>
+                      <th>Ghi chú</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stockHistory.map((item, idx) => (
+                      <tr key={item.id || idx}>
+                        <td style={{ color: '#64748B', whiteSpace: 'nowrap' }}>
+                          {item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : (item.date || 'N/A')}
+                        </td>
+                        <td>
+                          <span className="pi-badge-parent" style={{ background: '#F1F5F9', color: '#334155' }}>
+                            {item.changeType || item.type || 'Cập nhật giá'}
+                          </span>
+                        </td>
+                        <td>
+                          {item.oldCostPrice != null && item.newCostPrice != null ? (
+                            <span>
+                              {Number(item.oldCostPrice).toLocaleString('vi-VN')} → <strong>{Number(item.newCostPrice).toLocaleString('vi-VN')} đ</strong>
+                            </span>
+                          ) : (
+                            'N/A'
+                          )}
+                        </td>
+                        <td>
+                          {item.oldSellingPrice != null && item.newSellingPrice != null ? (
+                            <span style={{ color: '#059669', fontWeight: 600 }}>
+                              {Number(item.oldSellingPrice).toLocaleString('vi-VN')} → <strong>{Number(item.newSellingPrice).toLocaleString('vi-VN')} đ</strong>
+                            </span>
+                          ) : (
+                            'N/A'
+                          )}
+                        </td>
+                        <td style={{ fontWeight: 600 }}>
+                          {item.quantity != null ? `${item.quantity > 0 ? `+${item.quantity}` : item.quantity} ${formData.baseUnitName || 'N/A'}` : 'N/A'}
+                        </td>
+                        <td style={{ color: '#64748B', fontSize: 12.5 }}>
+                          {item.note || item.reason || 'N/A'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        </div>
-      )}
-    </div>
+        )}
+
+        {/* Footer for StockCard tab */}
+        {modalTab !== 'info' && (
+          <div className="pi-modal-footer">
+            <button
+              type="button"
+              className="pi-modal-btn pi-modal-btn--secondary"
+              onClick={handleRequestClose}
+            >
+              Đóng
+            </button>
+          </div>
+        )}
+
+        {/* Interactive Barcode Capture Modal */}
+        <BarcodeCaptureModal
+          isOpen={Boolean(barcodeScannerTarget)}
+          onClose={() => setBarcodeScannerTarget(null)}
+          onCapture={handleBarcodeCaptured}
+          targetTitle={barcodeScannerTarget?.title || 'hàng hóa'}
+        />
+
+        {/* Pop-up Thêm nhanh nhóm hàng hóa (Danh mục) */}
+        {isCreateCategoryModalOpen && (
+          <div className="pi-nested-modal-backdrop" onClick={() => setIsCreateCategoryModalOpen(false)}>
+            <div className="pi-nested-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="pi-nested-modal-header">
+                <h3 className="pi-nested-modal-title">
+                  <FolderPlus size={18} color="#004AC6" />
+                  Thêm nhanh nhóm hàng hóa (Danh mục)
+                </h3>
+                <button
+                  type="button"
+                  className="pi-nested-modal-close"
+                  onClick={() => setIsCreateCategoryModalOpen(false)}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveNewCategory}>
+                <div className="pi-nested-modal-body">
+                  {createCategoryError && (
+                    <div style={{ padding: '8px 12px', background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 6, color: '#DC2626', fontSize: 13 }}>
+                      {createCategoryError}
+                    </div>
+                  )}
+                  <div className="pi-edit-field">
+                    <label className="pi-edit-label">Tên nhóm hàng hóa (Danh mục) *</label>
+                    <input
+                      type="text"
+                      className="pi-edit-input"
+                      placeholder="Nhập tên danh mục (ví dụ: Nước giải khát, Bánh kẹo...)"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      required
+                      autoFocus
+                    />
+                  </div>
+                  <div className="pi-edit-field">
+                    <label className="pi-edit-label">Mô tả danh mục (Tùy chọn)</label>
+                    <textarea
+                      className="pi-edit-input"
+                      style={{ minHeight: 70, resize: 'vertical' }}
+                      placeholder="Mô tả ngắn về nhóm hàng hóa..."
+                      value={newCategoryDescription}
+                      onChange={(e) => setNewCategoryDescription(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="pi-nested-modal-footer">
+                  <button
+                    type="button"
+                    className="pi-edit-btn-cancel"
+                    onClick={() => setIsCreateCategoryModalOpen(false)}
+                    disabled={creatingCategory}
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    className="pi-edit-btn-save"
+                    disabled={creatingCategory}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    {creatingCategory ? 'Đang lưu...' : 'Lưu danh mục'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal cảnh báo thay đổi chưa lưu (Unsaved Changes Protection) */}
+        {showDiscardConfirm && (
+          <div
+            className="pi-nested-modal-backdrop"
+            style={{ zIndex: 10050, background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)' }}
+            onClick={() => setShowDiscardConfirm(false)}
+          >
+            <div
+              className="pi-discard-dialog"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="pi-discard-dialog__icon">
+                <AlertTriangle size={28} />
+              </div>
+
+              <h3 className="pi-discard-dialog__title">
+                Bạn có thay đổi chưa lưu
+              </h3>
+
+              <p className="pi-discard-dialog__desc">
+                {isCreateMode
+                  ? 'Thông tin hàng hóa bạn đang nhập chưa được lưu. Nếu thoát ngay bây giờ, toàn bộ dữ liệu này sẽ bị mất.'
+                  : 'Các thông tin bạn vừa chỉnh sửa chưa được lưu lại. Bạn có chắc chắn muốn thoát và hủy bỏ các thay đổi không?'}
+              </p>
+
+              <div className="pi-discard-dialog__actions">
+                <button
+                  type="button"
+                  className="pi-modal-btn pi-modal-btn--secondary"
+                  onClick={() => setShowDiscardConfirm(false)}
+                >
+                  Tiếp tục chỉnh sửa
+                </button>
+                <button
+                  type="button"
+                  className="pi-modal-btn pi-modal-btn--danger"
+                  onClick={() => {
+                    setShowDiscardConfirm(false);
+                    onClose();
+                  }}
+                >
+                  Rời khỏi & Hủy thay đổi
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div >
   );
 }

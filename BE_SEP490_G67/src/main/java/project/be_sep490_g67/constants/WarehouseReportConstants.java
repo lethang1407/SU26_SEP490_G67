@@ -20,6 +20,7 @@ public final class WarehouseReportConstants {
             "RETURN",
             "RETURN_HOLD_IN",
             "IMPORT_RETURN_RESERVE",
+            "IMPORT_RETURN_EXCHANGE_OUT",
             // IMPORT_RETURN_RESTORE không đưa vào báo cáo: chỉ là bút toán hoàn khi sửa nháp (đã chuyển sang soft-remove RESERVE)
             "CANCEL_BATCH"
     );
@@ -28,7 +29,7 @@ public final class WarehouseReportConstants {
             GROUP_IMPORT, List.of("IMPORT", "IMPORT_RETURN_EXCHANGE_IN"),
             GROUP_SALE, List.of("SALE"),
             GROUP_EXCHANGE_RETURN, List.of("RETURN", "RETURN_HOLD_IN"),
-            GROUP_SUPPLIER_RETURN, List.of("IMPORT_RETURN_RESERVE"),
+            GROUP_SUPPLIER_RETURN, List.of("IMPORT_RETURN_RESERVE", "IMPORT_RETURN_EXCHANGE_OUT"),
             GROUP_CANCEL, List.of("CANCEL_BATCH")
     );
 
@@ -55,16 +56,26 @@ public final class WarehouseReportConstants {
     }
 
     public static String descriptionFor(String movementType) {
+        return descriptionFor(movementType, null);
+    }
+
+    /**
+     * @param method hình thức dòng đổi/trả ({@code EXCHANGE}/{@code RETURN}); dùng khi movement
+     *               cũ vẫn là RESERVE nhưng dòng đã đổi thành Đổi (hoặc ngược lại).
+     */
+    public static String descriptionFor(String movementType, String method) {
         if (movementType == null) {
             return "Khác";
         }
+        boolean exchangeMethod = method != null && "EXCHANGE".equalsIgnoreCase(method.trim());
         return switch (movementType) {
             case "IMPORT" -> "Nhập hàng";
             case "IMPORT_RETURN_EXCHANGE_IN" -> "Đổi nhập từ NCC";
             case "SALE" -> "Bán hàng";
             case "RETURN" -> "Trả hàng khách";
             case "RETURN_HOLD_IN" -> "Nhập giữ đổi/trả";
-            case "IMPORT_RETURN_RESERVE" -> "Trả NCC";
+            case "IMPORT_RETURN_EXCHANGE_OUT" -> "Đổi trả NCC";
+            case "IMPORT_RETURN_RESERVE" -> exchangeMethod ? "Đổi trả NCC" : "Trả NCC";
             case "IMPORT_RETURN_RESTORE" -> "Hoàn trả NCC";
             case "CANCEL_BATCH" -> "Hủy hàng";
             default -> movementType;

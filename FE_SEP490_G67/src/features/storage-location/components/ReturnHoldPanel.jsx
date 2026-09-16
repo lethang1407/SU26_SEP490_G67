@@ -5,12 +5,22 @@ import {
     formatDateTime,
     getLineValue,
 } from '../utils/storageLocationUtils';
+import ReturnHoldActionModal from './ReturnHoldActionModal';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
-export default function ReturnHoldPanel({ location, loading = false }) {
+export default function ReturnHoldPanel({
+    location,
+    locations = [],
+    loading = false,
+    onProcessed,
+}) {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
+    const [actionMode, setActionMode] = useState(null);
+    const [actionItem, setActionItem] = useState(null);
+    const [confirming, setConfirming] = useState(false);
+    const [actionError, setActionError] = useState(null);
 
     const contents = useMemo(() => {
         const items = [...(location?.contents ?? [])];
@@ -45,6 +55,34 @@ export default function ReturnHoldPanel({ location, loading = false }) {
     const startIndex = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
     const endIndex = Math.min(page * pageSize, totalItems);
 
+    const openAction = (mode, item) => {
+        setActionMode(mode);
+        setActionItem(item);
+        setActionError(null);
+    };
+
+    const closeAction = () => {
+        if (confirming) return;
+        setActionMode(null);
+        setActionItem(null);
+        setActionError(null);
+    };
+
+    const handleConfirm = async (payload) => {
+        if (!actionMode) return;
+        setConfirming(true);
+        setActionError(null);
+        try {
+            await onProcessed?.(actionMode, payload);
+            setActionMode(null);
+            setActionItem(null);
+        } catch (err) {
+            setActionError(err?.message || 'Không xử lý được. Thử lại.');
+        } finally {
+            setConfirming(false);
+        }
+    };
+
     return (
         <section className="storage-return-hold-panel">
             <div className="storage-return-hold-panel__header">
@@ -54,7 +92,7 @@ export default function ReturnHoldPanel({ location, loading = false }) {
                         Hàng đổi trả từ bán hàng
                     </h2>
                     <p className="storage-return-hold-panel__subtitle">
-                        Kho chứa chung của hàng hóa được đổi/trả từ khách hàng.
+                        Xử lý hàng đổi/trả khách: đẩy vào kho bán, trả/đổi NCC, hoặc hủy.
                     </p>
                 </div>
                 <div className="storage-return-hold-panel__summary">
@@ -90,6 +128,7 @@ export default function ReturnHoldPanel({ location, loading = false }) {
                                     <th>Số lượng</th>
                                     <th>Đơn giá</th>
                                     <th>Giá trị</th>
+                                    <th>Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -114,6 +153,31 @@ export default function ReturnHoldPanel({ location, loading = false }) {
                                         </td>
                                         <td>{formatCurrency(item.importPrice)}</td>
                                         <td>{formatCurrency(getLineValue(item))}</td>
+                                        <td>
+                                            <div className="storage-return-hold-panel__actions">
+                                                <button
+                                                    type="button"
+                                                    className="storage-return-hold-panel__action-btn"
+                                                    onClick={() => openAction('release', item)}
+                                                >
+                                                    Đẩy kho
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="storage-return-hold-panel__action-btn storage-return-hold-panel__action-btn--primary"
+                                                    onClick={() => openAction('supplier', item)}
+                                                >
+                                                    Đổi/Trả NCC
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="storage-return-hold-panel__action-btn storage-return-hold-panel__action-btn--danger"
+                                                    onClick={() => openAction('cancel', item)}
+                                                >
+                                                    Hủy
+                                                </button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -165,6 +229,17 @@ export default function ReturnHoldPanel({ location, loading = false }) {
                     </div>
                 </>
             )}
+
+            <ReturnHoldActionModal
+                open={Boolean(actionMode && actionItem)}
+                mode={actionMode}
+                item={actionItem}
+                locations={locations}
+                confirming={confirming}
+                error={actionError}
+                onClose={closeAction}
+                onConfirm={handleConfirm}
+            />
         </section>
     );
 }

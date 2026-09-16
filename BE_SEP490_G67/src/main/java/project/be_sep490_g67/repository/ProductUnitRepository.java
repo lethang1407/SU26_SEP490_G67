@@ -11,8 +11,6 @@ import java.util.Optional;
 public interface ProductUnitRepository extends JpaRepository<ProductUnit, Integer> {
     List<ProductUnit> findByProductIdAndIsRemovedFalse(Integer productId);
 
-    void deleteByProductId(Integer productId);
-
     List<ProductUnit> findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(Integer productId);
 
     Optional<ProductUnit> findByIdAndProduct_IdAndIsRemovedFalse(Integer id, Integer productId);

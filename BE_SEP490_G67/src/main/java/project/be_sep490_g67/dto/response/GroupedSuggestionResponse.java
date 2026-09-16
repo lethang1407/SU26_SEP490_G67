@@ -4,6 +4,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 
 @Data
@@ -22,6 +23,8 @@ public class GroupedSuggestionResponse {
     String supplierName;
     BigDecimal sellingPrice;
     BigDecimal costPrice;
+    String status;
+    Instant createdAt;
 
     // Aggregated or standalone metrics
     Integer onHand;
@@ -90,6 +93,10 @@ public class GroupedSuggestionResponse {
         Integer openPoId;
         String openPoCode;
         Integer openPoQty;
+
+        String status;
+        Instant createdAt;
+        String facetStatus;
 
         List<ImportSuggestionResponse.SupplierOption> supplierOptions;
         List<ImportSuggestionResponse.UnitOption> units;

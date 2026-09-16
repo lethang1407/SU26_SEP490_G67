@@ -448,17 +448,22 @@ public class ProductService {
         }
     }
 
+    /**
+     * Tồn hiển thị tìm SP / POS = tồn bán được trên kệ
+     * (Σ batch_locations, loại RETURN_HOLD — hàng đổi/trả khách đang giữ).
+     * Hàng đã reserve trả NCC đã trừ khỏi kệ nên không còn trong tổng này.
+     */
     private Map<Integer, Integer> loadStockMap(List<Product> products) {
         if (products.isEmpty()) {
             return Collections.emptyMap();
         }
 
         List<Integer> productIds = products.stream().map(Product::getId).toList();
-        return productMapper.toStockMap(stockBatchRepository.sumStockByProductIds(productIds));
+        return productMapper.toStockMap(batchLocationRepository.sumQuantityByProductIds(productIds));
     }
 
     private int loadStock(Integer productId) {
-        return productMapper.toStockMap(stockBatchRepository.sumStockByProductIds(List.of(productId)))
+        return productMapper.toStockMap(batchLocationRepository.sumQuantityByProductIds(List.of(productId)))
                 .getOrDefault(productId, 0);
     }
 
@@ -624,12 +629,17 @@ public class ProductService {
                 .stream()
                 .collect(Collectors.groupingBy(item -> item.getProduct().getId()));
         java.util.Set<Integer> alreadyInStoreIds = loadAlreadyInStoreProductIds(productIds);
+        // Gộp một truy vấn cho cả trang kết quả — tồn bán được phải lấy theo ô kho,
+        // không dùng lại loadStock() (lượng nhập) vì hai con số lệch nhau.
+        Map<Integer, Integer> sellableMap = productMapper.toStockMap(
+                batchLocationRepository.sumSellableByProductIds(productIds));
 
         return productList.stream()
                 .map(product -> toSearchResponse(
                         product,
                         attributesByProduct.getOrDefault(product.getId(), List.of()),
-                        alreadyInStoreIds.contains(product.getId())))
+                        alreadyInStoreIds.contains(product.getId()),
+                        sellableMap.getOrDefault(product.getId(), 0)))
                 .toList();
     }
 
@@ -644,7 +654,8 @@ public class ProductService {
     }
 
     private ProductSearchResponse toSearchResponse(
-            Product product, List<ProductAttribute> attributes, boolean alreadyInStore) {
+            Product product, List<ProductAttribute> attributes, boolean alreadyInStore,
+            int sellableQuantity) {
         BigDecimal costPrice = product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO;
         BigDecimal lastCostPerBase = stockBatchRepository
                 .findFirstByProduct_IdAndIsRemovedFalseOrderByReceivedDateDescIdDesc(product.getId())
@@ -674,6 +685,7 @@ public class ProductService {
                 .costPrice(costPrice)
                 .lastCostPerBase(lastCostPerBase)
                 .stockQuantity(stockQuantity)
+                .sellableQuantity(sellableQuantity)
                 .alreadyInStore(alreadyInStore)
                 .parentId(parent != null ? parent.getId() : null)
                 .parentName(parent != null ? parent.getName() : null)

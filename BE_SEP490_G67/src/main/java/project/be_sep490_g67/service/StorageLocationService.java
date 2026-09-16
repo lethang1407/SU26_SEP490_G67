@@ -9,9 +9,11 @@ import project.be_sep490_g67.constants.StorageLocationConstants;
 import project.be_sep490_g67.constants.StorageZoneConstants;
 import project.be_sep490_g67.constants.StorageZoneType;
 import project.be_sep490_g67.dto.request.AssignBatchRequest;
+import project.be_sep490_g67.dto.request.CancelReturnHoldRequest;
 import project.be_sep490_g67.dto.request.CreateStorageLocationRequest;
 import project.be_sep490_g67.dto.request.MoveAllBatchesRequest;
 import project.be_sep490_g67.dto.request.MoveBatchRequest;
+import project.be_sep490_g67.dto.request.ReleaseReturnHoldRequest;
 import project.be_sep490_g67.dto.request.UnassignBatchRequest;
 import project.be_sep490_g67.dto.response.StorageLocationContentResponse;
 import project.be_sep490_g67.dto.response.StorageLocationResponse;
@@ -19,18 +21,23 @@ import project.be_sep490_g67.dto.response.UnplacedBatchResponse;
 import project.be_sep490_g67.entity.BatchLocation;
 import project.be_sep490_g67.entity.Product;
 import project.be_sep490_g67.entity.ProductUnit;
+import project.be_sep490_g67.entity.ReturnOrderDetail;
 import project.be_sep490_g67.entity.StockBatch;
+import project.be_sep490_g67.entity.StockMovement;
 import project.be_sep490_g67.entity.StorageLocation;
 import project.be_sep490_g67.entity.StorageZone;
+import project.be_sep490_g67.enums.ItemCondition;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.BatchLocationRepository;
 import project.be_sep490_g67.repository.ProductUnitRepository;
+import project.be_sep490_g67.repository.ReturnOrderDetailRepository;
 import project.be_sep490_g67.repository.StockBatchRepository;
 import project.be_sep490_g67.repository.StockMovementRepository;
 import project.be_sep490_g67.repository.StorageLocationRepository;
 import project.be_sep490_g67.utils.StockBatchUtils;
 
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -46,6 +53,7 @@ public class StorageLocationService {
     ProductUnitRepository productUnitRepository;
     StorageZoneService storageZoneService;
     StockMovementRepository stockMovementRepository;
+    ReturnOrderDetailRepository returnOrderDetailRepository;
 
     @Transactional(readOnly = true)
     public List<StorageLocationResponse> getAllLocations() {
@@ -242,6 +250,125 @@ public class StorageLocationService {
         batchLocation.setIsRemoved(true);
         batchLocationRepository.save(batchLocation);
         clearFullIfEmpty(locationId);
+    }
+
+    /** Đẩy hàng từ RT-HOLD sang ô kho bán được. */
+    @Transactional
+    public StorageLocationResponse releaseReturnHold(ReleaseReturnHoldRequest request, Integer userId) {
+        BatchLocation source = requireReturnHoldLine(request.getBatchLocationId());
+
+        StorageLocation destination = storageLocationRepository.findActiveWithContentsById(request.getToLocationId())
+                .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
+        if (storageZoneService.isReturnHoldZone(destination.getStorageZone())) {
+            throw new AppException(ErrorCode.RETURN_HOLD_TARGET_INVALID);
+        }
+        assertNotFull(destination);
+
+        int available = source.getQuantity() != null ? source.getQuantity() : 0;
+        int quantity = request.getQuantity() != null ? request.getQuantity() : available;
+        if (quantity < 1 || quantity > available) {
+            throw new AppException(ErrorCode.RETURN_HOLD_INSUFFICIENT_QTY);
+        }
+
+        StockBatch batch = source.getBatch();
+        int remainingOnSource = available - quantity;
+        if (remainingOnSource <= 0) {
+            source.setQuantity(0);
+            source.setIsRemoved(true);
+        } else {
+            source.setQuantity(remainingOnSource);
+        }
+        batchLocationRepository.save(source);
+
+        upsertBatchLocation(batch, destination, quantity);
+        clearFullIfEmpty(source.getLocation().getId());
+        markReturnOrderDetailsProcessed(
+                batch.getId(),
+                batch.getProduct() != null ? batch.getProduct().getId() : null,
+                quantity,
+                userId);
+
+        return toResponse(storageLocationRepository.findActiveWithContentsById(destination.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND)));
+    }
+
+    /** Hủy hàng đang nằm ở RT-HOLD (ghi CANCEL_BATCH). */
+    @Transactional
+    public StorageLocationResponse cancelReturnHold(CancelReturnHoldRequest request, Integer userId) {
+        BatchLocation source = requireReturnHoldLine(request.getBatchLocationId());
+
+        int available = source.getQuantity() != null ? source.getQuantity() : 0;
+        int quantity = request.getQuantity() != null ? request.getQuantity() : available;
+        if (quantity < 1 || quantity > available) {
+            throw new AppException(ErrorCode.RETURN_HOLD_INSUFFICIENT_QTY);
+        }
+
+        StockBatch batch = source.getBatch();
+        int remainingOnSource = available - quantity;
+        if (remainingOnSource <= 0) {
+            source.setQuantity(0);
+            source.setIsRemoved(true);
+        } else {
+            source.setQuantity(remainingOnSource);
+        }
+        batchLocationRepository.save(source);
+
+        int ledgerAfter = stockMovementRepository.sumQuantityDeltaByBatchId(batch.getId()) - quantity;
+        StockMovement movement = new StockMovement();
+        movement.setStockBatch(batch);
+        movement.setBatchLocation(source);
+        movement.setMovementType("CANCEL_BATCH");
+        movement.setReferenceType("STOCK_BATCH");
+        movement.setReferenceId(batch.getId());
+        movement.setQuantityDelta(-quantity);
+        movement.setStockAfter(Math.max(0, ledgerAfter));
+        movement.setIsRemoved(false);
+        stockMovementRepository.save(movement);
+
+        clearFullIfEmpty(source.getLocation().getId());
+        markReturnOrderDetailsProcessed(
+                batch.getId(),
+                batch.getProduct() != null ? batch.getProduct().getId() : null,
+                quantity,
+                userId);
+
+        StorageLocation hold = storageLocationRepository.findActiveWithContentsById(source.getLocation().getId())
+                .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
+        return toResponse(hold);
+    }
+
+    private BatchLocation requireReturnHoldLine(Integer batchLocationId) {
+        BatchLocation line = batchLocationRepository.findActiveWithDetailsById(batchLocationId)
+                .orElseThrow(() -> new AppException(ErrorCode.BATCH_LOCATION_NOT_FOUND));
+        if (line.getLocation() == null
+                || !storageZoneService.isReturnHoldZone(line.getLocation().getStorageZone())) {
+            throw new AppException(ErrorCode.RETURN_HOLD_LINE_REQUIRED);
+        }
+        return line;
+    }
+
+    private void markReturnOrderDetailsProcessed(
+            Integer batchId, Integer productId, int quantity, Integer userId) {
+        if (quantity <= 0 || batchId == null || productId == null) {
+            return;
+        }
+        List<String> conditions = List.of(
+                ItemCondition.DAMAGED.name(),
+                ItemCondition.EXPIRED.name(),
+                ItemCondition.OPENED.name());
+        List<ReturnOrderDetail> waiting = returnOrderDetailRepository
+                .findAwaitingProcessingByBatchOrProduct(batchId, productId, conditions);
+        int remaining = quantity;
+        Instant now = Instant.now();
+        for (ReturnOrderDetail detail : waiting) {
+            if (remaining <= 0) {
+                break;
+            }
+            detail.setProcessedAt(now);
+            detail.setProcessedBy(userId);
+            returnOrderDetailRepository.save(detail);
+            remaining -= detail.getQuantity() != null ? detail.getQuantity() : 0;
+        }
     }
 
     /** Gỡ đánh dấu đầy khi ô không còn hàng. */

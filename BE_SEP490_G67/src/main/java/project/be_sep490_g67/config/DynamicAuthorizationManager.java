@@ -71,13 +71,11 @@ public class DynamicAuthorizationManager implements AuthorizationManager<Request
             return new AuthorizationDecision(true);
         }
 
-        // 4. Check if user has ADMIN/MANAGER role or possesses the required permission code
+        // 4. Check if user has MANAGER role or possesses the required permission code
         boolean hasAccess = authentication.getAuthorities().stream().anyMatch(authority -> {
             String authName = authority.getAuthority();
             if (authName == null) return false;
-            return "ROLE_ADMIN".equalsIgnoreCase(authName) 
-                    || "ADMIN".equalsIgnoreCase(authName)
-                    || "ROLE_MANAGER".equalsIgnoreCase(authName) 
+            return "ROLE_MANAGER".equalsIgnoreCase(authName)
                     || "MANAGER".equalsIgnoreCase(authName)
                     || requiredPermission.equalsIgnoreCase(authName);
         });

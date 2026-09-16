@@ -27,6 +27,7 @@ import CustomerDetailPage from '../../features/customer/pages/CustomerDetailPage
 import SalesOrderDetailPage from '../../features/sales-order/pages/SalesOrderDetailPage';
 import ApiPermissionsPage from '../../features/permission/pages/ApiPermissionsPage';
 import WarehouseReportPage from '../../features/warehouse-report/pages/WarehouseReportPage';
+import RevenueReportPage from '../../features/revenue-report/pages/RevenueReportPage';
 import ProtectedRoute from './ProtectedRoute';
 
 const adminRoutes = [
@@ -141,6 +142,10 @@ const adminRoutes = [
     {
         path: '/admin/customer',
         element: <ProtectedRoute><CustomerDebtPage /></ProtectedRoute>,
+    },
+    {
+        path: '/admin/reports/revenue',
+        element: <ProtectedRoute><RevenueReportPage /></ProtectedRoute>,
     },
     {
         path: '/admin/reports/warehouse',

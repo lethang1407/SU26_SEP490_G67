@@ -1,3 +1,5 @@
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+
 function buildPageNumbers(currentPage, totalPages) {
     if (totalPages <= 5) {
         return Array.from({ length: totalPages }, (_, index) => index + 1);
@@ -51,7 +53,7 @@ export default function ProductPagination({
                     onClick={() => onPageChange(page - 1)}
                     aria-label="Trang trước"
                 >
-                    Trước
+                    <ChevronLeft size={18} />
                 </button>
 
                 {pageNumbers.map((item, index) =>
@@ -63,9 +65,8 @@ export default function ProductPagination({
                         <button
                             key={item}
                             type="button"
-                            className={`product-pagination__page ${
-                                item === page ? 'product-pagination__page--active' : ''
-                            }`}
+                            className={`product-pagination__page ${item === page ? 'product-pagination__page--active' : ''
+                                }`}
                             onClick={() => onPageChange(item)}
                         >
                             {item}
@@ -80,7 +81,7 @@ export default function ProductPagination({
                     onClick={() => onPageChange(page + 1)}
                     aria-label="Trang sau"
                 >
-                    Sau
+                    <ChevronRight size={18} />
                 </button>
             </div>
         </div>

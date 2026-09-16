@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import project.be_sep490_g67.entity.ImportReturnDetail;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,6 +23,16 @@ public interface ImportReturnDetailRepository extends JpaRepository<ImportReturn
             ORDER BY d.id ASC
             """)
     List<ImportReturnDetail> findActiveByReturnId(@Param("returnId") Integer returnId);
+
+    @Query("""
+            SELECT d FROM ImportReturnDetail d
+            JOIN FETCH d.importReturn ir
+            LEFT JOIN FETCH d.stockBatch sb
+            LEFT JOIN FETCH d.exchangeBatch eb
+            WHERE ir.id IN :returnIds
+              AND (d.isRemoved = false OR d.isRemoved IS NULL)
+            """)
+    List<ImportReturnDetail> findActiveByReturnIds(@Param("returnIds") Collection<Integer> returnIds);
 
     @Query("""
             SELECT d FROM ImportReturnDetail d

@@ -2,6 +2,13 @@ import { useState, useEffect, useMemo } from 'react';
 import { Modal, Button, Form, Spinner, Alert, Row, Col } from 'react-bootstrap';
 import { getCustomerDebtOrders, createDebtPayment } from '../api';
 import { getApiErrorMessage } from '../../profile/utils/profileUtils';
+import {
+    enqueueOfflineOrder,
+    getOfflineDebtOrders,
+    saveOfflineDebtOrders,
+    optimisticallyUpdateCustomerDebt
+} from '@/lib/db';
+import { showOfflineToast } from '../../pos-screen/components/OfflineToast';
 
 const formatCurrency = (value) => {
     if (value === null || value === undefined) return "0 đ";
@@ -42,14 +49,42 @@ export default function CreatePaymentModal({ show, onHide, onSuccess, customer }
 
         const fetchOrders = async () => {
             setLoadingOrders(true);
+
+            if (typeof window !== 'undefined' && !window.navigator.onLine) {
+                try {
+                    const offData = await getOfflineDebtOrders(customer.id);
+                    const filtered = (offData?.content || []).filter(o => o.amountRemaining > 0);
+                    setOrders(filtered);
+                } catch (offErr) {
+                    console.warn("Failed to get offline debt orders:", offErr);
+                    setApiError("Không thể tải danh sách hóa đơn nợ từ bộ nhớ.");
+                } finally {
+                    setLoadingOrders(false);
+                }
+                return;
+            }
+
             try {
                 const data = await getCustomerDebtOrders(customer.id, { size: 100, status: 'IN_DEBT' });
                 // Lọc chỉ lấy những đơn hàng còn nợ > 0
                 const filteredOrders = (data?.content || []).filter(order => order.amountRemaining > 0);
                 setOrders(filteredOrders);
+                if (filteredOrders.length > 0) {
+                    saveOfflineDebtOrders(customer.id, filteredOrders).catch(err => {
+                        console.warn("Failed to save debt orders offline:", err);
+                    });
+                }
             } catch (error) {
-                console.error("Failed to fetch debt orders:", error);
-                setApiError("Không thể tải danh sách hóa đơn nợ.");
+                console.error("Failed to fetch debt orders, trying offline fallback:", error);
+                try {
+                    const offData = await getOfflineDebtOrders(customer.id);
+                    const filtered = (offData?.content || []).filter(o => o.amountRemaining > 0);
+                    setOrders(filtered);
+                    setApiError('');
+                } catch (offErr) {
+                    console.warn("Offline debt orders fallback failed:", offErr);
+                    setApiError("Không thể tải danh sách hóa đơn nợ.");
+                }
             } finally {
                 setLoadingOrders(false);
             }
@@ -80,6 +115,47 @@ export default function CreatePaymentModal({ show, onHide, onSuccess, customer }
     const parsedAmount = Number(String(amount).replace(/\D/g, '')) || 0;
     const remainingAfterPayment = Math.max(totalRemainingDebt - parsedAmount, 0);
 
+    const submitOffline = async () => {
+        const offlineCode = `OFF-TN-${Date.now().toString().slice(-6)}`;
+        const offlineUuid = `off-pay-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        const payload = {
+            salesOrderIds: selectedOrderIds,
+            amountPaid: parsedAmount,
+            paymentMethod,
+            note: note.trim(),
+            paymentDate: new Date().toISOString(),
+        };
+
+        await enqueueOfflineOrder({
+            clientUuid: offlineUuid,
+            type: 'DEBT_PAYMENT',
+            payload,
+            orderSnapshot: {
+                paymentCode: offlineCode,
+                orderCode: offlineCode,
+                customerId: customer.id,
+                customerName: customer.fullName || customer.name || 'Khách hàng',
+                amountPaid: parsedAmount,
+                totalAmount: parsedAmount,
+                paymentMethod,
+                note: note.trim(),
+                selectedOrderIds,
+                createdAt: new Date().toISOString(),
+            },
+            customer: {
+                id: customer.id,
+                fullName: customer.fullName || customer.name || 'Khách hàng',
+                phoneNumber: customer.phoneNumber || customer.phone || '',
+            }
+        });
+
+        // Optimistically update Dexie
+        await optimisticallyUpdateCustomerDebt(customer.id, parsedAmount, selectedOrderIds);
+
+        showOfflineToast();
+        onSuccess();
+    };
+
     const handleSubmit = async (event) => {
         event.preventDefault();
         setClientError('');
@@ -98,6 +174,20 @@ export default function CreatePaymentModal({ show, onHide, onSuccess, customer }
             return;
         }
 
+        if (typeof window !== 'undefined' && !window.navigator.onLine) {
+            setIsSubmitting(true);
+            try {
+                await submitOffline();
+                return;
+            } catch (offErr) {
+                console.error("Failed to save offline debt payment:", offErr);
+                setClientError("Không thể lưu phiếu thu ngoại tuyến vào bộ nhớ.");
+                return;
+            } finally {
+                setIsSubmitting(false);
+            }
+        }
+
         setIsSubmitting(true);
         try {
             await createDebtPayment({
@@ -108,6 +198,15 @@ export default function CreatePaymentModal({ show, onHide, onSuccess, customer }
             });
             onSuccess();
         } catch (err) {
+            const isNetworkError = !err.response || err.code === 'ERR_NETWORK' || err.message?.toLowerCase().includes('network');
+            if (isNetworkError) {
+                try {
+                    await submitOffline();
+                    return;
+                } catch (offErr) {
+                    console.error("Failed to save offline debt payment on network fallback:", offErr);
+                }
+            }
             setApiError(getApiErrorMessage(err, 'Tạo phiếu thu thất bại. Vui lòng thử lại.'));
         } finally {
             setIsSubmitting(false);

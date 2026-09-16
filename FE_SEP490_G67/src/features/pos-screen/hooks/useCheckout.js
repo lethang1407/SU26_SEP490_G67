@@ -8,13 +8,30 @@ function endOfDayIso(dateStr) {
 }
 
 
+import { getOfflineCustomerByPhone, saveOfflineCustomers, enqueueOfflineOrder, saveOfflineSalesOrder } from '@/lib/db';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { showOfflineToast } from '../components/OfflineToast';
+
+function generateOfflineOrderCode() {
+    const now = new Date();
+    const datePart = now.toISOString().slice(2, 10).replace(/-/g, '');
+    const randPart = Math.floor(100000 + Math.random() * 900000);
+    return `HDO${datePart}_${randPart}`;
+}
+
 export function useCheckout() {
+    const { isOnline } = useOnlineStatus();
     const [phone, setPhone] = useState('');
     const [customer, setCustomer] = useState(null);
     const [invoiceType, setInvoiceType] = useState(null); // null | 'found' | 'not_found'
     const [discount, setDiscount] = useState(0);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
+
+    /**
+     * Lookup customer by phone. Sets invoiceType to 'found' or 'not_found'.
+     * Returns the customer object or null so the caller can decide next action.
+     */
     const lookupCustomer = useCallback(async (phoneValue) => {
         setError(null);
         try {
@@ -22,13 +39,25 @@ export function useCheckout() {
             if (found) {
                 setCustomer(found);
                 setInvoiceType('found');
+                saveOfflineCustomers([found]).catch(() => { });
             } else {
                 setCustomer(null);
                 setInvoiceType('not_found');
             }
             return found;
-        } catch (error) {
-            console.error("Failed to look up customer at checkout:", error);
+        } catch {
+            // Offline fallback
+            try {
+                const offlineCustomer = await getOfflineCustomerByPhone(phoneValue);
+                if (offlineCustomer) {
+                    setCustomer(offlineCustomer);
+                    setInvoiceType('found');
+                    return offlineCustomer;
+                }
+            } catch {
+                // Ignore DB error
+            }
+
             setError('Lỗi tra cứu khách hàng. Vui lòng thử lại.');
             return null;
         }
@@ -47,14 +76,22 @@ export function useCheckout() {
         setError(null);
     }, []);
 
+    /**
+     * Những gì phải đúng trước khi động tới tiền của khách.
+     *
+     * @returns {string|null} câu lỗi tiếng Việt, hoặc null nếu qua hết
+     */
     const validateCheckout = useCallback((cartItems, paymentMethod, debtInfo) => {
         if (!cartItems || cartItems.length === 0) {
             return 'Giỏ hàng trống. Vui lòng thêm sản phẩm.';
         }
 
-        const shortLine = cartItems.find(hasLocationProblem);
-        if (shortLine) {
-            return `"${shortLine.name}": các vị trí đã chọn không đủ số lượng.`;
+        const isOnline = typeof window === 'undefined' ? true : window.navigator.onLine;
+        if (isOnline) {
+            const badLine = cartItems.find(hasLocationProblem);
+            if (badLine) {
+                return `"${badLine.name}": chưa chọn vị trí lấy hàng hoặc các vị trí đã chọn không đủ số lượng.`;
+            }
         }
 
         // Debt orders must have an attached customer
@@ -70,7 +107,7 @@ export function useCheckout() {
         return null;
     }, [customer]);
 
-    /** request tạo đơn. */
+    /** Thân request tạo đơn. */
     const buildOrderPayload = useCallback((cartItems, paymentMethod, debtInfo, note, paymentReference) => {
         const discountAmount = discount > 0 ? discount : 0;
         return {
@@ -79,6 +116,9 @@ export function useCheckout() {
             note: note?.trim() ? note.trim() : null,
             items: cartItems.map((item) => ({
                 productId: item.productId,
+                // Lô-tại-ô thu ngân đã tick là một phần của đơn: BE không
+                // được tự suy lại, vì hàng có thể đã được chuyển chỗ kể từ
+                // lúc chọn.
                 picks: toStockPicks(item),
                 productUnitId: item.productUnitId,
                 quantity: item.qty,
@@ -89,6 +129,8 @@ export function useCheckout() {
             ...(paymentReference ? { paymentReference } : {}),
             ...(paymentMethod === 'debt' ? {
                 paidAmount: debtInfo.paidAmount ?? 0,
+                // input[type=date] cho ra yyyy-MM-dd; BE nhận Instant nên
+                // quy về cuối ngày giờ VN để hạn trả tính hết ngày đó.
                 dueDate: endOfDayIso(debtInfo.dueDate),
             } : {}),
         };
@@ -96,6 +138,9 @@ export function useCheckout() {
 
     /**
      * Ghi sổ đơn.
+     *
+     * @param paymentReference nội dung chuyển khoản đã in trên mã QR khách vừa quét.
+     *        Chỉ đơn TRANSFER mới có; BE từ chối chuỗi này trên mọi hình thức khác.
      */
     const submitCheckout = useCallback(async (cartItems, paymentMethod, debtInfo, note, paymentReference) => {
         const validationError = validateCheckout(cartItems, paymentMethod, debtInfo);
@@ -106,9 +151,68 @@ export function useCheckout() {
 
         setSubmitting(true);
         setError(null);
+
+        const buildOfflineInvoice = (offlineUuid, offlineCode) => {
+            const subtotal = cartItems.reduce((acc, it) => acc + ((it.price || 0) * (it.qty || 1)), 0);
+            const discountVal = discount > 0 ? discount : 0;
+            const totalAmount = Math.max(0, subtotal - discountVal);
+
+            return {
+                id: offlineUuid,
+                orderCode: offlineCode,
+                isOffline: true,
+                paymentMethod: paymentMethod.toUpperCase(),
+                totalAmount,
+                discountAmount: discountVal,
+                finalAmount: totalAmount,
+                note: note || '',
+                createdAt: new Date().toISOString(),
+                customer: customer ? {
+                    id: customer.id,
+                    fullName: customer.name || customer.fullName,
+                    phoneNumber: customer.phone || customer.phoneNumber
+                } : null,
+                items: cartItems.map(it => ({
+                    productId: it.productId,
+                    productName: it.name,
+                    unitName: it.unit || 'Cái',
+                    quantity: it.qty,
+                    unitPrice: it.price || 0,
+                    totalPrice: (it.price || 0) * (it.qty || 1)
+                }))
+            };
+        };
+
+        // If browser is offline or in offline mode, save to queue directly without waiting for request timeout
+        const isOfflineMode = !isOnline || (typeof window !== 'undefined' && !window.navigator.onLine);
+        if (isOfflineMode) {
+            try {
+                const payload = buildOrderPayload(cartItems, paymentMethod, debtInfo, note, paymentReference);
+                const offlineUuid = `off-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                const offlineCode = generateOfflineOrderCode();
+                const offlineInvoice = buildOfflineInvoice(offlineUuid, offlineCode);
+
+                await enqueueOfflineOrder({
+                    clientUuid: offlineUuid,
+                    type: paymentMethod === 'debt' ? 'DEBT' : 'STANDARD',
+                    payload,
+                    orderSnapshot: offlineInvoice,
+                    customer
+                });
+
+                showOfflineToast();
+                setSubmitting(false);
+                return { ok: true, isOffline: true, order: offlineInvoice, invoice: offlineInvoice, customer };
+            } catch (err) {
+                console.error('[OfflineQueue] Failed to enqueue order:', err);
+                setError('Không thể lưu đơn ngoại tuyến vào bộ nhớ');
+                setSubmitting(false);
+                return { ok: false, error: 'Không thể lưu đơn ngoại tuyến vào bộ nhớ' };
+            }
+        }
+
         try {
             const payload = buildOrderPayload(cartItems, paymentMethod, debtInfo, note, paymentReference);
-
             let invoice;
             if (paymentMethod === 'debt') {
                 invoice = await createDebtInvoice(payload);
@@ -119,19 +223,52 @@ export function useCheckout() {
             let invoiceData = null;
             try {
                 invoiceData = await getInvoiceData(invoice.id);
-            } catch (error) {
-                console.error("Failed to fetch invoice data after checkout:", error);
+            } catch {
             }
+
+            // Cache newly created order to offline sales_orders store for 7-day exchange/return
+            try {
+                await saveOfflineSalesOrder({
+                    ...invoice,
+                    items: invoice.items || [],
+                    customer: customer || invoice.customer
+                });
+            } catch {
+            }
+
             return { ok: true, order: invoice, invoice: invoiceData, customer };
         } catch (err) {
-            console.error("Checkout failed:", err);
+            // Check if network error occurred while attempting to submit
+            const isNetworkError = !err.response || err.code === 'ERR_NETWORK' || err.message?.toLowerCase().includes('network');
+            if (isNetworkError) {
+                try {
+                    const payload = buildOrderPayload(cartItems, paymentMethod, debtInfo, note, paymentReference);
+                    const offlineUuid = `off-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                    const offlineCode = generateOfflineOrderCode();
+                    const offlineInvoice = buildOfflineInvoice(offlineUuid, offlineCode);
+
+                    await enqueueOfflineOrder({
+                        clientUuid: offlineUuid,
+                        type: paymentMethod === 'debt' ? 'DEBT' : 'STANDARD',
+                        payload,
+                        orderSnapshot: offlineInvoice,
+                        customer
+                    });
+
+                    showOfflineToast();
+                    return { ok: true, isOffline: true, order: offlineInvoice, invoice: offlineInvoice, customer };
+                } catch (queueErr) {
+                    console.error('[OfflineQueue] Failed to enqueue order:', queueErr);
+                }
+            }
+
             const message = err.response?.data?.message || 'Thanh toán thất bại. Vui lòng thử lại.';
             setError(message);
             return { ok: false, error: message };
         } finally {
             setSubmitting(false);
         }
-    }, [customer, validateCheckout, buildOrderPayload]);
+    }, [customer, validateCheckout, buildOrderPayload, discount, isOnline]);
 
     const resetCheckout = useCallback(() => {
         setPhone('');

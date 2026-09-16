@@ -8,24 +8,25 @@ public final class StaffConstants {
 
     private StaffConstants() {}
 
-    public static final String ADMIN_ROLE_NAME = "ADMIN";
 
+    public static final String MANAGER_ROLE_NAME = "MANAGER";
+
+    public static final String DEFAULT_STAFF_ROLE = "staff";
+
+    
+    
     public static final Set<String> STAFF_ROLE_NAMES = Set.of(
-            "cashier",
-            "accountant",
-            "warehouse"
+            "staff"
     );
 
     public static final Map<String, String> ROLE_TO_POSITION = Map.of(
-            "cashier", "Thu ngân",
-            "accountant", "Kế toán",
-            "warehouse", "Kiểm kho"
+            "staff", "Nhân viên",
+            "manager", "Quản lý"
     );
 
     public static final Map<String, Set<String>> POSITION_TO_ROLES = Map.of(
-            "Thu ngân", Set.of("cashier"),
-            "Kiểm kho", Set.of("warehouse"),
-            "Kế toán", Set.of("accountant")
+            "Nhân viên", Set.of("staff"),
+            "Quản lý", Set.of("manager")
     );
 
     public static String resolvePosition(String roleName) {

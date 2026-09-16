@@ -45,7 +45,7 @@ const getStatusBadge = (status) => {
       return <Badge bg="primary">Không nợ</Badge>;
 
     case "OVERDUE":
-      return <Badge bg="danger">Nợ quá hạn</Badge>;
+      return <Badge bg="danger">Nợ lâu</Badge>;
 
     default:
       return <Badge bg="secondary">{status || "Không rõ"}</Badge>;
@@ -75,10 +75,10 @@ const getPriorityInfo = (customer) => {
   // Customers with debt
   if (isOverdue) {
     return allowDebt
-      ? { className: "priority-1", tooltip: "Nợ quá hạn - Cần xử lý ngay" }
+      ? { className: "priority-1", tooltip: "Nợ lâu - Cần xử lý ngay" }
       : {
         className: "priority-3",
-        tooltip: "Nghiêm trọng: Nợ quá hạn và không được phép nợ",
+        tooltip: "Nghiêm trọng: Nợ lâu và không được phép nợ",
       };
   } else {
     return allowDebt
@@ -363,7 +363,7 @@ export default function CustomerDebtPage() {
 
   const getActiveFilterLabel = (filters, type) => {
     if (type === "debt") {
-      if (filters.isOverdue === true) return "Nợ quá hạn";
+      if (filters.isOverdue === true) return "Nợ lâu";
       if (filters.isOverdue === false) return "Đang trong hạn nợ";
       if (filters.allowDebt === false) return "Không được phép nợ";
       return "Tất cả đang nợ";
@@ -683,7 +683,7 @@ export default function CustomerDebtPage() {
                       Tất cả đang nợ
                     </Dropdown.Item>
                     <Dropdown.Item eventKey="overdue">
-                      Nợ quá hạn
+                      Nợ lâu
                     </Dropdown.Item>
                     <Dropdown.Item eventKey="not_overdue">
                       Đang trong hạn nợ

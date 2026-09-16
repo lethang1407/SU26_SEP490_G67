@@ -438,60 +438,42 @@ public class ProductListService {
     boolean matchesFacet(ProductListItemResponse dto, String facet, Instant newThreshold) {
         if ("all".equals(facet)) return true;
         if ("new".equals(facet)) {
-            return dto.getCreatedAt() != null && dto.getCreatedAt().isAfter(newThreshold)
-                    && !"inactive".equalsIgnoreCase(dto.getStatus());
+            return "new".equals(dto.getFacetStatus())
+                    || "new".equalsIgnoreCase(dto.getStatus())
+                    || (dto.getCreatedAt() != null && dto.getCreatedAt().isAfter(newThreshold)
+                            && !"inactive".equalsIgnoreCase(dto.getStatus()));
         }
         return facet.equals(dto.getFacetStatus());
     }
 
     Comparator<ProductListItemResponse> buildComparator(String facet) {
+        Comparator<ProductListItemResponse> newestFirst = Comparator.comparing(
+                ProductListItemResponse::getCreatedAt,
+                Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(ProductListItemResponse::getId, Comparator.nullsLast(Comparator.reverseOrder()));
+
         Comparator<ProductListItemResponse> secondary = Comparator.comparing(
                 ProductListItemResponse::getName, Comparator.nullsLast(String::compareToIgnoreCase));
+
         return switch (facet) {
-            case "new" -> Comparator.comparing(
-                    ProductListItemResponse::getCreatedAt,
-                    Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(secondary);
+            case "all" -> newestFirst.thenComparing(secondary);
+            case "new" -> newestFirst.thenComparing(secondary);
             case "hot" -> Comparator.comparing(
                     ProductListItemResponse::getAvgDailyRate,
-                    Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(secondary);
+                    Comparator.nullsLast(Comparator.reverseOrder()))
+                    .thenComparing(newestFirst);
             case "warn" -> Comparator.comparing(
                     ProductListItemResponse::getCoverDaysLeft,
-                    Comparator.nullsLast(Comparator.naturalOrder())).thenComparing(secondary);
+                    Comparator.nullsLast(Comparator.naturalOrder()))
+                    .thenComparing(ProductListItemResponse::getAvgDailyRate, Comparator.nullsLast(Comparator.reverseOrder()))
+                    .thenComparing(newestFirst);
+            case "ok" -> newestFirst.thenComparing(secondary);
             case "slow" -> Comparator.comparing(
                     ProductListItemResponse::getAvgDailyRate,
-                    Comparator.nullsLast(Comparator.naturalOrder())).thenComparing(secondary);
-            case "stop" -> secondary;
-            case "all" -> {
-                // Group by facet priority: new -> hot -> warn -> ok -> season -> slow -> stop
-                List<String> order = List.of("new", "hot", "warn", "ok", "season", "slow", "stop");
-                yield Comparator.comparingInt((ProductListItemResponse dto) -> {
-                    int idx = order.indexOf(dto.getFacetStatus());
-                    return idx < 0 ? order.size() : idx;
-                }).thenComparing((dto1, dto2) -> {
-                    String status1 = dto1.getFacetStatus();
-                    String status2 = dto2.getFacetStatus();
-                    if (status1 != null && status1.equals(status2)) {
-                        if ("new".equals(status1)) {
-                            if (dto1.getCreatedAt() != null && dto2.getCreatedAt() != null) {
-                                return dto2.getCreatedAt().compareTo(dto1.getCreatedAt());
-                            }
-                        } else if ("warn".equals(status1)) {
-                            if (dto1.getCoverDaysLeft() != null && dto2.getCoverDaysLeft() != null) {
-                                return Double.compare(dto1.getCoverDaysLeft(), dto2.getCoverDaysLeft());
-                            }
-                        }
-                    }
-                    BigDecimal rate1 = dto1.getAvgDailyRate() == null ? BigDecimal.ZERO : dto1.getAvgDailyRate();
-                    BigDecimal rate2 = dto2.getAvgDailyRate() == null ? BigDecimal.ZERO : dto2.getAvgDailyRate();
-                    int rateCompare = rate2.compareTo(rate1);
-                    if (rateCompare != 0) return rateCompare;
-                    return (dto1.getName() == null ? "" : dto1.getName())
-                            .compareToIgnoreCase(dto2.getName() == null ? "" : dto2.getName());
-                });
-            }
-            default -> Comparator.comparing(
-                    ProductListItemResponse::getAvgDailyRate,
-                    Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(secondary);
+                    Comparator.nullsLast(Comparator.naturalOrder()))
+                    .thenComparing(newestFirst);
+            case "stop" -> newestFirst.thenComparing(secondary);
+            default -> newestFirst.thenComparing(secondary);
         };
     }
 }

@@ -1,0 +1,1442 @@
+/* Revenue Report — Báo cáo & Phân tích Doanh thu */
+
+.rr-page {
+  --rr-border: #e2e8f0;
+  --rr-ink: #0f172a;
+  --rr-muted: #64748b;
+  color: var(--rr-ink);
+}
+
+/* Breadcrumb */
+.rr-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--rr-muted);
+}
+
+.rr-breadcrumb_sep {
+  color: #cbd5e1;
+}
+
+.rr-breadcrumb_current {
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.rr-breadcrumb_freshness {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid var(--rr-border);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+/* Page heading */
+.rr-page_header {
+  margin-bottom: 14px;
+}
+
+.rr-page_title {
+  margin: 0 0 6px;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.rr-page_subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: var(--rr-muted);
+}
+
+/* Filters */
+.rr-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid var(--rr-border);
+  border-radius: 8px;
+}
+
+.rr-filters_field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 150px;
+  min-width: 140px;
+}
+
+.rr-filters_field--year,
+.rr-filters_field--quarter {
+  flex: 0 0 120px;
+  min-width: 120px;
+}
+
+.rr-filters_field--staff {
+  flex: 1 1 180px;
+}
+
+.rr-filters_field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rr-muted);
+}
+
+.rr-input {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--rr-border);
+  border-radius: 6px;
+  background: #fff;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.rr-input:focus {
+  outline: none;
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+select.rr-input {
+  cursor: pointer;
+}
+
+.rr-input-wrap {
+  position: relative;
+}
+
+.rr-input-wrap_icon {
+  position: absolute;
+  top: 50%;
+  left: 11px;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.rr-input--with-icon {
+  padding-left: 32px;
+}
+
+.rr-filters_submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 40px;
+  border: none;
+  border-radius: 6px;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+}
+
+.rr-filters_submit:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.rr-filters_submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.rr-alert {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 14px;
+}
+
+/* KPI cards */
+.rr-kpi {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.rr-kpi_card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+  background: #fff;
+  border: 1px solid var(--rr-border);
+  border-radius: 8px;
+}
+
+.rr-kpi_card--hero {
+  border-top: 3px solid #cbd5e1;
+}
+
+.rr-kpi_card--revenue {
+  border-top-color: #16a34a;
+}
+
+.rr-kpi_card--profit {
+  border-top-color: #2563eb;
+}
+
+.rr-kpi_card--margin {
+  border-top-color: #7c3aed;
+}
+
+.rr-kpi_card--aov {
+  border-top-color: #ea580c;
+}
+
+.rr-kpi_head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rr-kpi_label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.rr-kpi_icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.rr-kpi_value {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--rr-ink);
+}
+
+.rr-kpi_value--negative {
+  color: #dc2626;
+}
+
+.rr-kpi_value--warning {
+  color: #ea580c;
+}
+
+.rr-kpi_hint {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.rr-kpi_delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.rr-kpi_delta--up {
+  color: #16a34a;
+}
+
+.rr-kpi_delta--down {
+  color: #dc2626;
+}
+
+.rr-kpi_delta--flat {
+  color: #94a3b8;
+}
+
+.rr-kpi_bar {
+  height: 6px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: #ede9fe;
+  overflow: hidden;
+}
+
+.rr-kpi_bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #7c3aed;
+}
+
+.rr-kpi_split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 2px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.rr-kpi_split strong {
+  color: #475569;
+}
+
+.rr-kpi_pace {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--rr-muted);
+}
+
+.rr-kpi_pace li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.rr-kpi_pace strong {
+  color: var(--rr-ink);
+}
+
+.rr-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  flex-shrink: 0;
+}
+
+.rr-dot--up {
+  background: #16a34a;
+}
+
+.rr-dot--down {
+  background: #f97316;
+}
+
+/* Cards */
+.rr-card {
+  margin-bottom: 12px;
+  padding: 16px 18px;
+  background: #fff;
+  border: 1px solid var(--rr-border);
+  border-radius: 8px;
+}
+
+.rr-card_head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.rr-card_head-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rr-card_title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.rr-card_subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--rr-muted);
+}
+
+.rr-chip {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rr-muted);
+}
+
+/* Chart */
+.rr-toggle {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 8px;
+  background: #f1f5f9;
+}
+
+.rr-toggle_btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rr-muted);
+  cursor: pointer;
+}
+
+.rr-toggle_btn.is-active {
+  background: #fff;
+  color: #2563eb;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+}
+
+.rr-chart_body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 18px;
+  align-items: start;
+}
+
+.rr-chart_plot {
+  min-width: 0;
+}
+
+.rr-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 20px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--rr-muted);
+}
+
+.rr-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rr-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 300px;
+  margin: 0;
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+.rr-tooltip {
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid var(--rr-border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  font-size: 12px;
+}
+
+.rr-tooltip_label {
+  margin: 0 0 6px;
+  font-weight: 700;
+  color: var(--rr-ink);
+}
+
+.rr-tooltip_row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 3px;
+  color: var(--rr-muted);
+}
+
+.rr-tooltip_row strong {
+  color: var(--rr-ink);
+}
+
+/* Highlights panel */
+.rr-highlights {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--rr-border);
+  border-radius: 8px;
+  background: #fafbfc;
+}
+
+.rr-highlights_title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.rr-highlights_item {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.rr-highlights_item--positive {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+}
+
+.rr-highlights_item--warning {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #b45309;
+}
+
+.rr-highlights_item svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.rr-highlights_empty,
+.rr-highlights_note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--rr-muted);
+}
+
+.rr-highlights_note strong {
+  color: #475569;
+}
+
+/* Tabs */
+.rr-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0 12px;
+  border-bottom: 1px solid var(--rr-border);
+}
+
+.rr-tabs_btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--rr-muted);
+  cursor: pointer;
+}
+
+.rr-tabs_btn:hover {
+  color: #334155;
+}
+
+.rr-tabs_btn.is-active {
+  border-bottom-color: #2563eb;
+  color: #2563eb;
+}
+
+.rr-tabs_chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eff6ff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Tables */
+.rr-table-wrap {
+  overflow-x: auto;
+}
+
+.rr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.rr-table thead th {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--rr-border);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.rr-table tbody td {
+  padding: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  vertical-align: middle;
+}
+
+.rr-table tfoot td {
+  padding: 12px;
+  border-top: 1px solid var(--rr-border);
+  font-weight: 700;
+  color: var(--rr-ink);
+}
+
+.rr-table_row {
+  cursor: pointer;
+}
+
+.rr-table_row:hover td {
+  background: #f8fafc;
+}
+
+.rr-table_num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.rr-table_num--strong {
+  font-weight: 700;
+  color: var(--rr-ink);
+}
+
+.rr-table_code {
+  font-weight: 600;
+  color: var(--rr-ink);
+}
+
+.rr-table_empty {
+  padding: 28px 12px;
+  text-align: center;
+  color: #94a3b8;
+}
+
+.rr-muted {
+  color: #cbd5e1;
+}
+
+.rr-money--negative {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.rr-source {
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.rr-source--return {
+  color: #dc2626;
+}
+
+.rr-payment--return {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.rr-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.rr-badge--sold {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.rr-badge--returned {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.rr-badge--debt {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.rr-badge--cancelled {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+/* Search box */
+.rr-search {
+  position: relative;
+  flex: 0 1 260px;
+}
+
+.rr-search_icon {
+  position: absolute;
+  top: 50%;
+  left: 11px;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.rr-search_input {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 12px 8px 32px;
+  border: 1px solid var(--rr-border);
+  border-radius: 6px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.rr-search_input:focus {
+  outline: none;
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+/* Adjustment tab */
+.rr-adjust {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.rr-adjust_card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--rr-border);
+  border-radius: 8px;
+  background: #fafbfc;
+}
+
+/* Pagination */
+.rr-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 14px;
+}
+
+.rr-pagination_info {
+  font-size: 13px;
+  color: var(--rr-muted);
+}
+
+.rr-pagination_controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rr-page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--rr-border);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+}
+
+.rr-page-btn:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.rr-page-btn.is-active {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
+.rr-page-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.rr-page-gap {
+  padding: 0 4px;
+  color: #94a3b8;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .rr-chart_body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 992px) {
+  .rr-kpi {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+
+  .rr-kpi,
+  .rr-adjust {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rr-breadcrumb_freshness {
+    margin-left: 0;
+  }
+}
+
+/* ── Tab Đổi trả & Chiết khấu ───────────────────────────── */
+.rr-flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  background: #fffbeb;
+}
+
+.rr-flow_card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 10px;
+  border: 1px solid var(--rr-border);
+  border-radius: 8px;
+  background: #fff;
+  text-align: center;
+}
+
+.rr-flow_label {
+  font-size: 12px;
+  color: #475569;
+}
+
+.rr-flow_value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--rr-ink);
+}
+
+.rr-flow_card--danger { border-color: #fecaca; }
+.rr-flow_card--danger .rr-flow_label,
+.rr-flow_card--danger .rr-flow_value { color: #dc2626; }
+
+.rr-flow_card--warning { border-color: #fde68a; }
+.rr-flow_card--warning .rr-flow_label,
+.rr-flow_card--warning .rr-flow_value { color: #c2410c; }
+
+.rr-flow_card--success { border-color: #a7f3d0; background: #ecfdf5; }
+.rr-flow_card--success .rr-flow_label { color: #047857; }
+.rr-flow_card--success .rr-flow_value { color: #059669; }
+
+.rr-flow_op {
+  font-size: 16px;
+  font-weight: 700;
+  color: #d97706;
+}
+
+.rr-flow_op--eq {
+  font-size: 20px;
+}
+
+.rr-card--compact {
+  max-width: 820px;
+}
+
+.rr-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.rr-pill--danger {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.rr-code-link {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: #2563eb;
+}
+
+.rr-row--faded td,
+.rr-row--faded .rr-code-link {
+  color: #94a3b8;
+}
+
+.rr-return-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rr-reason {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.rr-reason--danger { border: 1px solid #fecaca; background: #fee2e2; color: #b91c1c; }
+.rr-reason--warning { border: 1px solid #fde68a; background: #fef9c3; color: #a16207; }
+.rr-reason--info { border: 1px solid #bfdbfe; background: #eff6ff; color: #1d4ed8; }
+
+.rr-reason-text {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.rr-legend_line {
+  display: inline-block;
+  width: 16px;
+  height: 2px;
+  border-radius: 2px;
+}
+
+.rr-legend_line--dashed {
+  height: 0;
+  border-top: 2px dashed currentColor;
+  background: none !important;
+}
+
+.rr-legend_square {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+/* ── Tab Theo PTTT ──────────────────────────────────────── */
+.rr-paysum {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.rr-paysum_card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 0 1 300px;
+  padding: 14px 16px;
+  border-radius: 10px;
+}
+
+.rr-paysum_card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.rr-paysum_card strong {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.rr-paysum_card p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.rr-paysum_card--collected {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.rr-paysum_card--collected strong { color: #1e3a8a; }
+
+.rr-paysum_card--debt {
+  border: 1px solid #fde68a;
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.rr-paysum_card--debt strong { color: #d97706; }
+
+.rr-card--flush {
+  padding: 0;
+  overflow: hidden;
+}
+
+.rr-card_head--padded {
+  margin-bottom: 0;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--rr-border);
+}
+
+.rr-card_meta {
+  padding-left: 10px;
+  border-left: 1px solid var(--rr-border);
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.rr-table--payment thead th {
+  background: #f8fafc;
+}
+
+.rr-table--payment thead th:first-child,
+.rr-table--payment tbody td:first-child,
+.rr-table--payment tfoot td:first-child {
+  padding-left: 18px;
+}
+
+.rr-table--payment tfoot td {
+  background: #f8fafc;
+}
+
+.rr-table_center {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.rr-method {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 60px;
+}
+
+.rr-method strong {
+  display: block;
+  font-size: 13px;
+  color: var(--rr-ink);
+}
+
+.rr-method small {
+  display: block;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.rr-method_icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+}
+
+.rr-method_icon--transfer { background: #eff6ff; color: #2563eb; }
+.rr-method_icon--cash { background: #ecfdf5; color: #059669; }
+.rr-method_icon--debt { background: #fffbeb; color: #d97706; }
+.rr-method_icon--other { background: #f1f5f9; color: #64748b; }
+
+.rr-share {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rr-share_track {
+  width: 100px;
+  height: 4px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.rr-share_track span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.rr-share_pct {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.rr-paytotal {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.rr-paytotal_pct { color: #2563eb; }
+.rr-paytotal_collected { color: #059669; }
+.rr-paytotal_debt { color: #d97706; }
+
+.rr-legend--inline {
+  margin: 0;
+  justify-content: flex-end;
+}
+
+@media (max-width: 992px) {
+  .rr-flow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rr-flow_op {
+    justify-self: center;
+    transform: rotate(90deg);
+  }
+
+  .rr-flow_op--eq {
+    transform: none;
+  }
+
+  .rr-method {
+    padding-left: 0;
+  }
+}
+
+/* Hàng KPI phụ có 5 thẻ (thêm thẻ Doanh thu) */
+.rr-kpi--secondary {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+@media (max-width: 1200px) {
+  .rr-kpi--secondary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 992px) {
+  .rr-kpi--secondary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .rr-kpi--secondary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.rr-kpi_card--gross {
+  border-top-color: #0ea5e9;
+}
+
+/* ── Bảng chi tiết giao dịch (tab Tổng quan) ─────────────── */
+.rr-table--tx {
+  table-layout: fixed;
+  min-width: 1120px;
+}
+
+.rr-table--tx td {
+  white-space: nowrap;
+}
+
+.rr-table--tx .rr-table_num {
+  font-variant-numeric: tabular-nums;
+}
+
+.rr-table_mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.rr-table_ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rr-source--sale { color: #2563eb; }
+.rr-source--exchange { color: #d97706; }
+.rr-source--return { color: #dc2626; }
+
+.rr-money--discount {
+  color: #ea580c;
+}
+
+.rr-pm {
+  display: inline-block;
+  min-width: 92px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.rr-pm--transfer { background: #eff6ff; color: #1d4ed8; }
+.rr-pm--cash { background: #ecfdf5; color: #047857; }
+.rr-pm--debt { background: #fffbeb; color: #b45309; }
+.rr-pm--other { background: #f1f5f9; color: #475569; }
+
+/* ── Căn cột: header/footer phải theo cùng hướng với dữ liệu ──
+   `.rr-table thead th { text-align: left }` đặc hiệu hơn `.rr-table_num`, nên
+   header cột tiền/số bị kéo sang trái trong khi giá trị căn phải. */
+.rr-table thead th.rr-table_num,
+.rr-table tfoot td.rr-table_num {
+  text-align: right;
+}
+
+.rr-table thead th.rr-table_center,
+.rr-table tfoot td.rr-table_center {
+  text-align: center;
+}
+
+/* ── Danh sách phiếu đổi trả ─────────────────────────────── */
+.rr-table--returns {
+  table-layout: fixed;
+  min-width: 960px;
+}
+
+.rr-table--returns td {
+  vertical-align: top;
+}
+
+.rr-table--returns .rr-code-link,
+.rr-table--returns .rr-table_num,
+.rr-table--returns .rr-table_center {
+  white-space: nowrap;
+}
+
+.rr-table--returns .rr-return-items span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 20px;
+}
+
+/* ── Chi tiết theo phương thức thanh toán ────────────────── */
+.rr-table--payment {
+  table-layout: fixed;
+  min-width: 760px;
+}
+
+.rr-table--payment .rr-method {
+  padding-left: 0;
+}
+
+.rr-table--payment .rr-share {
+  justify-content: flex-start;
+}
+
+.rr-table--payment .rr-share_track {
+  flex: 1;
+  max-width: 180px;
+}
+
+.rr-table--payment .rr-share_pct {
+  min-width: 48px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.rr-table--payment .rr-table_num,
+.rr-table--payment .rr-table_center {
+  font-variant-numeric: tabular-nums;
+}
+
+.rr-paytotal-row td {
+  padding-top: 0;
+  border-top: none;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ── 4 thẻ tổng hợp tab Theo PTTT ────────────────────────── */
+.rr-paysum {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.rr-paysum_card strong {
+  font-size: 22px;
+}
+
+.rr-paysum_card--cash {
+  border: 1px solid #a7f3d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.rr-paysum_card--cash strong { color: #065f46; }
+
+.rr-paysum_card--debt-paid {
+  border: 1px solid #99f6e4;
+  background: #f0fdfa;
+  color: #0f766e;
+}
+
+.rr-paysum_card--debt-paid strong { color: #115e59; }
+
+@media (max-width: 1200px) {
+  .rr-paysum {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .rr-paysum {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Cột SL của danh sách phiếu đổi trả căn trái, không xuống dòng */
+.rr-table--returns .rr-table_qty {
+  white-space: nowrap;
+}
+
+/* ── Khoảng cách cột đều nhau ────────────────────────────────
+   Hai bảng này đã chia đều độ rộng cột, nhưng cột tiền căn phải đứng cạnh cột chữ
+   căn trái làm khoảng trống giữa các cột trông lệch. Căn trái toàn bộ để mỗi cột
+   bắt đầu ở cùng một vị trí; số vẫn dùng tabular-nums nên các chữ số thẳng hàng. */
+.rr-table--payment thead th.rr-table_num,
+.rr-table--payment thead th.rr-table_center,
+.rr-table--payment tbody td.rr-table_num,
+.rr-table--payment tbody td.rr-table_center,
+.rr-table--payment tfoot td.rr-table_num,
+.rr-table--payment tfoot td.rr-table_center,
+.rr-table--returns thead th.rr-table_num,
+.rr-table--returns thead th.rr-table_center,
+.rr-table--returns tbody td.rr-table_num,
+.rr-table--returns tbody td.rr-table_center,
+.rr-table--returns tfoot td.rr-table_num,
+.rr-table--returns tfoot td.rr-table_center {
+  text-align: left;
+}
+
+.rr-table--returns .rr-table_num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Thanh tỷ trọng chiếm một phần cố định của cột, % nằm ngay sau thanh. */
+.rr-table--payment .rr-share_track {
+  flex: 0 0 55%;
+  max-width: none;
+}
+
+.rr-table--payment .rr-share_pct {
+  min-width: 0;
+  text-align: left;
+}
+
+/* Dòng "Đã thu thực · Còn ghi nợ" dưới bảng vẫn căn phải. */
+.rr-table--payment tfoot tr.rr-paytotal-row td.rr-table_num {
+  text-align: right;
+}
+
+/* ── Chọn năm dạng danh sách cuộn ────────────────────────── */
+.rr-year {
+  position: relative;
+}
+
+.rr-year_trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rr-year_chevron {
+  flex-shrink: 0;
+  color: #94a3b8;
+  transition: transform 0.15s ease;
+}
+
+.rr-year_chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.rr-year_list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 40;
+  width: 100%;
+  max-height: 220px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  background: #fff;
+  border: 1px solid var(--rr-border);
+  border-radius: 6px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.rr-year_list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.rr-year_list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.rr-year_option {
+  padding: 7px 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #334155;
+  cursor: pointer;
+}
+
+.rr-year_option:hover {
+  background: #f1f5f9;
+}
+
+.rr-year_option.is-selected {
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 600;
+}

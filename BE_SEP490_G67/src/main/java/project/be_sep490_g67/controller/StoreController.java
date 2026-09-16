@@ -21,7 +21,7 @@ import project.be_sep490_g67.service.StoreService;
 public class StoreController {
     StoreService storeService;
 
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('STORE:VIEW')")
+    @PreAuthorize("hasRole('MANAGER') or hasAuthority('STORE:VIEW')")
     @GetMapping
     ApiResponse<StoreResponse> getStoreInfor() {
         StoreResponse storeInfo = storeService.getStoreInfo();
@@ -42,7 +42,7 @@ public class StoreController {
                 .build();
     }
 
-    @PreAuthorize("hasRole('ADMIN') or hasAuthority('STORE:UPDATE')")
+    @PreAuthorize("hasRole('MANAGER') or hasAuthority('STORE:UPDATE')")
     @PutMapping
     ApiResponse<StoreResponse> updateStoreInfor(@Valid @RequestBody UpdateStoreRequest request) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
