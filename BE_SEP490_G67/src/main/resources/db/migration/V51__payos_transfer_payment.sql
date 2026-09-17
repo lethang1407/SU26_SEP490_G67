@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS `payos_checkout_sessions` (
   UNIQUE KEY `uk_payos_checkout_order_code` (`payos_order_code`),
   KEY `idx_payos_checkout_status` (`status`),
   KEY `idx_payos_checkout_sales_order` (`sales_order_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Gắn đơn bán với giao dịch PayOS đã thanh toán cho nó (DB local có thể đã có cột).
 SET @col_exists := (

@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS import_trial_settlements (
     PRIMARY KEY (id),
     CONSTRAINT fk_trial_settle_import_order FOREIGN KEY (import_order_id) REFERENCES import_orders (id),
     CONSTRAINT fk_trial_settle_supplier FOREIGN KEY (supplier_id) REFERENCES suppliers (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS import_trial_settlement_lines (
     id INT NOT NULL AUTO_INCREMENT,
@@ -114,4 +114,4 @@ CREATE TABLE IF NOT EXISTS import_trial_settlement_lines (
     CONSTRAINT fk_trial_settle_line_detail FOREIGN KEY (import_order_detail_id) REFERENCES import_order_details (id),
     CONSTRAINT fk_trial_settle_line_batch FOREIGN KEY (stock_batch_id) REFERENCES stock_batches (id),
     CONSTRAINT fk_trial_settle_line_product FOREIGN KEY (product_id) REFERENCES products (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
