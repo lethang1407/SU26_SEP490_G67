@@ -2,8 +2,8 @@ package project.be_sep490_g67.service;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import project.be_sep490_g67.exception.AppException;
@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class CloudinaryImageService {
 
@@ -24,6 +23,11 @@ public class CloudinaryImageService {
     );
 
     private final Cloudinary cloudinary;
+
+    @Autowired
+    public CloudinaryImageService(Cloudinary cloudinary) {
+        this.cloudinary = cloudinary;
+    }
 
     public record UploadResult(String url, String publicId) {}
 
@@ -35,20 +39,18 @@ public class CloudinaryImageService {
                     file.getBytes(),
                     ObjectUtils.asMap(
                             "folder", folder,
-                            "resource_type", "auto"
+                            "resource_type", "image"
                     )
             );
             String url = String.valueOf(result.get("secure_url"));
             String publicId = String.valueOf(result.get("public_id"));
             return new UploadResult(url, publicId);
         } catch (IOException e) {
-            log.error("Cloudinary upload IO failed for file {}: {}", file.getOriginalFilename(), e.getMessage());
-            String fallbackUrl = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=500&q=80";
-            return new UploadResult(fallbackUrl, "fallback_" + System.currentTimeMillis());
+            log.error("Cloudinary upload IO failed for file {}: {}", file.getOriginalFilename(), e.getMessage(), e);
+            throw new AppException(ErrorCode.PRODUCT_IMAGE_UPLOAD_FAILED);
         } catch (Exception e) {
-            log.error("Cloudinary upload failed for file {}: {}", file.getOriginalFilename(), e.getMessage());
-            String fallbackUrl = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=500&q=80";
-            return new UploadResult(fallbackUrl, "fallback_" + System.currentTimeMillis());
+            log.error("Cloudinary upload failed for file {}: {}", file.getOriginalFilename(), e.getMessage(), e);
+            throw new AppException(ErrorCode.PRODUCT_IMAGE_UPLOAD_FAILED);
         }
     }
 
@@ -68,17 +70,18 @@ public class CloudinaryImageService {
         if (file == null || file.isEmpty()) {
             throw new AppException(ErrorCode.PRODUCT_IMAGE_INVALID);
         }
+        if (file.getSize() > MAX_BYTES) {
+            throw new AppException(ErrorCode.PRODUCT_IMAGE_INVALID);
+        }
         String contentType = file.getContentType();
         String filename = file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase() : "";
         boolean validExt = filename.endsWith(".jpg") || filename.endsWith(".jpeg")
-                || filename.endsWith(".png") || filename.endsWith(".webp") || filename.endsWith(".jfif");
-        boolean validMime = contentType != null && ALLOWED.contains(contentType.toLowerCase());
+                || filename.endsWith(".png") || filename.endsWith(".webp") || filename.endsWith(".jfif")
+                || filename.endsWith(".gif") || filename.endsWith(".bmp");
+        boolean validMime = contentType != null && (ALLOWED.contains(contentType.toLowerCase()) || contentType.startsWith("image/"));
 
         if (!validMime && !validExt) {
             log.warn("Invalid file upload attempt. contentType={}, filename={}", contentType, filename);
-            throw new AppException(ErrorCode.PRODUCT_IMAGE_INVALID);
-        }
-        if (file.getSize() > MAX_BYTES) {
             throw new AppException(ErrorCode.PRODUCT_IMAGE_INVALID);
         }
     }

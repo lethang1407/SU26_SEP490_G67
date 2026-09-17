@@ -10,7 +10,7 @@ const EMPTY_FORM = {
   brand: '',
   description: '',
   isActive: false,
-  baseUnit: 'Chai',
+  baseUnit: '',
   baseSellPrice: '0',
   costPrice: '0',
   sellingPrice: '0',
@@ -18,7 +18,7 @@ const EMPTY_FORM = {
   conversionUnits: [],
 };
 
-function createConversionUnit(ofUnit = 'Chai') {
+function createConversionUnit(ofUnit = '') {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     unitName: '',
@@ -554,10 +554,19 @@ export default function ProductCreateForm({
                       type="text"
                       list="product-unit-suggestions"
                       className="add-product-field__input"
-                      placeholder="Nhập hoặc chọn đơn vị (ví dụ: Chai, Kg, Hộp...)"
+                      placeholder="Nhập hoặc chọn đơn vị cơ bản (Bắt buộc, VD: Chai, Lon, Cái...)"
                       value={form.baseUnit}
                       onChange={(e) => handleBasePriceOrUnitChange('baseUnit', e.target.value)}
                     />
+                    {errors.baseUnit ? (
+                      <p className="add-product-field__error">{errors.baseUnit}</p>
+                    ) : (
+                      !form.baseUnit?.trim() && (
+                        <span style={{ fontSize: 12, color: '#DC2626', marginTop: 4, display: 'block', fontWeight: 500 }}>
+                          ⚠️ Vui lòng nhập đơn vị tính cơ bản
+                        </span>
+                      )
+                    )}
                   </div>
                 </div>
                 <p className="edit-product-unit-base__hint">

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getSalesOrderHistory } from '../api';
+import { getOfflineSalesOrders, saveOfflineSalesOrders } from '@/lib/db';
 
 const PAGE_SIZE = 10;
 
@@ -45,8 +46,31 @@ export function useSalesOrderHistory() {
     const fetchHistory = useCallback(async (currentPage) => {
         setLoading(true);
         setError(null);
+        const dateParams = buildDateParams(dateFilter, customFrom, customTo);
+        const isOffline = typeof window !== 'undefined' && !window.navigator.onLine;
+
+        if (isOffline) {
+            try {
+                const data = await getOfflineSalesOrders({
+                    page: currentPage,
+                    size: PAGE_SIZE,
+                    search: search.trim() || undefined,
+                    dateFrom: dateParams.dateFrom,
+                    dateTo: dateParams.dateTo
+                });
+                setOrders(data?.content ?? []);
+                setTotal(data?.totalElements ?? 0);
+                setTotalPages(data?.totalPages ?? 0);
+            } catch (err) {
+                console.error("[useSalesOrderHistory] Failed to fetch offline sales orders:", err);
+                setError('Không thể tải lịch sử đơn hàng ngoại tuyến');
+            } finally {
+                setLoading(false);
+            }
+            return;
+        }
+
         try {
-            const dateParams = buildDateParams(dateFilter, customFrom, customTo);
             const data = await getSalesOrderHistory({
                 page: currentPage,
                 size: PAGE_SIZE,
@@ -56,8 +80,29 @@ export function useSalesOrderHistory() {
             setOrders(data?.content ?? []);
             setTotal(data?.totalElements ?? 0);
             setTotalPages(data?.totalPages ?? 0);
+            if (data?.content?.length) {
+                saveOfflineSalesOrders(data.content);
+            }
         } catch (e) {
             console.error("Failed to fetch sales order history:", e);
+            // Fallback to offline Dexie cache on network error
+            try {
+                const offlineData = await getOfflineSalesOrders({
+                    page: currentPage,
+                    size: PAGE_SIZE,
+                    search: search.trim() || undefined,
+                    dateFrom: dateParams.dateFrom,
+                    dateTo: dateParams.dateTo
+                });
+                if (offlineData?.content?.length) {
+                    setOrders(offlineData.content);
+                    setTotal(offlineData.totalElements);
+                    setTotalPages(offlineData.totalPages);
+                    return;
+                }
+            } catch (cacheErr) {
+                console.warn("[useSalesOrderHistory] Failed to load fallback orders from offline cache:", cacheErr);
+            }
             setError('Không thể tải lịch sử đơn hàng');
         } finally {
             setLoading(false);

@@ -259,6 +259,13 @@
     text-align: right;
 }
 
+/* `.supplier-table thead th` (0,2,1) thắng `.text-right` (0,1,0) nên tiêu đề cột không
+   tự canh phải được — phải nêu đích danh, nếu không "SL / Đơn giá / Giảm / Thành tiền"
+   nằm lệch hẳn sang trái so với con số bên dưới. */
+.sales-order-items-table thead th.text-right {
+    text-align: right;
+}
+
 @media (max-width: 900px) {
     .sales-order-detail__grid {
         grid-template-columns: 1fr;

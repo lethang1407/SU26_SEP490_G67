@@ -23,7 +23,7 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     @Query("""
             SELECT p FROM Product p
             WHERE (p.isRemoved = false OR p.isRemoved IS NULL)
-            ORDER BY p.name ASC
+            ORDER BY p.createdAt DESC, p.id DESC
             """)
     List<Product> findAllActive();
 
@@ -112,7 +112,7 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
                           OR LOWER(c2.sku) LIKE LOWER(CONCAT('%', :keyword, '%')))
                ))
           AND (:categoryId IS NULL OR c.id = :categoryId)
-        ORDER BY p.name ASC
+        ORDER BY p.id DESC
         """)
     List<Product> findAllForList(
             @Param("keyword") String keyword,

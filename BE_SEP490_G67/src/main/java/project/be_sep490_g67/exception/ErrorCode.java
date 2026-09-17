@@ -59,6 +59,9 @@ public enum ErrorCode {
     INVALID_STORAGE_ZONE_TYPE(1056, "Loại khu không hợp lệ (WAREHOUSE)", HttpStatus.BAD_REQUEST),
     STORAGE_RETURN_HOLD_LOCKED(1081, "Không thể thay đổi hoặc tạo thêm vị trí trong khu chứa hàng đổi trả", HttpStatus.BAD_REQUEST),
     RETURN_HOLD_LOCATION_NOT_FOUND(1082, "Chưa có khu chứa hàng đổi trả trong kho", HttpStatus.INTERNAL_SERVER_ERROR),
+    RETURN_HOLD_LINE_REQUIRED(1083, "Dòng hàng phải nằm trong khu đổi trả (RT-HOLD)", HttpStatus.BAD_REQUEST),
+    RETURN_HOLD_INSUFFICIENT_QTY(1084, "Số lượng xử lý vượt quá tồn trong khu đổi trả", HttpStatus.BAD_REQUEST),
+    RETURN_HOLD_TARGET_INVALID(1085, "Ô đích phải thuộc khu kho bán được, không phải khu đổi trả", HttpStatus.BAD_REQUEST),
     SALES_ZONE_PRODUCT_BATCH_EXISTS(1057, "Sản phẩm đã có một lô trên khu bán. Mỗi SP chỉ được 1 lô trên toàn khu bán", HttpStatus.BAD_REQUEST),
     SALES_ZONE_BATCH_SPLIT(1058, "Không thể tách cùng một lô sang nhiều ô trên khu bán", HttpStatus.BAD_REQUEST),
     STOCK_BATCH_NOT_FOUND(1033, "Không tìm thấy lô hàng", HttpStatus.NOT_FOUND),
@@ -114,6 +117,9 @@ public enum ErrorCode {
             HttpStatus.BAD_REQUEST),
     IMPORT_ORDER_NOT_IMPORTED(1091, "Chỉ quyết toán hàng bán thử trên phiếu đã nhập kho.", HttpStatus.BAD_REQUEST),
     INVALID_TRIAL_DISCOUNT(1092, "Giảm giá quyết toán không được âm và không vượt tiền lô thử phải trả.", HttpStatus.BAD_REQUEST),
+    TRIAL_BATCH_NOT_RETURNABLE(1093,
+            "Hàng bán thử không đổi/trả qua phiếu NCC — hãy quyết toán bán thử trên phiếu nhập.",
+            HttpStatus.BAD_REQUEST),
 
     // Product / category errors (11xx)
     PRODUCT_NAME_REQUIRED(1101, "Vui lòng nhập tên sản phẩm", HttpStatus.BAD_REQUEST),
@@ -127,7 +133,7 @@ public enum ErrorCode {
     PRODUCT_UNIT_BASE_INVALID(1109, "Phải có đúng một đơn vị cơ bản với hệ số 1", HttpStatus.BAD_REQUEST),
     PRODUCT_UNIT_INVALID(1110, "Đơn vị tính không hợp lệ", HttpStatus.BAD_REQUEST),
     PRODUCT_ATTRIBUTE_INVALID(1111, "Thuộc tính sản phẩm không hợp lệ", HttpStatus.BAD_REQUEST),
-    PRODUCT_IMAGE_INVALID(1112, "Ảnh phải là JPG/PNG và tối đa 5MB", HttpStatus.BAD_REQUEST),
+    PRODUCT_IMAGE_INVALID(1112, "Ảnh không hợp lệ hoặc vượt quá 10MB (hỗ trợ JPG, PNG, WEBP, JFIF)", HttpStatus.BAD_REQUEST),
     PRODUCT_IMAGE_UPLOAD_FAILED(1113, "Tải ảnh lên Cloudinary thất bại", HttpStatus.BAD_GATEWAY),
     PRODUCT_IMAGE_NOT_FOUND(1114, "Không tìm thấy ảnh sản phẩm", HttpStatus.NOT_FOUND),
     INVALID_DATE_RANGE(1115, "Khoảng thời gian không hợp lệ", HttpStatus.BAD_REQUEST),

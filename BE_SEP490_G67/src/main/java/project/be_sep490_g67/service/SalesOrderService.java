@@ -274,7 +274,7 @@ public class SalesOrderService {
         }
         return userRepository.findActiveStaffByIdWithRoles(userId)
                 .map(user -> user.getRoles().stream()
-                        .anyMatch(role -> "ADMIN".equalsIgnoreCase(role.getName())))
+                        .anyMatch(role -> "MANAGER".equalsIgnoreCase(role.getName())))
                 .orElse(false);
     }
 
@@ -400,10 +400,28 @@ public class SalesOrderService {
                 .discountAmount(order.getDiscountAmount())
                 .totalAmount(order.getTotalAmount())
                 .paidAmount(order.getPaidAmount())
+                .dueDate(order.getDueDate())
+                .note(order.getNote())
                 .createdAt(order.getCreatedAt())
+                .createdBy(order.getCreatedBy())
+                .cashierName(cashierName(order.getCreatedBy()))
                 .customer(customerInfo)
                 .items(itemInfos)
                 .build();
+    }
+
+    /**
+     * Tên thu ngân lập đơn. Dùng cùng nguồn với cột "NV bán hàng" của báo cáo doanh thu
+     * ({@code findAllById}, không lọc nhân viên đã nghỉ) để hai màn không hiện khác nhau
+     * về cùng một hóa đơn.
+     */
+    private String cashierName(Integer userId) {
+        if (userId == null) {
+            return null;
+        }
+        return userRepository.findById(userId)
+                .map(User::getFullName)
+                .orElse(null);
     }
 
     private SalesOrderResponse toResponse(SalesOrder saved,

@@ -12,19 +12,26 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.request.AssignBatchRequest;
+import project.be_sep490_g67.dto.request.CancelReturnHoldRequest;
 import project.be_sep490_g67.dto.request.CreateStorageLocationRequest;
 import project.be_sep490_g67.dto.request.MoveAllBatchesRequest;
 import project.be_sep490_g67.dto.request.MoveBatchRequest;
+import project.be_sep490_g67.dto.request.ReleaseReturnHoldRequest;
 import project.be_sep490_g67.dto.request.SetLocationFullRequest;
+import project.be_sep490_g67.dto.request.SupplierReturnFromHoldRequest;
 import project.be_sep490_g67.dto.request.UnassignBatchRequest;
 import project.be_sep490_g67.dto.response.ApiResponse;
+import project.be_sep490_g67.dto.response.ImportReturnDetailResponse;
 import project.be_sep490_g67.dto.response.StorageLocationResponse;
 import project.be_sep490_g67.dto.response.UnplacedBatchResponse;
+import project.be_sep490_g67.repository.UserRepository;
+import project.be_sep490_g67.service.ImportReturnService;
 import project.be_sep490_g67.service.StorageLocationService;
 
 import java.util.List;
 
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @RestController
 @RequestMapping(ApiPath.STORAGE_LOCATIONS)
@@ -33,6 +40,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 public class StorageLocationController {
 
     StorageLocationService storageLocationService;
+    ImportReturnService importReturnService;
+    UserRepository userRepository;
 
    // @PreAuthorize("hasAuthority('WAREHOUSE:VIEW')")
     @GetMapping
@@ -120,5 +129,47 @@ public class StorageLocationController {
                         ? "Đã đánh dấu ô đầy"
                         : "Đã bỏ đánh dấu ô đầy")
                 .build();
+    }
+
+    @PostMapping("/return-hold/release")
+    public ApiResponse<StorageLocationResponse> releaseReturnHold(
+            @Valid @RequestBody ReleaseReturnHoldRequest request) {
+        return ApiResponse.<StorageLocationResponse>builder()
+                .result(storageLocationService.releaseReturnHold(request, resolveStaffId()))
+                .message("Đã đẩy hàng từ kho đổi trả vào kệ bán")
+                .build();
+    }
+
+    @PostMapping("/return-hold/cancel")
+    public ApiResponse<StorageLocationResponse> cancelReturnHold(
+            @Valid @RequestBody CancelReturnHoldRequest request) {
+        return ApiResponse.<StorageLocationResponse>builder()
+                .result(storageLocationService.cancelReturnHold(request, resolveStaffId()))
+                .message("Đã hủy hàng trong kho đổi trả")
+                .build();
+    }
+
+    @PostMapping("/return-hold/supplier-return")
+    public ApiResponse<ImportReturnDetailResponse> createSupplierReturnFromHold(
+            @Valid @RequestBody SupplierReturnFromHoldRequest request) {
+        return ApiResponse.<ImportReturnDetailResponse>builder()
+                .result(importReturnService.createFromReturnHold(
+                        resolveStaffId(),
+                        request.getBatchLocationId(),
+                        request.getQuantity(),
+                        request.getMethod(),
+                        request.getNote()))
+                .message("Đã tạo phiếu đổi/trả nhà cung cấp từ kho đổi trả")
+                .build();
+    }
+
+    private Integer resolveStaffId() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getName() == null) {
+            return null;
+        }
+        return userRepository.findByUsername(auth.getName())
+                .map(u -> u.getId())
+                .orElse(null);
     }
 }

@@ -1,0 +1,605 @@
+/* ==========================================================================
+   USER PERMISSIONS MODAL - KIOTVIET / MODERN SAAS AESTHETICS
+   ========================================================================== */
+
+.perm-modal-dialog {
+  max-width: 920px !important;
+  margin: 1.75rem auto;
+}
+
+.perm-modal-content {
+  border-radius: 16px !important;
+  border: 1px solid #E2E8F0 !important;
+  box-shadow: 0 20px 35px -10px rgba(15, 23, 42, 0.15), 0 8px 16px -6px rgba(15, 23, 42, 0.08) !important;
+  overflow: hidden;
+  background: #FFFFFF;
+}
+
+.perm-modal-header {
+  background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+  border-bottom: 1px solid #E2E8F0;
+  padding: 1.25rem 1.5rem;
+}
+
+.perm-profile-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 1rem;
+}
+
+.perm-profile-info {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.perm-profile-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.15rem;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+  flex-shrink: 0;
+}
+
+.perm-profile-name {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #0F172A;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.perm-profile-meta {
+  font-size: 0.8125rem;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+}
+
+.perm-role-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: #E0E7FF;
+  color: #3730A3;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+/* ─── Control Bar: Template Selector & Search ─── */
+.perm-control-bar {
+  background: #FFFFFF;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #F1F5F9;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 1rem;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .perm-control-bar {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+}
+
+.perm-template-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.perm-template-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #475569;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.perm-template-select {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1E293B;
+  border: 1.5px solid #CBD5E1;
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+  background-color: #F8FAFC;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  outline: none;
+}
+
+.perm-template-select:focus {
+  border-color: #2563EB;
+  background-color: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.perm-search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-top: auto;
+}
+
+.perm-search-icon {
+  position: absolute;
+  left: 0.85rem;
+  color: #94A3B8;
+  pointer-events: none;
+}
+
+.perm-search-input {
+  width: 100%;
+  padding: 0.525rem 2.2rem 0.525rem 2.4rem;
+  font-size: 0.875rem;
+  border: 1.5px solid #CBD5E1;
+  border-radius: 10px;
+  background-color: #F8FAFC;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.perm-search-input:focus {
+  border-color: #2563EB;
+  background-color: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.perm-search-clear {
+  position: absolute;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  color: #94A3B8;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.perm-search-clear:hover {
+  color: #475569;
+}
+
+/* ─── Overview Summary Meter ─── */
+.perm-summary-meter {
+  background: #F8FAFC;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid #E2E8F0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.perm-progress-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.perm-progress-count {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.perm-progress-count strong {
+  color: #2563EB;
+  font-size: 1rem;
+}
+
+.perm-progress-track {
+  height: 7px;
+  background: #E2E8F0;
+  border-radius: 999px;
+  overflow: hidden;
+  flex: 1;
+  max-width: 260px;
+}
+
+.perm-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3B82F6 0%, #10B981 100%);
+  border-radius: 999px;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.perm-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.perm-quick-btn {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.3rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid #CBD5E1;
+  background: #FFFFFF;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.perm-quick-btn:hover {
+  background: #F1F5F9;
+  border-color: #94A3B8;
+  color: #0F172A;
+}
+
+.perm-quick-btn.is-primary {
+  border-color: #BFDBFE;
+  background: #EFF6FF;
+  color: #1D4ED8;
+}
+
+.perm-quick-btn.is-primary:hover {
+  background: #DBEAFE;
+  color: #1E40AF;
+}
+
+/* ─── Module Tabs Navigation ─── */
+.perm-tabs-container {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.65rem 1.5rem;
+  background: #FFFFFF;
+  border-bottom: 1px solid #E2E8F0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.perm-tabs-container::-webkit-scrollbar {
+  height: 4px;
+}
+
+.perm-tabs-container::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+
+.perm-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #64748B;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.perm-tab-btn:hover {
+  background: #F1F5F9;
+  color: #1E293B;
+}
+
+.perm-tab-btn.is-active {
+  background: #EFF6FF;
+  border-color: #BFDBFE;
+  color: #1D4ED8;
+}
+
+.perm-tab-badge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0.1rem 0.375rem;
+  border-radius: 999px;
+  background: #E2E8F0;
+  color: #475569;
+}
+
+.perm-tab-btn.is-active .perm-tab-badge {
+  background: #2563EB;
+  color: #FFFFFF;
+}
+
+/* ─── Modal Scrollable Body & Permission Grid ─── */
+.perm-modal-body {
+  padding: 1.25rem 1.5rem;
+  max-height: 58vh;
+  overflow-y: auto;
+  background: #F8FAFC;
+}
+
+.perm-module-section {
+  margin-bottom: 1.5rem;
+}
+
+.perm-module-section:last-child {
+  margin-bottom: 0;
+}
+
+.perm-module-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.perm-module-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #1E293B;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.perm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+@media (max-width: 680px) {
+  .perm-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── Modern Permission Card (Fixed Uniform Dimensions) ─── */
+.perm-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding: 0.75rem 1rem;
+  background: #FFFFFF;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+  user-select: none;
+  height: 88px;
+  min-height: 88px;
+  max-height: 88px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 680px) {
+  .perm-card {
+    height: auto;
+    min-height: 88px;
+    max-height: none;
+  }
+}
+
+.perm-card:hover {
+  border-color: #93C5FD;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+}
+
+.perm-card.is-active {
+  background: #F8FAFF;
+  border-color: #3B82F6;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+}
+
+.perm-card-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.perm-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.2rem;
+  min-height: 22px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.perm-card-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #0F172A;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.perm-card.is-active .perm-card-title {
+  color: #1D4ED8;
+}
+
+.perm-tag {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.08rem 0.4rem;
+  border-radius: 4px;
+  background: #F1F5F9;
+  color: #64748B;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.perm-card.is-active .perm-tag {
+  background: #DBEAFE;
+  color: #1E40AF;
+}
+
+.perm-card-desc {
+  font-size: 0.775rem;
+  color: #64748B;
+  line-height: 1.35;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  height: 2.7em;
+  min-height: 2.7em;
+}
+
+/* ─── iOS-Style Smooth Toggle Switch ─── */
+.perm-toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.perm-toggle-input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.perm-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #CBD5E1;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 999px;
+}
+
+.perm-toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #FFFFFF;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.perm-toggle-input:checked+.perm-toggle-slider {
+  background-color: #2563EB;
+}
+
+.perm-toggle-input:checked+.perm-toggle-slider:before {
+  transform: translateX(18px);
+}
+
+/* ─── Empty & No Results State ─── */
+.perm-empty-state {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: #64748B;
+}
+
+.perm-empty-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  color: #94A3B8;
+}
+
+/* ─── Modal Footer ─── */
+.perm-modal-footer {
+  background: #FFFFFF;
+  border-top: 1px solid #E2E8F0;
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.perm-footer-hint {
+  font-size: 0.775rem;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.perm-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.perm-btn-cancel {
+  padding: 0.55rem 1.15rem;
+  border-radius: 8px;
+  border: 1px solid #CBD5E1;
+  background: #FFFFFF;
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.perm-btn-cancel:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+}
+
+.perm-btn-save {
+  padding: 0.55rem 1.4rem;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+  color: #FFFFFF;
+  font-weight: 600;
+  font-size: 0.875rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+  transition: all 0.15s ease;
+}
+
+.perm-btn-save:hover {
+  background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%);
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
+}
+
+.perm-btn-save:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}

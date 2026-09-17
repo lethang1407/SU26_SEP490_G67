@@ -52,7 +52,7 @@ export default function AdminHeader({ user, activePage }) {
             label: 'Thông tin cửa hàng',
             icon: <Store size={16} />,
             onClick: () => navigate('/admin/store'),
-            show: headerUser?.roles?.includes('ADMIN'),
+            show: headerUser?.roles?.includes('MANAGER'),
         },
         { id: 'divider', type: 'divider', show: true },
     ];

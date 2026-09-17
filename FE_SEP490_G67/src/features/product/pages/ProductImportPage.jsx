@@ -138,57 +138,26 @@ export default function ProductImportPage() {
   useEffect(() => {
     try {
       localStorage.setItem('pi_draft_selected_ids', JSON.stringify(Array.from(selectedIds)));
-    } catch { }
+    } catch (e) {
+      console.warn('[ProductImport] Failed to save selectedIds to localStorage:', e);
+    }
   }, [selectedIds]);
 
   useEffect(() => {
     try {
       localStorage.setItem('pi_draft_panel_items', JSON.stringify(panelItems));
-    } catch { }
+    } catch (e) {
+      console.warn('[ProductImport] Failed to save panelItems to localStorage:', e);
+    }
   }, [panelItems]);
 
   useEffect(() => {
     try {
       localStorage.setItem('pi_draft_overrides', JSON.stringify(overrides));
-    } catch { }
-  }, [overrides]);
-  const detailRequestRef = useRef(0);
-
-  const openDetail = useCallback(async (listItem) => {
-    if (!listItem?.id) return;
-    const requestId = ++detailRequestRef.current;
-    setDetailProduct(listItem);
-    try {
-      const detail = await productsApi.getById(listItem.id);
-      if (detailRequestRef.current !== requestId || !detail) return;
-      setDetailProduct({
-        ...listItem,
-        ...detail,
-        onHand: detail.stock ?? detail.onHand ?? listItem.onHand ?? 0,
-        supplierName:
-          detail.supplierName ||
-          detail.supplier ||
-          listItem.supplierName ||
-          '',
-        leadTimeDays: detail.leadTimeDays ?? listItem.leadTimeDays ?? 3,
-        safetyStock: detail.safetyStock ?? listItem.safetyStock ?? 0,
-        pendingPoQty: detail.pendingPoQty ?? listItem.pendingPoQty ?? 0,
-        avgDailyRate:
-          detail.avgDailySalesRate ??
-          detail.avgDailyRate ??
-          listItem.avgDailyRate ??
-          0,
-        units: Array.isArray(detail.units) ? detail.units : listItem.units,
-      });
-    } catch {
-      // keep basic item
+    } catch (e) {
+      console.warn('[ProductImport] Failed to save overrides to localStorage:', e);
     }
-  }, []);
-
-  const closeDetail = () => {
-    detailRequestRef.current += 1;
-    setDetailProduct(null);
-  };
+  }, [overrides]);
 
   const loadCategories = useCallback(() => {
     categoriesApi
@@ -560,7 +529,6 @@ export default function ProductImportPage() {
   const handleFacetChange = (key) => {
     setFacet(key);
     setPage(0);
-    setDetailProduct(null);
     setSuccessMsg('');
   };
 
@@ -636,7 +604,9 @@ export default function ProductImportPage() {
       localStorage.removeItem('pi_draft_selected_ids');
       localStorage.removeItem('pi_draft_panel_items');
       localStorage.removeItem('pi_draft_overrides');
-    } catch { }
+    } catch (e) {
+      console.warn('[ProductImport] Failed to clear draft from localStorage:', e);
+    }
   };
 
   const handleCreate = async () => {
@@ -830,13 +800,12 @@ export default function ProductImportPage() {
                   title="Lọc theo tình trạng hàng hóa"
                 >
                   <option value="all">-- Tình trạng (Tất cả) --</option>
-                  <option value="new">🆕 Mới tạo (cần nhập lần đầu)</option>
-                  <option value="hot">🔴 Hết hàng – Bán chạy (cần nhập ngay)</option>
-                  <option value="warn">🟠 Cảnh báo sắp hết hàng</option>
-                  <option value="ok">🟢 Đang kinh doanh (tồn an toàn)</option>
-                  <option value="season">🟣 Hàng mùa vụ</option>
-                  <option value="slow">⚪ Hết hàng – Ít bán</option>
-                  <option value="stop">⛔ Ngừng kinh doanh</option>
+                  <option value="new">Mới tạo (cần nhập lần đầu)</option>
+                  <option value="hot">Hết hàng – Bán chạy (cần nhập ngay)</option>
+                  <option value="warn">Cảnh báo sắp hết hàng</option>
+                  <option value="ok">Đang kinh doanh (tồn an toàn)</option>
+                  <option value="slow">Hết hàng – Ít bán</option>
+                  <option value="stop">Ngừng kinh doanh</option>
                 </select>
 
                 {/* Nút Xóa lọc sát lề phải */}

@@ -193,10 +193,11 @@ public class RevenueReportService {
                 .toList();
     }
 
-    /** Chủ cửa hàng = tài khoản chỉ mang role ADMIN (cùng quy ước StaffService.isAdminOnly). */
+    /** Chủ cửa hàng = tài khoản chỉ mang role MANAGER (cùng quy ước StaffService). */
     private boolean isOwner(User user) {
-        return user.getRoles() != null && !user.getRoles().isEmpty()
-                && user.getRoles().stream().allMatch(r -> "ADMIN".equalsIgnoreCase(r.getName()));
+        return user.getRoles() != null
+                && !user.getRoles().isEmpty()
+                && user.getRoles().stream().allMatch(r -> "MANAGER".equalsIgnoreCase(r.getName()));
     }
 
     //  Internal: compute totals for a period

@@ -15,5 +15,5 @@ import lombok.experimental.FieldDefaults;
 public class RevenueStaffOptionResponse {
     Integer id;
     String name;
-    boolean owner;      // true = chủ cửa hàng (chỉ có role ADMIN)
+    boolean owner;      // true = chủ cửa hàng (chỉ có role MANAGER)
 }

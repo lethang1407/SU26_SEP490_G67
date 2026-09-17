@@ -2,6 +2,7 @@ package project.be_sep490_g67.exception;
 
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -116,6 +117,16 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleInsufficientStock (InsufficientStockException ex) {
         return ResponseEntity.status(ErrorCode.INSUFFICIENT_STOCK.getStatusCode())
                 .body(ApiResponse.error(ErrorCode.INSUFFICIENT_STOCK.getCode(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                ApiResponse.<Void>builder()
+                        .code(ErrorCode.PRODUCT_IMAGE_INVALID.getCode())
+                        .message("Kích thước tệp quá lớn. Vui lòng tải ảnh tối đa 10MB.")
+                        .build()
+        );
     }
 
     private boolean isStreamingOrCommitted(HttpServletResponse response) {

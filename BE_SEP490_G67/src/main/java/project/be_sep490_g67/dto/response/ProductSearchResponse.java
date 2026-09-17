@@ -27,6 +27,14 @@ public class ProductSearchResponse {
     /** Tổng tồn kho theo đơn vị cơ bản, gộp mọi lô và mọi vị trí. */
     Integer stockQuantity;
     /**
+     * Tồn BÁN ĐƯỢC: chỉ tính hàng đang nằm ở một ô kho, đã loại khu đổi trả và lô hết hạn.
+     *
+     * <p>Hàng vừa nhập nhưng chưa xếp vị trí có {@code stockQuantity > 0} mà
+     * {@code sellableQuantity = 0} — POS phải nhìn con số này để không cho thêm vào đơn,
+     * vì checkout trừ kho theo {@code batch_locations} chứ không theo lượng nhập.
+     */
+    Integer sellableQuantity;
+    /**
      * true nếu SP đã từng nhập kho hoặc còn lô.
      * Hàng bán thử chỉ được chọn khi false.
      */
