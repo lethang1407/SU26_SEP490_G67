@@ -150,6 +150,47 @@ export default function UnitConversionModal({
     }
   };
 
+  const handleUpdateSellingPrice = async (convItem, newPrice) => {
+    const nextConversions = conversions.map((c) =>
+      c.name === convItem.name ? { ...c, sellingPrice: Number(newPrice) || 0 } : c
+    );
+    setConversions(nextConversions);
+
+    const allUnits = [
+      {
+        name: baseUnit,
+        unitBase: 1,
+        sellingPrice: fullProduct?.sellingPrice || product.sellingPrice || 0,
+        isBase: true,
+      },
+      ...nextConversions.map((c) => ({
+        name: c.name,
+        unitBase: Number(c.unitBase),
+        sellingPrice: Number(c.sellingPrice) || 0,
+        isBase: false,
+      })),
+    ];
+
+    try {
+      const payload = {
+        name: fullProduct?.name || product.name,
+        sku: fullProduct?.sku || product.sku,
+        barcode: fullProduct?.barcode || product.barcode || '',
+        categoryId: fullProduct?.categoryId || product.categoryId,
+        costPrice: fullProduct?.costPrice || product.costPrice || 0,
+        sellingPrice: fullProduct?.sellingPrice || product.sellingPrice || 0,
+        units: allUnits,
+      };
+
+      await productsApi.update(product.id, payload);
+      setSuccessMsg(`Đã cập nhật giá bán cho đơn vị "${convItem.name}".`);
+      onUnitUpdated?.(product.id);
+    } catch (err) {
+      console.error(err);
+      setErrorMsg('Không thể cập nhật giá bán đơn vị quy đổi.');
+    }
+  };
+
   const handleDeleteConversion = async (convToDelete) => {
     const nextConversions = conversions.filter((c) => c !== convToDelete && c.name !== convToDelete.name);
 
@@ -309,16 +350,30 @@ export default function UnitConversionModal({
             ) : (
               <div className="pi-unit-list">
                 {conversions.map((item, idx) => (
-                  <div key={item.id || idx} className="pi-unit-item-card">
-                    <div className="pi-unit-item-formula">
-                      <span className="pi-unit-pill pi-unit-pill--from">{item.name}</span>
-                      <ArrowRight size={14} color="#64748B" />
-                      <span className="pi-unit-pill pi-unit-pill--rate">
-                        {item.unitBase} {baseUnit}
-                      </span>
-                    </div>
-                    <div className="pi-unit-item-note">
-                      Giá bán: {item.sellingPrice > 0 ? `${Number(item.sellingPrice).toLocaleString('vi-VN')} đ` : 'N/A'}
+                  <div key={item.id || idx} className="pi-unit-item-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <div className="pi-unit-item-formula">
+                        <span className="pi-unit-pill pi-unit-pill--from">{item.name}</span>
+                        <ArrowRight size={14} color="#64748B" />
+                        <span className="pi-unit-pill pi-unit-pill--rate">
+                          {item.unitBase} {baseUnit}
+                        </span>
+                      </div>
+                      <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 12, color: '#64748B', whiteSpace: 'nowrap' }}>Giá bán:</span>
+                        <MoneyInput
+                          className="pi-unit-input"
+                          style={{ padding: '3px 8px', fontSize: 12.5, width: 120, textAlign: 'right' }}
+                          placeholder={fullProduct?.sellingPrice ? `${(Number(fullProduct.sellingPrice) * Number(item.unitBase)).toLocaleString('vi-VN')} đ` : '0'}
+                          value={item.sellingPrice ?? ''}
+                          onChange={(val) => {
+                            setConversions((prev) =>
+                              prev.map((c) => (c.name === item.name ? { ...c, sellingPrice: val } : c))
+                            );
+                          }}
+                          onBlur={() => handleUpdateSellingPrice(item, item.sellingPrice)}
+                        />
+                      </div>
                     </div>
                     <button
                       type="button"

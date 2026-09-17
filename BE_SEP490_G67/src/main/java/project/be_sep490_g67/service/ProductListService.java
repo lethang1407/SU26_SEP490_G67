@@ -16,6 +16,7 @@ import project.be_sep490_g67.repository.BatchLocationRepository;
 import project.be_sep490_g67.repository.ImportOrderDetailRepository;
 import project.be_sep490_g67.repository.ProductRepository;
 import project.be_sep490_g67.repository.SalesOrderDetailRepository;
+import project.be_sep490_g67.repository.StockBatchRepository;
 import project.be_sep490_g67.repository.StoreConfigRepository;
 import project.be_sep490_g67.repository.SupplierRepository;
 
@@ -46,6 +47,7 @@ public class ProductListService {
     ProductRepository productRepository;
     SalesOrderDetailRepository salesOrderDetailRepository;
     BatchLocationRepository batchLocationRepository;
+    StockBatchRepository stockBatchRepository;
     StoreConfigRepository storeConfigRepository;
     ImportOrderDetailRepository importOrderDetailRepository;
     SupplierRepository supplierRepository;
@@ -206,7 +208,14 @@ public class ProductListService {
         int onHand = 0;
         for (Integer pid : targetProductIds) {
             Long onHandRaw = batchLocationRepository.sumOnHandByProductId(pid);
-            if (onHandRaw != null) onHand += onHandRaw.intValue();
+            if (onHandRaw != null && onHandRaw > 0) {
+                onHand += onHandRaw.intValue();
+            } else {
+                Long ledgerRaw = stockBatchRepository.sumStockByProductId(pid);
+                if (ledgerRaw != null && ledgerRaw > 0) {
+                    onHand += ledgerRaw.intValue();
+                }
+            }
         }
 
         Double coverDaysLeft = null;
@@ -316,7 +325,15 @@ public class ProductListService {
         BigDecimal avgWeekly = avgDaily.multiply(BigDecimal.valueOf(7)).setScale(1, RoundingMode.HALF_UP);
 
         Long onHandRaw = batchLocationRepository.sumOnHandByProductId(c.getId());
-        int onHand = onHandRaw == null ? 0 : onHandRaw.intValue();
+        int onHand = 0;
+        if (onHandRaw != null && onHandRaw > 0) {
+            onHand = onHandRaw.intValue();
+        } else {
+            Long ledgerRaw = stockBatchRepository.sumStockByProductId(c.getId());
+            if (ledgerRaw != null && ledgerRaw > 0) {
+                onHand = ledgerRaw.intValue();
+            }
+        }
 
         Double coverDaysLeft = null;
         if (avgDaily.compareTo(BigDecimal.ZERO) > 0) {

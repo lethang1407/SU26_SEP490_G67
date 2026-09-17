@@ -27,6 +27,8 @@ import project.be_sep490_g67.entity.Product;
 import project.be_sep490_g67.entity.ProductUnit;
 import project.be_sep490_g67.entity.StockBatch;
 import project.be_sep490_g67.entity.StockMovement;
+import project.be_sep490_g67.entity.BatchLocation;
+import project.be_sep490_g67.entity.StorageLocation;
 import project.be_sep490_g67.entity.Supplier;
 import project.be_sep490_g67.entity.SupplierPayment;
 import project.be_sep490_g67.entity.User;
@@ -39,6 +41,8 @@ import project.be_sep490_g67.repository.ProductUnitRepository;
 import project.be_sep490_g67.repository.ProductAttributeRepository;
 import project.be_sep490_g67.repository.StockBatchRepository;
 import project.be_sep490_g67.repository.StockMovementRepository;
+import project.be_sep490_g67.repository.BatchLocationRepository;
+import project.be_sep490_g67.repository.StorageLocationRepository;
 import project.be_sep490_g67.repository.SupplierPaymentRepository;
 import project.be_sep490_g67.repository.SupplierRepository;
 import project.be_sep490_g67.repository.UserRepository;
@@ -72,6 +76,8 @@ public class ImportOrderService {
     ProductMapper productMapper;
     StockBatchRepository stockBatchRepository;
     StockMovementRepository stockMovementRepository;
+    BatchLocationRepository batchLocationRepository;
+    StorageLocationRepository storageLocationRepository;
     UserRepository userRepository;
     ImportReturnService importReturnService;
     CloudinaryImageService cloudinaryImageService;
@@ -1233,9 +1239,33 @@ public class ImportOrderService {
         batch.setIsRemoved(false);
         StockBatch savedBatch = stockBatchRepository.save(batch);
 
+        // Auto-assign batch to the product's active location or the default store location
+        StorageLocation targetLocation = null;
+        if (detail.getProduct() != null && detail.getProduct().getId() != null) {
+            List<BatchLocation> existingLocs = batchLocationRepository.findAvailableByProductId(detail.getProduct().getId());
+            if (!existingLocs.isEmpty()) {
+                targetLocation = existingLocs.get(0).getLocation();
+            }
+        }
+        if (targetLocation == null) {
+            targetLocation = storageLocationRepository.findFirstByIsRemovedFalseAndIsActiveTrueOrderByIdAsc()
+                    .filter(loc -> loc.getStorageZone() == null || !"RETURN_HOLD".equalsIgnoreCase(loc.getStorageZone().getZoneType()))
+                    .orElse(null);
+        }
+
+        BatchLocation savedBatchLocation = null;
+        if (targetLocation != null) {
+            BatchLocation bl = new BatchLocation();
+            bl.setBatch(savedBatch);
+            bl.setLocation(targetLocation);
+            bl.setQuantity(quantityIn);
+            bl.setIsRemoved(false);
+            savedBatchLocation = batchLocationRepository.save(bl);
+        }
+
         StockMovement movement = StockMovement.builder()
                 .stockBatch(savedBatch)
-                .batchLocation(null)
+                .batchLocation(savedBatchLocation)
                 .quantityDelta(quantityIn)
                 .stockAfter(quantityIn)
                 .movementType("IMPORT")

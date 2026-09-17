@@ -5,6 +5,7 @@ import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 
 @Data
 @Builder
@@ -13,8 +14,26 @@ import java.time.Instant;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class PriceHistoryResponse {
     Integer id;
-    BigDecimal price;
+    Integer orderId;
+    String orderCode;
     Integer supplierId;
     String supplierName;
+    LocalDate orderDate;
     Instant createdAt;
+
+    BigDecimal price;          // Backward compatibility (same as costPerUnit)
+    BigDecimal costPerUnit;
+    Integer quantity;
+    String unitName;
+
+    String changeType;
+    BigDecimal oldCostPrice;
+    BigDecimal newCostPrice;
+    BigDecimal oldSellingPrice;
+    BigDecimal newSellingPrice;
+
+    String note;
+    BigDecimal lineTotal;
+    LocalDate expiryDate;
 }
+

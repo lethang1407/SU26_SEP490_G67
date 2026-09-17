@@ -21,6 +21,7 @@ import {
   Check,
   FolderPlus,
   AlertTriangle,
+  Calendar,
 } from 'lucide-react';
 import { productsApi } from '../api';
 import { categoriesApi } from '../../category/api';
@@ -1714,7 +1715,7 @@ export default function ProductEditModal({
                 {isChild ? (
                   <div className="pi-conv-add-card">
                     <div style={{ fontSize: 13, color: '#334155', fontWeight: 600, marginBottom: 10 }}>
-                      🔒 Bảng đơn vị quy đổi (Kế thừa từ sản phẩm cha):
+                      📋 Bảng đơn vị quy đổi:
                     </div>
                     {conversions.length > 0 ? (
                       <div className="pi-conv-table-wrap">
@@ -1723,7 +1724,7 @@ export default function ProductEditModal({
                             <tr>
                               <th>Tên đơn vị</th>
                               <th>Tỷ lệ quy đổi</th>
-                              <th>Giá bán theo ĐV</th>
+                              <th style={{ minWidth: 160 }}>Giá bán theo ĐV (VNĐ)</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1733,10 +1734,19 @@ export default function ProductEditModal({
                                 <td style={{ color: '#0369A1', fontWeight: 600 }}>
                                   1 {conv.name || 'ĐV'} = {conv.unitBase} {formData.baseUnitName || 'N/A'}
                                 </td>
-                                <td style={{ fontWeight: 600 }}>
-                                  {(conv.sellingPrice != null && conv.sellingPrice !== '' && Number(conv.sellingPrice) > 0)
-                                    ? `${Number(conv.sellingPrice).toLocaleString('vi-VN')} đ`
-                                    : 'N/A'}
+                                <td>
+                                  <MoneyInput
+                                    className="pi-edit-input"
+                                    style={{ fontSize: 13, padding: '5px 8px', textAlign: 'right', width: '100%', boxSizing: 'border-box' }}
+                                    placeholder={formData.sellingPrice ? `${(Number(formData.sellingPrice) * Number(conv.unitBase)).toLocaleString('vi-VN')} đ` : '0'}
+                                    value={conv.sellingPrice ?? ''}
+                                    onChange={(val) => {
+                                      markUserTouched();
+                                      setConversions((prev) =>
+                                        prev.map((item, i) => (i === idx ? { ...item, sellingPrice: val } : item))
+                                      );
+                                    }}
+                                  />
                                 </td>
                               </tr>
                             ))}
@@ -1745,7 +1755,7 @@ export default function ProductEditModal({
                       </div>
                     ) : (
                       <div style={{ fontSize: 12.5, color: '#94A3B8', fontStyle: 'italic' }}>
-                        Sản phẩm cha chưa thiết lập đơn vị quy đổi.
+                        Sản phẩm chưa có đơn vị quy đổi.
                       </div>
                     )}
                   </div>
@@ -1815,7 +1825,7 @@ export default function ProductEditModal({
                             <tr>
                               <th>Tên đơn vị</th>
                               <th>Tỷ lệ quy đổi</th>
-                              <th>Giá bán theo ĐV</th>
+                              <th style={{ minWidth: 160 }}>Giá bán theo ĐV (VNĐ)</th>
                               <th style={{ width: 60, textAlign: 'center' }}>Xóa</th>
                             </tr>
                           </thead>
@@ -1826,10 +1836,19 @@ export default function ProductEditModal({
                                 <td style={{ color: '#0369A1', fontWeight: 600 }}>
                                   1 {conv.name || 'ĐV'} = {conv.unitBase} {formData.baseUnitName || 'N/A'}
                                 </td>
-                                <td style={{ fontWeight: 600 }}>
-                                  {(conv.sellingPrice != null && conv.sellingPrice !== '' && Number(conv.sellingPrice) > 0)
-                                    ? `${Number(conv.sellingPrice).toLocaleString('vi-VN')} đ`
-                                    : 'N/A'}
+                                <td>
+                                  <MoneyInput
+                                    className="pi-edit-input"
+                                    style={{ fontSize: 13, padding: '5px 8px', textAlign: 'right', width: '100%', boxSizing: 'border-box' }}
+                                    placeholder={formData.sellingPrice ? `${(Number(formData.sellingPrice) * Number(conv.unitBase)).toLocaleString('vi-VN')} đ` : '0'}
+                                    value={conv.sellingPrice ?? ''}
+                                    onChange={(val) => {
+                                      markUserTouched();
+                                      setConversions((prev) =>
+                                        prev.map((item, i) => (i === idx ? { ...item, sellingPrice: val } : item))
+                                      );
+                                    }}
+                                  />
                                 </td>
                                 <td style={{ textAlign: 'center' }}>
                                   <button
@@ -2257,23 +2276,27 @@ export default function ProductEditModal({
               <div className="pi-stock-stat-item">
                 <span className="pi-stock-stat-label">Tồn kho hiện tại</span>
                 <span className="pi-stock-stat-val pi-stock-stat-val--blue">
-                  {product?.onHand ?? product?.stock ?? 0} {formData.baseUnitName}
+                  {product?.onHand ?? product?.stock ?? 0} {formData.baseUnitName || product?.unitName || 'Cái'}
                 </span>
               </div>
               <div className="pi-stock-stat-item">
                 <span className="pi-stock-stat-label">Giá vốn hiện tại</span>
                 <span className="pi-stock-stat-val">
-                  {(formData.costPrice != null && formData.costPrice !== '' && Number(formData.costPrice) > 0)
+                  {(formData.costPrice != null && formData.costPrice !== '' && Number(formData.costPrice) >= 0)
                     ? `${Number(formData.costPrice).toLocaleString('vi-VN')} đ`
-                    : 'N/A'}
+                    : (product?.costPrice != null && Number(product.costPrice) >= 0)
+                      ? `${Number(product.costPrice).toLocaleString('vi-VN')} đ`
+                      : '—'}
                 </span>
               </div>
               <div className="pi-stock-stat-item">
                 <span className="pi-stock-stat-label">Giá bán niêm yết</span>
                 <span className="pi-stock-stat-val pi-stock-stat-val--green">
-                  {(formData.sellingPrice != null && formData.sellingPrice !== '' && Number(formData.sellingPrice) > 0)
+                  {(formData.sellingPrice != null && formData.sellingPrice !== '' && Number(formData.sellingPrice) >= 0)
                     ? `${Number(formData.sellingPrice).toLocaleString('vi-VN')} đ`
-                    : 'N/A'}
+                    : (product?.sellingPrice != null && Number(product.sellingPrice) >= 0)
+                      ? `${Number(product.sellingPrice).toLocaleString('vi-VN')} đ`
+                      : '—'}
                 </span>
               </div>
             </div>
@@ -2303,10 +2326,10 @@ export default function ProductEditModal({
                   <thead>
                     <tr>
                       <th>Thời gian</th>
-                      <th>Loại biến động</th>
-                      <th>Giá vốn (Cũ → Mới)</th>
-                      <th>Giá bán (Cũ → Mới)</th>
-                      <th>Số lượng</th>
+                      <th>Mã chứng từ / Đơn nhập</th>
+                      <th>Nhà cung cấp</th>
+                      <th style={{ textAlign: 'right' }}>Giá nhập</th>
+                      <th style={{ textAlign: 'right' }}>Số lượng</th>
                       <th>Ghi chú</th>
                     </tr>
                   </thead>
@@ -2314,36 +2337,36 @@ export default function ProductEditModal({
                     {stockHistory.map((item, idx) => (
                       <tr key={item.id || idx}>
                         <td style={{ color: '#64748B', whiteSpace: 'nowrap' }}>
-                          {item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : (item.date || 'N/A')}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Calendar size={13} color="#94A3B8" />
+                            {item.orderDate || item.createdAt ? new Date(item.orderDate || item.createdAt).toLocaleDateString('vi-VN') : '—'}
+                          </div>
                         </td>
-                        <td>
-                          <span className="pi-badge-parent" style={{ background: '#F1F5F9', color: '#334155' }}>
-                            {item.changeType || item.type || 'Cập nhật giá'}
-                          </span>
+                        <td style={{ fontWeight: 600, color: '#2563EB', fontFamily: 'monospace' }}>
+                          {item.orderCode || item.code || (item.orderId ? `NH${String(item.orderId).padStart(5, '0')}` : `PO#${idx + 1}`)}
                         </td>
-                        <td>
-                          {item.oldCostPrice != null && item.newCostPrice != null ? (
-                            <span>
-                              {Number(item.oldCostPrice).toLocaleString('vi-VN')} → <strong>{Number(item.newCostPrice).toLocaleString('vi-VN')} đ</strong>
-                            </span>
+                        <td style={{ color: '#334155' }}>
+                          {item.supplierName || item.supplier || 'Nhà cung cấp lẻ'}
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: 600, color: '#0F172A' }}>
+                          {item.oldCostPrice != null && item.newCostPrice != null && Number(item.oldCostPrice) !== Number(item.newCostPrice) ? (
+                            <div>
+                              <span style={{ fontSize: 11, color: '#64748B', textDecoration: 'line-through', marginRight: 4 }}>
+                                {Number(item.oldCostPrice).toLocaleString('vi-VN')} đ
+                              </span>
+                              <span>{Number(item.newCostPrice).toLocaleString('vi-VN')} đ</span>
+                            </div>
+                          ) : (item.costPerUnit != null || item.price != null) ? (
+                            `${Number(item.costPerUnit ?? item.price).toLocaleString('vi-VN')} đ / ${item.unitName || formData.baseUnitName || 'ĐVT'}`
                           ) : (
-                            'N/A'
+                            '—'
                           )}
                         </td>
-                        <td>
-                          {item.oldSellingPrice != null && item.newSellingPrice != null ? (
-                            <span style={{ color: '#059669', fontWeight: 600 }}>
-                              {Number(item.oldSellingPrice).toLocaleString('vi-VN')} → <strong>{Number(item.newSellingPrice).toLocaleString('vi-VN')} đ</strong>
-                            </span>
-                          ) : (
-                            'N/A'
-                          )}
-                        </td>
-                        <td style={{ fontWeight: 600 }}>
-                          {item.quantity != null ? `${item.quantity > 0 ? `+${item.quantity}` : item.quantity} ${formData.baseUnitName || 'N/A'}` : 'N/A'}
+                        <td style={{ textAlign: 'right', fontWeight: 600, color: '#059669' }}>
+                          {item.quantity != null ? `+${item.quantity} ${item.unitName || formData.baseUnitName || 'ĐVT'}` : '—'}
                         </td>
                         <td style={{ color: '#64748B', fontSize: 12.5 }}>
-                          {item.note || item.reason || 'N/A'}
+                          {item.note || item.reason || (item.changeType ? item.changeType : 'Nhập hàng')}
                         </td>
                       </tr>
                     ))}
