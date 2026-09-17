@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Trash2, ArrowRight, Plus } from 'lucide-react';
 import { productsApi } from '../api';
 import MoneyInput from '../../../components/ui/MoneyInput';
+import ProductToast, { ProductToastContainer } from './ProductToast';
 import '../../../css/Product.css';
 
 const COMMON_CONVERSION_UNITS = [
@@ -53,14 +54,22 @@ export default function UnitConversionModal({
             const baseName = base?.name || detail.baseUnitName || product.unitName || '';
             setBaseUnit(baseName);
 
+            const baseSellingPrice = Number(detail.sellingPrice || product.sellingPrice) || 0;
             const convList = units
               .filter((u) => u !== base && Number(u.unitBase) !== 1)
-              .map((u) => ({
-                id: u.id,
-                name: u.name,
-                unitBase: Number(u.unitBase),
-                sellingPrice: u.sellingPrice || 0,
-              }));
+              .map((u) => {
+                const rawPrice = u.sellingPrice != null && Number(u.sellingPrice) > 0 ? Number(u.sellingPrice) : null;
+                const ratio = Number(u.unitBase) || 1;
+                const derivedPrice = baseSellingPrice > 0 ? baseSellingPrice * ratio : null;
+                const resolvedPrice = rawPrice ?? (derivedPrice || '');
+                return {
+                  id: u.id,
+                  name: u.name,
+                  unitBase: ratio,
+                  sellingPrice: resolvedPrice,
+                  isCustomPrice: Boolean(rawPrice && derivedPrice && rawPrice !== derivedPrice),
+                };
+              });
             setConversions(convList);
           }
         })
@@ -98,10 +107,15 @@ export default function UnitConversionModal({
       return;
     }
 
+    const baseSellingPrice = Number(fullProduct?.sellingPrice || product.sellingPrice) || 0;
+    const hasCustomPrice = sellPrice !== '' && sellPrice !== null && !isNaN(Number(sellPrice)) && Number(sellPrice) > 0;
+    const autoCalcPrice = baseSellingPrice > 0 ? baseSellingPrice * numRate : null;
+    const resolvedSellingPrice = hasCustomPrice ? Number(sellPrice) : autoCalcPrice;
+
     const newConv = {
       name: resolvedUnitName,
       unitBase: numRate,
-      sellingPrice: sellPrice ? Number(sellPrice) : 0,
+      sellingPrice: resolvedSellingPrice,
       isBase: false,
     };
 
@@ -231,7 +245,7 @@ export default function UnitConversionModal({
   };
 
   return (
-    <div className="pi-modal-backdrop" onClick={onClose}>
+    <div className="pi-modal-backdrop">
       <div className="pi-modal-dialog pi-unit-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="pi-modal-header">
@@ -251,9 +265,6 @@ export default function UnitConversionModal({
           {/* Left Column: Form Thêm quy đổi mới */}
           <div className="pi-unit-col-left">
             <h3 className="pi-unit-section-title">Thêm quy đổi mới</h3>
-
-            {errorMsg && <div className="pi-unit-alert-error">{errorMsg}</div>}
-            {successMsg && <div className="pi-unit-alert-success">{successMsg}</div>}
 
             <div className="pi-unit-field">
               <label className="pi-unit-label">Từ đơn vị *</label>
@@ -321,7 +332,7 @@ export default function UnitConversionModal({
               <label className="pi-unit-label">Giá bán đơn vị này (VNĐ)</label>
               <MoneyInput
                 className="pi-unit-input"
-                placeholder="VD: 250.000"
+                placeholder={fullProduct?.sellingPrice && rate && Number(rate) > 0 ? `${(Number(fullProduct.sellingPrice) * Number(rate)).toLocaleString('vi-VN')} đ` : (fullProduct?.sellingPrice && Number(fullProduct.sellingPrice) > 0 ? 'Mặc định = Tỷ lệ × Giá gốc' : 'N/A')}
                 value={sellPrice}
                 onChange={(val) => setSellPrice(val)}
               />
@@ -364,7 +375,7 @@ export default function UnitConversionModal({
                         <MoneyInput
                           className="pi-unit-input"
                           style={{ padding: '3px 8px', fontSize: 12.5, width: 120, textAlign: 'right' }}
-                          placeholder={fullProduct?.sellingPrice ? `${(Number(fullProduct.sellingPrice) * Number(item.unitBase)).toLocaleString('vi-VN')} đ` : '0'}
+                          placeholder={fullProduct?.sellingPrice && Number(fullProduct.sellingPrice) > 0 ? `${(Number(fullProduct.sellingPrice) * Number(item.unitBase)).toLocaleString('vi-VN')} đ` : 'N/A'}
                           value={item.sellingPrice ?? ''}
                           onChange={(val) => {
                             setConversions((prev) =>
@@ -396,6 +407,24 @@ export default function UnitConversionModal({
             Đóng
           </button>
         </div>
+
+        {/* Floating Bottom-Right Toast Notifications */}
+        <ProductToastContainer>
+          {errorMsg && (
+            <ProductToast
+              message={errorMsg}
+              type="error"
+              onClose={() => setErrorMsg('')}
+            />
+          )}
+          {successMsg && (
+            <ProductToast
+              message={successMsg}
+              type="success"
+              onClose={() => setSuccessMsg('')}
+            />
+          )}
+        </ProductToastContainer>
       </div>
     </div>
   );

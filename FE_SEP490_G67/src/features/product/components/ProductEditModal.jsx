@@ -22,10 +22,12 @@ import {
   FolderPlus,
   AlertTriangle,
   Calendar,
+  ExternalLink,
 } from 'lucide-react';
 import { productsApi } from '../api';
 import { categoriesApi } from '../../category/api';
 import MoneyInput from '../../../components/ui/MoneyInput';
+import ProductToast, { ProductToastContainer } from './ProductToast';
 import '../../../css/Product.css';
 
 const COMMON_UNITS = ['Cái', 'Gói', 'Chai', 'Hộp', 'Thùng', 'Lon', 'Đôi', 'Kg', 'Gram', 'Lốc', 'Bao', 'Túi'];
@@ -294,7 +296,7 @@ function BarcodeCaptureModal({ isOpen, onClose, onCapture, targetTitle = 'hàng 
   };
 
   return (
-    <div className="pi-modal-backdrop" style={{ zIndex: 1200 }} onClick={onClose}>
+    <div className="pi-modal-backdrop" style={{ zIndex: 1200 }}>
       <div className="pi-modal-dialog pi-scan-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
         <div className="pi-modal-header">
           <div>
@@ -442,152 +444,16 @@ export default function ProductEditModal({
   const fileInputRef = useRef(null);
   const barcodeInputRef = useRef(null);
   const [barcodeScannerTarget, setBarcodeScannerTarget] = useState(null);
-
-  // Unsaved changes protection & confirmation state
-  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
-  const initialSnapshotRef = useRef(null);
   const savedCreatedIdRef = useRef(null);
-  const userTouchedRef = useRef(false);
+  const markUserTouched = () => {};
 
-  const markUserTouched = () => {
-    userTouchedRef.current = true;
-  };
 
-  const takeSnapshot = (fData, pAttrs, iAttrs, convs, vars, minQty, minUnit) => ({
-    name: (fData?.name || '').trim(),
-    barcode: (fData?.barcode || '').trim(),
-    categoryId: String(fData?.categoryId || ''),
-    baseUnitName: (fData?.baseUnitName || '').trim(),
-    status: (fData?.status || 'active').toLowerCase(),
-    description: (fData?.description || '').trim(),
-    costPrice: Number(fData?.costPrice) || 0,
-    sellingPrice: Number(fData?.sellingPrice) || 0,
-    isReturnable: Boolean(fData?.isReturnable),
-    minStockInputQty: Number(minQty) || 0,
-    minStockUnit: minUnit || '',
-    hasImageFile: Boolean(fData?.imageFile),
-    parentAttributes: (pAttrs || []).map((a) => ({
-      name: (a.name || '').trim(),
-      values: [...(a.values || []).map((v) => String(v).trim())],
-    })),
-    itemAttributes: (iAttrs || []).map((a) => ({
-      name: (a.name || '').trim(),
-      value: (a.value || '').trim(),
-    })),
-    conversions: (convs || []).map((c) => ({
-      name: (c.name || '').trim(),
-      unitBase: Number(c.unitBase) || 0,
-      sellingPrice: Number(c.sellingPrice) || 0,
-    })),
-    variants: (vars || []).map((v) => ({
-      key: v.key,
-      sku: (v.sku || '').trim(),
-      barcode: (v.barcode || '').trim(),
-      costPrice: Number(v.costPrice) || 0,
-      sellingPrice: Number(v.sellingPrice) || 0,
-      isRemoved: Boolean(v.isRemoved),
-    })),
-  });
-
-  const isFormDirty = () => {
-    // Nếu người dùng chưa từng tương tác/nhập liệu gì, chắc chắn không dirty
-    if (!userTouchedRef.current) {
-      return false;
-    }
-
-    if (isCreateMode) {
-      if (formData.name?.trim()) return true;
-      if (formData.barcode?.trim() && formData.barcode.trim() !== (product?.barcode || '').trim()) return true;
-      if (formData.categoryId) return true;
-      if (formData.baseUnitName?.trim()) return true;
-      if (formData.description?.trim()) return true;
-      if (formData.costPrice !== '' && formData.costPrice !== null && Number(formData.costPrice) > 0) return true;
-      if (formData.sellingPrice !== '' && formData.sellingPrice !== null && Number(formData.sellingPrice) > 0) return true;
-      if (formData.imageFile) return true;
-      if (parentAttributes.some((a) => a.name?.trim() || (a.values && a.values.length > 0))) return true;
-      if (conversions.length > 0) return true;
-      if (itemAttributes.some((a) => a.name?.trim() || a.value?.trim())) return true;
-      return false;
-    }
-
-    const init = initialSnapshotRef.current;
-    if (!init) return false;
-
-    if ((formData.name || '').trim() !== init.name) return true;
-    if ((formData.barcode || '').trim() !== init.barcode) return true;
-    if (String(formData.categoryId || '') !== init.categoryId) return true;
-    if ((formData.baseUnitName || '').trim() !== init.baseUnitName) return true;
-    if ((formData.status || 'active').toLowerCase() !== (init.status || 'active').toLowerCase()) return true;
-    if ((formData.description || '').trim() !== init.description) return true;
-
-    const currCost = Number(formData.costPrice) || 0;
-    const initCost = Number(init.costPrice) || 0;
-    if (currCost !== initCost) return true;
-
-    const currSell = Number(formData.sellingPrice) || 0;
-    const initSell = Number(init.sellingPrice) || 0;
-    if (currSell !== initSell) return true;
-
-    if (Number(minStockInputQty) !== init.minStockInputQty) return true;
-    if (Boolean(formData.imageFile) !== init.hasImageFile) return true;
-
-    // Attributes comparison
-    const currentPAttrs = (parentAttributes || []).map((a) => ({
-      name: (a.name || '').trim(),
-      values: [...(a.values || []).map((v) => String(v).trim())],
-    }));
-    if (JSON.stringify(currentPAttrs) !== JSON.stringify(init.parentAttributes)) return true;
-
-    const currentIAttrs = (itemAttributes || []).map((a) => ({
-      name: (a.name || '').trim(),
-      value: (a.value || '').trim(),
-    }));
-    if (JSON.stringify(currentIAttrs) !== JSON.stringify(init.itemAttributes)) return true;
-
-    // Conversions comparison
-    const currentConvs = (conversions || []).map((c) => ({
-      name: (c.name || '').trim(),
-      unitBase: Number(c.unitBase) || 0,
-      sellingPrice: Number(c.sellingPrice) || 0,
-    }));
-    if (JSON.stringify(currentConvs) !== JSON.stringify(init.conversions)) return true;
-
-    // Variants comparison
-    const currentVars = (variants || []).map((v) => ({
-      key: v.key,
-      sku: (v.sku || '').trim(),
-      barcode: (v.barcode || '').trim(),
-      costPrice: Number(v.costPrice) || 0,
-      sellingPrice: Number(v.sellingPrice) || 0,
-      isRemoved: Boolean(v.isRemoved),
-    }));
-    if (JSON.stringify(currentVars) !== JSON.stringify(init.variants)) return true;
-
-    return false;
-  };
-
-  const handleRequestClose = (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    if (isFormDirty()) {
-      setShowDiscardConfirm(true);
-    } else {
-      onClose();
-    }
-  };
-
-  // Keyboard Escape protection listener
+  // Keyboard Escape listener
   useEffect(() => {
-    if (!isOpen) {
-      setShowDiscardConfirm(false);
-      return;
-    }
+    if (!isOpen) return;
 
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        if (showDiscardConfirm) {
-          setShowDiscardConfirm(false);
-          return;
-        }
         if (isCreateCategoryModalOpen) {
           setIsCreateCategoryModalOpen(false);
           return;
@@ -596,13 +462,13 @@ export default function ProductEditModal({
           setBarcodeScannerTarget(null);
           return;
         }
-        handleRequestClose();
+        onClose();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, showDiscardConfirm, isCreateCategoryModalOpen, barcodeScannerTarget]);
+  }, [isOpen, isCreateCategoryModalOpen, barcodeScannerTarget, onClose]);
 
   // Click outside to close category dropdown
   useEffect(() => {
@@ -693,7 +559,6 @@ export default function ProductEditModal({
   useEffect(() => {
     if (!isOpen) return;
 
-    userTouchedRef.current = false;
     setErrorMsg('');
     setSuccessMsg('');
     setRate('');
@@ -727,7 +592,6 @@ export default function ProductEditModal({
       setVariants([]);
       setConversions([]);
       setStockHistory([]);
-      initialSnapshotRef.current = null;
     } else if (product) {
       const baseUnit = product.unitName || product.baseUnitName || product.unit || '';
 
@@ -831,16 +695,6 @@ export default function ProductEditModal({
         setVariants([]);
       }
 
-      initialSnapshotRef.current = takeSnapshot(
-        initFormData,
-        initParentArr,
-        initFlatAttrs,
-        [],
-        initLoadedVariants,
-        initialMinStock,
-        ''
-      );
-
       if (product.id) {
         productsApi.getById(product.id)
           .then((detail) => {
@@ -871,14 +725,23 @@ export default function ProductEditModal({
 
               setFormData(detailFormData);
 
+              const baseSellingPrice = Number(detailFormData.sellingPrice) || 0;
               const convList = units
                 .filter((u) => u !== base && Number(u.unitBase) !== 1)
-                .map((u) => ({
-                  id: u.id,
-                  name: u.name,
-                  unitBase: Number(u.unitBase),
-                  sellingPrice: u.sellingPrice || 0,
-                }));
+                .map((u) => {
+                  const rawPrice = u.sellingPrice != null && Number(u.sellingPrice) > 0 ? Number(u.sellingPrice) : null;
+                  const ratio = Number(u.unitBase) || 1;
+                  const derivedPrice = baseSellingPrice > 0 ? baseSellingPrice * ratio : null;
+                  const resolvedPrice = rawPrice ?? (derivedPrice || '');
+                  return {
+                    id: u.id,
+                    name: u.name,
+                    unitBase: ratio,
+                    sellingPrice: resolvedPrice,
+                    isCustomPrice: Boolean(rawPrice && derivedPrice && rawPrice !== derivedPrice),
+                    isAutoPrice: Boolean(!rawPrice || (derivedPrice && rawPrice === derivedPrice)),
+                  };
+                });
               setConversions(convList);
 
               const detailAttrs = detail.attributes || [];
@@ -975,17 +838,6 @@ export default function ProductEditModal({
 
               const finalMinStock = detail.minStock ?? product.minStock ?? product.safetyStock ?? 5;
               setMinStockInputQty(finalMinStock);
-
-              initialSnapshotRef.current = takeSnapshot(
-                detailFormData,
-                detailParentArr,
-                detailFlatAttrs,
-                convList,
-                detailLoadedVariants,
-                finalMinStock,
-                ''
-              );
-              userTouchedRef.current = false;
             }
           })
           .catch(() => { });
@@ -1066,6 +918,23 @@ export default function ProductEditModal({
       }
       return next;
     });
+
+    // Khi cập nhật giá bán gốc formData.sellingPrice, tự động tính lại giá bán cho các đơn vị quy đổi chưa nhập giá riêng
+    if (field === 'sellingPrice') {
+      const newBasePrice = Number(value) || 0;
+      setConversions((prev) =>
+        prev.map((c) => {
+          if (!c.isCustomPrice) {
+            return {
+              ...c,
+              sellingPrice: newBasePrice > 0 ? newBasePrice * Number(c.unitBase) : '',
+              isAutoPrice: true,
+            };
+          }
+          return c;
+        })
+      );
+    }
   };
 
   const handleImageSelect = (e) => {
@@ -1222,13 +1091,18 @@ export default function ProductEditModal({
       return;
     }
 
+    const baseSellingPrice = Number(formData.sellingPrice) || 0;
+    const hasCustomPrice = convSellPrice !== '' && convSellPrice !== null && !isNaN(Number(convSellPrice)) && Number(convSellPrice) > 0;
+    const autoCalcPrice = baseSellingPrice > 0 ? baseSellingPrice * numRate : null;
+    const resolvedSellingPrice = hasCustomPrice ? Number(convSellPrice) : autoCalcPrice;
+
     markUserTouched();
     const newConv = {
       name: unitName,
       unitBase: numRate,
-      sellingPrice: convSellPrice !== '' && convSellPrice !== null && !isNaN(Number(convSellPrice))
-        ? Number(convSellPrice)
-        : (formData.sellingPrice !== '' && Number(formData.sellingPrice) > 0 ? Number(formData.sellingPrice) * numRate : null),
+      sellingPrice: resolvedSellingPrice,
+      isCustomPrice: hasCustomPrice,
+      isAutoPrice: !hasCustomPrice && baseSellingPrice > 0,
     };
 
     setConversions((prev) => [...prev, newConv]);
@@ -1299,7 +1173,7 @@ export default function ProductEditModal({
         name: c.name,
         isBase: false,
         unitBase: Number(c.unitBase),
-        sellingPrice: Number(c.sellingPrice) || 0,
+        sellingPrice: Number(c.sellingPrice) || ((Number(formData.sellingPrice) || 0) > 0 ? Number(formData.sellingPrice) * Number(c.unitBase) : 0),
       })),
     ];
 
@@ -1381,7 +1255,7 @@ export default function ProductEditModal({
   };
 
   return (
-    <div className="pi-modal-backdrop" onClick={handleRequestClose}>
+    <div className="pi-modal-backdrop">
       <div className="pi-modal-dialog pi-edit-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="pi-modal-header">
@@ -1397,7 +1271,7 @@ export default function ProductEditModal({
               )}
             </div>
           </div>
-          <button type="button" className="pi-modal-close" onClick={handleRequestClose} aria-label="Đóng">
+          <button type="button" className="pi-modal-close" onClick={onClose} aria-label="Đóng">
             <X size={20} />
           </button>
         </div>
@@ -1436,9 +1310,6 @@ export default function ProductEditModal({
         {modalTab === 'info' && (
           <form onSubmit={handleSubmit} className="pi-edit-form">
             <div className="pi-modal-body pi-edit-modal-body">
-              {errorMsg && <div className="pi-unit-alert-error">{errorMsg}</div>}
-              {successMsg && <div className="pi-unit-alert-success">{successMsg}</div>}
-
               {/* Section 1: Thông tin nhận diện */}
               <div className="pi-edit-section">
                 <div className="pi-edit-sec-head">
@@ -1738,12 +1609,12 @@ export default function ProductEditModal({
                                   <MoneyInput
                                     className="pi-edit-input"
                                     style={{ fontSize: 13, padding: '5px 8px', textAlign: 'right', width: '100%', boxSizing: 'border-box' }}
-                                    placeholder={formData.sellingPrice ? `${(Number(formData.sellingPrice) * Number(conv.unitBase)).toLocaleString('vi-VN')} đ` : '0'}
+                                    placeholder={formData.sellingPrice && Number(formData.sellingPrice) > 0 ? `${(Number(formData.sellingPrice) * Number(conv.unitBase)).toLocaleString('vi-VN')} đ` : 'N/A'}
                                     value={conv.sellingPrice ?? ''}
                                     onChange={(val) => {
                                       markUserTouched();
                                       setConversions((prev) =>
-                                        prev.map((item, i) => (i === idx ? { ...item, sellingPrice: val } : item))
+                                        prev.map((item, i) => (i === idx ? { ...item, sellingPrice: val, isCustomPrice: Boolean(val && Number(val) > 0), isAutoPrice: false } : item))
                                       );
                                     }}
                                   />
@@ -1794,7 +1665,7 @@ export default function ProductEditModal({
                         <label className="pi-edit-label">Giá bán theo ĐV này (VNĐ)</label>
                         <MoneyInput
                           className="pi-edit-input"
-                          placeholder="Mặc định = Tỷ lệ × Giá gốc"
+                          placeholder={formData.sellingPrice && rate && Number(rate) > 0 ? `${(Number(formData.sellingPrice) * Number(rate)).toLocaleString('vi-VN')} đ` : (formData.sellingPrice && Number(formData.sellingPrice) > 0 ? 'Mặc định = Tỷ lệ × Giá gốc' : 'N/A')}
                           value={convSellPrice}
                           onChange={(val) => setConvSellPrice(val)}
                         />
@@ -1840,12 +1711,12 @@ export default function ProductEditModal({
                                   <MoneyInput
                                     className="pi-edit-input"
                                     style={{ fontSize: 13, padding: '5px 8px', textAlign: 'right', width: '100%', boxSizing: 'border-box' }}
-                                    placeholder={formData.sellingPrice ? `${(Number(formData.sellingPrice) * Number(conv.unitBase)).toLocaleString('vi-VN')} đ` : '0'}
+                                    placeholder={formData.sellingPrice && Number(formData.sellingPrice) > 0 ? `${(Number(formData.sellingPrice) * Number(conv.unitBase)).toLocaleString('vi-VN')} đ` : 'N/A'}
                                     value={conv.sellingPrice ?? ''}
                                     onChange={(val) => {
                                       markUserTouched();
                                       setConversions((prev) =>
-                                        prev.map((item, i) => (i === idx ? { ...item, sellingPrice: val } : item))
+                                        prev.map((item, i) => (i === idx ? { ...item, sellingPrice: val, isCustomPrice: Boolean(val && Number(val) > 0), isAutoPrice: false } : item))
                                       );
                                     }}
                                   />
@@ -2186,13 +2057,12 @@ export default function ProductEditModal({
                   </div>
 
                   <div className="pi-edit-field">
-                    <label className="pi-edit-label">Giá bán (VNĐ) *</label>
+                    <label className="pi-edit-label">Giá bán (VNĐ)</label>
                     <MoneyInput
                       className="pi-edit-input"
                       value={formData.sellingPrice}
                       onChange={(val) => handleInputChange('sellingPrice', val)}
                       placeholder="0"
-                      required
                     />
                   </div>
                 </div>
@@ -2249,7 +2119,7 @@ export default function ProductEditModal({
                 <button
                   type="button"
                   className="pi-modal-btn pi-modal-btn--secondary"
-                  onClick={handleRequestClose}
+                  onClick={onClose}
                   disabled={submitting}
                 >
                   Hủy
@@ -2342,8 +2212,23 @@ export default function ProductEditModal({
                             {item.orderDate || item.createdAt ? new Date(item.orderDate || item.createdAt).toLocaleDateString('vi-VN') : '—'}
                           </div>
                         </td>
-                        <td style={{ fontWeight: 600, color: '#2563EB', fontFamily: 'monospace' }}>
-                          {item.orderCode || item.code || (item.orderId ? `NH${String(item.orderId).padStart(5, '0')}` : `PO#${idx + 1}`)}
+                        <td style={{ fontFamily: 'monospace' }}>
+                          {item.orderId ? (
+                            <a
+                              href={`/admin/warehouse/import/${item.orderId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="pi-order-link"
+                              title={`Xem chi tiết đơn nhập #${item.orderCode || item.orderId} (Mở tab mới)`}
+                            >
+                              {item.orderCode || item.code || `NH${String(item.orderId).padStart(5, '0')}`}
+                              <ExternalLink size={12} style={{ opacity: 0.7 }} />
+                            </a>
+                          ) : (
+                            <span style={{ fontWeight: 600, color: '#2563EB' }}>
+                              {item.orderCode || item.code || `PO#${idx + 1}`}
+                            </span>
+                          )}
                         </td>
                         <td style={{ color: '#334155' }}>
                           {item.supplierName || item.supplier || 'Nhà cung cấp lẻ'}
@@ -2383,7 +2268,7 @@ export default function ProductEditModal({
             <button
               type="button"
               className="pi-modal-btn pi-modal-btn--secondary"
-              onClick={handleRequestClose}
+              onClick={onClose}
             >
               Đóng
             </button>
@@ -2400,7 +2285,7 @@ export default function ProductEditModal({
 
         {/* Pop-up Thêm nhanh nhóm hàng hóa (Danh mục) */}
         {isCreateCategoryModalOpen && (
-          <div className="pi-nested-modal-backdrop" onClick={() => setIsCreateCategoryModalOpen(false)}>
+          <div className="pi-nested-modal-backdrop">
             <div className="pi-nested-modal" onClick={(e) => e.stopPropagation()}>
               <div className="pi-nested-modal-header">
                 <h3 className="pi-nested-modal-title">
@@ -2470,54 +2355,24 @@ export default function ProductEditModal({
           </div>
         )}
 
-        {/* Modal cảnh báo thay đổi chưa lưu (Unsaved Changes Protection) */}
-        {showDiscardConfirm && (
-          <div
-            className="pi-nested-modal-backdrop"
-            style={{ zIndex: 10050, background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)' }}
-            onClick={() => setShowDiscardConfirm(false)}
-          >
-            <div
-              className="pi-discard-dialog"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="pi-discard-dialog__icon">
-                <AlertTriangle size={28} />
-              </div>
-
-              <h3 className="pi-discard-dialog__title">
-                Bạn có thay đổi chưa lưu
-              </h3>
-
-              <p className="pi-discard-dialog__desc">
-                {isCreateMode
-                  ? 'Thông tin hàng hóa bạn đang nhập chưa được lưu. Nếu thoát ngay bây giờ, toàn bộ dữ liệu này sẽ bị mất.'
-                  : 'Các thông tin bạn vừa chỉnh sửa chưa được lưu lại. Bạn có chắc chắn muốn thoát và hủy bỏ các thay đổi không?'}
-              </p>
-
-              <div className="pi-discard-dialog__actions">
-                <button
-                  type="button"
-                  className="pi-modal-btn pi-modal-btn--secondary"
-                  onClick={() => setShowDiscardConfirm(false)}
-                >
-                  Tiếp tục chỉnh sửa
-                </button>
-                <button
-                  type="button"
-                  className="pi-modal-btn pi-modal-btn--danger"
-                  onClick={() => {
-                    setShowDiscardConfirm(false);
-                    onClose();
-                  }}
-                >
-                  Rời khỏi & Hủy thay đổi
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Floating Bottom-Right Toast Notifications */}
+        <ProductToastContainer>
+          {errorMsg && (
+            <ProductToast
+              message={errorMsg}
+              type="error"
+              onClose={() => setErrorMsg('')}
+            />
+          )}
+          {successMsg && (
+            <ProductToast
+              message={successMsg}
+              type="success"
+              onClose={() => setSuccessMsg('')}
+            />
+          )}
+        </ProductToastContainer>
       </div>
-    </div >
+    </div>
   );
 }

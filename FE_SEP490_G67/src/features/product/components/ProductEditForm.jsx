@@ -1016,7 +1016,7 @@ export default function ProductEditForm({
 
               <div className="add-product-field">
                 <label className="add-product-field__label" htmlFor="edit-sell">
-                  Giá bán lẻ (VNĐ) <span className="add-product-field__required">*</span>
+                  Giá bán lẻ (VNĐ)
                 </label>
                 <div className="edit-product-money">
                   <input

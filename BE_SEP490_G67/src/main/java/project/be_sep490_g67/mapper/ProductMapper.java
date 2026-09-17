@@ -91,9 +91,11 @@ public class ProductMapper {
 
     private ProductConversionUnitResponse toConversionUnitResponse(ProductUnit unit, BigDecimal sellingPrice) {
         BigDecimal ratio = unit.getUnitBase() != null ? unit.getUnitBase() : BigDecimal.ONE;
-        BigDecimal unitSellPrice = sellingPrice != null
-                ? sellingPrice.multiply(ratio).setScale(2, RoundingMode.HALF_UP)
-                : BigDecimal.ZERO;
+        BigDecimal unitSellPrice = (unit.getSellingPrice() != null && unit.getSellingPrice().compareTo(BigDecimal.ZERO) > 0)
+                ? unit.getSellingPrice()
+                : (sellingPrice != null && sellingPrice.compareTo(BigDecimal.ZERO) > 0
+                    ? sellingPrice.multiply(ratio).setScale(2, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO);
 
         return ProductConversionUnitResponse.builder()
                 .id(String.valueOf(unit.getId()))

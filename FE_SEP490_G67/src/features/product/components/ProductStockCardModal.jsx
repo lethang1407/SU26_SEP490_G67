@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X, BookOpen, TrendingUp, TrendingDown, Clock, Package, Calendar } from 'lucide-react';
+import { X, BookOpen, TrendingUp, TrendingDown, Clock, Package, Calendar, ExternalLink } from 'lucide-react';
 import { productsApi } from '../api';
+import ProductToast, { ProductToastContainer } from './ProductToast';
 import '../../../css/Product.css';
 
 export default function ProductStockCardModal({
@@ -24,7 +25,7 @@ export default function ProductStockCardModal({
           .then((detail) => {
             if (detail) setFreshProduct(detail);
           })
-          .catch(() => {});
+          .catch(() => { });
       }
 
       if (productsApi.getPriceHistory) {
@@ -55,7 +56,7 @@ export default function ProductStockCardModal({
   const sellingPriceValue = effectiveProduct.sellingPrice ?? product.sellingPrice;
 
   return (
-    <div className="pi-modal-backdrop" onClick={onClose}>
+    <div className="pi-modal-backdrop">
       <div className="pi-modal-dialog pi-stock-card-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="pi-modal-header">
@@ -186,8 +187,23 @@ export default function ProductStockCardModal({
                           {item.orderDate || item.createdAt ? new Date(item.orderDate || item.createdAt).toLocaleDateString('vi-VN') : '—'}
                         </div>
                       </td>
-                      <td style={{ fontWeight: 600, color: '#2563EB', fontFamily: 'monospace' }}>
-                        {item.orderCode || item.code || (item.orderId ? `NH${String(item.orderId).padStart(5, '0')}` : `PO#${idx + 1}`)}
+                      <td style={{ fontFamily: 'monospace' }}>
+                        {item.orderId ? (
+                          <a
+                            href={`/admin/warehouse/import/${item.orderId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="pi-order-link"
+                            title={`Xem chi tiết đơn nhập #${item.orderCode || item.orderId} (Mở tab mới)`}
+                          >
+                            {item.orderCode || item.code || `NH${String(item.orderId).padStart(5, '0')}`}
+                            <ExternalLink size={12} style={{ opacity: 0.7 }} />
+                          </a>
+                        ) : (
+                          <span style={{ fontWeight: 600, color: '#2563EB' }}>
+                            {item.orderCode || item.code || `PO#${idx + 1}`}
+                          </span>
+                        )}
                       </td>
                       <td style={{ color: '#334155' }}>
                         {item.supplierName || item.supplier || 'Nhà cung cấp lẻ'}
@@ -226,6 +242,17 @@ export default function ProductStockCardModal({
             Đóng
           </button>
         </div>
+
+        {/* Floating Bottom-Right Toast Notifications */}
+        <ProductToastContainer>
+          {errorMsg && (
+            <ProductToast
+              message={errorMsg}
+              type="error"
+              onClose={() => setErrorMsg('')}
+            />
+          )}
+        </ProductToastContainer>
       </div>
     </div>
   );

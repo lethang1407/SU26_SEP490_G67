@@ -38,9 +38,8 @@ public final class UnitPriceResolver {
     }
 
     /**
-     * Dùng khi chỉ hiển thị (tìm kiếm, quét mã). Một sản phẩm chưa đặt giá không được
-     * phép làm hỏng cả danh sách kết quả, nên ở đây trả {@code null} và để màn hình
-     * tự quyết cách thể hiện.
+     * Dùng khi hiển thị và bán hàng. Ưu tiên giá riêng của đơn vị quy đổi nếu có.
+     * Nếu chưa đặt giá riêng, tự động nhân theo giá bán cơ bản và hệ số quy đổi (product.sellingPrice × unitBase).
      */
     public static BigDecimal resolveOrNull(Product product, ProductUnit unit) {
         BigDecimal unitPrice = unit != null ? unit.getSellingPrice() : null;
@@ -48,12 +47,12 @@ public final class UnitPriceResolver {
             return unitPrice;
         }
 
-        // Không có đơn vị nào (dữ liệu cũ) thì đành dùng giá trên sản phẩm — đó là
-        // giá của một đơn vị cơ bản, và khi không có đơn vị thì số lượng cũng được
-        // tính theo đơn vị cơ bản, nên hai vế vẫn khớp.
-        if (unit == null) {
-            BigDecimal basePrice = product != null ? product.getSellingPrice() : null;
-            return isPositive(basePrice) ? basePrice : null;
+        BigDecimal basePrice = product != null ? product.getSellingPrice() : null;
+        if (isPositive(basePrice)) {
+            BigDecimal ratio = (unit != null && unit.getUnitBase() != null && unit.getUnitBase().signum() > 0)
+                    ? unit.getUnitBase()
+                    : BigDecimal.ONE;
+            return basePrice.multiply(ratio).setScale(2, java.math.RoundingMode.HALF_UP);
         }
 
         return null;
