@@ -1,25 +1,4 @@
-import { formatCurrency, formatDateTime, formatMoneyPlain } from '../utils/importOrderUtils';
-
-function soldQtyOf(line) {
-    const received = Number(line.receivedQty) || 0;
-    const counted = Number(line.countedRemainingQty) || 0;
-    return Math.max(received - counted, 0);
-}
-
-function resultOf(line) {
-    const unit = line.unitName ? ` ${line.unitName}` : '';
-    const received = Number(line.receivedQty) || 0;
-    const sold = soldQtyOf(line);
-    const returned = Number(line.returnedQty) || 0;
-    const unsellable = Number(line.unsellableQty) || 0;
-    const kept = Math.max((Number(line.countedRemainingQty) || 0) - unsellable, 0);
-    const parts = [`Nhận ${received}${unit}`];
-    if (sold > 0) parts.push(`bán ${sold}${unit}`);
-    if (returned > 0) parts.push(`trả ${returned}${unit}`);
-    if (kept > 0 && returned <= 0) parts.push(`giữ ${kept}${unit}`);
-    if (unsellable > 0) parts.push(`hỏng ${unsellable}${unit}`);
-    return parts.join(', ');
-}
+import { formatCurrency, formatDateTime, formatMoneyPlain, formatTrialSettlementResult } from '../utils/importOrderUtils';
 
 function paymentOf(settlement) {
     const discount = Number(settlement.discountAmount) || 0;
@@ -34,6 +13,7 @@ function paymentOf(settlement) {
 export default function ImportTrialHistory({
     settlements = [],
     emptyText = 'Chưa có lần quyết toán bán thử.',
+    hideOrderCode = false,
 }) {
     if (!settlements.length) {
         return <p className="supplier-detail-empty-text">{emptyText}</p>;
@@ -45,7 +25,7 @@ export default function ImportTrialHistory({
                 <thead>
                     <tr>
                         <th>Ngày</th>
-                        <th>Phiếu</th>
+                        {hideOrderCode ? null : <th>Phiếu</th>}
                         <th>Sản phẩm</th>
                         <th>Kết quả</th>
                         <th className="trial-settle-table__num">Tiền</th>
@@ -68,13 +48,15 @@ export default function ImportTrialHistory({
                                         <td rowSpan={rowSpan} className="import-trial-history-table__meta">
                                             {formatDateTime(settlement.settledAt)}
                                         </td>
-                                        <td rowSpan={rowSpan} className="import-trial-history-table__code">
-                                            {settlement.orderCode || '—'}
-                                        </td>
+                                        {hideOrderCode ? null : (
+                                            <td rowSpan={rowSpan} className="import-trial-history-table__code">
+                                                {settlement.orderCode || '—'}
+                                            </td>
+                                        )}
                                     </>
                                 ) : null}
                                 <td>{line?.productName || '—'}</td>
-                                <td>{line ? resultOf(line) : '—'}</td>
+                                <td>{line ? formatTrialSettlementResult(line) : '—'}</td>
                                 <td className="trial-settle-table__num">
                                     {line ? formatMoneyPlain(line.payableAmount) : '—'}
                                 </td>

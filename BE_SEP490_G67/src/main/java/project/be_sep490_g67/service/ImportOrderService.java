@@ -80,6 +80,7 @@ public class ImportOrderService {
     StorageLocationRepository storageLocationRepository;
     UserRepository userRepository;
     ImportReturnService importReturnService;
+    ImportTrialSettlementService importTrialSettlementService;
     CloudinaryImageService cloudinaryImageService;
 
     @Transactional
@@ -458,6 +459,9 @@ public class ImportOrderService {
                             .lastCostPerBase(lastCostPerBase)
                             .sellingPrice(product != null ? product.getSellingPrice() : null)
                             .lineTotal(displayLineTotal(detail))
+                            .settledPayableAmount(isSettledTrialLine(detail)
+                                    ? (detail.getLineTotal() != null ? detail.getLineTotal() : BigDecimal.ZERO)
+                                    : null)
                             .expiryDate(detail.getExpiryDate())
                             .note(detail.getNote())
                             .isPromotion(Boolean.TRUE.equals(detail.getIsPromotion())
@@ -479,6 +483,10 @@ public class ImportOrderService {
         BigDecimal openTrialAmount = details.stream()
                 .filter(this::isOpenTrialLine)
                 .map(this::agreedLineAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal settledTrialAmount = details.stream()
+                .filter(this::isSettledTrialLine)
+                .map(detail -> detail.getLineTotal() != null ? detail.getLineTotal() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         boolean hasOpenTrial = openTrialAmount.compareTo(BigDecimal.ZERO) > 0
                 || details.stream().anyMatch(this::isOpenTrialLine);
@@ -505,6 +513,7 @@ public class ImportOrderService {
                 .status(paymentStatus)
                 .goodsTotal(goodsTotal)
                 .openTrialAmount(openTrialAmount)
+                .settledTrialAmount(settledTrialAmount)
                 .discountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO)
                 .returnDeductionAmount(order.getReturnDeductionAmount() != null
                         ? order.getReturnDeductionAmount()
@@ -519,6 +528,7 @@ public class ImportOrderService {
                 .invoiceImage(order.getInvoiceImage())
                 .items(items)
                 .returnLines(importReturnService.listSettledForImportOrder(order.getId()))
+                .trialSettlements(importTrialSettlementService.listHistory(order.getId()))
                 .hasOpenTrial(hasOpenTrial)
                 .build();
     }
@@ -796,6 +806,14 @@ public class ImportOrderService {
                 && ImportTrialConstants.TRIAL_OPEN.equals(detail.getTrialStatus());
     }
 
+    private boolean isSettledTrialLine(ImportOrderDetail detail) {
+        if (detail == null) {
+            return false;
+        }
+        return ImportTrialConstants.LINE_TRIAL.equals(detail.getLineType())
+                && ImportTrialConstants.TRIAL_SETTLED.equals(detail.getTrialStatus());
+    }
+
     /** Giá trị thỏa thuận qty × đơn giá; KM = 0. */
     private BigDecimal agreedLineAmount(ImportOrderDetail detail) {
         if (detail == null || isPromotionLine(detail)) {
@@ -807,14 +825,14 @@ public class ImportOrderService {
     }
 
     /**
-     * Thành tiền hiển thị: KM = 0; bán thử OPEN = qty × giá (kể cả phiếu cũ DB đang 0);
-     * còn lại lấy line_total đã ghi.
+     * Thành tiền trên phiếu: KM = 0; bán thử (kể cả đã chốt) = qty × giá lúc nhận;
+     * hàng thường lấy line_total đã ghi.
      */
     private BigDecimal displayLineTotal(ImportOrderDetail detail) {
         if (isPromotionLine(detail)) {
             return BigDecimal.ZERO;
         }
-        if (isOpenTrialLine(detail)) {
+        if (isOpenTrialLine(detail) || isSettledTrialLine(detail)) {
             return agreedLineAmount(detail);
         }
         return detail.getLineTotal() != null ? detail.getLineTotal() : agreedLineAmount(detail);
