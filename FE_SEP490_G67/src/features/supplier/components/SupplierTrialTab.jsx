@@ -104,7 +104,7 @@ export default function SupplierTrialTab({ supplierId, refreshToken, onSettled }
                                         <span
                                             className={showBasePrice ? 'trial-settle-product' : undefined}
                                         >
-                                            <span className={showBasePrice ? 'trial-settle-product__name' : undefined}>
+                                            <span className="trial-settle-product__name">
                                                 {line.productName}
                                             </span>
                                             {showBasePrice ? (

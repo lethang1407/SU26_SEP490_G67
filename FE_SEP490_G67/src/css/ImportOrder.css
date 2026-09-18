@@ -1050,6 +1050,11 @@ a.supplier-btn {
     cursor: help;
 }
 
+.trial-settle-product__name {
+    font-weight: 700;
+    color: #0f172a;
+}
+
 .trial-settle-product__tip {
     display: none;
     position: absolute;

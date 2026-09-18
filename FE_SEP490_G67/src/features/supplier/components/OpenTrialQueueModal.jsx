@@ -75,7 +75,7 @@ function OpenTrialLines({ lines }) {
                 return (
                     <li key={line.importOrderDetailId}>
                         <span className={showBasePrice ? 'trial-settle-product' : undefined}>
-                            <span className={showBasePrice ? 'trial-settle-product__name' : undefined}>
+                            <span className="trial-settle-product__name">
                                 {line.productName}
                             </span>
                             {showBasePrice ? (
