@@ -150,18 +150,46 @@ export function settlementLineByDetailId(settlements) {
     return map;
 }
 
-/** Chú thích dòng bán thử đã chốt: trả lại / giữ hết / phải trả. */
-export function describeSettledTrial(line, settlementLine) {
-    const unit = settlementLine?.unitName
-        || settlementLine?.baseUnitName
-        || line?.unitName
-        || '';
+/**
+ * Cột Kết quả quyết toán: Nhận → bán (POS) → hao hụt (đếm thiếu so với tồn) → hỏng → trả | giữ.
+ * Không gộp hao hụt vào “bán”. Record cũ không có tồn hệ thống: bỏ bán/hao hụt, giữ hỏng/trả/giữ.
+ */
+export function formatTrialSettlementResult(line) {
+    if (!line) return '—';
+    const unit = line.unitName || line.baseUnitName || '';
     const unitLabel = unit ? ` ${unit}` : '';
-    const returned = Number(settlementLine?.returnedQty) || 0;
-    const parts = [];
+    const received = Number(line.receivedQty) || 0;
+    const counted = Number(line.countedRemainingQty) || 0;
+    const unsellable = Number(line.unsellableQty) || 0;
+    const returned = Number(line.returnedQty) || 0;
+    const kept = Math.max(counted - unsellable, 0);
+    const systemRemRaw = line.systemRemainingQty;
+    const hasSystemRem = systemRemRaw != null && systemRemRaw !== '';
+    const systemRem = Number(systemRemRaw) || 0;
+    const sold = hasSystemRem ? Math.max(received - systemRem, 0) : 0;
+    const shrinkage = hasSystemRem ? Math.max(systemRem - counted, 0) : 0;
+    const parts = [`Nhận ${received}${unitLabel}`];
+    if (sold > 0) parts.push(`bán ${sold}${unitLabel}`);
+    if (shrinkage > 0) parts.push(`hao hụt ${shrinkage}${unitLabel}`);
+    if (unsellable > 0) parts.push(`hỏng ${unsellable}${unitLabel}`);
     if (returned > 0) {
-        parts.push(`Trả lại ${returned}${unitLabel}`);
-    } else if (settlementLine?.decision === 'PAY_ALL_KEEP') {
+        parts.push(`trả ${returned}${unitLabel}`);
+    } else if (line.decision === 'PAY_ALL_KEEP' && kept > 0) {
+        parts.push(`giữ ${kept}${unitLabel}`);
+    }
+    return parts.join(', ');
+}
+
+/** Chú thích dòng bán thử đã chốt: kết quả + phải trả. */
+export function describeSettledTrial(line, settlementLine) {
+    const source = settlementLine || line;
+    const parts = [];
+    if (settlementLine) {
+        parts.push(formatTrialSettlementResult(settlementLine));
+    } else if (source?.returnedQty > 0) {
+        const unit = source.unitName || source.baseUnitName || line?.unitName || '';
+        parts.push(`Trả lại ${source.returnedQty}${unit ? ` ${unit}` : ''}`);
+    } else if (source?.decision === 'PAY_ALL_KEEP') {
         parts.push('Giữ hết');
     }
     const payableRaw = settlementLine?.payableAmount ?? line?.settledPayableAmount;

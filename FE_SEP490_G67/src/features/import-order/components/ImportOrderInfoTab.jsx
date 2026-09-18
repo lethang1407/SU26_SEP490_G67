@@ -14,7 +14,6 @@ import {
 } from '../utils/importOrderUtils';
 import { mapPendingReturnLine } from '../utils/importReturnAttachUtils';
 import ImportOrderReturnSection from './ImportOrderReturnSection';
-import ImportTrialHistory from './ImportTrialHistory';
 
 export default function ImportOrderInfoTab({
     order,
@@ -273,19 +272,6 @@ export default function ImportOrderInfoTab({
                     </table>
                 </div>
             </section>
-
-            {trialSettlements.length > 0 ? (
-                <section className="import-order-expand__import-section">
-                    <header className="ioc-section__head">
-                        <h2 className="ioc-section__title">II. Quyết toán bán thử</h2>
-                    </header>
-                    <ImportTrialHistory
-                        settlements={trialSettlements}
-                        hideOrderCode
-                        emptyText="Chưa có lần quyết toán bán thử."
-                    />
-                </section>
-            ) : null}
 
             {returnLines.length > 0 ? (
                 <div className="import-order-expand__returns">

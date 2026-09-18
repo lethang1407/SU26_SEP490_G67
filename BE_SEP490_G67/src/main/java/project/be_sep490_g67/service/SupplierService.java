@@ -49,7 +49,7 @@ public class SupplierService {
 
     @Transactional(readOnly = true)
     public SupplierListPageResponse findAllSuppliers(
-            String search, Integer categoryId, Integer productId, int page, int size) {
+            String search, Integer categoryId, Integer productId, Boolean hasOpenTrial, int page, int size) {
         String safeSearch = (search == null || search.isBlank()) ? "" : search.trim();
 
         Map<Integer, Instant> lastImportedAt = Map.of();
@@ -98,6 +98,13 @@ public class SupplierService {
                                     String.CASE_INSENSITIVE_ORDER))
                 .toList();
 
+        if (Boolean.TRUE.equals(hasOpenTrial)) {
+            sorted = sorted.stream()
+                    .filter(item -> item.getOpenTrialAmount() != null
+                            && item.getOpenTrialAmount().compareTo(BigDecimal.ZERO) > 0)
+                    .toList();
+        }
+
         // Bước 5: Phân trang thủ công
         int totalElements = sorted.size();
         int totalPages    = Math.max(1, (int) Math.ceil((double) totalElements / size));
@@ -115,6 +122,14 @@ public class SupplierService {
                 .map(SupplierDebtAmounts::currentDebt)
                 .filter(debt -> debt.compareTo(BigDecimal.ZERO) > 0)
                 .count();
+        BigDecimal openTrialAmount = debtMap.values().stream()
+                .map(SupplierDebtAmounts::openTrialAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        long openTrialSupplierCount = debtMap.values().stream()
+                .map(SupplierDebtAmounts::openTrialAmount)
+                .filter(amount -> amount.compareTo(BigDecimal.ZERO) > 0)
+                .count();
+        long openTrialOrderCount = importOrderDetailRepository.countOpenTrialOrders();
 
         return SupplierListPageResponse.builder()
                 .content(pageContent)
@@ -124,6 +139,9 @@ public class SupplierService {
                 .totalPages(totalPages)
                 .totalDebt(totalDebt)
                 .debtSupplierCount(debtSupplierCount)
+                .openTrialAmount(openTrialAmount)
+                .openTrialSupplierCount(openTrialSupplierCount)
+                .openTrialOrderCount(openTrialOrderCount)
                 .build();
     }
 
