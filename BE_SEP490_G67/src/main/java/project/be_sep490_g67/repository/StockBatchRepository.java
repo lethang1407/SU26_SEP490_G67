@@ -38,6 +38,17 @@ public interface StockBatchRepository extends JpaRepository<StockBatch, Integer>
     List<Object[]> sumStockByProductIds(@Param("productIds") List<Integer> productIds);
 
     @Query("""
+            SELECT COALESCE(SUM(sm.quantityDelta), 0)
+            FROM StockMovement sm
+            JOIN sm.stockBatch sb
+            WHERE sb.product.id = :productId
+              AND sb.isRemoved = false
+              AND (sm.isRemoved = false OR sm.isRemoved IS NULL)
+            """)
+    Long sumStockByProductId(@Param("productId") Integer productId);
+
+
+    @Query("""
             SELECT sb FROM StockBatch sb
             JOIN FETCH sb.product p
             WHERE sb.isRemoved = false

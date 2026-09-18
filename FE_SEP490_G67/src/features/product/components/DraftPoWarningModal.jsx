@@ -16,7 +16,7 @@ export default function DraftPoWarningModal({
   const singleOrderCode = items.find((i) => i.orderId === singleOrderId)?.code;
 
   return (
-    <div className="pi-modal-backdrop" onClick={onCancel} style={{ zIndex: 1100 }}>
+    <div className="pi-modal-backdrop" style={{ zIndex: 1100 }}>
       <div
         className="pi-modal-dialog draft-po-warning-modal"
         onClick={(e) => e.stopPropagation()}

@@ -10,6 +10,7 @@ import UnitConversionModal from '../components/UnitConversionModal';
 import ProductEditModal from '../components/ProductEditModal';
 import QuickBarcodeScanModal from '../components/QuickBarcodeScanModal';
 import DraftPoWarningModal from '../components/DraftPoWarningModal';
+import ProductToast, { ProductToastContainer } from '../components/ProductToast';
 import { productsApi } from '../api';
 import { importOrderApi } from '../api/importOrderApi';
 import { categoriesApi } from '../../category/api';
@@ -705,14 +706,6 @@ export default function ProductImportPage() {
               <div className="pi-card-head">
                 <div className="pi-card-title-wrap">
                   <h1 className="pi-card-title">Danh sách hàng hóa</h1>
-                  {showStatusNote ? (
-                    <span
-                      className={`page-note${errorMsg ? ' page-note--error' : ''}${successMsg && !errorMsg ? ' page-note--ok' : ''}`}
-                      style={{ margin: 0, padding: '4px 10px' }}
-                    >
-                      {errorMsg || successMsg}
-                    </span>
-                  ) : null}
                 </div>
 
                 <div className="pi-head-actions">
@@ -968,6 +961,24 @@ export default function ProductImportPage() {
           onCancel={handleCancelDraftAdd}
           onOpenDraftPo={handleOpenDraftPo}
         />
+
+        {/* Floating Bottom-Right Toast Notifications */}
+        <ProductToastContainer>
+          {errorMsg && (
+            <ProductToast
+              message={errorMsg}
+              type="error"
+              onClose={() => setErrorMsg('')}
+            />
+          )}
+          {successMsg && (
+            <ProductToast
+              message={successMsg}
+              type="success"
+              onClose={() => setSuccessMsg('')}
+            />
+          )}
+        </ProductToastContainer>
       </main>
     </div>
   );

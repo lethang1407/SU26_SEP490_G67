@@ -6882,6 +6882,25 @@
   background: #FAFAFA;
 }
 
+.pi-order-link {
+  color: #2563EB;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin: -2px -6px;
+  transition: all 0.15s ease-in-out;
+}
+
+.pi-order-link:hover {
+  color: #1D4ED8;
+  background: #EFF6FF;
+  text-decoration: underline;
+}
+
 /* ================================================================
    QUICK BARCODE SCAN MODAL & SCANNER UI
    ================================================================ */
@@ -7300,3 +7319,172 @@
   color: inherit;
   opacity: 0.6;
 }
+
+/* ==========================================================================
+   FLOATING BOTTOM-RIGHT TOAST NOTIFICATION (KIOTVIET / E-COMMERCE STYLE)
+   ========================================================================== */
+.pi-toast-container {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 100000;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 10px;
+  pointer-events: none;
+  max-width: min(440px, calc(100vw - 32px));
+}
+
+.pi-toast-item {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 16px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.16), 0 2px 8px rgba(15, 23, 42, 0.08);
+  animation: piToastSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  backdrop-filter: blur(8px);
+  word-break: break-word;
+}
+
+.pi-toast-item--exit {
+  animation: piToastSlideOut 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.pi-toast-item--success {
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  color: #166534;
+}
+
+.pi-toast-item--error {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+}
+
+.pi-toast-item--warning {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+}
+
+.pi-toast-item--info {
+  background: #f0f9ff;
+  border: 1px solid #7dd3fc;
+  color: #075985;
+}
+
+.pi-toast-icon-wrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.pi-toast-icon--success {
+  color: #16a34a;
+}
+
+.pi-toast-icon--error {
+  color: #dc2626;
+}
+
+.pi-toast-icon--warning {
+  color: #d97706;
+}
+
+.pi-toast-icon--info {
+  color: #0284c7;
+}
+
+.pi-toast-content {
+  flex: 1;
+}
+
+.pi-toast-title {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 2px;
+  letter-spacing: 0.01em;
+}
+
+.pi-toast-item--success .pi-toast-title {
+  color: #15803d;
+}
+
+.pi-toast-item--error .pi-toast-title {
+  color: #b91c1c;
+}
+
+.pi-toast-item--warning .pi-toast-title {
+  color: #b45309;
+}
+
+.pi-toast-item--info .pi-toast-title {
+  color: #0369a1;
+}
+
+.pi-toast-message {
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0.95;
+}
+
+.pi-toast-list {
+  margin: 4px 0 0 0;
+  padding-left: 18px;
+  list-style-type: disc;
+}
+
+.pi-toast-list li {
+  margin-bottom: 2px;
+}
+
+.pi-toast-close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  color: currentColor;
+  opacity: 0.6;
+  margin-top: -2px;
+  margin-right: -4px;
+  transition: all 0.15s ease;
+}
+
+.pi-toast-close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+@keyframes piToastSlideIn {
+  from {
+    opacity: 0;
+    transform: translate3d(24px, 16px, 0) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes piToastSlideOut {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(24px, 12px, 0) scale(0.95);
+  }
+}
