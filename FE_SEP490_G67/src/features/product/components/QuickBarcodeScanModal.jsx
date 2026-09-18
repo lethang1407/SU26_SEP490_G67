@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, ScanLine, Search, Plus, CheckCircle, AlertCircle, Package, ArrowRight } from 'lucide-react';
 import { productsApi } from '../api';
+import ProductToast, { ProductToastContainer } from './ProductToast';
 import '../../../css/Product.css';
 
 function playScanBeep(success = true) {
@@ -113,7 +114,7 @@ export default function QuickBarcodeScanModal({
   };
 
   return (
-    <div className="pi-modal-backdrop" onClick={onClose}>
+    <div className="pi-modal-backdrop">
       <div className="pi-modal-dialog pi-scan-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="pi-modal-header">
@@ -174,8 +175,6 @@ export default function QuickBarcodeScanModal({
               </button>
             </div>
           </form>
-
-          {errorMsg && <div className="pi-unit-alert-error" style={{ marginTop: 16 }}>{errorMsg}</div>}
         </div>
 
         {/* Footer */}
@@ -188,6 +187,17 @@ export default function QuickBarcodeScanModal({
             Đóng
           </button>
         </div>
+
+        {/* Floating Bottom-Right Toast Notifications */}
+        <ProductToastContainer>
+          {errorMsg && (
+            <ProductToast
+              message={errorMsg}
+              type="error"
+              onClose={() => setErrorMsg('')}
+            />
+          )}
+        </ProductToastContainer>
       </div>
     </div>
   );

@@ -61,7 +61,7 @@ export default function ImportPanel({
   }, [supplierGroups]);
 
   return (
-    <div className="pi-modal-backdrop" onClick={onClose}>
+    <div className="pi-modal-backdrop">
       <div
         className="pi-modal-dialog pi-import-order-modal"
         onClick={(e) => e.stopPropagation()}

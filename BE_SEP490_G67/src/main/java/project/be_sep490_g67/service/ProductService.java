@@ -24,6 +24,7 @@ import project.be_sep490_g67.utils.UnitPriceResolver;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -696,18 +697,80 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public List<PriceHistoryResponse> getPriceHistory(Integer productId) {
-        if (!productRepository.existsById(productId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sản phẩm");
-        }
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sản phẩm"));
+
         List<ImportOrderDetail> details = importOrderDetailRepository.findPriceHistoryFromImportOrders(productId);
-        return details.stream()
-                .map(d -> PriceHistoryResponse.builder()
-                        .id(d.getId())
-                        .price(d.getCostPerUnit())
-                        .supplierId(d.getImportOrder() != null && d.getImportOrder().getSupplier() != null ? d.getImportOrder().getSupplier().getId() : null)
-                        .supplierName(d.getImportOrder() != null && d.getImportOrder().getSupplier() != null ? d.getImportOrder().getSupplier().getName() : null)
-                        .createdAt(d.getImportOrder() != null && d.getImportOrder().getCreatedAt() != null ? d.getImportOrder().getCreatedAt() : d.getCreatedAt())
-                        .build())
-                .toList();
+
+        BigDecimal prevCost = null;
+        List<PriceHistoryResponse> responses = new ArrayList<>();
+
+        for (ImportOrderDetail d : details) {
+            ImportOrder order = d.getImportOrder();
+            Supplier supplier = order != null ? order.getSupplier() : null;
+
+            BigDecimal currentCost = d.getCostPerUnit();
+            BigDecimal oldCost = prevCost;
+            prevCost = currentCost;
+
+            String unitName = d.getUnitName();
+            if (unitName == null || unitName.isBlank()) {
+                if (d.getProductUnit() != null) {
+                    unitName = d.getProductUnit().getName();
+                } else if (d.getProduct() != null && d.getProduct().getProductUnits() != null) {
+                    unitName = d.getProduct().getProductUnits().stream()
+                            .filter(u -> u.getUnitBase() != null && u.getUnitBase().compareTo(BigDecimal.ONE) == 0)
+                            .map(ProductUnit::getName)
+                            .findFirst()
+                            .orElse(null);
+                }
+            }
+            if (unitName == null || unitName.isBlank()) {
+                unitName = "Cái";
+            }
+
+            String note = d.getNote();
+            if (note == null || note.isBlank()) {
+                if (order != null && order.getNote() != null && !order.getNote().isBlank()) {
+                    note = order.getNote();
+                } else if (supplier != null && supplier.getName() != null) {
+                    note = "Nhập từ " + supplier.getName();
+                } else if (order != null && order.getOrderCode() != null) {
+                    note = "Nhập hàng theo đơn " + order.getOrderCode();
+                } else {
+                    note = "Nhập kho";
+                }
+            }
+
+            String changeType = Boolean.TRUE.equals(d.getIsPromotion()) ? "Hàng tặng/KM" : "Nhập hàng";
+
+            LocalDate orderDate = order != null ? order.getReceivedDate() : null;
+            Instant createdAt = order != null && order.getCreatedAt() != null ? order.getCreatedAt() : d.getCreatedAt();
+
+            responses.add(PriceHistoryResponse.builder()
+                    .id(d.getId())
+                    .orderId(order != null ? order.getId() : null)
+                    .orderCode(order != null ? order.getOrderCode() : null)
+                    .supplierId(supplier != null ? supplier.getId() : null)
+                    .supplierName(supplier != null ? supplier.getName() : "Nhà cung cấp lẻ")
+                    .orderDate(orderDate)
+                    .createdAt(createdAt)
+                    .price(currentCost)
+                    .costPerUnit(currentCost)
+                    .quantity(d.getQuantity())
+                    .unitName(unitName)
+                    .changeType(changeType)
+                    .oldCostPrice(oldCost)
+                    .newCostPrice(currentCost)
+                    .oldSellingPrice(null)
+                    .newSellingPrice(d.getProduct() != null ? d.getProduct().getSellingPrice() : product.getSellingPrice())
+                    .note(note)
+                    .lineTotal(d.getLineTotal())
+                    .expiryDate(d.getExpiryDate())
+                    .build());
+        }
+
+        Collections.reverse(responses);
+        return responses;
     }
 }
