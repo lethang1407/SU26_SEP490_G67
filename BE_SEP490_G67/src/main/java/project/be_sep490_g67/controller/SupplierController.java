@@ -47,13 +47,22 @@ public class SupplierController {
             @RequestParam(name = "size", defaultValue = "10") int size,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Integer categoryId,
-            @RequestParam(required = false) Integer productId
+            @RequestParam(required = false) Integer productId,
+            @RequestParam(required = false) Boolean hasOpenTrial
     ) {
         SupplierListPageResponse result = supplierService.findAllSuppliers(
-                search, categoryId, productId, page, size);
+                search, categoryId, productId, hasOpenTrial, page, size);
         return ApiResponse.<SupplierListPageResponse>builder()
                 .result(result)
                 .message("Lấy danh sách nhà cung cấp thành công")
+                .build();
+    }
+
+    @GetMapping("/trial-open")
+    public ApiResponse<List<ImportTrialPreviewResponse>> getAllOpenTrial() {
+        return ApiResponse.<List<ImportTrialPreviewResponse>>builder()
+                .result(importTrialSettlementService.previewOpenAll())
+                .message("Lấy hàng bán thử đang treo thành công")
                 .build();
     }
 
