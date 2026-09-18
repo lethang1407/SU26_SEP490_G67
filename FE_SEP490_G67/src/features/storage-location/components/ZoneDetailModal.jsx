@@ -59,13 +59,16 @@ export default function ZoneDetailModal({
                     </div>
                 ) : (
                     floorGroups.map((floorGroup) => {
-                        const floorKey = floorGroup.floor ?? floorGroup.aisle ?? 'none';
+                        const floor = floorGroup.floor ?? floorGroup.aisle ?? null;
+                        const floorKey = floor ?? '_none';
                         const locations = floorGroup.locations ?? [];
                         return (
                             <div key={floorKey} className="storage-zone-detail-modal__floor">
-                                <h4 className="storage-zone-detail-modal__floor-title">
-                                    Tầng {floorKey}
-                                </h4>
+                                {floor ? (
+                                    <h4 className="storage-zone-detail-modal__floor-title">
+                                        Tầng {floor}
+                                    </h4>
+                                ) : null}
                                 <div className="storage-location-zone__shelves">
                                     {locations.map((location) => (
                                         <StorageLocationCell

@@ -1239,29 +1239,31 @@ public class ImportOrderService {
         batch.setIsRemoved(false);
         StockBatch savedBatch = stockBatchRepository.save(batch);
 
-        // Auto-assign batch to the product's active location or the default store location
-        StorageLocation targetLocation = null;
-        if (detail.getProduct() != null && detail.getProduct().getId() != null) {
-            List<BatchLocation> existingLocs = batchLocationRepository.findAvailableByProductId(detail.getProduct().getId());
-            if (!existingLocs.isEmpty()) {
-                targetLocation = existingLocs.get(0).getLocation();
-            }
-        }
-        if (targetLocation == null) {
-            targetLocation = storageLocationRepository.findFirstByIsRemovedFalseAndIsActiveTrueOrderByIdAsc()
-                    .filter(loc -> loc.getStorageZone() == null || !"RETURN_HOLD".equalsIgnoreCase(loc.getStorageZone().getZoneType()))
-                    .orElse(null);
-        }
-
+        // Tạm tắt auto-assign: hàng nhập chỉ tạo StockBatch, chưa xếp vị trí.
+        // POS chỉ bán được khi đã xếp thủ công (batch_locations).
+        // StorageLocation targetLocation = null;
+        // if (detail.getProduct() != null && detail.getProduct().getId() != null) {
+        //     List<BatchLocation> existingLocs = batchLocationRepository.findAvailableByProductId(detail.getProduct().getId());
+        //     if (!existingLocs.isEmpty()) {
+        //         targetLocation = existingLocs.get(0).getLocation();
+        //     }
+        // }
+        // if (targetLocation == null) {
+        //     targetLocation = storageLocationRepository.findFirstByIsRemovedFalseAndIsActiveTrueOrderByIdAsc()
+        //             .filter(loc -> loc.getStorageZone() == null || !"RETURN_HOLD".equalsIgnoreCase(loc.getStorageZone().getZoneType()))
+        //             .orElse(null);
+        // }
+        //
+        // BatchLocation savedBatchLocation = null;
+        // if (targetLocation != null) {
+        //     BatchLocation bl = new BatchLocation();
+        //     bl.setBatch(savedBatch);
+        //     bl.setLocation(targetLocation);
+        //     bl.setQuantity(quantityIn);
+        //     bl.setIsRemoved(false);
+        //     savedBatchLocation = batchLocationRepository.save(bl);
+        // }
         BatchLocation savedBatchLocation = null;
-        if (targetLocation != null) {
-            BatchLocation bl = new BatchLocation();
-            bl.setBatch(savedBatch);
-            bl.setLocation(targetLocation);
-            bl.setQuantity(quantityIn);
-            bl.setIsRemoved(false);
-            savedBatchLocation = batchLocationRepository.save(bl);
-        }
 
         StockMovement movement = StockMovement.builder()
                 .stockBatch(savedBatch)

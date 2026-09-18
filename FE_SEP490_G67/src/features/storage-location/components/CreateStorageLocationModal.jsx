@@ -66,7 +66,6 @@ function ZoneCombobox({ value, onChange, options, disabled }) {
                     onFocus={() => setOpen(true)}
                     placeholder=""
                     maxLength={50}
-                    required
                     autoComplete="off"
                     aria-autocomplete="list"
                     aria-expanded={open}
@@ -76,7 +75,7 @@ function ZoneCombobox({ value, onChange, options, disabled }) {
                     type="button"
                     className="storage-zone-combobox__toggle"
                     disabled={disabled || options.length === 0}
-                    aria-label="Hiện danh sách kệ"
+                    aria-label="Hiện danh sách khu"
                     tabIndex={-1}
                     onClick={() => {
                         setOpen((prev) => !prev);
@@ -92,7 +91,7 @@ function ZoneCombobox({ value, onChange, options, disabled }) {
                     {filtered.length === 0 ? (
                         <div className="storage-zone-combobox__empty">
                             {options.length === 0
-                                ? 'Chưa có kệ nào — nhập mã kệ mới'
+                                ? 'Chưa có khu nào — nhập mã khu mới'
                                 : `Không khớp “${value}” — vẫn có thể dùng mã này`}
                         </div>
                     ) : (
@@ -112,7 +111,7 @@ function ZoneCombobox({ value, onChange, options, disabled }) {
                                 onMouseDown={(event) => event.preventDefault()}
                                 onClick={() => selectZone(zone)}
                             >
-                                Kệ {zone}
+                                Khu {zone}
                             </button>
                         ))
                     )}
@@ -129,18 +128,19 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
     const [error, setError] = useState(null);
     const [apiZones, setApiZones] = useState([]);
 
-    const suggestedLabel = useMemo(
-        () =>
-            buildLocationLabel({
-                zone: formData.zone,
-                shelf: formData.shelf,
-                bin: formData.bin,
-            }),
-        [formData.zone, formData.shelf, formData.bin],
-    );
+    const suggestedLabel = useMemo(() => {
+        if (!formData.shelf.trim() || !formData.bin.trim()) {
+            return '';
+        }
+        return buildLocationLabel({
+            zone: formData.zone,
+            shelf: formData.shelf,
+            bin: formData.bin,
+        });
+    }, [formData.zone, formData.shelf, formData.bin]);
 
     useEffect(() => {
-        if (!labelTouched) {
+        if (!labelTouched && suggestedLabel) {
             setFormData((prev) => ({
                 ...prev,
                 label: suggestedLabel,
@@ -202,12 +202,16 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
         setError(null);
         setIsSubmitting(true);
 
+        const shelf = formData.shelf.trim();
+        const bin = formData.bin.trim();
+        const label = (formData.label || suggestedLabel).trim();
+
         const payload = {
             zone: formData.zone.trim().toUpperCase(),
-            shelf: formData.shelf.trim(),
-            bin: formData.bin.trim(),
-            size: formData.size,
-            label: (formData.label || suggestedLabel).trim() || undefined,
+            shelf: shelf || undefined,
+            bin: bin || undefined,
+            size: formData.size || 'MD',
+            label: label || undefined,
             description: formData.description.trim() || undefined,
         };
 
@@ -216,18 +220,23 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
             setIsSubmitting(false);
             return;
         }
-        if (!/^[1-9]\d*$/.test(payload.shelf)) {
+        if (Boolean(shelf) !== Boolean(bin)) {
+            setError('Tầng và số ô phải nhập cùng nhau hoặc để trống cả hai.');
+            setIsSubmitting(false);
+            return;
+        }
+        if (shelf && !/^[1-9]\d*$/.test(shelf)) {
             setError('Tầng phải là số nguyên dương (1, 2, 3...).');
             setIsSubmitting(false);
             return;
         }
-        if (!/^[1-9]\d*$/.test(payload.bin)) {
+        if (bin && !/^[1-9]\d*$/.test(bin)) {
             setError('Số ô phải là số nguyên dương, bắt đầu từ 1 trên mỗi tầng.');
             setIsSubmitting(false);
             return;
         }
-        if (!payload.size) {
-            setError('Vui lòng chọn kích thước ô.');
+        if (!payload.label) {
+            setError('Vui lòng nhập mã vị trí (ví dụ: QUAY-1, BAN-NUOC).');
             setIsSubmitting(false);
             return;
         }
@@ -255,31 +264,19 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
                 <Modal.Body>
                     {error && <Alert variant="danger">{error}</Alert>}
 
-                    <p className="storage-location-modal__hint">
-                        Cấu trúc <strong>Khu → Tầng → Ô</strong>. Mã gợi ý dạng{' '}
-                        <strong>A-T1-O3</strong>. Mỗi tầng đánh số ô từ 1.
-                    </p>
-
                     <div className="storage-location-modal__row">
                         <Form.Group className="storage-location-modal__field" controlId="locationZone">
-                            <Form.Label>
-                                Khu vực <span className="text-danger">*</span>
-                            </Form.Label>
+                            <Form.Label>Khu vực</Form.Label>
                             <ZoneCombobox
                                 value={formData.zone}
                                 onChange={handleZoneChange}
                                 options={zoneOptions}
                                 disabled={isSubmitting}
                             />
-                            <Form.Text className="text-muted">
-                                Chọn kệ đã có hoặc nhập mã kệ mới.
-                            </Form.Text>
                         </Form.Group>
 
                         <Form.Group className="storage-location-modal__field" controlId="locationShelf">
-                            <Form.Label>
-                                Tầng <span className="text-danger">*</span>
-                            </Form.Label>
+                            <Form.Label>Tầng</Form.Label>
                             <Form.Control
                                 type="number"
                                 min={1}
@@ -287,17 +284,14 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
                                 name="shelf"
                                 value={formData.shelf}
                                 onChange={handleChange}
-                                placeholder="1"
-                                required
+                                placeholder="Tuỳ chọn"
                             />
                         </Form.Group>
                     </div>
 
                     <div className="storage-location-modal__row">
                         <Form.Group className="storage-location-modal__field" controlId="locationBin">
-                            <Form.Label>
-                                Số ô <span className="text-danger">*</span>
-                            </Form.Label>
+                            <Form.Label>Số ô</Form.Label>
                             <Form.Control
                                 type="number"
                                 min={1}
@@ -305,21 +299,16 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
                                 name="bin"
                                 value={formData.bin}
                                 onChange={handleChange}
-                                placeholder="1"
-                                required
+                                placeholder="Tuỳ chọn"
                             />
-                            <Form.Text className="text-muted">Trên mỗi tầng, ô đánh số từ 1.</Form.Text>
                         </Form.Group>
 
                         <Form.Group className="storage-location-modal__field" controlId="locationSize">
-                            <Form.Label>
-                                Kích thước <span className="text-danger">*</span>
-                            </Form.Label>
+                            <Form.Label>Kích thước</Form.Label>
                             <Form.Select
                                 name="size"
                                 value={formData.size}
                                 onChange={handleChange}
-                                required
                             >
                                 {SHELF_SIZE_OPTIONS.map((option) => (
                                     <option key={option.value} value={option.value}>
@@ -337,7 +326,7 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
                             name="label"
                             value={formData.label}
                             onChange={handleChange}
-                            placeholder="A-T1-O1"
+                            placeholder="Ví dụ: QUAY-1, BAN-NUOC"
                             maxLength={50}
                         />
                         {!labelTouched && suggestedLabel && (
@@ -355,7 +344,7 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
                             name="description"
                             value={formData.description}
                             onChange={handleChange}
-                            placeholder="Ví dụ: Ô nước ngọt gần lối vào"
+                            placeholder="Ví dụ: Quầy nước ngọt gần lối vào"
                             maxLength={255}
                         />
                     </Form.Group>

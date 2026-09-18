@@ -3,11 +3,12 @@ import { downloadBlob } from '@/features/product/api';
 
 export const MOVEMENT_TYPE_OPTIONS = [
   { value: '', label: 'Tất cả' },
-  { value: 'IMPORT', label: 'Nhập hàng' },
+  { value: 'IMPORT', label: 'Nhập' },
+  { value: 'EXPORT', label: 'Xuất' },
   { value: 'SALE', label: 'Bán' },
-  { value: 'EXCHANGE_RETURN', label: 'Đổi / Trả khách' },
-  { value: 'SUPPLIER_RETURN', label: 'Trả NCC' },
-  { value: 'CANCEL', label: 'Hủy hàng' },
+  { value: 'EXCHANGE', label: 'Đổi' },
+  { value: 'RETURN', label: 'Trả' },
+  { value: 'CANCEL', label: 'Hủy' },
 ];
 
 export const warehouseReportApi = {

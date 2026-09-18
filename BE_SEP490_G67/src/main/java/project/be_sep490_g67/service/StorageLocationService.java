@@ -79,22 +79,37 @@ public class StorageLocationService {
     @Transactional
     public StorageLocationResponse createLocation(CreateStorageLocationRequest request) {
         String zone = request.getZone().trim().toUpperCase();
-        String shelf = request.getShelf().trim();
-        String bin = request.getBin().trim();
+        String shelf = trimToNull(request.getShelf());
+        String bin = trimToNull(request.getBin());
         String size = StorageLocationConstants.normalizeSize(request.getSize());
 
         if (!StorageLocationConstants.isValidSize(size)) {
             throw new AppException(ErrorCode.INVALID_STORAGE_LOCATION_SIZE);
         }
 
-        if (storageLocationRepository.existsByStorageZone_CodeIgnoreCaseAndShelfAndBinAndIsRemovedFalse(
-                zone, shelf, bin)) {
-            throw new AppException(ErrorCode.STORAGE_LOCATION_SLOT_EXISTED);
+        boolean hasShelf = shelf != null;
+        boolean hasBin = bin != null;
+        if (hasShelf != hasBin) {
+            throw new AppException(ErrorCode.STORAGE_LOCATION_SLOT_INCOMPLETE);
+        }
+
+        if (hasShelf) {
+            if (storageLocationRepository.existsByStorageZone_CodeIgnoreCaseAndShelfAndBinAndIsRemovedFalse(
+                    zone, shelf, bin)) {
+                throw new AppException(ErrorCode.STORAGE_LOCATION_SLOT_EXISTED);
+            }
         }
 
         String label = request.getLabel() == null || request.getLabel().isBlank()
-                ? StorageLocationConstants.buildLabel(zone, shelf, bin)
+                ? null
                 : request.getLabel().trim();
+        if (label == null) {
+            if (hasShelf) {
+                label = StorageLocationConstants.buildLabel(zone, shelf, bin);
+            } else {
+                throw new AppException(ErrorCode.STORAGE_LOCATION_LABEL_REQUIRED);
+            }
+        }
 
         if (storageLocationRepository.existsByLabelIgnoreCaseAndIsRemovedFalse(label)) {
             throw new AppException(ErrorCode.STORAGE_LOCATION_LABEL_EXISTED);

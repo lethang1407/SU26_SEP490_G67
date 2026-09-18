@@ -7,10 +7,12 @@ public final class WarehouseReportConstants {
     private WarehouseReportConstants() {
     }
 
+    /** Bộ lọc loại phát sinh trên UI: nhập, xuất, bán, đổi, trả, hủy. */
     public static final String GROUP_IMPORT = "IMPORT";
+    public static final String GROUP_EXPORT = "EXPORT";
     public static final String GROUP_SALE = "SALE";
-    public static final String GROUP_EXCHANGE_RETURN = "EXCHANGE_RETURN";
-    public static final String GROUP_SUPPLIER_RETURN = "SUPPLIER_RETURN";
+    public static final String GROUP_EXCHANGE = "EXCHANGE";
+    public static final String GROUP_RETURN = "RETURN";
     public static final String GROUP_CANCEL = "CANCEL";
 
     public static final Set<String> ALL_REPORT_TYPES = Set.of(
@@ -21,17 +23,61 @@ public final class WarehouseReportConstants {
             "RETURN_HOLD_IN",
             "IMPORT_RETURN_RESERVE",
             "IMPORT_RETURN_EXCHANGE_OUT",
-            // IMPORT_RETURN_RESTORE không đưa vào báo cáo: chỉ là bút toán hoàn khi sửa nháp (đã chuyển sang soft-remove RESERVE)
+            // IMPORT_RETURN_RESTORE không đưa vào báo cáo: chỉ là bút toán hoàn khi sửa nháp
             "CANCEL_BATCH"
     );
 
     private static final Map<String, List<String>> GROUP_TO_TYPES = Map.of(
-            GROUP_IMPORT, List.of("IMPORT", "IMPORT_RETURN_EXCHANGE_IN"),
+            GROUP_IMPORT, List.of("IMPORT"),
+            GROUP_EXPORT, List.of(
+                    "SALE",
+                    "IMPORT_RETURN_RESERVE",
+                    "IMPORT_RETURN_EXCHANGE_OUT",
+                    "CANCEL_BATCH"
+            ),
             GROUP_SALE, List.of("SALE"),
-            GROUP_EXCHANGE_RETURN, List.of("RETURN", "RETURN_HOLD_IN"),
-            GROUP_SUPPLIER_RETURN, List.of("IMPORT_RETURN_RESERVE", "IMPORT_RETURN_EXCHANGE_OUT"),
+            GROUP_EXCHANGE, List.of(
+                    "IMPORT_RETURN_EXCHANGE_IN",
+                    "IMPORT_RETURN_EXCHANGE_OUT",
+                    "IMPORT_RETURN_RESERVE"
+            ),
+            GROUP_RETURN, List.of(
+                    "RETURN",
+                    "RETURN_HOLD_IN",
+                    "IMPORT_RETURN_RESERVE"
+            ),
             GROUP_CANCEL, List.of("CANCEL_BATCH")
     );
+
+    /**
+     * Với nhóm Đổi/Trả: movement {@code IMPORT_RETURN_RESERVE} phụ thuộc method dòng đổi/trả.
+     * {@code null} = không ràng buộc method.
+     */
+    public static String methodConstraintForGroups(List<String> groupsOrTypes) {
+        if (groupsOrTypes == null || groupsOrTypes.isEmpty()) {
+            return null;
+        }
+        boolean wantExchange = false;
+        boolean wantReturn = false;
+        for (String raw : groupsOrTypes) {
+            if (raw == null || raw.isBlank()) {
+                continue;
+            }
+            String key = raw.trim().toUpperCase(Locale.ROOT);
+            if (GROUP_EXCHANGE.equals(key)) {
+                wantExchange = true;
+            } else if (GROUP_RETURN.equals(key)) {
+                wantReturn = true;
+            }
+        }
+        if (wantExchange && !wantReturn) {
+            return ImportReturnConstants.METHOD_EXCHANGE;
+        }
+        if (wantReturn && !wantExchange) {
+            return ImportReturnConstants.METHOD_RETURN;
+        }
+        return null;
+    }
 
     public static List<String> resolveMovementTypes(List<String> groupsOrTypes) {
         if (groupsOrTypes == null || groupsOrTypes.isEmpty()) {
@@ -43,6 +89,15 @@ public final class WarehouseReportConstants {
                 continue;
             }
             String key = raw.trim().toUpperCase(Locale.ROOT);
+            // Tương thích filter cũ
+            if ("EXCHANGE_RETURN".equals(key)) {
+                resolved.addAll(GROUP_TO_TYPES.get(GROUP_RETURN));
+                continue;
+            }
+            if ("SUPPLIER_RETURN".equals(key)) {
+                resolved.addAll(List.of("IMPORT_RETURN_RESERVE", "IMPORT_RETURN_EXCHANGE_OUT"));
+                continue;
+            }
             if (GROUP_TO_TYPES.containsKey(key)) {
                 resolved.addAll(GROUP_TO_TYPES.get(key));
             } else if (ALL_REPORT_TYPES.contains(key)) {
@@ -69,15 +124,15 @@ public final class WarehouseReportConstants {
         }
         boolean exchangeMethod = method != null && "EXCHANGE".equalsIgnoreCase(method.trim());
         return switch (movementType) {
-            case "IMPORT" -> "Nhập hàng";
-            case "IMPORT_RETURN_EXCHANGE_IN" -> "Đổi nhập từ NCC";
-            case "SALE" -> "Bán hàng";
-            case "RETURN" -> "Trả hàng khách";
-            case "RETURN_HOLD_IN" -> "Nhập giữ đổi/trả";
-            case "IMPORT_RETURN_EXCHANGE_OUT" -> "Đổi trả NCC";
-            case "IMPORT_RETURN_RESERVE" -> exchangeMethod ? "Đổi trả NCC" : "Trả NCC";
+            case "IMPORT" -> "Nhập";
+            case "IMPORT_RETURN_EXCHANGE_IN" -> "Đổi (nhập từ NCC)";
+            case "SALE" -> "Bán";
+            case "RETURN" -> "Trả (khách)";
+            case "RETURN_HOLD_IN" -> "Trả (giữ đổi/trả)";
+            case "IMPORT_RETURN_EXCHANGE_OUT" -> "Đổi (NCC)";
+            case "IMPORT_RETURN_RESERVE" -> exchangeMethod ? "Đổi (NCC)" : "Trả (NCC)";
             case "IMPORT_RETURN_RESTORE" -> "Hoàn trả NCC";
-            case "CANCEL_BATCH" -> "Hủy hàng";
+            case "CANCEL_BATCH" -> "Hủy";
             default -> movementType;
         };
     }
@@ -93,5 +148,21 @@ public final class WarehouseReportConstants {
             case "IMPORT", "IMPORT_RETURN_EXCHANGE_IN", "RETURN", "RETURN_HOLD_IN", "IMPORT_RETURN_RESTORE" -> true;
             default -> false;
         };
+    }
+
+    /** Movement RESERVE cần khớp method khi lọc Đổi / Trả. */
+    public static boolean matchesMethodConstraint(
+            String movementType,
+            String method,
+            String methodConstraint
+    ) {
+        if (methodConstraint == null || methodConstraint.isBlank()) {
+            return true;
+        }
+        if (!"IMPORT_RETURN_RESERVE".equals(movementType)) {
+            return true;
+        }
+        String normalized = ImportReturnConstants.normalizeMethod(method);
+        return methodConstraint.equalsIgnoreCase(normalized);
     }
 }

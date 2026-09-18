@@ -944,8 +944,15 @@ export default function AdjustStorageLocationModal({
                                 <>
                                     <p className="storage-adjust-modal__location-desc">
                                         Kệ {selectedLocation.zone}
-                                        {' · '}Tầng {selectedLocation.shelf || '—'} · Ô{' '}
-                                        {selectedLocation.bin || '—'}
+                                        {selectedLocation.shelf
+                                            ? ` · Tầng ${selectedLocation.shelf}`
+                                            : ''}
+                                        {selectedLocation.bin
+                                            ? ` · Ô ${selectedLocation.bin}`
+                                            : ''}
+                                        {selectedLocation.label
+                                            ? ` · ${selectedLocation.label}`
+                                            : ''}
                                     </p>
 
                                     {message && (
