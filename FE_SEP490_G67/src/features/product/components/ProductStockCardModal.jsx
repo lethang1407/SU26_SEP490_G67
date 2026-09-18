@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X, BookOpen, TrendingUp, TrendingDown, Clock, Package, Calendar } from 'lucide-react';
+import { X, BookOpen, TrendingUp, TrendingDown, Clock, Package, Calendar, ExternalLink } from 'lucide-react';
 import { productsApi } from '../api';
+import ProductToast, { ProductToastContainer } from './ProductToast';
 import '../../../css/Product.css';
 
 export default function ProductStockCardModal({
@@ -9,6 +10,7 @@ export default function ProductStockCardModal({
   product,
 }) {
   const [history, setHistory] = useState([]);
+  const [freshProduct, setFreshProduct] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -16,6 +18,16 @@ export default function ProductStockCardModal({
     if (isOpen && product?.id) {
       setLoading(true);
       setErrorMsg('');
+
+      // Fetch fresh detail to get accurate real-time onHand & prices
+      if (productsApi.getById) {
+        productsApi.getById(product.id)
+          .then((detail) => {
+            if (detail) setFreshProduct(detail);
+          })
+          .catch(() => { });
+      }
+
       if (productsApi.getPriceHistory) {
         productsApi.getPriceHistory(product.id)
           .then((res) => {
@@ -36,10 +48,15 @@ export default function ProductStockCardModal({
 
   if (!isOpen || !product) return null;
 
-  const unitLabel = product.unitName || product.baseUnitName || product.unit || (Array.isArray(product.units) && (product.units.find(u => u.isBase || Number(u.unitBase) === 1) || product.units[0])?.name) || 'Cái';
+  const effectiveProduct = freshProduct || product;
+  const unitLabel = effectiveProduct.unitName || effectiveProduct.baseUnitName || effectiveProduct.unit || (Array.isArray(effectiveProduct.units) && (effectiveProduct.units.find(u => u.isBase || Number(u.unitBase) === 1) || effectiveProduct.units[0])?.name) || 'Cái';
+
+  const onHandValue = effectiveProduct.onHand ?? effectiveProduct.stock ?? effectiveProduct.stockQuantity ?? product.onHand ?? product.stock ?? 0;
+  const costPriceValue = effectiveProduct.costPrice ?? product.costPrice;
+  const sellingPriceValue = effectiveProduct.sellingPrice ?? product.sellingPrice;
 
   return (
-    <div className="pi-modal-backdrop" onClick={onClose}>
+    <div className="pi-modal-backdrop">
       <div className="pi-modal-dialog pi-stock-card-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="pi-modal-header">
@@ -49,7 +66,7 @@ export default function ProductStockCardModal({
               Thẻ kho & Lịch sử giá
             </h2>
             <div className="pi-modal-subtitle">
-              Sản phẩm: <strong>{product.name}</strong> ({product.sku || `SP${product.id}`})
+              Sản phẩm: <strong>{effectiveProduct.name}</strong> ({effectiveProduct.sku || `SP${effectiveProduct.id}`})
             </div>
           </div>
           <button type="button" className="pi-modal-close" onClick={onClose} aria-label="Đóng">
@@ -62,19 +79,19 @@ export default function ProductStockCardModal({
           <div className="pi-stock-stat-item">
             <span className="pi-stock-stat-label">Tồn kho hiện tại</span>
             <span className="pi-stock-stat-val pi-stock-stat-val--blue">
-              {product.onHand ?? product.stock ?? 0} {unitLabel}
+              {onHandValue} {unitLabel}
             </span>
           </div>
           <div className="pi-stock-stat-item">
             <span className="pi-stock-stat-label">Giá vốn hiện tại</span>
             <span className="pi-stock-stat-val">
-              {product.costPrice ? `${Number(product.costPrice).toLocaleString('vi-VN')} đ / ${unitLabel}` : '—'}
+              {costPriceValue != null && Number(costPriceValue) >= 0 ? `${Number(costPriceValue).toLocaleString('vi-VN')} đ / ${unitLabel}` : '—'}
             </span>
           </div>
           <div className="pi-stock-stat-item">
             <span className="pi-stock-stat-label">Giá bán niêm yết</span>
             <span className="pi-stock-stat-val pi-stock-stat-val--green">
-              {product.sellingPrice ? `${Number(product.sellingPrice).toLocaleString('vi-VN')} đ / ${unitLabel}` : '—'}
+              {sellingPriceValue != null && Number(sellingPriceValue) >= 0 ? `${Number(sellingPriceValue).toLocaleString('vi-VN')} đ / ${unitLabel}` : '—'}
             </span>
           </div>
         </div>
@@ -158,6 +175,7 @@ export default function ProductStockCardModal({
                     <th>Nhà cung cấp</th>
                     <th style={{ textAlign: 'right' }}>Giá nhập</th>
                     <th style={{ textAlign: 'right' }}>Số lượng</th>
+                    <th>Ghi chú</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -169,17 +187,46 @@ export default function ProductStockCardModal({
                           {item.orderDate || item.createdAt ? new Date(item.orderDate || item.createdAt).toLocaleDateString('vi-VN') : '—'}
                         </div>
                       </td>
-                      <td style={{ fontWeight: 600, color: '#2563EB', fontFamily: 'monospace' }}>
-                        {item.orderCode || item.code || `PO#${item.orderId || idx + 1}`}
+                      <td style={{ fontFamily: 'monospace' }}>
+                        {item.orderId ? (
+                          <a
+                            href={`/admin/warehouse/import/${item.orderId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="pi-order-link"
+                            title={`Xem chi tiết đơn nhập #${item.orderCode || item.orderId} (Mở tab mới)`}
+                          >
+                            {item.orderCode || item.code || `NH${String(item.orderId).padStart(5, '0')}`}
+                            <ExternalLink size={12} style={{ opacity: 0.7 }} />
+                          </a>
+                        ) : (
+                          <span style={{ fontWeight: 600, color: '#2563EB' }}>
+                            {item.orderCode || item.code || `PO#${idx + 1}`}
+                          </span>
+                        )}
                       </td>
                       <td style={{ color: '#334155' }}>
-                        {item.supplierName || item.supplier || 'Nhà cung cấp'}
+                        {item.supplierName || item.supplier || 'Nhà cung cấp lẻ'}
                       </td>
                       <td style={{ textAlign: 'right', fontWeight: 600, color: '#0F172A' }}>
-                        {item.costPerUnit || item.price ? `${Number(item.costPerUnit || item.price).toLocaleString('vi-VN')} đ / ${item.unitName || unitLabel}` : '—'}
+                        {item.oldCostPrice != null && item.newCostPrice != null && Number(item.oldCostPrice) !== Number(item.newCostPrice) ? (
+                          <div>
+                            <span style={{ fontSize: 11, color: '#64748B', textDecoration: 'line-through', marginRight: 4 }}>
+                              {Number(item.oldCostPrice).toLocaleString('vi-VN')} đ
+                            </span>
+                            <span>{Number(item.newCostPrice).toLocaleString('vi-VN')} đ</span>
+                          </div>
+                        ) : (item.costPerUnit != null || item.price != null) ? (
+                          `${Number(item.costPerUnit ?? item.price).toLocaleString('vi-VN')} đ / ${item.unitName || unitLabel}`
+                        ) : (
+                          '—'
+                        )}
                       </td>
                       <td style={{ textAlign: 'right', fontWeight: 600, color: '#059669' }}>
                         +{item.quantity ?? item.qty ?? 0} {item.unitName || unitLabel}
+                      </td>
+                      <td style={{ color: '#64748B', fontSize: 12.5 }}>
+                        {item.note || item.reason || (item.changeType ? item.changeType : 'Nhập hàng')}
                       </td>
                     </tr>
                   ))}
@@ -195,6 +242,17 @@ export default function ProductStockCardModal({
             Đóng
           </button>
         </div>
+
+        {/* Floating Bottom-Right Toast Notifications */}
+        <ProductToastContainer>
+          {errorMsg && (
+            <ProductToast
+              message={errorMsg}
+              type="error"
+              onClose={() => setErrorMsg('')}
+            />
+          )}
+        </ProductToastContainer>
       </div>
     </div>
   );
