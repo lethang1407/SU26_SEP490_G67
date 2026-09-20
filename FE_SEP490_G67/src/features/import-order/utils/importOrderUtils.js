@@ -225,7 +225,7 @@ export function getLinePriceWarning(line) {
     if (costPerUnit <= 0) {
         return {
             level: 'danger',
-            message: isTrialLine(line) ? 'Nhập giá thỏa thuận' : 'Nhập đơn giá',
+            message: 'Nhập đơn giá',
         };
     }
 
@@ -407,3 +407,113 @@ export function validateImportForm({ supplierId, lines }) {
 export function isReceivedStatus(status) {
     return status === IMPORT_ORDER_STATUS.RECEIVED || status === IMPORT_ORDER_STATUS.DONE;
 }
+
+export function roundVnd(value) {
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount <= 0) return 0;
+    return Math.round(amount);
+}
+
+function unitFactor(unitBase) {
+    const factor = Number(unitBase);
+    return factor > 0 ? factor : 1;
+}
+
+/**
+ * Mỗi SP trên phiếu → mọi ĐVT. Giá nhập quy theo hệ số ĐVT.
+ * pendingAdjustments: [{ productId, productUnitId, sellingPrice }]
+ */
+export function buildImportPriceSetupRows(lines = [], pendingAdjustments = []) {
+    const pendingMap = new Map(
+        (pendingAdjustments || []).map((item) => [
+            `${item.productId}-${item.productUnitId}`,
+            roundVnd(item.sellingPrice),
+        ]),
+    );
+
+    const groups = new Map();
+    for (const line of lines || []) {
+        const productId = line?.productId;
+        if (productId == null) continue;
+
+        const factor = unitFactor(line.unitBase);
+        const currentCostPerBase = (Number(line.costPerUnit) || 0) / factor;
+        const lastCostPerBase = Number(line.lastCostPerBase) || 0;
+        const units = (line.productUnits || [])
+            .filter((unit) => unit?.id != null)
+            .map((unit) => ({
+                id: unit.id,
+                name: unit.name || 'ĐVT',
+                unitBase: unitFactor(unit.unitBase),
+                sellingPrice: roundVnd(unit.sellingPrice),
+            }));
+
+        if (units.length === 0 && line.productUnitId != null) {
+            units.push({
+                id: line.productUnitId,
+                name: line.unitName || 'ĐVT',
+                unitBase: factor,
+                sellingPrice: roundVnd(line.sellingPrice),
+            });
+        }
+
+        const existing = groups.get(productId);
+        const isPromo = resolveLineType(line) === 'PROMOTION';
+        if (!existing) {
+            groups.set(productId, {
+                productId,
+                productName: line.productName || '',
+                lastCostPerBase,
+                currentCostPerBase,
+                unitsById: new Map(units.map((unit) => [unit.id, unit])),
+            });
+            continue;
+        }
+
+        if (!isPromo || existing.currentCostPerBase <= 0) {
+            existing.currentCostPerBase = currentCostPerBase;
+        }
+        if (lastCostPerBase > 0) existing.lastCostPerBase = lastCostPerBase;
+        if (line.productName) existing.productName = line.productName;
+        units.forEach((unit) => {
+            if (!existing.unitsById.has(unit.id)) existing.unitsById.set(unit.id, unit);
+        });
+    }
+
+    const rows = [];
+    for (const group of groups.values()) {
+        const units = [...group.unitsById.values()].sort(
+            (a, b) => unitFactor(a.unitBase) - unitFactor(b.unitBase),
+        );
+        for (const unit of units) {
+            const factor = unitFactor(unit.unitBase);
+            const currentSellingPrice = roundVnd(unit.sellingPrice);
+            const key = `${group.productId}-${unit.id}`;
+            rows.push({
+                key,
+                productId: group.productId,
+                productUnitId: unit.id,
+                productName: group.productName,
+                unitName: unit.name,
+                lastImportPrice: roundVnd(group.lastCostPerBase * factor),
+                currentImportPrice: roundVnd(group.currentCostPerBase * factor),
+                currentSellingPrice,
+                commonSellingPrice: pendingMap.has(key)
+                    ? pendingMap.get(key)
+                    : currentSellingPrice,
+            });
+        }
+    }
+    return rows;
+}
+
+export function toPriceAdjustmentPayload(rows = []) {
+    return (rows || [])
+        .filter((row) => row?.productId != null && row?.productUnitId != null)
+        .map((row) => ({
+            productId: Number(row.productId),
+            productUnitId: Number(row.productUnitId),
+            sellingPrice: roundVnd(row.commonSellingPrice),
+        }));
+}
+

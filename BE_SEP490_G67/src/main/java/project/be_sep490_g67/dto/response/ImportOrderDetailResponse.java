@@ -56,6 +56,8 @@ public class ImportOrderDetailResponse {
     List<ImportOrderItemResponse> items;
     List<ImportOrderReturnLineResponse> returnLines;
     List<ImportTrialSettleResponse> trialSettlements;
+    /** Giá bán mới đã lưu tạm trên phiếu — áp khi hoàn thành. */
+    List<ImportPriceAdjustmentResponse> priceAdjustments;
 
     /** Có dòng bán thử chưa quyết toán. */
     Boolean hasOpenTrial;

@@ -133,9 +133,7 @@ public class ImportTrialSettlementService {
             responseLines.add(applied.response());
         }
 
-        BigDecimal discount = request.getDiscountAmount() != null
-                ? request.getDiscountAmount()
-                : BigDecimal.ZERO;
+        BigDecimal discount = roundVnd(request.getDiscountAmount());
         if (discount.compareTo(BigDecimal.ZERO) < 0 || discount.compareTo(totalPayable) > 0) {
             throw new AppException(ErrorCode.INVALID_TRIAL_DISCOUNT);
         }
@@ -153,8 +151,8 @@ public class ImportTrialSettlementService {
         }
         BigDecimal remainingAfterAdjust = newTotalCost.subtract(alreadyPaid).max(BigDecimal.ZERO);
 
-        BigDecimal paidAmount = request.getPaidAmount() != null ? request.getPaidAmount() : BigDecimal.ZERO;
-        if (paidAmount.compareTo(BigDecimal.ZERO) < 0 || paidAmount.compareTo(remainingAfterAdjust) > 0) {
+        BigDecimal paidAmount = roundVnd(request.getPaidAmount());
+        if (paidAmount.compareTo(remainingAfterAdjust) > 0) {
             throw new AppException(ErrorCode.INVALID_IMPORT_PAID_AMOUNT);
         }
 
@@ -541,7 +539,14 @@ public class ImportTrialSettlementService {
                 ? unitBase
                 : BigDecimal.ONE;
         return cost.multiply(BigDecimal.valueOf(Math.max(qtyBase, 0)))
-                .divide(base, 2, RoundingMode.HALF_UP);
+                .divide(base, 0, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal roundVnd(BigDecimal value) {
+        if (value == null || value.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        return value.setScale(0, RoundingMode.HALF_UP);
     }
 
     private Map<Integer, String> loadBaseUnitNames(List<Integer> productIds) {

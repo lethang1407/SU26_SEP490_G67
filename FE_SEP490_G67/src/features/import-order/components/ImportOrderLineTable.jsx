@@ -306,18 +306,14 @@ export default function ImportOrderLineTable({
                                                         priceWarning?.level === 'danger' ? true : undefined
                                                     }
                                                     aria-label={
-                                                        isTrial
-                                                            ? 'Giá thỏa thuận (quyết toán sau)'
-                                                            : isPromotion
-                                                              ? 'Đơn giá tham chiếu (không tính tiền)'
-                                                              : 'Đơn giá (VND)'
+                                                        isPromotion
+                                                            ? 'Đơn giá tham chiếu (không tính tiền)'
+                                                            : 'Đơn giá (VND)'
                                                     }
                                                     title={
-                                                        isTrial
-                                                            ? 'Giá thỏa thuận với nhân viên NCC — chưa thu lúc nhận'
-                                                            : isPromotion
-                                                              ? 'Giá tham chiếu trên phiếu NCC — không tính vào tổng thanh toán'
-                                                              : priceWarning?.message
+                                                        isPromotion
+                                                            ? 'Giá tham chiếu trên phiếu NCC — không tính vào tổng thanh toán'
+                                                            : priceWarning?.message
                                                     }
                                                 />
                                                 {priceWarning ? (

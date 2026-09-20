@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { importOrdersApi } from '../api';
-import { formatCurrency, formatMoneyInput, parseMoneyInput } from '../utils/importOrderUtils';
+import { formatCurrency, formatMoneyInput, parseMoneyInput, roundVnd } from '../utils/importOrderUtils';
 import '../../../css/Supplier.css';
 import '../../../css/ImportOrder.css';
 
@@ -42,7 +42,7 @@ function payableOf(line, counted, unsellable, decision) {
     const cost = Number(line.costPerUnit) || 0;
     const returnable = Math.max((Number(counted) || 0) - (Number(unsellable) || 0), 0);
     const payableQty = decision === 'PAY_ALL_KEEP' ? receivedBase : Math.max(receivedBase - returnable, 0);
-    return (payableQty * cost) / unitBase;
+    return roundVnd((payableQty * cost) / unitBase);
 }
 
 export default function ImportTrialSettleModal({ open, orderId, onClose, onSettled }) {
@@ -101,8 +101,8 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
         }, 0);
     }, [preview, rows]);
 
-    const safeDiscount = Math.min(Math.max(Number(discountAmount) || 0, 0), payableTotal);
-    const netPayable = Math.max(payableTotal - safeDiscount, 0);
+    const safeDiscount = roundVnd(Math.min(Math.max(Number(discountAmount) || 0, 0), payableTotal));
+    const netPayable = roundVnd(Math.max(payableTotal - safeDiscount, 0));
     const bookedOpenTrial = Number(preview?.bookedOpenTrialAmount) || 0;
     const currentRemaining = Number(preview?.remainingDebt) || 0;
     const debtAfterSettle = Math.max(currentRemaining - bookedOpenTrial + netPayable, 0);
@@ -140,8 +140,8 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
         try {
             const result = await importOrdersApi.settleTrial(orderId, {
                 note: note.trim() || null,
-                discountAmount: safeDiscount,
-                paidAmount,
+                discountAmount: roundVnd(safeDiscount),
+                paidAmount: roundVnd(paidAmount),
                 paymentMethod: 'CASH',
                 lines: rows.map((row) => ({
                     importOrderDetailId: row.importOrderDetailId,
