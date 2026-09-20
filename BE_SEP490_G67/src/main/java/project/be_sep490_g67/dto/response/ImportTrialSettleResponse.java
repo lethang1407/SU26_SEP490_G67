@@ -39,6 +39,7 @@ public class ImportTrialSettleResponse {
         String productName;
         String decision;
         Integer receivedQty;
+        Integer systemRemainingQty;
         Integer countedRemainingQty;
         Integer unsellableQty;
         Integer returnedQty;

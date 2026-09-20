@@ -7,8 +7,10 @@ export default function ImportOrderSummaryPanel({
     onNoteChange,
     onSubmit,
     submitting = false,
+    amountDue,
 }) {
     const summary = buildImportSummary(lines);
+    const totalDisplay = amountDue != null ? Number(amountDue) || 0 : summary.totalCost;
 
     return (
         <aside className="import-order-summary-panel">
@@ -44,7 +46,7 @@ export default function ImportOrderSummaryPanel({
             <section className="import-order-side-card import-order-side-card--total">
                 <div className="import-order-total-row">
                     <span>TỔNG CỘNG</span>
-                    <strong>{formatCurrency(summary.totalCost)}</strong>
+                    <strong>{formatCurrency(totalDisplay)}</strong>
                 </div>
                 {editable && (
                     <>

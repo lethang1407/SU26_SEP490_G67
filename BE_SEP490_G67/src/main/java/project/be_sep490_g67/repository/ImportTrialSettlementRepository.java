@@ -12,13 +12,8 @@ import java.util.List;
 public interface ImportTrialSettlementRepository extends JpaRepository<ImportTrialSettlement, Integer> {
 
     @Query("""
-        SELECT DISTINCT s
+        SELECT s
         FROM ImportTrialSettlement s
-        LEFT JOIN FETCH s.lines l
-        LEFT JOIN FETCH l.product
-        LEFT JOIN FETCH l.importOrderDetail d
-        LEFT JOIN FETCH d.product
-        LEFT JOIN FETCH d.productUnit
         WHERE s.importOrder.id = :orderId
           AND (s.isRemoved = false OR s.isRemoved IS NULL)
         ORDER BY s.id DESC
@@ -26,14 +21,8 @@ public interface ImportTrialSettlementRepository extends JpaRepository<ImportTri
     List<ImportTrialSettlement> findByImportOrderIdWithLines(@Param("orderId") Integer orderId);
 
     @Query("""
-        SELECT DISTINCT s
+        SELECT s
         FROM ImportTrialSettlement s
-        LEFT JOIN FETCH s.lines l
-        LEFT JOIN FETCH l.product
-        LEFT JOIN FETCH l.importOrderDetail d
-        LEFT JOIN FETCH d.product
-        LEFT JOIN FETCH d.productUnit
-        LEFT JOIN FETCH s.importOrder
         WHERE s.supplier.id = :supplierId
           AND (s.isRemoved = false OR s.isRemoved IS NULL)
         ORDER BY s.id DESC

@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS document_sequences (
     updated_by INT DEFAULT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY UK_document_sequences_slot (store_id, doc_type, seq_date)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ;
 
 -- ------------------------------------------------------------
 -- Unique codes. MySQL treats NULLs as distinct in a unique index, so

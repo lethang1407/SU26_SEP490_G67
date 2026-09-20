@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS inventory_checks (
     created_by INT NULL,
     updated_by INT NULL,
     PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS inventory_check_details (
     id INT NOT NULL AUTO_INCREMENT,
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS inventory_check_details (
     PRIMARY KEY (id),
     CONSTRAINT FK_icd_check FOREIGN KEY (inventory_check_id) REFERENCES inventory_checks(id) ON DELETE CASCADE,
     CONSTRAINT FK_icd_product FOREIGN KEY (product_id) REFERENCES products(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 2. Ensure supplier_id column exists in import_returns table
 SET @exist := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'import_returns' AND COLUMN_NAME = 'supplier_id');

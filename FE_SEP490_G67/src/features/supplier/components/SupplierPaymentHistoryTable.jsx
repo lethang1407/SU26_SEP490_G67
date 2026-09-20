@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
+import DatePickerInput from '../../../components/ui/DatePickerInput';
 import SupplierPagination from './SupplierPagination';
 import { formatCurrency, formatDateTime } from '../utils/supplierUtils';
 import { suppliersApi } from '../api';
@@ -91,22 +92,22 @@ export default function SupplierPaymentHistoryTable({ supplierId, onViewReferenc
                 <div className="supplier-toolbar__filters">
                     <span className="supplier-toolbar__filter-label">Thời gian:</span>
                     <div className="supplier-toolbar__date-range">
-                        <input
-                            type="date"
+                        <DatePickerInput
                             className="supplier-toolbar__date-input"
                             value={fromDate}
                             max={toDate || undefined}
-                            onChange={(event) => handleFromDateChange(event.target.value)}
-                            aria-label="Từ ngày"
+                            onChange={handleFromDateChange}
+                            ariaLabel="Từ ngày"
+                            dialogLabel="Chọn từ ngày"
                         />
                         <span className="supplier-toolbar__date-sep">—</span>
-                        <input
-                            type="date"
+                        <DatePickerInput
                             className="supplier-toolbar__date-input"
                             value={toDate}
                             min={fromDate || undefined}
-                            onChange={(event) => handleToDateChange(event.target.value)}
-                            aria-label="Đến ngày"
+                            onChange={handleToDateChange}
+                            ariaLabel="Đến ngày"
+                            dialogLabel="Chọn đến ngày"
                         />
                         {(fromDate || toDate) && (
                             <button

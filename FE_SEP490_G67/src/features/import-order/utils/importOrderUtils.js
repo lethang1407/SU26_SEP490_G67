@@ -102,16 +102,13 @@ export function computeLineTotal(line) {
 }
 
 /**
- * Thành tiền hiển thị trên dòng: KM = 0; bán thử OPEN = qty × giá;
- * bán thử đã quyết toán lấy lineTotal đã ghi.
+ * Thành tiền hiển thị trên dòng: KM = 0;
+ * bán thử (kể cả đã quyết toán) = qty × giá lúc nhận — không lấy line_total sau chốt.
  */
 export function computeDisplayLineTotal(line) {
     if (isPromotionLine(line)) return 0;
     const quantity = Number(line.quantity) || 0;
     const costPerUnit = Number(line.costPerUnit) || 0;
-    if (isTrialLine(line) && line.trialStatus === 'SETTLED') {
-        return Number(line.lineTotal) || 0;
-    }
     return quantity * costPerUnit;
 }
 
@@ -124,6 +121,82 @@ export function computeOpenTrialAmount(lines) {
         if (!isTrialLine(line) || line.trialStatus === 'SETTLED') return sum;
         return sum + (Number(line.quantity) || 0) * (Number(line.costPerUnit) || 0);
     }, 0);
+}
+
+/** Tổng phải trả sau khi đã chốt các dòng bán thử (0 = trả hết hàng). */
+export function computeSettledTrialAmount(lines) {
+    return (lines || []).reduce((sum, line) => {
+        if (!isTrialLine(line) || line.trialStatus !== 'SETTLED') return sum;
+        if (line.settledPayableAmount != null && line.settledPayableAmount !== '') {
+            return sum + (Number(line.settledPayableAmount) || 0);
+        }
+        return sum;
+    }, 0);
+}
+
+export function hasSettledTrial(lines) {
+    return (lines || []).some((line) => isTrialLine(line) && line.trialStatus === 'SETTLED');
+}
+
+export function settlementLineByDetailId(settlements) {
+    const map = new Map();
+    (settlements || []).forEach((settlement) => {
+        (settlement.lines || []).forEach((line) => {
+            if (line?.importOrderDetailId != null && !map.has(line.importOrderDetailId)) {
+                map.set(line.importOrderDetailId, line);
+            }
+        });
+    });
+    return map;
+}
+
+/**
+ * Cột Kết quả quyết toán: Nhận → bán (POS) → hao hụt (đếm thiếu so với tồn) → hỏng → trả | giữ.
+ * Không gộp hao hụt vào “bán”. Record cũ không có tồn hệ thống: bỏ bán/hao hụt, giữ hỏng/trả/giữ.
+ */
+export function formatTrialSettlementResult(line) {
+    if (!line) return '—';
+    const unit = line.unitName || line.baseUnitName || '';
+    const unitLabel = unit ? ` ${unit}` : '';
+    const received = Number(line.receivedQty) || 0;
+    const counted = Number(line.countedRemainingQty) || 0;
+    const unsellable = Number(line.unsellableQty) || 0;
+    const returned = Number(line.returnedQty) || 0;
+    const kept = Math.max(counted - unsellable, 0);
+    const systemRemRaw = line.systemRemainingQty;
+    const hasSystemRem = systemRemRaw != null && systemRemRaw !== '';
+    const systemRem = Number(systemRemRaw) || 0;
+    const sold = hasSystemRem ? Math.max(received - systemRem, 0) : 0;
+    const shrinkage = hasSystemRem ? Math.max(systemRem - counted, 0) : 0;
+    const parts = [`Nhận ${received}${unitLabel}`];
+    if (sold > 0) parts.push(`bán ${sold}${unitLabel}`);
+    if (shrinkage > 0) parts.push(`hao hụt ${shrinkage}${unitLabel}`);
+    if (unsellable > 0) parts.push(`hỏng ${unsellable}${unitLabel}`);
+    if (returned > 0) {
+        parts.push(`trả ${returned}${unitLabel}`);
+    } else if (line.decision === 'PAY_ALL_KEEP' && kept > 0) {
+        parts.push(`giữ ${kept}${unitLabel}`);
+    }
+    return parts.join(', ');
+}
+
+/** Chú thích dòng bán thử đã chốt: kết quả + phải trả. */
+export function describeSettledTrial(line, settlementLine) {
+    const source = settlementLine || line;
+    const parts = [];
+    if (settlementLine) {
+        parts.push(formatTrialSettlementResult(settlementLine));
+    } else if (source?.returnedQty > 0) {
+        const unit = source.unitName || source.baseUnitName || line?.unitName || '';
+        parts.push(`Trả lại ${source.returnedQty}${unit ? ` ${unit}` : ''}`);
+    } else if (source?.decision === 'PAY_ALL_KEEP') {
+        parts.push('Giữ hết');
+    }
+    const payableRaw = settlementLine?.payableAmount ?? line?.settledPayableAmount;
+    if (payableRaw != null && payableRaw !== '') {
+        parts.push(`Phải trả ${formatMoneyPlain(payableRaw)}`);
+    }
+    return parts.length > 0 ? parts.join(' · ') : 'Đã quyết toán';
 }
 
 /** Trần giảm giá lúc nhập: chỉ hàng thường, không KM / bán thử. */
