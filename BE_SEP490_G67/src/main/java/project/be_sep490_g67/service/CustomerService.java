@@ -13,6 +13,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import project.be_sep490_g67.constants.StaffConstants;
 import project.be_sep490_g67.dto.request.CustomerRequest;
 import project.be_sep490_g67.dto.request.UpdateCustomerUnstableDebtRequest;
 import project.be_sep490_g67.dto.response.CustomerResponse;
@@ -119,7 +120,7 @@ public class CustomerService {
         }
         return userRepository.findActiveByUsernameWithRole(authentication.getName())
                 .map(user -> user.getRoles().stream()
-                        .anyMatch(role -> "MANAGER".equalsIgnoreCase(role.getName())))
+                        .anyMatch(role -> StaffConstants.MANAGER_ROLE_NAME.equalsIgnoreCase(role.getName())))
                 .orElse(false);
     }
 

@@ -81,7 +81,7 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
 
     /**
      * Tồn BÁN ĐƯỢC của nhiều sản phẩm trong một lượt truy vấn. Dùng đúng bộ lọc của
-     * {@link #findPosLinesByProductId} để con số hiện trên ô tìm kiếm POS khớp với
+     * {@link #findSellableByProductId} để con số hiện trên ô tìm kiếm POS khớp với
      * lượng mà checkout thật sự trừ được.
      *
      * <p>Khác {@link #sumQuantityByProductIds}: ở đây loại thêm lô đã hết hạn, ô/lô đã
@@ -140,7 +140,7 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
     List<BatchLocation> findAvailableByProductId(@Param("productId") Integer productId);
 
     /**
-     * Hàng BÁN ĐƯỢC của một SP, sắp FIFO: lô nhập trước bán trước theo
+     * Hàng BÁN ĐƯỢC của một SP, sắp FIFO rồi {@code bl.id ASC}: lô nhập trước bán trước theo
      * {@code received_date}. Lô chưa có ngày nhập xuống cuối (MySQL xếp NULL lên đầu khi
      * ASC - để nguyên thì lô không rõ ngày nhập lại bị bán trước lô nhập sớm nhất).
      * Lô đã hết hạn vẫn bị loại hẳn khỏi đường bán.
@@ -161,7 +161,7 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
               AND sz.zoneType <> 'RETURN_HOLD'
               AND (sb.expiryDate IS NULL OR sb.expiryDate >= CURRENT_DATE)
             ORDER BY CASE WHEN sb.receivedDate IS NULL THEN 1 ELSE 0 END,
-                     sb.receivedDate ASC, sb.id ASC
+                     sb.receivedDate ASC, sb.id ASC, bl.id ASC
             """)
     List<BatchLocation> findSellableByProductId(@Param("productId") Integer productId);
     @Query("""
@@ -195,8 +195,16 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
 
     /**
      * Mọi dòng (vị trí, lô) còn hàng của một SP — dùng cho dropdown chọn vị trí ở POS.
-     * Sắp FIFO theo ngày nhập (lô chưa có ngày nhập xuống cuối); loại khu RETURN_HOLD
-     * và lô đã hết hạn.
+     * Sắp FIFO theo ngày nhập (lô chưa có ngày nhập xuống cuối); loại khu RETURN_HOLD.
+     *
+     * <p><b>Cố ý giữ lô đã hết hạn</b> (xếp xuống cuối): hàng quá hạn vẫn nằm trên kệ tới
+     * khi kho xử lý, POS phải hiện ra kèm dấu đỏ để thu ngân không lấy nhầm và biết
+     * mà báo kho. Người gọi tự loại chúng khỏi tồn bán được — đường trừ kho
+     * ({@link #findSellableByProductId}, {@link #findAvailableByProductIdAndLocationId})
+     * vẫn lọc hết hạn nên không bao giờ bán ra được.
+     *
+     * <p>Chốt bằng {@code bl.id ASC}: một lô nằm ở nhiều ô thì mọi tiêu chí trên đều
+     * hoà, không có nó thì DB trả thứ tự tuỳ ý và POS hiện một đằng, checkout trừ một nẻo.
      */
     @Query("""
             SELECT bl FROM BatchLocation bl
@@ -210,14 +218,14 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
               AND loc.isRemoved = false
               AND (sz.isRemoved = false OR sz.isRemoved IS NULL)
               AND sz.zoneType <> 'RETURN_HOLD'
-              AND (sb.expiryDate IS NULL OR sb.expiryDate >= CURRENT_DATE)
-            ORDER BY CASE WHEN sb.receivedDate IS NULL THEN 1 ELSE 0 END,
-                     sb.receivedDate ASC, sb.id ASC
+            ORDER BY CASE WHEN sb.expiryDate < CURRENT_DATE THEN 1 ELSE 0 END,
+                     CASE WHEN sb.receivedDate IS NULL THEN 1 ELSE 0 END,
+                     sb.receivedDate ASC, sb.id ASC, bl.id ASC
             """)
     List<BatchLocation> findPosLinesByProductId(@Param("productId") Integer productId);
 
     /**
-     * Hàng còn lại của một SP tại đúng một ô, FIFO theo ngày nhập.
+     * Hàng còn lại của một SP tại đúng một ô, FIFO theo ngày nhập, chốt bằng {@code bl.id ASC}.
      * Dùng khi thu ngân đã chốt vị trí lấy hàng trên POS.
      */
     @Query("""
@@ -234,7 +242,7 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
               AND sz.zoneType <> 'RETURN_HOLD'
               AND (sb.expiryDate IS NULL OR sb.expiryDate >= CURRENT_DATE)
             ORDER BY CASE WHEN sb.receivedDate IS NULL THEN 1 ELSE 0 END,
-                     sb.receivedDate ASC, sb.id ASC
+                     sb.receivedDate ASC, sb.id ASC, bl.id ASC
             """)
     List<BatchLocation> findAvailableByProductIdAndLocationId(
             @Param("productId") Integer productId,

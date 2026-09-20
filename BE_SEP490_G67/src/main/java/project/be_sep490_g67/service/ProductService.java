@@ -548,17 +548,20 @@ public class ProductService {
                         .build())
                 .toList();
 
-        // Đã sắp FEFO (expiryDate ASC, receivedDate ASC); loại RETURN_HOLD.
+        // Đã sắp FIFO (receivedDate ASC, rồi lô, rồi dòng kho); loại RETURN_HOLD.
+        // Lô hết hạn vẫn có mặt (cuối danh sách, expired = true) để POS đánh dấu đỏ.
         List<ProductPosInfoResponse.LocationStockInfo> locationInfos = batchLocationRepository
                 .findPosLinesByProductId(productId).stream()
                 .map(ProductService::toLocationStockInfo)
                 .toList();
 
+        // Hàng hết hạn còn trên kệ không phải hàng bán được — không cộng vào tồn.
         int available = locationInfos.stream()
+                .filter(info -> !Boolean.TRUE.equals(info.getExpired()))
                 .mapToInt(ProductPosInfoResponse.LocationStockInfo::getQuantity)
                 .sum();
 
-        // Không ép ô mặc định — checkout không gửi picks sẽ trừ theo FEFO toàn kho.
+        // Không ép ô mặc định — checkout không gửi picks sẽ trừ theo FIFO toàn kho.
         return ProductPosInfoResponse.builder()
                 .id(product.getId())
                 .name(product.getName())
@@ -592,6 +595,7 @@ public class ProductService {
                 .batchCode(StockBatchUtils.resolveBatchCode(batch))
                 .receivedDate(batch.getReceivedDate() != null ? batch.getReceivedDate().toString() : null)
                 .expiryDate(batch.getExpiryDate() != null ? batch.getExpiryDate().toString() : null)
+                .expired(batch.getExpiryDate() != null && batch.getExpiryDate().isBefore(LocalDate.now()))
                 .quantity(bl.getQuantity() != null ? bl.getQuantity() : 0)
                 .build();
     }

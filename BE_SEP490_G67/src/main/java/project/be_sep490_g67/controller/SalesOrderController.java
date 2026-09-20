@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import project.be_sep490_g67.constants.StaffConstants;
 import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.request.CreateExchangeOrderRequest;
 import project.be_sep490_g67.dto.request.CreateSalesOrderRequest;
@@ -218,9 +219,9 @@ public class SalesOrderController {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
     }
 
-    // Check nếu là MANAGER được xem hoá đơn
+    // Chủ cửa hàng (MANAGER) được xem hoá đơn của mọi nhân viên
     private boolean isPrivileged(User user) {
         return user.getRoles().stream()
-                .anyMatch(r -> "MANAGER".equals(r.getName().toUpperCase()));
+                .anyMatch(r -> StaffConstants.MANAGER_ROLE_NAME.equalsIgnoreCase(r.getName()));
     }
 }

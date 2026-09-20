@@ -247,7 +247,7 @@ public class InventoryCheckService {
     }
 
     /**
-     * delta &lt; 0: trừ tồn FEFO theo lô + kệ.
+     * delta &lt; 0: trừ tồn FIFO theo ngày nhập, theo lô + kệ.
      * delta &gt; 0: cộng vào lô gần nhất (hoặc tạo lô điều chỉnh chưa xếp kệ).
      */
     private void applyProductStockAdjustment(Product product, int delta, InventoryCheck check) {
