@@ -6,6 +6,11 @@ function salesPaceStat(product) {
   if (!product) return '—';
   const unit = product.unitName || product.baseUnitName || product.unit || 'sp';
 
+  if (product.sold30Days != null) {
+    const qty = Number(product.sold30Days) || 0;
+    return `${qty.toLocaleString()} ${unit}`;
+  }
+
   if (product.sold14Days != null) {
     const qty = Number(product.sold14Days) || 0;
     return `${qty.toLocaleString()} ${unit}`;
@@ -14,16 +19,16 @@ function salesPaceStat(product) {
   if (product.avgDailyRate != null) {
     const daily = Number(product.avgDailyRate);
     if (Number.isFinite(daily)) {
-      const estimated14Days = Math.round(daily * 14);
-      return `${estimated14Days.toLocaleString()} ${unit}`;
+      const estimated30Days = Math.round(daily * 30);
+      return `${estimated30Days.toLocaleString()} ${unit}`;
     }
   }
 
   if (product.avgWeeklyRate != null) {
     const weekly = Number(product.avgWeeklyRate);
     if (Number.isFinite(weekly)) {
-      const estimated14Days = Math.round(weekly * 2);
-      return `${estimated14Days.toLocaleString()} ${unit}`;
+      const estimated30Days = Math.round((weekly / 7) * 30);
+      return `${estimated30Days.toLocaleString()} ${unit}`;
     }
   }
 
@@ -47,7 +52,7 @@ function renderSalesPaceDisplay(product) {
     return <span style={{ color: '#94A3B8' }}>—</span>;
   }
   return (
-    <span className="pi-sales-pace-pill" title={`Tổng lượng bán 2 tuần (14 ngày) gần nhất: ${text}`}>
+    <span className="pi-sales-pace-pill" title={`Tổng lượng bán 1 tháng (30 ngày) gần nhất: ${text}`}>
       {text}
     </span>
   );
@@ -150,12 +155,13 @@ function renderOpenPoBadge(product, onOpenDraftPo) {
 function SortHeader({ label, sortKey, currentSort, onSort, className }) {
   const isActive = currentSort.key === sortKey;
   const direction = isActive ? currentSort.direction : null;
+  const labelText = typeof label === 'string' ? label : 'cột này';
 
   return (
     <div
       className={`pi-th ${className} pi-th--sortable ${isActive ? 'is-sorted' : ''}`}
       onClick={() => onSort(sortKey)}
-      title={`Bấm để sắp xếp theo ${label} (${direction === 'asc' ? 'Tăng dần → bấm để Giảm dần' : direction === 'desc' ? 'Giảm dần → bấm để Bỏ sắp xếp' : 'Bấm để Tăng dần'})`}
+      title={`Bấm để sắp xếp theo ${labelText} (${direction === 'asc' ? 'Tăng dần → bấm để Giảm dần' : direction === 'desc' ? 'Giảm dần → bấm để Bỏ sắp xếp' : 'Bấm để Tăng dần'})`}
     >
       <span className="pi-th-label">{label}</span>
       <span className="pi-sort-icon">
@@ -164,7 +170,7 @@ function SortHeader({ label, sortKey, currentSort, onSort, className }) {
         ) : direction === 'desc' ? (
           <ArrowDown size={13} className="sort-icon-active" />
         ) : (
-          <ArrowUpDown size={12} className="sort-icon-idle" />
+          <ArrowUpDown size={13} className="sort-icon-idle" />
         )}
       </span>
     </div>
@@ -261,8 +267,8 @@ export default function ProductImportTable({
           valB = Number(b.onHand ?? b.inventoryQuantity) || 0;
           return (valA - valB) * multiplier;
         case 'salesPace':
-          valA = a.sold14Days ?? (a.avgDailyRate != null ? Number(a.avgDailyRate) * 14 : (Number(a.avgWeeklyRate) * 2 || 0));
-          valB = b.sold14Days ?? (b.avgDailyRate != null ? Number(b.avgDailyRate) * 14 : (Number(b.avgWeeklyRate) * 2 || 0));
+          valA = a.sold30Days ?? a.sold14Days ?? (a.avgDailyRate != null ? Number(a.avgDailyRate) * 30 : (Number(a.avgWeeklyRate) * 4.3 || 0));
+          valB = b.sold30Days ?? b.sold14Days ?? (b.avgDailyRate != null ? Number(b.avgDailyRate) * 30 : (Number(b.avgWeeklyRate) * 4.3 || 0));
           return (valA - valB) * multiplier;
         default:
           return 0;
@@ -365,8 +371,8 @@ export default function ProductImportTable({
         />
         <SortHeader
           label={
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              Bán (2 tuần)
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+              Bán (1 tháng)
               <span
                 style={{
                   display: 'inline-flex',
@@ -380,8 +386,9 @@ export default function ProductImportTable({
                   fontSize: 10,
                   fontWeight: 700,
                   cursor: 'help',
+                  flexShrink: 0,
                 }}
-                title="Tổng lượng sản phẩm đã bán trong 2 tuần (14 ngày) gần nhất"
+                title="Tổng lượng sản phẩm đã bán trong 1 tháng (30 ngày) gần nhất"
               >
                 i
               </span>
@@ -454,7 +461,8 @@ export default function ProductImportTable({
                       sellingPrice: sz.sellingPrice || p.sellingPrice,
                       costPrice: sz.costPrice || p.costPrice,
                       onHand: sz.onHand ?? sz.stock ?? 0,
-                      sold14Days: sz.sold14Days ?? (sz.avgDailyRate != null ? Math.round(Number(sz.avgDailyRate) * 14) : undefined),
+                      sold14Days: sz.sold14Days ?? (sz.avgDailyRate != null ? Math.round(Number(sz.avgDailyRate) * 30) : undefined),
+                      sold30Days: sz.sold30Days ?? sz.sold14Days ?? (sz.avgDailyRate != null ? Math.round(Number(sz.avgDailyRate) * 30) : undefined),
                       hasOpenPo: sz.hasOpenPo || p.hasOpenPo,
                       primaryAttrValue: primaryVal,
                       sizeValue: sizeVal,

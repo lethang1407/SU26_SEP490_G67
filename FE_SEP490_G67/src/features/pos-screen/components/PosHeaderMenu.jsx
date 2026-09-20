@@ -17,8 +17,8 @@ export default function PosHeaderMenu() {
     const [open, setOpen] = useState(false);
     const wrapperRef = useRef(null);
 
-    // Chỉ có MANAGER và STAFF. Tài khoản có cả hai thì giữ giao diện quản lý.
     const isStaff = hasRole('STAFF') && !hasRole('MANAGER');
+    const managePath = isStaff ? '/admin/products' : MANAGE_ROUTE;
 
     useEffect(() => {
         if (!open) return undefined;
@@ -37,14 +37,6 @@ export default function PosHeaderMenu() {
             document.removeEventListener('keydown', handleEscape);
         };
     }, [open]);
-
-    if (!isStaff) {
-        return (
-            <button className="icon-btn" onClick={() => navigate(MANAGE_ROUTE)} title="Trang chủ POS">
-                <Home size={24} />
-            </button>
-        );
-    }
 
     const go = (path) => {
         setOpen(false);
@@ -65,7 +57,7 @@ export default function PosHeaderMenu() {
 
             {open && (
                 <div className="pos-menu-dropdown" role="menu">
-                    <button className="pos-menu-item" role="menuitem" onClick={() => go(MANAGE_ROUTE)}>
+                    <button className="pos-menu-item" role="menuitem" onClick={() => go(managePath)}>
                         <LayoutDashboard size={16} />
                         <span>Quản lý</span>
                     </button>

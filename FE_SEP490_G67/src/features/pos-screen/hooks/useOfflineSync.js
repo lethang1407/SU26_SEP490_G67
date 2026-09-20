@@ -128,15 +128,9 @@ export function useOfflineSync() {
         syncLockRef.current = false;
     }, [isOnline, refreshQueue]);
 
-    // Initial load, periodic refresh, and instant event listener
+    // Initial load and event-driven sync (no continuous 3s polling)
     useEffect(() => {
         refreshQueue();
-        const interval = setInterval(() => {
-            refreshQueue();
-            if (isOnline && !syncLockRef.current) {
-                syncNow();
-            }
-        }, 3000);
 
         const onQueueChanged = () => {
             refreshQueue();
@@ -145,10 +139,19 @@ export function useOfflineSync() {
             }
         };
 
+        const onOnlineEvent = () => {
+            refreshQueue();
+            if (!syncLockRef.current) {
+                syncNow();
+            }
+        };
+
         window.addEventListener('offline-queue-changed', onQueueChanged);
+        window.addEventListener('online', onOnlineEvent);
+
         return () => {
-            clearInterval(interval);
             window.removeEventListener('offline-queue-changed', onQueueChanged);
+            window.removeEventListener('online', onOnlineEvent);
         };
     }, [refreshQueue, isOnline, syncNow]);
 

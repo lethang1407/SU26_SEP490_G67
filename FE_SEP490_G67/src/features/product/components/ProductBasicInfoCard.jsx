@@ -21,7 +21,7 @@ export default function ProductBasicInfoCard({ product }) {
                 <div className="product-detail-info-item">
                     <span className="product-detail-info-item__label">Mã vạch</span>
                     <div className="product-detail-info-item__value-row">
-                        <span className="product-detail-info-item__value">{product.barcode}</span>
+                        <span className="product-detail-info-item__value">{product.barcode || 'N/A'}</span>
                         <button
                             type="button"
                             className="product-detail-copy-btn"
@@ -33,13 +33,13 @@ export default function ProductBasicInfoCard({ product }) {
                 </div>
                 <div className="product-detail-info-item">
                     <span className="product-detail-info-item__label">Mã sản phẩm</span>
-                    <span className="product-detail-info-item__value">{product.code}</span>
+                    <span className="product-detail-info-item__value">{product.code || product.sku || 'N/A'}</span>
                 </div>
                 <div className="product-detail-info-item">
                     <span className="product-detail-info-item__label">Danh mục</span>
-                    <span className="product-detail-info-item__value">{product.category}</span>
+                    <span className="product-detail-info-item__value">{product.category || 'N/A'}</span>
                 </div>
-                {product.brand && product.brand !== '—' && (
+                {product.brand && product.brand !== '—' && product.brand !== 'N/A' && (
                     <div className="product-detail-info-item">
                         <span className="product-detail-info-item__label">Thương hiệu</span>
                         <span className="product-detail-info-item__value">{product.brand}</span>
@@ -47,9 +47,9 @@ export default function ProductBasicInfoCard({ product }) {
                 )}
                 <div className="product-detail-info-item">
                     <span className="product-detail-info-item__label">Đơn vị tính</span>
-                    <span className="product-detail-info-item__value">{product.unit}</span>
+                    <span className="product-detail-info-item__value">{product.unit || 'N/A'}</span>
                 </div>
-                {product.weight && product.weight !== '—' && (
+                {product.weight && product.weight !== '—' && product.weight !== 'N/A' && (
                     <div className="product-detail-info-item">
                         <span className="product-detail-info-item__label">Trọng lượng</span>
                         <span className="product-detail-info-item__value">{product.weight}</span>

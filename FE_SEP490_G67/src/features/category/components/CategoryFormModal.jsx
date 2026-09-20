@@ -138,7 +138,7 @@ export default function CategoryFormModal({
           <footer className="cat-modal__foot">
             <button
               type="button"
-              className="cat-btn cat-btn--ghost"
+              className="cat-btn cat-btn--outline-gray"
               onClick={onClose}
               disabled={saving}
             >

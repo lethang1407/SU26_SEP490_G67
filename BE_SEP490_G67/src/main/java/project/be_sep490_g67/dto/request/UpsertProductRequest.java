@@ -47,6 +47,8 @@ public class UpsertProductRequest {
 
     private Integer coverDaysOverride;
 
+    private Integer minStock;
+
     @Valid
     private List<UnitRequest> units = new ArrayList<>();
 

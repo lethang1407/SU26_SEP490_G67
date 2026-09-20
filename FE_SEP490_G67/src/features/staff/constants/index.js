@@ -15,14 +15,16 @@ export const STAFF_FORM_ID = 'staff-info-form';
 
 export const ADD_STAFF_FORM_ID = 'add-staff-form';
 
-export const ALL_POSITIONS = 'Tất cả vị trí';
+export const ALL_ROLE_TEMPLATES = 'ALL';
 
-export const STAFF_POSITIONS = ['Nhân viên', 'Quản lý'];
-
-export const NAME_SORT_ASC = 'name-asc';
-export const NAME_SORT_DESC = 'name-desc';
-
-export const NAME_SORT_OPTIONS = [
-    { value: NAME_SORT_ASC, label: 'A → Z' },
-    { value: NAME_SORT_DESC, label: 'Z → A' },
+export const ROLE_TEMPLATE_FILTER_OPTIONS = [
+    { value: 'ALL', label: 'Tất cả mẫu vai trò' },
+    { value: 'CASHIER', label: 'Thu ngân (Bán hàng)' },
+    { value: 'WAREHOUSE_STAFF', label: 'Nhân viên Kho' },
+    { value: 'ACCOUNTANT', label: 'Kế toán / Thu chi' },
+    { value: 'ALL_ROUNDER', label: 'Nhân viên Đa năng' },
+    { value: 'FULL_ACCESS', label: 'Toàn quyền' },
+    { value: 'CUSTOM', label: 'Tùy chỉnh riêng' },
+    { value: 'NO_PERMISSION', label: 'Chưa phân quyền' },
 ];
+

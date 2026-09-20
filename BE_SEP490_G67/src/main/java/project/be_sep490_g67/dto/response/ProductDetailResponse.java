@@ -28,6 +28,7 @@ public class ProductDetailResponse {
     private String seasonTag;
     private Integer coverDaysOverride;
     private Integer categoryCoverDays;
+    private Integer minStock;
     private String supplierName;
     private String productImg;
     private String baseUnitName;
