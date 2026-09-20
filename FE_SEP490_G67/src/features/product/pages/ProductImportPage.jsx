@@ -706,31 +706,6 @@ export default function ProductImportPage() {
                 </div>
 
                 <div className="pi-head-actions">
-                  {(selectedIds.size > 0 || panelItems.length > 0) && (
-                    <div className="pi-head-action-group">
-                      <button
-                        type="button"
-                        className="pi-btn-action pi-btn-action--secondary"
-                        onClick={() => setIsOrderPanelOpen(true)}
-                        style={{ border: 'none', background: 'transparent', boxShadow: 'none' }}
-                      >
-                        <ShoppingCart size={16} />
-                        Đơn chuẩn bị ({panelItems.length || selectedIds.size})
-                      </button>
-                      <button
-                        type="button"
-                        className="pi-btn-clear-selection"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          clearAllSelection();
-                        }}
-                        title="Bỏ chọn tất cả và xóa đơn chuẩn bị"
-                        aria-label="Bỏ chọn tất cả"
-                      >
-                        <X size={15} />
-                      </button>
-                    </div>
-                  )}
                   <button
                     type="button"
                     className="pi-btn-action pi-btn-action--primary"

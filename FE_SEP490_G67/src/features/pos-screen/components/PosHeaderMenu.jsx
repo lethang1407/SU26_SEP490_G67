@@ -1,6 +1,6 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Home, Menu, LayoutDashboard, User, RefreshCw } from "lucide-react";
+import { Home, Menu, LayoutDashboard, User } from "lucide-react";
 import { AuthContext } from "@/app/providers/AuthProvider";
 import { PROFILE_ROUTES } from "@/features/profile/constants";
 
@@ -8,15 +8,17 @@ const MANAGE_ROUTE = '/admin/dashboard';
 
 /**
  * Nút góc phải header POS.
- * Mở menu gồm: "Làm mới dữ liệu SP & KH", "Quản lý", "Tài khoản".
+ * - MANAGER: giữ nút Home, bấm là về trang quản lý.
+ * - STAFF: nút Menu, mở 2 dòng "Quản lý" và "Tài khoản".
  */
-export default function PosHeaderMenu({ onReloadCatalog, isReloadingCatalog }) {
+export default function PosHeaderMenu() {
     const navigate = useNavigate();
     const { hasRole } = useContext(AuthContext);
     const [open, setOpen] = useState(false);
     const wrapperRef = useRef(null);
 
     const isStaff = hasRole('STAFF') && !hasRole('MANAGER');
+    const managePath = isStaff ? '/admin/products' : MANAGE_ROUTE;
 
     useEffect(() => {
         if (!open) return undefined;
@@ -46,7 +48,7 @@ export default function PosHeaderMenu({ onReloadCatalog, isReloadingCatalog }) {
             <button
                 className="icon-btn"
                 onClick={() => setOpen(prev => !prev)}
-                title="Menu POS"
+                title="Menu"
                 aria-haspopup="menu"
                 aria-expanded={open}
             >
@@ -55,30 +57,10 @@ export default function PosHeaderMenu({ onReloadCatalog, isReloadingCatalog }) {
 
             {open && (
                 <div className="pos-menu-dropdown" role="menu">
-                    <button
-                        className="pos-menu-item"
-                        role="menuitem"
-                        onClick={() => {
-                            setOpen(false);
-                            onReloadCatalog?.();
-                        }}
-                        disabled={isReloadingCatalog}
-                    >
-                        <RefreshCw size={16} className={isReloadingCatalog ? "animate-spin text-blue-600" : ""} />
-                        <span>Làm mới dữ liệu SP & KH</span>
+                    <button className="pos-menu-item" role="menuitem" onClick={() => go(managePath)}>
+                        <LayoutDashboard size={16} />
+                        <span>Quản lý</span>
                     </button>
-                    {!isStaff && (
-                        <button className="pos-menu-item" role="menuitem" onClick={() => go(MANAGE_ROUTE)}>
-                            <Home size={16} />
-                            <span>Trang quản lý</span>
-                        </button>
-                    )}
-                    {isStaff && (
-                        <button className="pos-menu-item" role="menuitem" onClick={() => go('/admin/products')}>
-                            <LayoutDashboard size={16} />
-                            <span>Quản lý sản phẩm</span>
-                        </button>
-                    )}
                     <button className="pos-menu-item" role="menuitem" onClick={() => go(PROFILE_ROUTES.view)}>
                         <User size={16} />
                         <span>Tài khoản</span>

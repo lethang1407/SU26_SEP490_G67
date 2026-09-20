@@ -48,8 +48,6 @@ import { buildPaymentReference } from '../utils/vietqr';
 import { saveActiveCart, loadActiveCart } from '../utils/cartStorage';
 import { printInvoice } from '../utils/printInvoice';
 import { createQuickCustomer, getProductPosInfo, getInvoiceData } from '../api';
-import { api } from '@/lib/api-clien';
-import { forceReloadOfflineCatalog } from '@/lib/db';
 
 const MAX_TABS = 10;
 
@@ -107,25 +105,6 @@ const POSScreen = () => {
         clearSynced: handleClearSyncedOffline
     } = useOfflineSync();
     const [showOfflineModal, setShowOfflineModal] = useState(false);
-    const [isReloadingCatalog, setIsReloadingCatalog] = useState(false);
-
-    const handleForceReloadCatalog = useCallback(async () => {
-        if (!isOnline) {
-            showOfflineToast('Đang ở chế độ Offline, không thể làm mới dữ liệu từ máy chủ', 'warning');
-            return;
-        }
-        try {
-            setIsReloadingCatalog(true);
-            showOfflineToast('Đang làm mới danh mục sản phẩm và khách hàng...', 'info');
-            const res = await forceReloadOfflineCatalog(api);
-            showOfflineToast(`Đã làm mới thành công! (${res.productCount} sản phẩm, ${res.customerCount} khách hàng)`, 'success');
-        } catch (err) {
-            console.warn('[POS] Manual reload catalog error:', err);
-            showOfflineToast('Làm mới danh mục thất bại. Vui lòng thử lại.', 'error');
-        } finally {
-            setIsReloadingCatalog(false);
-        }
-    }, [isOnline]);
 
     const [tabs, setTabs] = useState(() => {
         const saved = loadActiveCart();
@@ -747,10 +726,7 @@ const POSScreen = () => {
                         </div>
                     </div>
 
-                    <PosHeaderMenu
-                        onReloadCatalog={handleForceReloadCatalog}
-                        isReloadingCatalog={isReloadingCatalog}
-                    />
+                    <PosHeaderMenu />
                 </div>
             </header>
 
