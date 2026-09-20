@@ -431,6 +431,24 @@ export default function ProductEditModal({
   const [stockHistory, setStockHistory] = useState([]);
   const [loadingStockHistory, setLoadingStockHistory] = useState(false);
 
+  // Check if any batches in stockHistory are expired
+  const expiredBatchesCount = useMemo(() => {
+    if (!Array.isArray(stockHistory) || stockHistory.length === 0) return 0;
+    const now = new Date();
+    const nowOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return stockHistory.filter((item) => {
+      if (!item.expiryDate) return false;
+      try {
+        const d = new Date(item.expiryDate);
+        if (isNaN(d.getTime())) return false;
+        const dOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        return dOnly < nowOnly;
+      } catch {
+        return false;
+      }
+    }).length;
+  }, [stockHistory]);
+
   // Category Searchable Dropdown & Quick Create Modal State
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
@@ -904,8 +922,6 @@ export default function ProductEditModal({
     });
   }, [parentAttributes, formData.name, isOpen]);
 
-  if (!isOpen) return null;
-
   const handleInputChange = (field, value) => {
     markUserTouched();
     setFormData((prev) => {
@@ -1255,23 +1271,7 @@ export default function ProductEditModal({
     }
   };
 
-  // Check if any batches in stockHistory are expired
-  const expiredBatchesCount = useMemo(() => {
-    if (!Array.isArray(stockHistory) || stockHistory.length === 0) return 0;
-    const now = new Date();
-    const nowOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    return stockHistory.filter((item) => {
-      if (!item.expiryDate) return false;
-      try {
-        const d = new Date(item.expiryDate);
-        if (isNaN(d.getTime())) return false;
-        const dOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-        return dOnly < nowOnly;
-      } catch {
-        return false;
-      }
-    }).length;
-  }, [stockHistory]);
+  if (!isOpen) return null;
 
   return (
     <div className="pi-modal-backdrop">

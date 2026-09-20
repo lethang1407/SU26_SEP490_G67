@@ -170,7 +170,7 @@ function SortHeader({ label, sortKey, currentSort, onSort, className }) {
         ) : direction === 'desc' ? (
           <ArrowDown size={13} className="sort-icon-active" />
         ) : (
-          <ArrowUpDown size={12} className="sort-icon-idle" />
+          <ArrowUpDown size={13} className="sort-icon-idle" />
         )}
       </span>
     </div>

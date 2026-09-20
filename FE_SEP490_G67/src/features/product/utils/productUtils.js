@@ -69,8 +69,7 @@ export function formatCoverDays(days) {
   // Làm tròn xuống số nguyên — dễ kiểm soát hơn số thập phân
   const whole = Math.floor(Number(days));
   if (whole < 1) return '<1 ngày';
-  if (whole >= 28) return `~${Math.floor(whole / 30)} tháng`;
-  if (whole >= 7 && whole % 7 === 0) return `~${whole / 7} tuần`;
+  if (whole >= 30) return `~${Math.round(whole / 30)} tháng`;
   return `${whole} ngày`;
 }
 

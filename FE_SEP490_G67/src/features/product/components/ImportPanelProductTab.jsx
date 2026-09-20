@@ -308,14 +308,12 @@ export default function ImportPanelProductTab({
                     />
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    <div style={{ fontWeight: 600, color: '#0F172A', fontSize: 13 }}>
+                    <div
+                      style={{ fontWeight: 600, color: '#0F172A', fontSize: 13 }}
+                      title={unitBase > 1 ? `Đơn giá theo ${currentUnitName}: ${formatMoney(unitCost)} (Đơn vị gốc: ${formatMoney(baseCost)}/${baseUnitName})` : undefined}
+                    >
                       {formatMoney(unitCost)}
                     </div>
-                    {unitBase > 1 && (
-                      <div style={{ fontSize: 11, color: '#64748B', marginTop: 1 }} title={`Đơn vị gốc: ${formatMoney(baseCost)}/${baseUnitName}`}>
-                        ({formatMoney(baseCost)}/{baseUnitName})
-                      </div>
-                    )}
                   </td>
                   <td style={{ textAlign: 'right', fontWeight: 700, color: '#0F172A', fontSize: 13.5 }}>
                     {formatMoney(lineTotal)}

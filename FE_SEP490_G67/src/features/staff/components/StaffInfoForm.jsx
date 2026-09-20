@@ -193,193 +193,202 @@ export default function StaffInfoForm({
     };
 
     return (
-        <form id={formId} className="add-staff-form" onSubmit={handleSubmit} noValidate>
-            <div className="add-staff-main add-staff-main--full">
-                <section className="add-staff-card">
-                    <header className="add-staff-card__header">
-                        <span className="add-staff-card__icon add-staff-card__icon--user">
-                            <User size={18} />
-                        </span>
-                        <h2 className="add-staff-card__title">Thông tin cá nhân</h2>
-                    </header>
-                    <div className="add-staff-fields add-staff-fields--two-col">
-                        <div className="add-staff-field">
-                            <label className="add-staff-field__label" htmlFor="fullName">
-                                Họ và tên <span className="add-staff-field__required">*</span>
-                            </label>
-                            <input
-                                id="fullName"
-                                name="fullName"
-                                type="text"
-                                className={`add-staff-field__input${errors.fullName ? ' add-staff-field__input--error' : ''}`}
-                                placeholder="Nhập họ tên đầy đủ"
-                                value={form.fullName}
-                                onChange={handleChange}
-                            />
-                            {errors.fullName && (
-                                <span className="add-staff-field__error">{errors.fullName}</span>
-                            )}
-                        </div>
-                        <div className="add-staff-field">
-                            <label className="add-staff-field__label" htmlFor="phone">
-                                Số điện thoại <span className="add-staff-field__required">*</span>
-                            </label>
-                            <input
-                                id="phone"
-                                name="phone"
-                                type="tel"
-                                className={`add-staff-field__input${errors.phone ? ' add-staff-field__input--error' : ''}`}
-                                placeholder="090x xxx xxx"
-                                value={form.phone}
-                                onChange={handleChange}
-                            />
-                            {errors.phone && (
-                                <span className="add-staff-field__error">{errors.phone}</span>
-                            )}
-                        </div>
-                    </div>
-                </section>
-
-                <section className="add-staff-card">
-                    <header className="add-staff-card__header">
-                        <span className="add-staff-card__icon add-staff-card__icon--lock">
-                            <Lock size={18} />
-                        </span>
-                        <h2 className="add-staff-card__title">Thông tin tài khoản</h2>
-                    </header>
-                    <div className="add-staff-fields add-staff-fields--two-col">
-                        <div className="add-staff-field">
-                            <label className="add-staff-field__label" htmlFor="username">
-                                Tên đăng nhập <span className="add-staff-field__required">*</span>
-                            </label>
-                            <input
-                                id="username"
-                                name="username"
-                                type="text"
-                                className={`add-staff-field__input${errors.username ? ' add-staff-field__input--error' : ''}${!isNewStaff ? ' add-staff-field__input--readonly' : ''}`}
-                                placeholder="nv.nguyenvan"
-                                value={form.username}
-                                onChange={handleChange}
-                                readOnly={!isNewStaff}
-                            />
-                            {errors.username && (
-                                <span className="add-staff-field__error">{errors.username}</span>
-                            )}
-                        </div>
-                        <div className="add-staff-field">
-                            <label className="add-staff-field__label" htmlFor="password">
-                                Mật khẩu{' '}
-                                {isNewStaff && (
-                                    <span className="add-staff-field__required">*</span>
-                                )}
-                            </label>
-                            <div className="add-staff-field__password">
+        <form id={formId} className="add-staff-form" onSubmit={handleSubmit} noValidate autoComplete="off">
+            <div className={`add-staff-form-grid ${isNewStaff ? 'add-staff-form-grid--two-col' : 'add-staff-form-grid--single'}`}>
+                {/* Cột trái: Thông tin cá nhân & Thông tin tài khoản (Mỗi field 1 dòng) */}
+                <div className="add-staff-form-col-left">
+                    <section className="add-staff-card">
+                        <header className="add-staff-card__header">
+                            <span className="add-staff-card__icon add-staff-card__icon--user">
+                                <User size={18} />
+                            </span>
+                            <h2 className="add-staff-card__title">Thông tin cá nhân</h2>
+                        </header>
+                        <div className="add-staff-fields">
+                            <div className="add-staff-field">
+                                <label className="add-staff-field__label" htmlFor="fullName">
+                                    Họ và tên <span className="add-staff-field__required">*</span>
+                                </label>
                                 <input
-                                    id="password"
-                                    name="password"
-                                    type={showPassword ? 'text' : 'password'}
-                                    className={`add-staff-field__input${errors.password ? ' add-staff-field__input--error' : ''}`}
-                                    placeholder={isNewStaff ? '********' : 'Để trống nếu không đổi'}
-                                    value={form.password}
+                                    id="fullName"
+                                    name="fullName"
+                                    type="text"
+                                    autoComplete="off"
+                                    className={`add-staff-field__input${errors.fullName ? ' add-staff-field__input--error' : ''}`}
+                                    placeholder="Nhập họ tên đầy đủ"
+                                    value={form.fullName}
                                     onChange={handleChange}
                                 />
-                                <button
-                                    type="button"
-                                    className="add-staff-field__toggle-password"
-                                    onClick={() => setShowPassword((prev) => !prev)}
-                                    aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                                >
-                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                </button>
+                                {errors.fullName && (
+                                    <span className="add-staff-field__error">{errors.fullName}</span>
+                                )}
                             </div>
-                            {errors.password && (
-                                <span className="add-staff-field__error">{errors.password}</span>
-                            )}
-                        </div>
-                    </div>
-                </section>
-
-                {/* Phân quyền nhanh cho nhân viên mới */}
-                {isNewStaff && (
-                    <section className="add-staff-card add-staff-card--permissions">
-                        <header className="add-staff-card__header add-staff-card__header--perm">
-                            <div className="add-staff-perm-head-left">
-                                <span className="add-staff-card__icon add-staff-card__icon--perm">
-                                    <ShieldCheck size={18} />
-                                </span>
-                                <div>
-                                    <h2 className="add-staff-card__title">Phân quyền nhanh theo vai trò</h2>
-                                    <p className="add-staff-card__subtitle">
-                                        Tích chọn các vai trò để cấp quyền tương ứng cho nhân viên ngay khi tạo tài khoản.
-                                    </p>
-                                </div>
+                            <div className="add-staff-field">
+                                <label className="add-staff-field__label" htmlFor="phone">
+                                    Số điện thoại <span className="add-staff-field__required">*</span>
+                                </label>
+                                <input
+                                    id="phone"
+                                    name="phone"
+                                    type="tel"
+                                    autoComplete="off"
+                                    className={`add-staff-field__input${errors.phone ? ' add-staff-field__input--error' : ''}`}
+                                    placeholder="090x xxx xxx"
+                                    value={form.phone}
+                                    onChange={handleChange}
+                                />
+                                {errors.phone && (
+                                    <span className="add-staff-field__error">{errors.phone}</span>
+                                )}
                             </div>
-                            <div className="add-staff-perm-count-badge">
-                                Đang cấp: <strong>{effectivePermissions.length} / {Object.keys(PERMISSION_DICTIONARY).length}</strong> quyền
-                            </div>
-                        </header>
-
-                        <div className="add-staff-role-templates-grid">
-                            {QUICK_ROLE_OPTIONS.map((item) => {
-                                const isSelected = selectedRoleTemplates.has(item.id);
-                                const isMandatory = item.isMandatory;
-                                const IconComponent = item.icon;
-
-                                return (
-                                    <div
-                                        key={item.id}
-                                        className={`add-staff-role-card ${isSelected ? 'is-selected' : ''} ${isMandatory ? 'is-mandatory' : ''}`}
-                                        onClick={() => !isMandatory && handleToggleRoleTemplate(item.id)}
-                                    >
-                                        <div className="add-staff-role-card__left">
-                                            <div className={`add-staff-role-card__icon-box add-staff-role-card__icon-box--${item.theme}`}>
-                                                <IconComponent size={20} />
-                                            </div>
-                                            <div className="add-staff-role-card__info">
-                                                <div className="add-staff-role-card__title-row">
-                                                    <span className="add-staff-role-card__name">{item.name}</span>
-                                                    {isMandatory && (
-                                                        <span className="add-staff-role-card__badge-mandatory" title="Vai trò bán hàng mặc định luôn được cấp cho nhân viên, không thể tắt">
-                                                            <LockKeyhole size={11} /> Bắt buộc
-                                                        </span>
-                                                    )}
-                                                    {item.id === 'FULL_ACCESS' && (
-                                                        <span className="add-staff-role-card__badge-all">Toàn bộ quyền</span>
-                                                    )}
-                                                </div>
-                                                <p className="add-staff-role-card__desc">{item.description}</p>
-                                                <div className="add-staff-role-card__perms-preview">
-                                                    {item.featureTags.map((tag, tIdx) => (
-                                                        <span key={tIdx} className="add-staff-role-card__pill">
-                                                            {tag}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="add-staff-role-card__check-wrap">
-                                            <input
-                                                type="checkbox"
-                                                checked={isSelected}
-                                                disabled={isMandatory}
-                                                onChange={() => !isMandatory && handleToggleRoleTemplate(item.id)}
-                                                className="add-staff-role-card__checkbox"
-                                                aria-label={`Chọn vai trò ${item.name}`}
-                                            />
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        <div className="add-staff-perm-note">
-                            <Info size={15} className="flex-shrink-0" />
-                            <span>
-                                <strong>Lưu ý:</strong> Vai trò <strong>Bán hàng & Thu ngân (POS)</strong> là vai trò cơ bản mặc định luôn được bật. Sau khi tạo xong, Quản lý vẫn có thể vào mục <strong>"Phân quyền"</strong> ở danh sách nhân viên để bật/tắt chi tiết từng quyền lẻ nếu muốn.
-                            </span>
                         </div>
                     </section>
+
+                    <section className="add-staff-card">
+                        <header className="add-staff-card__header">
+                            <span className="add-staff-card__icon add-staff-card__icon--lock">
+                                <Lock size={18} />
+                            </span>
+                            <h2 className="add-staff-card__title">Thông tin tài khoản</h2>
+                        </header>
+                        <div className="add-staff-fields">
+                            <div className="add-staff-field">
+                                <label className="add-staff-field__label" htmlFor="username">
+                                    Tên đăng nhập <span className="add-staff-field__required">*</span>
+                                </label>
+                                <input
+                                    id="username"
+                                    name="username"
+                                    type="text"
+                                    autoComplete="new-username"
+                                    className={`add-staff-field__input${errors.username ? ' add-staff-field__input--error' : ''}${!isNewStaff ? ' add-staff-field__input--readonly' : ''}`}
+                                    placeholder="Ví dụ: nv.nguyenvan"
+                                    value={form.username}
+                                    onChange={handleChange}
+                                    readOnly={!isNewStaff}
+                                />
+                                {errors.username && (
+                                    <span className="add-staff-field__error">{errors.username}</span>
+                                )}
+                            </div>
+                            <div className="add-staff-field">
+                                <label className="add-staff-field__label" htmlFor="password">
+                                    Mật khẩu{' '}
+                                    {isNewStaff && (
+                                        <span className="add-staff-field__required">*</span>
+                                    )}
+                                </label>
+                                <div className="add-staff-field__password">
+                                    <input
+                                        id="password"
+                                        name="password"
+                                        type={showPassword ? 'text' : 'password'}
+                                        autoComplete="new-password"
+                                        className={`add-staff-field__input${errors.password ? ' add-staff-field__input--error' : ''}`}
+                                        placeholder={isNewStaff ? 'Nhập mật khẩu (từ 6 ký tự)' : 'Để trống nếu không đổi'}
+                                        value={form.password}
+                                        onChange={handleChange}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="add-staff-field__toggle-password"
+                                        onClick={() => setShowPassword((prev) => !prev)}
+                                        aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                                    >
+                                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
+                                {errors.password && (
+                                    <span className="add-staff-field__error">{errors.password}</span>
+                                )}
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                {/* Cột phải: Phân quyền nhanh theo vai trò */}
+                {isNewStaff && (
+                    <div className="add-staff-form-col-right">
+                        <section className="add-staff-card add-staff-card--permissions">
+                            <header className="add-staff-card__header add-staff-card__header--perm">
+                                <div className="add-staff-perm-head-left">
+                                    <span className="add-staff-card__icon add-staff-card__icon--perm">
+                                        <ShieldCheck size={18} />
+                                    </span>
+                                    <div>
+                                        <h2 className="add-staff-card__title">Phân quyền nhanh theo vai trò</h2>
+                                        <p className="add-staff-card__subtitle">
+                                            Tích chọn vai trò để cấp quyền tương ứng cho nhân viên khi tạo tài khoản.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="add-staff-perm-count-badge">
+                                    Đang cấp: <strong>{effectivePermissions.length} / {Object.keys(PERMISSION_DICTIONARY).length}</strong> quyền
+                                </div>
+                            </header>
+
+                            <div className="add-staff-role-templates-grid">
+                                {QUICK_ROLE_OPTIONS.map((item) => {
+                                    const isSelected = selectedRoleTemplates.has(item.id);
+                                    const isMandatory = item.isMandatory;
+                                    const IconComponent = item.icon;
+
+                                    return (
+                                        <div
+                                            key={item.id}
+                                            className={`add-staff-role-card ${isSelected ? 'is-selected' : ''} ${isMandatory ? 'is-mandatory' : ''}`}
+                                            onClick={() => !isMandatory && handleToggleRoleTemplate(item.id)}
+                                        >
+                                            <div className="add-staff-role-card__left">
+                                                <div className={`add-staff-role-card__icon-box add-staff-role-card__icon-box--${item.theme}`}>
+                                                    <IconComponent size={20} />
+                                                </div>
+                                                <div className="add-staff-role-card__info">
+                                                    <div className="add-staff-role-card__title-row">
+                                                        <span className="add-staff-role-card__name">{item.name}</span>
+                                                        {isMandatory && (
+                                                            <span className="add-staff-role-card__badge-mandatory" title="Vai trò bán hàng mặc định luôn được cấp cho nhân viên, không thể tắt">
+                                                                <LockKeyhole size={11} /> Bắt buộc
+                                                            </span>
+                                                        )}
+                                                        {item.id === 'FULL_ACCESS' && (
+                                                            <span className="add-staff-role-card__badge-all">Toàn bộ quyền</span>
+                                                        )}
+                                                    </div>
+                                                    <p className="add-staff-role-card__desc">{item.description}</p>
+                                                    <div className="add-staff-role-card__perms-preview">
+                                                        {item.featureTags.map((tag, tIdx) => (
+                                                            <span key={tIdx} className="add-staff-role-card__pill">
+                                                                {tag}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="add-staff-role-card__check-wrap">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    disabled={isMandatory}
+                                                    onChange={() => !isMandatory && handleToggleRoleTemplate(item.id)}
+                                                    className="add-staff-role-card__checkbox"
+                                                    aria-label={`Chọn vai trò ${item.name}`}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="add-staff-perm-note">
+                                <Info size={15} className="flex-shrink-0" />
+                                <span>
+                                    <strong>Lưu ý:</strong> Vai trò <strong>Bán hàng (POS)</strong> luôn được bật mặc định. Sau khi lưu, bạn vẫn có thể vào mục <strong>"Phân quyền"</strong> để chỉnh sửa chi tiết từng quyền lẻ bất cứ lúc nào.
+                                </span>
+                            </div>
+                        </section>
+                    </div>
                 )}
             </div>
 

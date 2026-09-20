@@ -1992,27 +1992,29 @@
 /* Flexbox rows → detail là sibling div, KHÔNG bị clip */
 .pi-thead {
   display: flex;
-  align-items: center;
-  background: var(--gray-9);
-  border-bottom: 1px solid var(--blue-mid);
+  align-items: stretch;
+  background: #F8FAFC;
+  border-bottom: 1px solid #CBD5E1;
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 3;
   flex-shrink: 0;
   min-height: 48px;
+  box-sizing: border-box;
 }
 
 .pi-th {
-  padding: 12px 10px;
-  font-size: 14.5px;
-  font-weight: 600;
+  padding: 8px 10px;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
   color: #475569;
   white-space: nowrap !important;
-  flex-shrink: 0;
   box-sizing: border-box;
   user-select: none;
   display: flex;
   align-items: center;
+  line-height: 1.2;
 }
 
 /* Sizes - Cố định kích thước các cột trên Header & Dòng dữ liệu */
@@ -2024,6 +2026,9 @@
 .pi-th.col-cb,
 .pi-td.col-cb {
   width: 44px;
+  min-width: 44px;
+  max-width: 44px;
+  flex: 0 0 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2051,6 +2056,9 @@
 .pi-th.col-img,
 .pi-td.col-img {
   width: 50px;
+  min-width: 50px;
+  max-width: 50px;
+  flex: 0 0 50px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2061,7 +2069,7 @@
 
 /* Cột Tên hàng */
 .pi-th.col-name {
-  flex: 2;
+  flex: 1 1 240px;
   min-width: 220px;
   white-space: nowrap !important;
   display: flex;
@@ -2072,7 +2080,7 @@
 }
 
 .pi-td.col-name {
-  flex: 2;
+  flex: 1 1 240px;
   min-width: 220px;
   white-space: normal !important;
   word-break: break-word;
@@ -2092,6 +2100,9 @@
 .pi-th.col-unit,
 .pi-td.col-unit {
   width: 80px;
+  min-width: 80px;
+  max-width: 80px;
+  flex: 0 0 80px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2115,6 +2126,9 @@
 .pi-th.col-ps,
 .pi-td.col-ps {
   width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+  flex: 0 0 120px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -2133,6 +2147,9 @@
 .pi-th.col-pc,
 .pi-td.col-pc {
   width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+  flex: 0 0 120px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -2150,6 +2167,9 @@
 .pi-th.col-st,
 .pi-td.col-st {
   width: 110px;
+  min-width: 110px;
+  max-width: 110px;
+  flex: 0 0 110px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -2165,7 +2185,10 @@
 /* Cột Mức bán (1 tháng) */
 .pi-th.col-rt,
 .pi-td.col-rt {
-  width: 140px;
+  width: 155px;
+  min-width: 155px;
+  max-width: 155px;
+  flex: 0 0 155px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -2181,7 +2204,10 @@
 /* Cột Thao tác */
 .pi-th.col-act,
 .pi-td.col-act {
-  width: 80px;
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+  flex: 0 0 120px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2199,8 +2225,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -2231,27 +2257,36 @@
   gap: 5px;
   white-space: nowrap !important;
   flex-wrap: nowrap !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
 }
 
 .pi-th--sortable:hover {
   background-color: #E2E8F0;
   color: #004AC6;
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
 /* Khi đang sắp xếp: Giữ nguyên font-size và font-weight (600) để không làm vỡ layout hay co giãn chữ */
 .pi-th--sortable.is-sorted {
   color: #004AC6;
   background-color: #EFF6FF;
-  border-radius: 6px;
-  font-weight: 600;
+  border-radius: 4px;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
 }
 
 .pi-th-label {
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
   white-space: nowrap !important;
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
+  line-height: 1.2;
 }
 
 .pi-sort-icon {
@@ -2261,6 +2296,8 @@
   flex-shrink: 0;
   width: 14px;
   height: 14px;
+  min-width: 14px;
+  min-height: 14px;
 }
 
 .sort-icon-active {
@@ -2269,12 +2306,12 @@
 
 .sort-icon-idle {
   color: #94A3B8;
-  opacity: 0.45;
+  opacity: 0.55;
   transition: opacity 0.15s ease;
 }
 
 .pi-th--sortable:hover .sort-icon-idle {
-  opacity: 0.9;
+  opacity: 1;
   color: #004AC6;
 }
 
@@ -5084,13 +5121,17 @@
 .pi-th.col-cat,
 .pi-td.col-cat {
   width: 120px;
-  flex-shrink: 0;
+  min-width: 120px;
+  max-width: 120px;
+  flex: 0 0 120px;
 }
 
 .pi-th.col-unit,
 .pi-td.col-unit {
-  width: 68px;
-  flex-shrink: 0;
+  width: 80px;
+  min-width: 80px;
+  max-width: 80px;
+  flex: 0 0 80px;
 }
 
 /* Category pill badge */
@@ -5280,11 +5321,13 @@
 
 .pi-th.col-act,
 .pi-td.col-act {
-  width: 135px;
-  flex-shrink: 0;
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+  flex: 0 0 120px;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   padding: 6px 4px;
 }
 

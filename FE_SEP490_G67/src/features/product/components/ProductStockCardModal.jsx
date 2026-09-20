@@ -46,6 +46,23 @@ export default function ProductStockCardModal({
     }
   }, [isOpen, product]);
 
+  const expiredBatchesCount = useMemo(() => {
+    if (!Array.isArray(history) || history.length === 0) return 0;
+    const now = new Date();
+    const nowOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return history.filter((item) => {
+      if (!item.expiryDate) return false;
+      try {
+        const d = new Date(item.expiryDate);
+        if (isNaN(d.getTime())) return false;
+        const dOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        return dOnly < nowOnly;
+      } catch {
+        return false;
+      }
+    }).length;
+  }, [history]);
+
   if (!isOpen || !product) return null;
 
   const effectiveProduct = freshProduct || product;
@@ -67,22 +84,6 @@ export default function ProductStockCardModal({
   const costPriceValue = effectiveProduct.costPrice ?? product.costPrice ?? (effectiveProduct.importPrice ?? product.importPrice);
   const sellingPriceValue = effectiveProduct.sellingPrice ?? product.sellingPrice ?? (effectiveProduct.sellPrice ?? product.sellPrice);
 
-  const expiredBatchesCount = useMemo(() => {
-    if (!Array.isArray(history) || history.length === 0) return 0;
-    const now = new Date();
-    const nowOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    return history.filter((item) => {
-      if (!item.expiryDate) return false;
-      try {
-        const d = new Date(item.expiryDate);
-        if (isNaN(d.getTime())) return false;
-        const dOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-        return dOnly < nowOnly;
-      } catch {
-        return false;
-      }
-    }).length;
-  }, [history]);
 
   const renderExpiryDate = (dateStr) => {
     if (!dateStr) return <span style={{ color: '#94A3B8' }}>N/A</span>;

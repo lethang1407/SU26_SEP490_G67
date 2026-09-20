@@ -244,6 +244,8 @@ export default function UnitConversionModal({
     }
   };
 
+  if (!isOpen || !product) return null;
+
   return (
     <div className="pi-modal-backdrop">
       <div className="pi-modal-dialog pi-unit-modal" onClick={(e) => e.stopPropagation()}>

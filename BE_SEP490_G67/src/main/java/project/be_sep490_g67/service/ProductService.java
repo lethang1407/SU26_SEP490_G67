@@ -757,10 +757,6 @@ public class ProductService {
                         .findFirst()
                         .orElse(null);
             }
-            if (baseUnitName == null) {
-                baseUnitName = "N/A";
-            }
-
             if (productUnit != null && productUnit.getUnitBase() != null && productUnit.getUnitBase().compareTo(BigDecimal.ZERO) > 0) {
                 unitBase = productUnit.getUnitBase();
             }
