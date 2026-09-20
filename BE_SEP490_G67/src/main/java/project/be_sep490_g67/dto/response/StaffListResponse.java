@@ -3,6 +3,8 @@ package project.be_sep490_g67.dto.response;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.util.Set;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -13,4 +15,6 @@ public class StaffListResponse {
     String name;
     String phone;
     String position;
+    Set<String> permissions;
 }
+

@@ -14,12 +14,16 @@ import { useSidebarCollapse } from "../../../app/providers/SidebarCollapseProvid
 export default function SideBar() {
     const [expanded, setExpanded] = useState(null);
     const location = useLocation();
-    const { logout, hasPermission } = useContext(AuthContext);
+    const { logout, hasPermission, hasRole } = useContext(AuthContext);
     const { collapsed, setCollapsed } = useSidebarCollapse();
 
     const filteredMenus = menus.filter(menu => {
+        if (menu.role && !hasRole(menu.role)) return false;
         if (menu.children) {
-            const validChildren = menu.children.filter(child => hasPermission(child.permission));
+            const validChildren = menu.children.filter(child => {
+                if (child.role && !hasRole(child.role)) return false;
+                return hasPermission(child.permission);
+            });
             return validChildren.length > 0;
         }
         return hasPermission(menu.permission);
@@ -85,7 +89,10 @@ export default function SideBar() {
                         const Icon = menu.icon;
                         const isActive = isMenuActive(menu);
                         if (menu.children) {
-                            const allowedChildren = menu.children.filter(child => hasPermission(child.permission));
+                            const allowedChildren = menu.children.filter(child => {
+                                if (child.role && !hasRole(child.role)) return false;
+                                return hasPermission(child.permission);
+                            });
                             const siblingPaths = allowedChildren.map(c => c.path);
                             return (
                                 <div

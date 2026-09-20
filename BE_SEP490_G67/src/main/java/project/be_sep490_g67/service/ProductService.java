@@ -23,6 +23,7 @@ import project.be_sep490_g67.utils.StockBatchUtils;
 import project.be_sep490_g67.utils.UnitPriceResolver;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
@@ -450,9 +451,8 @@ public class ProductService {
     }
 
     /**
-     * Tồn hiển thị tìm SP / POS = tồn bán được trên kệ
-     * (Σ batch_locations, loại RETURN_HOLD — hàng đổi/trả khách đang giữ).
-     * Hàng đã reserve trả NCC đã trừ khỏi kệ nên không còn trong tổng này.
+     * Tồn hiển thị SP = Tổng tồn thực tế theo Sổ cái lô hàng
+     * (bao gồm cả hàng đã trên kệ và hàng mới nhập chưa gán vị trí).
      */
     private Map<Integer, Integer> loadStockMap(List<Product> products) {
         if (products.isEmpty()) {
@@ -460,11 +460,11 @@ public class ProductService {
         }
 
         List<Integer> productIds = products.stream().map(Product::getId).toList();
-        return productMapper.toStockMap(batchLocationRepository.sumQuantityByProductIds(productIds));
+        return productMapper.toStockMap(stockBatchRepository.sumStockByProductIds(productIds));
     }
 
     private int loadStock(Integer productId) {
-        return productMapper.toStockMap(batchLocationRepository.sumQuantityByProductIds(List.of(productId)))
+        return productMapper.toStockMap(stockBatchRepository.sumStockByProductIds(List.of(productId)))
                 .getOrDefault(productId, 0);
     }
 
@@ -610,14 +610,13 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public List<ProductSearchResponse> searchByNameAndBarcode(String query) {
-        if (query == null || query.isBlank()) {
-            return List.of();
-        }
+        String cleanQuery = query == null ? "" : query.trim();
+        int maxLimit = cleanQuery.isBlank() ? 500 : 50;
 
-        List<Product> productList = productRepository.searchSellableByNameAndBarcode(query.trim())
+        List<Product> productList = productRepository.searchSellableByNameAndBarcode(cleanQuery)
                 .stream()
                 .filter(p -> !Boolean.TRUE.equals(p.getIsRemoved()))
-                .limit(20)
+                .limit(maxLimit)
                 .toList();
 
         if (productList.isEmpty()) {
@@ -747,6 +746,29 @@ public class ProductService {
             LocalDate orderDate = order != null ? order.getReceivedDate() : null;
             Instant createdAt = order != null && order.getCreatedAt() != null ? order.getCreatedAt() : d.getCreatedAt();
 
+            ProductUnit productUnit = d.getProductUnit();
+            BigDecimal unitBase = BigDecimal.ONE;
+            String baseUnitName = null;
+
+            if (product != null && product.getProductUnits() != null) {
+                baseUnitName = product.getProductUnits().stream()
+                        .filter(u -> u.getUnitBase() != null && u.getUnitBase().compareTo(BigDecimal.ONE) == 0)
+                        .map(ProductUnit::getName)
+                        .findFirst()
+                        .orElse(null);
+            }
+            if (baseUnitName == null) {
+                baseUnitName = "N/A";
+            }
+
+            if (productUnit != null && productUnit.getUnitBase() != null && productUnit.getUnitBase().compareTo(BigDecimal.ZERO) > 0) {
+                unitBase = productUnit.getUnitBase();
+            }
+
+            BigDecimal baseCostPerUnit = (currentCost != null && unitBase.compareTo(BigDecimal.ZERO) > 0)
+                    ? currentCost.divide(unitBase, 2, RoundingMode.HALF_UP)
+                    : currentCost;
+
             responses.add(PriceHistoryResponse.builder()
                     .id(d.getId())
                     .orderId(order != null ? order.getId() : null)
@@ -759,6 +781,9 @@ public class ProductService {
                     .costPerUnit(currentCost)
                     .quantity(d.getQuantity())
                     .unitName(unitName)
+                    .unitBase(unitBase)
+                    .baseUnitName(baseUnitName)
+                    .baseCostPerUnit(baseCostPerUnit)
                     .changeType(changeType)
                     .oldCostPrice(oldCost)
                     .newCostPrice(currentCost)

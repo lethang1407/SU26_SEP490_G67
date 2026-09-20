@@ -28,6 +28,20 @@ db.version(3).stores({
 });
 
 /**
+ * Remove Vietnamese accents / diacritics for flexible fuzzy searching
+ */
+export function removeVietnameseDiacritics(str) {
+    if (!str || typeof str !== 'string') return '';
+    return str
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .toLowerCase()
+        .trim();
+}
+
+/**
  * Upsert products into offline Dexie database with smart delta tracking
  */
 export async function saveOfflineProducts(productsList) {
@@ -35,42 +49,90 @@ export async function saveOfflineProducts(productsList) {
     const now = Date.now();
     const records = productsList
         .filter(p => p && (p.id != null || p.productId != null))
-        .map(p => ({
-            id: p.id ?? p.productId,
-            barcode: p.barcode || '',
-            name: p.name || p.productName || '',
-            categoryId: p.categoryId ?? null,
-            categoryName: p.categoryName ?? '',
-            price: p.price ?? p.retailPrice ?? 0,
-            costPrice: p.costPrice ?? 0,
-            stockQuantity: p.stockQuantity ?? p.totalQuantity ?? 0,
-            unit: p.unit ?? p.baseUnit ?? '',
-            units: p.units || [],
-            locations: p.locations || [],
-            batches: p.batches || [],
-            raw: p,
-            updatedAt: now
-        }));
+        .map(p => {
+            const id = p.id ?? p.productId;
+            const name = p.name || p.productName || '';
+            const barcode = p.barcode || '';
+            const sku = p.sku || '';
+            const price = Number(p.price ?? p.retailPrice ?? 0);
+            const costPrice = Number(p.costPrice ?? 0);
+            const stockQuantity = Number(p.stockQuantity ?? p.totalQuantity ?? 0);
+            const sellableQuantity = Number(p.sellableQuantity ?? (p.locations?.length > 0 ? p.sellableQuantity : stockQuantity) ?? 0);
+            const unit = p.unit ?? p.baseUnit ?? '';
+            const units = Array.isArray(p.units) ? p.units : [];
+            const locations = Array.isArray(p.locations) ? p.locations : [];
+            const batches = Array.isArray(p.batches) ? p.batches : [];
+
+            return {
+                id,
+                barcode,
+                sku,
+                name,
+                nameClean: removeVietnameseDiacritics(name),
+                categoryId: p.categoryId ?? null,
+                categoryName: p.categoryName ?? '',
+                price,
+                costPrice,
+                stockQuantity,
+                sellableQuantity,
+                unit,
+                units,
+                locations,
+                batches,
+                raw: { ...p, id, name, barcode, sku, price, stockQuantity, sellableQuantity, unit, units, locations, batches },
+                updatedAt: now
+            };
+        });
 
     await db.products.bulkPut(records);
     return records.length;
 }
 
 /**
- * Search products offline by name or keyword
+ * Search products offline by name (accented & unaccented), barcode, SKU, or units
  */
-export async function searchOfflineProducts(keyword, limit = 20) {
+export async function searchOfflineProducts(keyword, limit = 50) {
     if (!keyword?.trim()) return [];
-    const lower = keyword.trim().toLowerCase();
-    
-    return await db.products
+    const rawQuery = keyword.trim().toLowerCase();
+    const cleanQuery = removeVietnameseDiacritics(keyword);
+
+    const items = await db.products
         .filter(p => {
-            const nameMatch = p.name && p.name.toLowerCase().includes(lower);
-            const barcodeMatch = p.barcode && p.barcode.toLowerCase().includes(lower);
-            return !!(nameMatch || barcodeMatch);
+            if (!p) return false;
+            // 1. Barcode exact or partial match
+            if (p.barcode && p.barcode.toLowerCase().includes(rawQuery)) return true;
+            // 2. SKU exact or partial match
+            if (p.sku && p.sku.toLowerCase().includes(rawQuery)) return true;
+            // 3. Name match with accents
+            if (p.name && p.name.toLowerCase().includes(rawQuery)) return true;
+            // 4. Name match without accents (Vietnamese diacritics removed)
+            const pNameClean = p.nameClean || removeVietnameseDiacritics(p.name);
+            if (pNameClean && pNameClean.includes(cleanQuery)) return true;
+            // 5. Units match
+            if (Array.isArray(p.units) && p.units.length > 0) {
+                const unitsStr = p.units.map(u => u.unitName || u.name || '').join(' ');
+                const unitsClean = removeVietnameseDiacritics(unitsStr);
+                if (unitsClean.includes(cleanQuery)) return true;
+            }
+            return false;
         })
         .limit(limit)
         .toArray();
+
+    return items.map(p => ({
+        ...(p.raw || {}),
+        ...p,
+        id: p.id,
+        name: p.name,
+        barcode: p.barcode,
+        sku: p.sku || p.raw?.sku,
+        sellableQuantity: Number(p.sellableQuantity ?? p.raw?.sellableQuantity ?? p.stockQuantity ?? 0),
+        stockQuantity: Number(p.stockQuantity ?? p.raw?.stockQuantity ?? 0),
+        price: Number(p.price ?? p.raw?.price ?? 0),
+        locations: p.locations || p.raw?.locations || [],
+        batches: p.batches || p.raw?.batches || [],
+        units: p.units || p.raw?.units || []
+    }));
 }
 
 /**
@@ -128,19 +190,22 @@ export async function saveOfflineCustomers(customersList) {
 }
 
 /**
- * Search customers offline by phone or name (returns full normalized objects)
+ * Search customers offline by phone or name (accented and unaccented)
  */
 export async function searchOfflineCustomers(keyword, limit = 20) {
     if (!keyword?.trim()) return [];
-    const lower = keyword.trim().toLowerCase();
+    const rawQuery = keyword.trim().toLowerCase();
+    const cleanQuery = removeVietnameseDiacritics(keyword);
 
     const items = await db.customers
         .filter(c => {
-            const phoneMatch = (c.phone && c.phone.toLowerCase().includes(lower)) ||
-                               (c.phoneNumber && c.phoneNumber.toLowerCase().includes(lower));
-            const nameMatch = (c.name && c.name.toLowerCase().includes(lower)) ||
-                              (c.fullName && c.fullName.toLowerCase().includes(lower));
-            return !!(phoneMatch || nameMatch);
+            if (!c) return false;
+            const phoneMatch = (c.phone && c.phone.toLowerCase().includes(rawQuery)) ||
+                               (c.phoneNumber && c.phoneNumber.toLowerCase().includes(rawQuery));
+            const nameMatch = (c.name && c.name.toLowerCase().includes(rawQuery)) ||
+                              (c.fullName && c.fullName.toLowerCase().includes(rawQuery));
+            const cleanNameMatch = removeVietnameseDiacritics(c.name || c.fullName || '').includes(cleanQuery);
+            return !!(phoneMatch || nameMatch || cleanNameMatch);
         })
         .limit(limit)
         .toArray();
@@ -587,4 +652,40 @@ export async function cleanupOldSalesOrders(days = 7) {
         console.warn('[Cleanup] Failed to cleanup old sales orders:', err);
     }
 }
+
+/**
+ * Force reload offline catalog (products & customers) from API into Dexie
+ */
+export async function forceReloadOfflineCatalog(apiClient) {
+    let productCount = 0;
+    let customerCount = 0;
+
+    // 1. Fetch all products
+    try {
+        const prodRes = await apiClient.get('/products/search', { params: { q: '' } });
+        const products = prodRes?.result || [];
+        if (Array.isArray(products) && products.length > 0) {
+            productCount = await saveOfflineProducts(products);
+            await db.meta.put({ key: 'last_product_sync', value: Date.now() });
+        }
+    } catch (err) {
+        console.warn('[forceReloadOfflineCatalog] Products reload error:', err);
+    }
+
+    // 2. Fetch customers
+    try {
+        const custRes = await apiClient.get('/customers/debts', { params: { page: 1, size: 100 } });
+        const customers = custRes?.result?.content || [];
+        if (Array.isArray(customers) && customers.length > 0) {
+            customerCount = await saveOfflineCustomers(customers);
+            await db.meta.put({ key: 'last_customer_sync', value: Date.now() });
+        }
+    } catch (err) {
+        console.warn('[forceReloadOfflineCatalog] Customers reload error:', err);
+    }
+
+    await db.meta.put({ key: 'last_warmup_time', value: Date.now() });
+    return { productCount, customerCount };
+}
+
 

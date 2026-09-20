@@ -301,7 +301,7 @@ export default function UnitConversionModal({
               <input
                 type="text"
                 className="pi-unit-input"
-                value={`${baseUnit} (Đơn vị gốc)`}
+                value={`${baseUnit} (Đơn vị tính nhỏ nhất)`}
                 disabled
                 style={{ background: '#F8FAFC', color: '#64748B', fontWeight: 600 }}
               />

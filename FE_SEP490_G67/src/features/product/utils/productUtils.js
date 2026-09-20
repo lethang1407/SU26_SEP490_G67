@@ -55,17 +55,17 @@ export function paginateItems(items, page, pageSize) {
 }
 
 export function formatRate(value, unit) {
-  if (value == null) return '—';
+  if (value == null) return 'N/A';
   const n = Number(value);
-  if (!Number.isFinite(n)) return '—';
+  if (!Number.isFinite(n)) return 'N/A';
   const text = Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, '').replace('.', ',');
   return `~${text} ${unit || 'sp'}`;
 }
 
 export function formatCoverDays(days) {
-  if (days == null) return '—';
+  if (days == null) return 'N/A';
   if (days <= 0) return '0 ngày';
-  if (days >= 999) return '—';
+  if (days >= 999) return 'N/A';
   // Làm tròn xuống số nguyên — dễ kiểm soát hơn số thập phân
   const whole = Math.floor(Number(days));
   if (whole < 1) return '<1 ngày';
@@ -131,7 +131,7 @@ export function resolveCoverSourceLabel(source, categoryName) {
     case 'STORE':
       return 'Mặc định cửa hàng';
     default:
-      return '—';
+      return 'N/A';
   }
 }
 

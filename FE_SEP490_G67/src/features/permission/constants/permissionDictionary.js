@@ -387,3 +387,85 @@ export function getPermissionMeta(code) {
     badge: 'Khác',
   };
 }
+
+/**
+ * Nhận diện mẫu vai trò (Role Template) tương ứng từ tập quyền của nhân viên
+ */
+export function getStaffRoleTemplate(permissions) {
+  let permSet = new Set(permissions || []);
+
+  // Mặc định nhân viên (STAFF) có quyền của vai trò Bán hàng (Thu ngân)
+  if (permSet.size === 0) {
+    const cashierTpl = ROLE_TEMPLATES.find((t) => t.id === 'CASHIER');
+    if (cashierTpl) {
+      permSet = new Set(cashierTpl.permissions);
+    }
+  }
+
+
+  const allCodes = Object.keys(PERMISSION_DICTIONARY);
+  if (permSet.size === allCodes.length && allCodes.every((c) => permSet.has(c))) {
+    return {
+      id: 'FULL_ACCESS',
+      name: 'Toàn quyền',
+      badgeClass: 'staff-badge--purple',
+      color: '#7c3aed',
+      bg: '#ede9fe',
+      borderColor: '#ddd6fe',
+    };
+  }
+
+  for (const tpl of ROLE_TEMPLATES) {
+    if (tpl.id === 'CUSTOM' || tpl.id === 'FULL_ACCESS') continue;
+    if (
+      tpl.permissions.length === permSet.size &&
+      tpl.permissions.every((p) => permSet.has(p))
+    ) {
+      let badgeClass = 'staff-badge--blue';
+      let color = '#2563eb';
+      let bg = '#eff6ff';
+      let borderColor = '#bfdbfe';
+
+      if (tpl.id === 'CASHIER') {
+        badgeClass = 'staff-badge--emerald';
+        color = '#059669';
+        bg = '#ecfdf5';
+        borderColor = '#a7f3d0';
+      } else if (tpl.id === 'WAREHOUSE_STAFF') {
+        badgeClass = 'staff-badge--amber';
+        color = '#d97706';
+        bg = '#fffbeb';
+        borderColor = '#fde68a';
+      } else if (tpl.id === 'ACCOUNTANT') {
+        badgeClass = 'staff-badge--indigo';
+        color = '#4f46e5';
+        bg = '#eef2ff';
+        borderColor = '#c7d2fe';
+      } else if (tpl.id === 'ALL_ROUNDER') {
+        badgeClass = 'staff-badge--sky';
+        color = '#0284c7';
+        bg = '#f0f9ff';
+        borderColor = '#bae6fd';
+      }
+
+      return {
+        id: tpl.id,
+        name: tpl.name.replace('Mẫu: ', ''),
+        badgeClass,
+        color,
+        bg,
+        borderColor,
+      };
+    }
+  }
+
+  return {
+    id: 'CUSTOM',
+    name: `Tùy chỉnh (${permSet.size} quyền)`,
+    badgeClass: 'staff-badge--teal',
+    color: '#0d9488',
+    bg: '#f0fdfa',
+    borderColor: '#99f6e4',
+  };
+}
+

@@ -31,6 +31,7 @@ public class ProductListItemResponse {
     BigDecimal avgDailyRate;
     BigDecimal avgWeeklyRate;
     Integer sold14Days;
+    Integer sold30Days;
     Integer onHand;
     Double coverDaysLeft;
     /** hot | slow | warn | season | ok | stop | new */

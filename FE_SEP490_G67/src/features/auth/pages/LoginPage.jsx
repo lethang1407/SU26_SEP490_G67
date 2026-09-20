@@ -6,6 +6,8 @@ import { AuthContext } from '../../../app/providers/AuthProvider.jsx';
 import auth from '../api/index.js';
 import { useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { getDefaultLandingPath } from '../../../app/config/routePermissions';
+
 const LoginPage = () => {
   const location = useLocation();
   const successMessage = location.state?.message;
@@ -19,8 +21,15 @@ const LoginPage = () => {
     password: '',
   });
 
-  const { login } = useContext(AuthContext);
+  const { login, authenticated, user, hasRole, hasPermission } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (authenticated && user) {
+      const redirectPath = getDefaultLandingPath(hasRole, hasPermission, user);
+      navigate(redirectPath, { replace: true });
+    }
+  }, [authenticated, user, hasRole, hasPermission, navigate]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -40,15 +49,43 @@ const LoginPage = () => {
         password: formData.password.trim()
       });
       console.log("Login response:", response);
-      login(response.result);
+      const profile = await login(response.result);
+
+      // Determine redirect path: Manager/Admin -> /admin/dashboard, Staff -> /admin/pos
+      let isManager = false;
+      const token = response.result?.token;
+
+      if (token) {
+        try {
+          const payloadBase64 = token.split('.')[1];
+          if (payloadBase64) {
+            const decoded = JSON.parse(atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/')));
+            const scopes = decoded.scope || [];
+            const scopeArray = Array.isArray(scopes) ? scopes : (typeof scopes === 'string' ? scopes.split(' ') : []);
+            isManager = scopeArray.some(s => s === 'ROLE_MANAGER' || s === 'ROLE_ADMIN' || s === 'MANAGER' || s === 'ADMIN');
+          }
+        } catch (err) {
+          console.warn("Error decoding token claims:", err);
+        }
+      }
+
+      if (profile?.roles) {
+        const roles = Array.isArray(profile.roles) ? profile.roles : [];
+        isManager = roles.some(r => {
+          const clean = String(r).replace(/^ROLE_/, '').toUpperCase();
+          return clean === 'MANAGER' || clean === 'ADMIN';
+        });
+      }
+
+      const targetPath = isManager ? '/admin/dashboard' : '/admin/pos';
 
       setIsSuccess(true);
       setTimeout(() => {
-        navigate('/admin/dashboard');
-      }, 1000);
+        navigate(targetPath, { replace: true });
+      }, 700);
     } catch (error) {
       console.error("Login error:", error);
-      setErrors({ _form: error.response?.data?.message});
+      setErrors({ _form: error.response?.data?.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại tài khoản hoặc mật khẩu.' });
     } finally {
       setIsLoading(false);
     }

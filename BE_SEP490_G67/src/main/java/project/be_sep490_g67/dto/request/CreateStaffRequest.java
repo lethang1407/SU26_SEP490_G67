@@ -31,4 +31,6 @@ public class CreateStaffRequest {
 
     @NotEmpty(message = "Phải chọn ít nhất một vai trò")
     List<String> roles;
+
+    List<String> permissions;
 }

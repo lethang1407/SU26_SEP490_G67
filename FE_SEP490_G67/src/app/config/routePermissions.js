@@ -1,37 +1,50 @@
 /**
  * Centralized Dynamic Route Permission Registry
- * Modify permissions/roles for any page path in this single file.
+ * Maps every frontend application route to required permissions and roles.
  */
 
 export const ROUTE_PERMISSIONS = [
-  // Dashboard & System Config
-  { path: '/admin/dashboard', permission: null },
+  // Dashboard & System Config (Chỉ Quản lý)
+  { path: '/admin/dashboard', role: ['MANAGER'] },
+  { path: '/admin', role: ['MANAGER'] },
   { path: '/admin/api-permissions', role: ['MANAGER'] },
-  { path: '/admin/store-info', role: ['MANAGER'] },
+  { path: '/admin/store', permission: 'STORE:VIEW', role: ['MANAGER'] },
+  { path: '/admin/store-info', permission: 'STORE:VIEW', role: ['MANAGER'] },
 
-  // Staff Management
+  // Staff Management (Chỉ Quản lý hoặc người có quyền STAFF:VIEW / STAFF:CREATE)
+  { path: '/admin/staff/create', role: ['MANAGER'], permission: 'STAFF:CREATE' },
   { path: '/admin/staff/add', role: ['MANAGER'], permission: 'STAFF:CREATE' },
-  { path: '/admin/staff/:id', permission: 'STAFF:VIEW' },
-  { path: '/admin/staff', permission: 'STAFF:VIEW' },
+  { path: '/admin/staff/:staffId', permission: 'STAFF:VIEW', role: ['MANAGER'] },
+  { path: '/admin/staff', permission: 'STAFF:VIEW', role: ['MANAGER'] },
 
   // Products & Categories
+  { path: '/admin/products/create', permission: 'PRODUCT:CREATE' },
+  { path: '/admin/products/:productId/edit', permission: 'PRODUCT:UPDATE' },
+  { path: '/admin/products/:productId', permission: 'PRODUCT:VIEW' },
+  { path: '/admin/products', permission: 'PRODUCT:VIEW' },
+  { path: '/admin/warehouse/product-import', permission: 'PRODUCT:VIEW' },
   { path: '/admin/warehouse/products/create', permission: 'PRODUCT:CREATE' },
-  { path: '/admin/warehouse/products/import-excel', permission: 'PRODUCT:CREATE' },
   { path: '/admin/warehouse/products/edit/:id', permission: 'PRODUCT:UPDATE' },
   { path: '/admin/warehouse/products/:id', permission: 'PRODUCT:VIEW' },
   { path: '/admin/warehouse/products', permission: 'PRODUCT:VIEW' },
   { path: '/admin/warehouse/category', permission: 'PRODUCT:VIEW' },
 
   // Inventory & Warehouse Operations
-  { path: '/admin/warehouse/check/create', permission: ['WAREHOUSE:CHECK_VIEW', 'WAREHOUSE:CHECK_CREATE'] },
+  { path: '/admin/warehouse/locations', permission: 'WAREHOUSE:VIEW' },
+  { path: '/admin/storage-locations', permission: 'WAREHOUSE:VIEW' },
+  { path: '/admin/warehouse/check/create', permission: ['WAREHOUSE:CHECK_CREATE', 'WAREHOUSE:CHECK_VIEW'] },
   { path: '/admin/warehouse/check/history', permission: 'WAREHOUSE:CHECK_VIEW' },
   { path: '/admin/warehouse/check/:checkId', permission: 'WAREHOUSE:CHECK_VIEW' },
   { path: '/admin/warehouse/check', permission: ['WAREHOUSE:CHECK_VIEW', 'WAREHOUSE:CHECK_CREATE'] },
-  { path: '/admin/warehouse/locations', permission: 'WAREHOUSE:VIEW' },
-  { path: '/admin/storage-locations', permission: 'WAREHOUSE:VIEW' },
-  { path: '/admin/import-history', permission: 'IMPORT:VIEW' },
 
-  // Import Orders
+  // Import Orders & Returns
+  { path: '/admin/warehouse/import/create', permission: 'IMPORT:CREATE' },
+  { path: '/admin/warehouse/import/:id/edit', permission: 'IMPORT:UPDATE' },
+  { path: '/admin/warehouse/import-history', permission: 'IMPORT:VIEW' },
+  { path: '/admin/import-history', permission: 'IMPORT:VIEW' },
+  { path: '/admin/warehouse/import/:orderId', permission: 'IMPORT:VIEW' },
+  { path: '/admin/warehouse/import', permission: 'IMPORT:VIEW' },
+  { path: '/admin/warehouse/return', permission: ['IMPORT:CREATE', 'IMPORT:VIEW'] },
   { path: '/admin/import-orders/create', permission: 'IMPORT:CREATE' },
   { path: '/admin/import-orders/return', permission: 'IMPORT:CREATE' },
   { path: '/admin/import-orders/:id', permission: 'IMPORT:VIEW' },
@@ -53,14 +66,22 @@ export const ROUTE_PERMISSIONS = [
   { path: '/admin/customer/:customerId', permission: 'CUSTOMER:VIEW' },
   { path: '/admin/customer', permission: 'CUSTOMER:VIEW' },
 
-  // Reports
+  // Reports & Accounting
+  { path: '/admin/reports/revenue', permission: 'AUDIT:VIEW' },
   { path: '/admin/reports/warehouse', permission: 'WAREHOUSE:VIEW' },
+  { path: '/admin/accounting', permission: ['AUDIT:VIEW', 'CUSTOMER:DEBT_VIEW', 'SUPPLIER:PAYMENT'] },
+
+  // User Profile
+  { path: '/profile', permission: null },
+  { path: '/profile/edit', permission: null },
+  { path: '/profile/change-password', permission: null },
 ];
 
 /**
  * Match current URL pathname against route permission registry patterns
  */
 export function getRoutePermissionConfig(pathname) {
+  if (!pathname) return null;
   for (const config of ROUTE_PERMISSIONS) {
     const pattern = config.path.replace(/:[^\s/]+/g, '[^/]+');
     const regex = new RegExp(`^${pattern}$`);
@@ -69,4 +90,49 @@ export function getRoutePermissionConfig(pathname) {
     }
   }
   return null;
+}
+
+/**
+ * Default fallback / landing path based on user role and permissions
+ */
+export function getDefaultLandingPath(hasRole, hasPermission, user) {
+  // 1. Quản lý / Admin -> Dashboard
+  const isManager = (typeof hasRole === 'function' && (hasRole('MANAGER') || hasRole('ADMIN'))) ||
+    (user?.roles && (
+      (Array.isArray(user.roles) && user.roles.some(r => {
+        const clean = String(r).replace(/^ROLE_/, '').toUpperCase();
+        return clean === 'MANAGER' || clean === 'ADMIN';
+      })) ||
+      (typeof user.roles.has === 'function' && (user.roles.has('MANAGER') || user.roles.has('ROLE_MANAGER') || user.roles.has('ADMIN') || user.roles.has('ROLE_ADMIN')))
+    ));
+
+  if (isManager) {
+    return '/admin/dashboard';
+  }
+
+  // 2. Nhân viên (STAFF) / Thu ngân -> Màn hình bán hàng POS
+  const isStaff = (typeof hasRole === 'function' && hasRole('STAFF')) ||
+    (user?.roles && (
+      (Array.isArray(user.roles) && user.roles.some(r => {
+        const clean = String(r).replace(/^ROLE_/, '').toUpperCase();
+        return clean === 'STAFF';
+      })) ||
+      (typeof user.roles.has === 'function' && (user.roles.has('STAFF') || user.roles.has('ROLE_STAFF')))
+    ));
+
+  if (isStaff) {
+    return '/admin/pos';
+  }
+
+  // 3. Fallback theo quyền
+  if (typeof hasPermission === 'function') {
+    if (hasPermission('POS:SALE')) return '/admin/pos';
+    if (hasPermission('PRODUCT:VIEW')) return '/admin/products';
+    if (hasPermission('IMPORT:VIEW')) return '/admin/warehouse/import';
+    if (hasPermission('WAREHOUSE:VIEW')) return '/admin/warehouse/locations';
+    if (hasPermission('CUSTOMER:VIEW')) return '/admin/customer';
+    if (hasPermission('SUPPLIER:VIEW')) return '/admin/warehouse/supplier';
+  }
+
+  return '/admin/pos';
 }

@@ -46,7 +46,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ImportSuggestionService {
 
-    static final int SALES_WINDOW_DAYS = 14;
+    static final int SALES_WINDOW_DAYS = 30;
     static final int SAFETY_DAYS = 1;
     static final int DEFAULT_LEAD_DAYS = 3;
     static final int STORE_COVER_DEFAULT = 7;
@@ -218,6 +218,7 @@ public class ImportSuggestionService {
                 .onHand(onHand)
                 .minStock(p.getMinStock() == null ? 0 : p.getMinStock())
                 .sold14Days((int) soldQty)
+                .sold30Days((int) soldQty)
                 .avgDailyRate(avgDaily)
                 .unitName(resolveUnitName(p))
                 .supplierOptions(options)

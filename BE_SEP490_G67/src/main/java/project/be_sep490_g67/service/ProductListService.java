@@ -37,7 +37,7 @@ import java.util.Map;
 @Slf4j
 public class ProductListService {
 
-    static final int SALES_WINDOW_DAYS = 14;
+    static final int SALES_WINDOW_DAYS = 30;
     static final double SLOW_THRESHOLD = 0.1;
     static final int SAFETY_DAYS = 1;
     static final int DEFAULT_LEAD_DAYS = 3;
@@ -93,7 +93,7 @@ public class ProductListService {
             }
         }
 
-        mapped.sort(buildComparator(facetKey));
+        mapped.sort(buildComparator(facetKey, newThreshold));
 
         int total = mapped.size();
         int fromIdx = Math.min(page * size, total);
@@ -207,13 +207,13 @@ public class ProductListService {
 
         int onHand = 0;
         for (Integer pid : targetProductIds) {
-            Long onHandRaw = batchLocationRepository.sumOnHandByProductId(pid);
-            if (onHandRaw != null && onHandRaw > 0) {
-                onHand += onHandRaw.intValue();
+            Long ledgerRaw = stockBatchRepository.sumStockByProductId(pid);
+            if (ledgerRaw != null && ledgerRaw > 0) {
+                onHand += ledgerRaw.intValue();
             } else {
-                Long ledgerRaw = stockBatchRepository.sumStockByProductId(pid);
-                if (ledgerRaw != null && ledgerRaw > 0) {
-                    onHand += ledgerRaw.intValue();
+                Long onHandRaw = batchLocationRepository.sumOnHandByProductId(pid);
+                if (onHandRaw != null && onHandRaw > 0) {
+                    onHand += onHandRaw.intValue();
                 }
             }
         }
@@ -300,6 +300,7 @@ public class ProductListService {
                 .avgDailyRate(avgDaily)
                 .avgWeeklyRate(avgWeekly)
                 .sold14Days((int) soldQty)
+                .sold30Days((int) soldQty)
                 .onHand(onHand)
                 .coverDaysLeft(coverDaysLeft)
                 .facetStatus(facetStatus)
@@ -324,14 +325,14 @@ public class ProductListService {
                 .divide(BigDecimal.valueOf(SALES_WINDOW_DAYS), 2, RoundingMode.HALF_UP);
         BigDecimal avgWeekly = avgDaily.multiply(BigDecimal.valueOf(7)).setScale(1, RoundingMode.HALF_UP);
 
-        Long onHandRaw = batchLocationRepository.sumOnHandByProductId(c.getId());
+        Long ledgerRaw = stockBatchRepository.sumStockByProductId(c.getId());
         int onHand = 0;
-        if (onHandRaw != null && onHandRaw > 0) {
-            onHand = onHandRaw.intValue();
+        if (ledgerRaw != null && ledgerRaw > 0) {
+            onHand = ledgerRaw.intValue();
         } else {
-            Long ledgerRaw = stockBatchRepository.sumStockByProductId(c.getId());
-            if (ledgerRaw != null && ledgerRaw > 0) {
-                onHand = ledgerRaw.intValue();
+            Long onHandRaw = batchLocationRepository.sumOnHandByProductId(c.getId());
+            if (onHandRaw != null && onHandRaw > 0) {
+                onHand = onHandRaw.intValue();
             }
         }
 
@@ -389,6 +390,7 @@ public class ProductListService {
                 .avgDailyRate(avgDaily)
                 .avgWeeklyRate(avgWeekly)
                 .sold14Days((int) soldQty)
+                .sold30Days((int) soldQty)
                 .onHand(onHand)
                 .coverDaysLeft(coverDaysLeft)
                 .facetStatus(facetStatus)
@@ -463,7 +465,7 @@ public class ProductListService {
         return facet.equals(dto.getFacetStatus());
     }
 
-    Comparator<ProductListItemResponse> buildComparator(String facet) {
+    Comparator<ProductListItemResponse> buildComparator(String facet, Instant newThreshold) {
         Comparator<ProductListItemResponse> newestFirst = Comparator.comparing(
                 ProductListItemResponse::getCreatedAt,
                 Comparator.nullsLast(Comparator.reverseOrder()))
@@ -472,8 +474,13 @@ public class ProductListService {
         Comparator<ProductListItemResponse> secondary = Comparator.comparing(
                 ProductListItemResponse::getName, Comparator.nullsLast(String::compareToIgnoreCase));
 
+        // Ưu tiên các sản phẩm mới tạo (chưa có tồn kho/chưa bán) luôn được đưa lên trên cùng
+        Comparator<ProductListItemResponse> newProductsFirst = Comparator.comparing(
+                (ProductListItemResponse item) -> isNewlyCreated(item, newThreshold) ? 0 : 1
+        ).thenComparing(newestFirst);
+
         return switch (facet) {
-            case "all" -> newestFirst.thenComparing(secondary);
+            case "all" -> newProductsFirst.thenComparing(secondary);
             case "new" -> newestFirst.thenComparing(secondary);
             case "hot" -> Comparator.comparing(
                     ProductListItemResponse::getAvgDailyRate,
@@ -490,8 +497,21 @@ public class ProductListService {
                     Comparator.nullsLast(Comparator.naturalOrder()))
                     .thenComparing(newestFirst);
             case "stop" -> newestFirst.thenComparing(secondary);
-            default -> newestFirst.thenComparing(secondary);
+            default -> newProductsFirst.thenComparing(secondary);
         };
+    }
+
+    private boolean isNewlyCreated(ProductListItemResponse item, Instant newThreshold) {
+        if (item == null) return false;
+        if ("inactive".equalsIgnoreCase(item.getStatus()) || "stop".equalsIgnoreCase(item.getFacetStatus())) {
+            return false;
+        }
+        int onHand = item.getOnHand() != null ? item.getOnHand() : 0;
+        int sold = item.getSold30Days() != null ? item.getSold30Days() : (item.getSold14Days() != null ? item.getSold14Days() : 0);
+        boolean withinNewPeriod = item.getCreatedAt() != null && item.getCreatedAt().isAfter(newThreshold);
+        return "new".equalsIgnoreCase(item.getFacetStatus())
+                || "new".equalsIgnoreCase(item.getStatus())
+                || (withinNewPeriod && onHand <= 0 && sold == 0);
     }
 }
 
