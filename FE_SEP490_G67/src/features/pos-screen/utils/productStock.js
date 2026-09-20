@@ -6,20 +6,23 @@
 export const displayStock = (product) =>
     Number(product?.sellableQuantity ?? product?.stockQuantity ?? 0);
 
-/**
- * Chưa xếp vị trí nên không thêm vào đơn được.
- * BE cũ không trả `sellableQuantity` → không chặn, để tránh khoá sạch màn bán hàng
- * khi FE lên trước BE.
- */
 export const isUnsellable = (product) =>
     product?.sellableQuantity != null && Number(product.sellableQuantity) <= 0;
 
-/** Cùng kết luận như trên nhưng dựa trên /pos-info (đường quét mã vạch). */
+const hasStock = (loc) => Number(loc.quantity ?? 0) > 0;
+
 export const hasNoSellableLocation = (posInfo) =>
-    (posInfo?.locations ?? []).every((loc) => Number(loc.quantity ?? 0) <= 0);
+    !(posInfo?.locations ?? []).some((loc) => hasStock(loc) && loc.expired !== true);
+
+/** Còn hàng trên kệ nhưng toàn là lô đã hết hạn — kho chưa xử lý. */
+const hasOnlyExpiredStock = (posInfo) =>
+    (posInfo?.locations ?? []).some((loc) => hasStock(loc) && loc.expired === true);
 
 export const UNSELLABLE_HINT = 'Chưa có hàng ở vị trí kho nào — không thêm vào đơn được.';
 
-export const unsellableMessage = (name) =>
-    `"${name}" chưa có hàng ở vị trí kho nào nên chưa bán được. `
-    + 'Xếp hàng vào vị trí ở màn Kiểm kho trước khi bán.';
+export const unsellableMessage = (name, posInfo) =>
+    hasOnlyExpiredStock(posInfo)
+        ? `"${name}" chỉ còn hàng thuộc lô đã hết hạn nên không bán được. `
+            + 'Báo kho xử lý lô hết hạn.'
+        : `"${name}" chưa có hàng ở vị trí kho nào nên chưa bán được. `
+            + 'Xếp hàng vào vị trí ở màn Kiểm kho trước khi bán.';
