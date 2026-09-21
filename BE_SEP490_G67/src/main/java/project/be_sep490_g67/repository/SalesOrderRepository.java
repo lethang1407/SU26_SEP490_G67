@@ -14,6 +14,10 @@ import java.util.Optional;
 
 
 public interface SalesOrderRepository extends JpaRepository<SalesOrder, Integer> {
+    long countByCreatedAtIsNull();
+    // Includes cancelled/removed sources so synchronization can explicitly exclude existing lines.
+    List<SalesOrder> findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByIdAsc(Instant start, Instant end);
+
     @Query("SELECT o FROM SalesOrder o WHERE o.id = :id AND o.isRemoved = false")
     Optional<SalesOrder> findActiveById(@Param("id") Integer id);
 

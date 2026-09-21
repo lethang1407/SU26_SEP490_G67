@@ -28,6 +28,7 @@ import SalesOrderDetailPage from '../../features/sales-order/pages/SalesOrderDet
 import ApiPermissionsPage from '../../features/permission/pages/ApiPermissionsPage';
 import WarehouseReportPage from '../../features/warehouse-report/pages/WarehouseReportPage';
 import RevenueReportPage from '../../features/revenue-report/pages/RevenueReportPage';
+import TaxAccountingOverviewPage from '../../features/tax-accounting/pages/TaxAccountingOverviewPage';
 import ProtectedRoute from './ProtectedRoute';
 
 const adminRoutes = [
@@ -150,6 +151,10 @@ const adminRoutes = [
     {
         path: '/admin/reports/warehouse',
         element: <ProtectedRoute><WarehouseReportPage /></ProtectedRoute>,
+    },
+    {
+        path: '/admin/accounting',
+        element: <ProtectedRoute requiredRole="MANAGER"><TaxAccountingOverviewPage /></ProtectedRoute>,
     },
 ];
 

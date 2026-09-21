@@ -69,7 +69,7 @@ export const ROUTE_PERMISSIONS = [
   // Reports & Accounting
   { path: '/admin/reports/revenue', permission: 'AUDIT:VIEW' },
   { path: '/admin/reports/warehouse', permission: 'WAREHOUSE:VIEW' },
-  { path: '/admin/accounting', permission: ['AUDIT:VIEW', 'CUSTOMER:DEBT_VIEW', 'SUPPLIER:PAYMENT'] },
+  { path: '/admin/accounting', role: ['MANAGER'] },
 
   // User Profile
   { path: '/profile', permission: null },
