@@ -253,7 +253,7 @@ export default function TaxAccountingOverviewPage() {
       taxpayerIdentity: form.taxpayerIdentity.trim(),
       taxpayerName: form.taxpayerName.trim(),
       taxpayerAddress: form.taxpayerAddress.trim(),
-      taxAuthority: form.taxAuthority.trim(),
+      taxAuthority: form.taxpayerAddress.trim(),
       declaredMethod: 'REVENUE_BASED',
       invoiceRegistrationStatus: form.invoiceRegistrationStatus || 'UNKNOWN',
     };
@@ -587,7 +587,6 @@ export default function TaxAccountingOverviewPage() {
                       <div><dt>Tên người nộp thuế</dt><dd>{information.taxpayerName || 'Chưa cập nhật'}</dd></div>
                       <div><dt>Mã số thuế / định danh</dt><dd>{information.taxpayerIdentity || 'Chưa cập nhật'}</dd></div>
                       <div><dt>Địa chỉ</dt><dd>{information.taxpayerAddress || 'Chưa cập nhật'}</dd></div>
-                      <div><dt>Cơ quan thuế</dt><dd>{information.taxAuthority || 'Chưa cập nhật'}</dd></div>
                       <div><dt>Mốc bắt đầu theo dõi</dt><dd>{formatDate(profile.trackingStartedAt)}</dd></div>
                     </dl>
                     <div className="tax-accounting-panel__actions">
