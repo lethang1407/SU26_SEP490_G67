@@ -36,6 +36,7 @@ import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.ImportOrderDetailRepository;
 import project.be_sep490_g67.repository.ImportOrderRepository;
+import project.be_sep490_g67.utils.UnitPriceResolver;
 import project.be_sep490_g67.repository.ProductRepository;
 import project.be_sep490_g67.repository.ProductUnitRepository;
 import project.be_sep490_g67.repository.ProductAttributeRepository;
@@ -80,6 +81,7 @@ public class ImportOrderService {
     StorageLocationRepository storageLocationRepository;
     UserRepository userRepository;
     ImportReturnService importReturnService;
+    ImportTrialSettlementService importTrialSettlementService;
     CloudinaryImageService cloudinaryImageService;
 
     @Transactional
@@ -154,6 +156,7 @@ public class ImportOrderService {
         BigDecimal recordedPaid = BigDecimal.ZERO;
         if (isImported) {
             createStocksForImportedDetails(saved, details);
+            applySellingPrices(request.getPriceAdjustments());
             if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
                 createInitialPayment(saved, supplier, paidAmount, request.getPaymentMethod());
                 recordedPaid = paidAmount;
@@ -250,6 +253,7 @@ public class ImportOrderService {
         BigDecimal recordedPaid = BigDecimal.ZERO;
         if (isImported) {
             createStocksForImportedDetails(saved, details);
+            applySellingPrices(request.getPriceAdjustments());
             if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
                 createInitialPayment(saved, supplier, paidAmount, request.getPaymentMethod());
                 recordedPaid = paidAmount;
@@ -458,6 +462,9 @@ public class ImportOrderService {
                             .lastCostPerBase(lastCostPerBase)
                             .sellingPrice(product != null ? product.getSellingPrice() : null)
                             .lineTotal(displayLineTotal(detail))
+                            .settledPayableAmount(isSettledTrialLine(detail)
+                                    ? (detail.getLineTotal() != null ? detail.getLineTotal() : BigDecimal.ZERO)
+                                    : null)
                             .expiryDate(detail.getExpiryDate())
                             .note(detail.getNote())
                             .isPromotion(Boolean.TRUE.equals(detail.getIsPromotion())
@@ -479,6 +486,10 @@ public class ImportOrderService {
         BigDecimal openTrialAmount = details.stream()
                 .filter(this::isOpenTrialLine)
                 .map(this::agreedLineAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal settledTrialAmount = details.stream()
+                .filter(this::isSettledTrialLine)
+                .map(detail -> detail.getLineTotal() != null ? detail.getLineTotal() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         boolean hasOpenTrial = openTrialAmount.compareTo(BigDecimal.ZERO) > 0
                 || details.stream().anyMatch(this::isOpenTrialLine);
@@ -505,6 +516,7 @@ public class ImportOrderService {
                 .status(paymentStatus)
                 .goodsTotal(goodsTotal)
                 .openTrialAmount(openTrialAmount)
+                .settledTrialAmount(settledTrialAmount)
                 .discountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO)
                 .returnDeductionAmount(order.getReturnDeductionAmount() != null
                         ? order.getReturnDeductionAmount()
@@ -519,6 +531,7 @@ public class ImportOrderService {
                 .invoiceImage(order.getInvoiceImage())
                 .items(items)
                 .returnLines(importReturnService.listSettledForImportOrder(order.getId()))
+                .trialSettlements(importTrialSettlementService.listHistory(order.getId()))
                 .hasOpenTrial(hasOpenTrial)
                 .build();
     }
@@ -796,6 +809,14 @@ public class ImportOrderService {
                 && ImportTrialConstants.TRIAL_OPEN.equals(detail.getTrialStatus());
     }
 
+    private boolean isSettledTrialLine(ImportOrderDetail detail) {
+        if (detail == null) {
+            return false;
+        }
+        return ImportTrialConstants.LINE_TRIAL.equals(detail.getLineType())
+                && ImportTrialConstants.TRIAL_SETTLED.equals(detail.getTrialStatus());
+    }
+
     /** Giá trị thỏa thuận qty × đơn giá; KM = 0. */
     private BigDecimal agreedLineAmount(ImportOrderDetail detail) {
         if (detail == null || isPromotionLine(detail)) {
@@ -807,14 +828,14 @@ public class ImportOrderService {
     }
 
     /**
-     * Thành tiền hiển thị: KM = 0; bán thử OPEN = qty × giá (kể cả phiếu cũ DB đang 0);
-     * còn lại lấy line_total đã ghi.
+     * Thành tiền trên phiếu: KM = 0; bán thử (kể cả đã chốt) = qty × giá lúc nhận;
+     * hàng thường lấy line_total đã ghi.
      */
     private BigDecimal displayLineTotal(ImportOrderDetail detail) {
         if (isPromotionLine(detail)) {
             return BigDecimal.ZERO;
         }
-        if (isOpenTrialLine(detail)) {
+        if (isOpenTrialLine(detail) || isSettledTrialLine(detail)) {
             return agreedLineAmount(detail);
         }
         return detail.getLineTotal() != null ? detail.getLineTotal() : agreedLineAmount(detail);
@@ -1179,6 +1200,7 @@ public class ImportOrderService {
                         .id(unit.getId())
                         .name(unit.getName())
                         .unitBase(unit.getUnitBase())
+                        .sellingPrice(UnitPriceResolver.resolveOrNull(null, unit))
                         .build())
                 .toList();
     }
@@ -1201,6 +1223,46 @@ public class ImportOrderService {
     private BigDecimal toBaseCostPerUnit(BigDecimal costPerUnit, ProductUnit productUnit) {
         BigDecimal safeCost = costPerUnit != null ? costPerUnit : BigDecimal.ZERO;
         return safeCost.divide(resolveUnitBase(productUnit), 2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Ghi giá bán mới vào product_units (và SP gốc nếu là ĐVT cơ bản).
+     * Chỉ gọi khi phiếu IMPORTED — phiếu tạm không lưu giá bán.
+     */
+    private void applySellingPrices(List<CreateImportOrderRequest.PriceAdjustmentItem> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        java.util.Set<Integer> seenUnitIds = new java.util.HashSet<>();
+        for (CreateImportOrderRequest.PriceAdjustmentItem item : items) {
+            if (item == null || item.getProductId() == null || item.getProductUnitId() == null) {
+                throw new AppException(ErrorCode.PRODUCT_UNIT_INVALID);
+            }
+            if (item.getSellingPrice() == null || item.getSellingPrice().compareTo(BigDecimal.ZERO) < 0) {
+                throw new AppException(ErrorCode.PRODUCT_PRICE_INVALID);
+            }
+            if (!seenUnitIds.add(item.getProductUnitId())) {
+                continue;
+            }
+            ProductUnit unit = productUnitRepository
+                    .findByIdAndProduct_IdAndIsRemovedFalse(item.getProductUnitId(), item.getProductId())
+                    .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_UNIT_NOT_FOUND));
+            BigDecimal price = item.getSellingPrice().setScale(2, RoundingMode.HALF_UP);
+            unit.setSellingPrice(price);
+            productUnitRepository.save(unit);
+
+            Product product = unit.getProduct();
+            if (product != null && isBaseUnit(unit)) {
+                product.setSellingPrice(price);
+                productRepository.save(product);
+            }
+        }
+    }
+
+    private boolean isBaseUnit(ProductUnit unit) {
+        return unit != null
+                && unit.getUnitBase() != null
+                && unit.getUnitBase().compareTo(BigDecimal.ONE) == 0;
     }
 
     /**
@@ -1239,33 +1301,9 @@ public class ImportOrderService {
         batch.setIsRemoved(false);
         StockBatch savedBatch = stockBatchRepository.save(batch);
 
-        // Auto-assign batch to the product's active location or the default store location
-        StorageLocation targetLocation = null;
-        if (detail.getProduct() != null && detail.getProduct().getId() != null) {
-            List<BatchLocation> existingLocs = batchLocationRepository.findAvailableByProductId(detail.getProduct().getId());
-            if (!existingLocs.isEmpty()) {
-                targetLocation = existingLocs.get(0).getLocation();
-            }
-        }
-        if (targetLocation == null) {
-            targetLocation = storageLocationRepository.findFirstByIsRemovedFalseAndIsActiveTrueOrderByIdAsc()
-                    .filter(loc -> loc.getStorageZone() == null || !"RETURN_HOLD".equalsIgnoreCase(loc.getStorageZone().getZoneType()))
-                    .orElse(null);
-        }
-
-        BatchLocation savedBatchLocation = null;
-        if (targetLocation != null) {
-            BatchLocation bl = new BatchLocation();
-            bl.setBatch(savedBatch);
-            bl.setLocation(targetLocation);
-            bl.setQuantity(quantityIn);
-            bl.setIsRemoved(false);
-            savedBatchLocation = batchLocationRepository.save(bl);
-        }
-
         StockMovement movement = StockMovement.builder()
                 .stockBatch(savedBatch)
-                .batchLocation(savedBatchLocation)
+                .batchLocation(null)
                 .quantityDelta(quantityIn)
                 .stockAfter(quantityIn)
                 .movementType("IMPORT")

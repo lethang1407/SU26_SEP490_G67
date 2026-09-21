@@ -1,4 +1,5 @@
 import { Minus, Plus, Trash2 } from 'lucide-react';
+import DatePickerInput from '../../../components/ui/DatePickerInput';
 import {
     formatCurrency,
     formatMoneyInput,
@@ -9,6 +10,9 @@ import {
     suggestCostForUnit,
     getLinePriceWarning,
     resolveLineType,
+    computeDisplayLineTotal,
+    describeSettledTrial,
+    settlementLineByDetailId,
 } from '../utils/importOrderUtils';
 
 function bumpQty(current, delta) {
@@ -22,11 +26,13 @@ export default function ImportOrderLineTable({
     readOnly = false,
     section = 'import',
     emptyText = 'Chưa có hàng hóa nào. Tìm và chọn sản phẩm ở ô phía trên để thêm vào phiếu.',
+    trialSettlements = [],
 }) {
     const canEdit = !readOnly && typeof onChangeLine === 'function';
     const canRemove = !readOnly && typeof onRemoveLine === 'function';
     const isPromoSection = section === 'promo';
     const colSpan = 8;
+    const settleByDetailId = settlementLineByDetailId(trialSettlements);
 
     const handleToggleLineType = (line, nextType) => {
         const current = resolveLineType(line);
@@ -76,15 +82,14 @@ export default function ImportOrderLineTable({
                             const lineType = isPromoSection ? 'PROMOTION' : resolveLineType(line);
                             const isPromotion = lineType === 'PROMOTION';
                             const isTrial = lineType === 'TRIAL';
-                            const computedTotal =
-                                (Number(line.quantity) || 0) * (Number(line.costPerUnit) || 0);
+                            const computedTotal = computeDisplayLineTotal({
+                                ...line,
+                                lineType,
+                                isPromotion,
+                                isTrial,
+                            });
                             const missingExpiry = !String(line.expiryDate || '').trim();
-                            const displayTotal =
-                                isPromotion
-                                    ? 0
-                                    : isTrial && line.trialStatus === 'SETTLED'
-                                      ? Number(line.lineTotal) || 0
-                                      : computedTotal;
+                            const displayTotal = isPromotion ? 0 : computedTotal;
                             const noteText = line.note?.trim() || '';
                             const costValue = Number(line.costPerUnit) || 0;
                             const priceWarning = canEdit ? getLinePriceWarning(line) : null;
@@ -97,7 +102,7 @@ export default function ImportOrderLineTable({
                             const canMarkTrial = !Boolean(line.alreadyInStore);
 
                             return (
-                                <tr key={line.key} className={rowClass}>
+                                <tr key={line.key ?? line.id} className={rowClass}>
                                     <td className="ioc-lines-table__stt">
                                         <span className="ioc-lines-table__stt-num">{index + 1}</span>
                                         {canRemove ? (
@@ -156,11 +161,25 @@ export default function ImportOrderLineTable({
                                                         ) : null}
                                                     </>
                                                 ) : isTrial ? (
-                                                    <span className="ioc-promo-chip ioc-trial-chip ioc-trial-chip--on">
-                                                        {line.trialStatus === 'SETTLED'
-                                                            ? 'Bán thử · đã quyết toán'
-                                                            : 'Bán thử'}
-                                                    </span>
+                                                    <>
+                                                        <span className={`ioc-promo-chip ioc-trial-chip ioc-trial-chip--on${
+                                                            line.trialStatus === 'SETTLED'
+                                                                ? ' ioc-trial-chip--settled'
+                                                                : ''
+                                                        }`}>
+                                                            {line.trialStatus === 'SETTLED'
+                                                                ? 'Bán thử · đã quyết toán'
+                                                                : 'Bán thử'}
+                                                        </span>
+                                                        {line.trialStatus === 'SETTLED' ? (
+                                                            <span className="import-order-expand__settle-note">
+                                                                {describeSettledTrial(
+                                                                    line,
+                                                                    settleByDetailId.get(line.id),
+                                                                )}
+                                                            </span>
+                                                        ) : null}
+                                                    </>
                                                 ) : (
                                                     <span className="ioc-promo-chip ioc-promo-chip--on">
                                                         Hàng KM
@@ -287,18 +306,14 @@ export default function ImportOrderLineTable({
                                                         priceWarning?.level === 'danger' ? true : undefined
                                                     }
                                                     aria-label={
-                                                        isTrial
-                                                            ? 'Giá thỏa thuận (quyết toán sau)'
-                                                            : isPromotion
-                                                              ? 'Đơn giá tham chiếu (không tính tiền)'
-                                                              : 'Đơn giá (VND)'
+                                                        isPromotion
+                                                            ? 'Đơn giá tham chiếu (không tính tiền)'
+                                                            : 'Đơn giá (VND)'
                                                     }
                                                     title={
-                                                        isTrial
-                                                            ? 'Giá thỏa thuận với nhân viên NCC — chưa thu lúc nhận'
-                                                            : isPromotion
-                                                              ? 'Giá tham chiếu trên phiếu NCC — không tính vào tổng thanh toán'
-                                                              : priceWarning?.message
+                                                        isPromotion
+                                                            ? 'Giá tham chiếu trên phiếu NCC — không tính vào tổng thanh toán'
+                                                            : priceWarning?.message
                                                     }
                                                 />
                                                 {priceWarning ? (
@@ -315,21 +330,20 @@ export default function ImportOrderLineTable({
                                     </td>
                                     <td className="ioc-lines-table__col--date">
                                         {canEdit ? (
-                                            <input
-                                                type="date"
+                                            <DatePickerInput
+                                                value={line.expiryDate || ''}
                                                 className={`ioc-lines-table__input ioc-lines-table__input--date${
                                                     missingExpiry
                                                         ? ' ioc-lines-table__input--date-warn'
                                                         : ''
                                                 }`}
-                                                value={line.expiryDate}
-                                                onChange={(event) =>
+                                                onChange={(nextValue) =>
                                                     onChangeLine(line.key, {
-                                                        expiryDate: event.target.value,
+                                                        expiryDate: nextValue,
                                                     })
                                                 }
                                                 title={missingExpiry ? 'Chưa nhập hạn sử dụng' : undefined}
-                                                aria-label={
+                                                ariaLabel={
                                                     missingExpiry
                                                         ? `Hạn sử dụng ${line.productName} (chưa nhập)`
                                                         : `Hạn sử dụng ${line.productName}`
@@ -378,9 +392,11 @@ export default function ImportOrderLineTable({
                                         ) : (
                                             <span
                                                 title={
-                                                    isTrial && line.trialStatus !== 'SETTLED'
-                                                        ? 'Giá trị thỏa thuận — đã ghi vào công nợ NCC'
-                                                        : undefined
+                                                    isTrial && line.trialStatus === 'SETTLED'
+                                                        ? 'Giá trị lúc nhận (số lượng × đơn giá)'
+                                                        : isTrial
+                                                          ? 'Giá trị thỏa thuận — đã ghi vào công nợ NCC'
+                                                          : undefined
                                                 }
                                             >
                                                 {formatCurrency(displayTotal)}

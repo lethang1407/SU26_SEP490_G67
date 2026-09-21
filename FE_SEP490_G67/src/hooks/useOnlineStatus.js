@@ -135,7 +135,7 @@ export async function verifyConnection() {
  */
 export function reportNetworkFailure() {
     updateStatus(false);
-    setTimeout(verifyConnection, 1000);
+    startOfflineRecoveryTimer();
 }
 
 // Optional toggle function for manual debugging if ever needed
@@ -149,35 +149,51 @@ if (typeof window !== 'undefined') {
     window.toggleOffline = toggleOfflineMode;
 }
 
+function startOfflineRecoveryTimer() {
+    if (pingTimer) return;
+    pingTimer = setInterval(() => {
+        if (!currentIsOnline) {
+            verifyConnection();
+        } else {
+            stopOfflineRecoveryTimer();
+        }
+    }, 15000);
+}
+
+function stopOfflineRecoveryTimer() {
+    if (pingTimer) {
+        clearInterval(pingTimer);
+        pingTimer = null;
+    }
+}
+
 function setupGlobalListeners() {
     if (typeof window === 'undefined') return;
 
     // Instant reaction to browser events
     window.addEventListener('offline', () => {
         updateStatus(false);
+        startOfflineRecoveryTimer();
     });
 
     window.addEventListener('online', () => {
-        verifyConnection();
+        verifyConnection().then(online => {
+            if (online) stopOfflineRecoveryTimer();
+        });
     });
 
     // Check whenever tab becomes active or focused
     window.addEventListener('focus', () => {
-        verifyConnection();
-    });
-
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
+        if (!currentIsOnline) {
             verifyConnection();
         }
     });
 
-    // Active automatic polling every 2.5 seconds
-    if (!pingTimer) {
-        pingTimer = setInterval(() => {
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && !currentIsOnline) {
             verifyConnection();
-        }, 2500);
-    }
+        }
+    });
 }
 
 setupGlobalListeners();

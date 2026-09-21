@@ -102,16 +102,13 @@ export function computeLineTotal(line) {
 }
 
 /**
- * Thành tiền hiển thị trên dòng: KM = 0; bán thử OPEN = qty × giá;
- * bán thử đã quyết toán lấy lineTotal đã ghi.
+ * Thành tiền hiển thị trên dòng: KM = 0;
+ * bán thử (kể cả đã quyết toán) = qty × giá lúc nhận — không lấy line_total sau chốt.
  */
 export function computeDisplayLineTotal(line) {
     if (isPromotionLine(line)) return 0;
     const quantity = Number(line.quantity) || 0;
     const costPerUnit = Number(line.costPerUnit) || 0;
-    if (isTrialLine(line) && line.trialStatus === 'SETTLED') {
-        return Number(line.lineTotal) || 0;
-    }
     return quantity * costPerUnit;
 }
 
@@ -124,6 +121,82 @@ export function computeOpenTrialAmount(lines) {
         if (!isTrialLine(line) || line.trialStatus === 'SETTLED') return sum;
         return sum + (Number(line.quantity) || 0) * (Number(line.costPerUnit) || 0);
     }, 0);
+}
+
+/** Tổng phải trả sau khi đã chốt các dòng bán thử (0 = trả hết hàng). */
+export function computeSettledTrialAmount(lines) {
+    return (lines || []).reduce((sum, line) => {
+        if (!isTrialLine(line) || line.trialStatus !== 'SETTLED') return sum;
+        if (line.settledPayableAmount != null && line.settledPayableAmount !== '') {
+            return sum + (Number(line.settledPayableAmount) || 0);
+        }
+        return sum;
+    }, 0);
+}
+
+export function hasSettledTrial(lines) {
+    return (lines || []).some((line) => isTrialLine(line) && line.trialStatus === 'SETTLED');
+}
+
+export function settlementLineByDetailId(settlements) {
+    const map = new Map();
+    (settlements || []).forEach((settlement) => {
+        (settlement.lines || []).forEach((line) => {
+            if (line?.importOrderDetailId != null && !map.has(line.importOrderDetailId)) {
+                map.set(line.importOrderDetailId, line);
+            }
+        });
+    });
+    return map;
+}
+
+/**
+ * Cột Kết quả quyết toán: Nhận → bán (POS) → hao hụt (đếm thiếu so với tồn) → hỏng → trả | giữ.
+ * Không gộp hao hụt vào “bán”. Record cũ không có tồn hệ thống: bỏ bán/hao hụt, giữ hỏng/trả/giữ.
+ */
+export function formatTrialSettlementResult(line) {
+    if (!line) return '—';
+    const unit = line.unitName || line.baseUnitName || '';
+    const unitLabel = unit ? ` ${unit}` : '';
+    const received = Number(line.receivedQty) || 0;
+    const counted = Number(line.countedRemainingQty) || 0;
+    const unsellable = Number(line.unsellableQty) || 0;
+    const returned = Number(line.returnedQty) || 0;
+    const kept = Math.max(counted - unsellable, 0);
+    const systemRemRaw = line.systemRemainingQty;
+    const hasSystemRem = systemRemRaw != null && systemRemRaw !== '';
+    const systemRem = Number(systemRemRaw) || 0;
+    const sold = hasSystemRem ? Math.max(received - systemRem, 0) : 0;
+    const shrinkage = hasSystemRem ? Math.max(systemRem - counted, 0) : 0;
+    const parts = [`Nhận ${received}${unitLabel}`];
+    if (sold > 0) parts.push(`bán ${sold}${unitLabel}`);
+    if (shrinkage > 0) parts.push(`hao hụt ${shrinkage}${unitLabel}`);
+    if (unsellable > 0) parts.push(`hỏng ${unsellable}${unitLabel}`);
+    if (returned > 0) {
+        parts.push(`trả ${returned}${unitLabel}`);
+    } else if (line.decision === 'PAY_ALL_KEEP' && kept > 0) {
+        parts.push(`giữ ${kept}${unitLabel}`);
+    }
+    return parts.join(', ');
+}
+
+/** Chú thích dòng bán thử đã chốt: kết quả + phải trả. */
+export function describeSettledTrial(line, settlementLine) {
+    const source = settlementLine || line;
+    const parts = [];
+    if (settlementLine) {
+        parts.push(formatTrialSettlementResult(settlementLine));
+    } else if (source?.returnedQty > 0) {
+        const unit = source.unitName || source.baseUnitName || line?.unitName || '';
+        parts.push(`Trả lại ${source.returnedQty}${unit ? ` ${unit}` : ''}`);
+    } else if (source?.decision === 'PAY_ALL_KEEP') {
+        parts.push('Giữ hết');
+    }
+    const payableRaw = settlementLine?.payableAmount ?? line?.settledPayableAmount;
+    if (payableRaw != null && payableRaw !== '') {
+        parts.push(`Phải trả ${formatMoneyPlain(payableRaw)}`);
+    }
+    return parts.length > 0 ? parts.join(' · ') : 'Đã quyết toán';
 }
 
 /** Trần giảm giá lúc nhập: chỉ hàng thường, không KM / bán thử. */
@@ -152,7 +225,7 @@ export function getLinePriceWarning(line) {
     if (costPerUnit <= 0) {
         return {
             level: 'danger',
-            message: isTrialLine(line) ? 'Nhập giá thỏa thuận' : 'Nhập đơn giá',
+            message: 'Nhập đơn giá',
         };
     }
 
@@ -334,3 +407,193 @@ export function validateImportForm({ supplierId, lines }) {
 export function isReceivedStatus(status) {
     return status === IMPORT_ORDER_STATUS.RECEIVED || status === IMPORT_ORDER_STATUS.DONE;
 }
+
+export function roundVnd(value) {
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount <= 0) return 0;
+    return Math.round(amount);
+}
+
+function unitFactor(unitBase) {
+    const factor = Number(unitBase);
+    return factor > 0 ? factor : 1;
+}
+
+export function priceAdjustmentKey(productId, productUnitId) {
+    const pid = Number(productId);
+    const uid = Number(productUnitId);
+    if (!Number.isFinite(pid) || pid <= 0 || !Number.isFinite(uid) || uid <= 0) return '';
+    return `${pid}-${uid}`;
+}
+
+function pendingPriceMap(adjustments = []) {
+    const map = new Map();
+    for (const item of adjustments || []) {
+        const key = priceAdjustmentKey(item?.productId, item?.productUnitId);
+        if (!key) continue;
+        map.set(key, roundVnd(item.sellingPrice));
+    }
+    return map;
+}
+
+function resolvePendingSellingPrice(unit, key, pendingMap) {
+    if (key && pendingMap.has(key)) return pendingMap.get(key);
+    if (unit?.pendingSellingPrice != null) return roundVnd(unit.pendingSellingPrice);
+    return null;
+}
+
+/**
+ * Mỗi SP trên phiếu → mọi ĐVT. Giá nhập quy theo hệ số ĐVT.
+ * pendingAdjustments: [{ productId, productUnitId, sellingPrice }]
+ */
+export function buildImportPriceSetupRows(lines = [], pendingAdjustments = []) {
+    const pendingMap = pendingPriceMap(pendingAdjustments);
+
+    const groups = new Map();
+    for (const line of lines || []) {
+        const productId = Number(line?.productId);
+        if (!Number.isFinite(productId) || productId <= 0) continue;
+
+        const factor = unitFactor(line.unitBase);
+        const currentCostPerBase = (Number(line.costPerUnit) || 0) / factor;
+        const lastCostPerBase = Number(line.lastCostPerBase) || 0;
+        const units = (line.productUnits || [])
+            .filter((unit) => Number(unit?.id) > 0)
+            .map((unit) => ({
+                id: Number(unit.id),
+                name: unit.name || 'ĐVT',
+                unitBase: unitFactor(unit.unitBase),
+                sellingPrice: roundVnd(unit.sellingPrice),
+                pendingSellingPrice:
+                    unit.pendingSellingPrice != null ? roundVnd(unit.pendingSellingPrice) : null,
+            }));
+
+        if (units.length === 0 && Number(line.productUnitId) > 0) {
+            units.push({
+                id: Number(line.productUnitId),
+                name: line.unitName || 'ĐVT',
+                unitBase: factor,
+                sellingPrice: roundVnd(line.sellingPrice),
+                pendingSellingPrice:
+                    line.pendingSellingPrice != null ? roundVnd(line.pendingSellingPrice) : null,
+            });
+        }
+
+        const existing = groups.get(productId);
+        const isPromo = resolveLineType(line) === 'PROMOTION';
+        if (!existing) {
+            groups.set(productId, {
+                productId,
+                productName: line.productName || '',
+                lastCostPerBase,
+                currentCostPerBase,
+                unitsById: new Map(units.map((unit) => [unit.id, unit])),
+            });
+            continue;
+        }
+
+        if (!isPromo || existing.currentCostPerBase <= 0) {
+            existing.currentCostPerBase = currentCostPerBase;
+        }
+        if (lastCostPerBase > 0) existing.lastCostPerBase = lastCostPerBase;
+        if (line.productName) existing.productName = line.productName;
+        units.forEach((unit) => {
+            const current = existing.unitsById.get(unit.id);
+            if (!current) {
+                existing.unitsById.set(unit.id, unit);
+                return;
+            }
+            if (current.pendingSellingPrice == null && unit.pendingSellingPrice != null) {
+                existing.unitsById.set(unit.id, {
+                    ...current,
+                    pendingSellingPrice: unit.pendingSellingPrice,
+                });
+            }
+        });
+    }
+
+    const rows = [];
+    for (const group of groups.values()) {
+        const units = [...group.unitsById.values()].sort(
+            (a, b) => unitFactor(a.unitBase) - unitFactor(b.unitBase),
+        );
+        for (const unit of units) {
+            const factor = unitFactor(unit.unitBase);
+            const currentSellingPrice = roundVnd(unit.sellingPrice);
+            const key = priceAdjustmentKey(group.productId, unit.id);
+            const pendingPrice = resolvePendingSellingPrice(unit, key, pendingMap);
+            rows.push({
+                key,
+                productId: group.productId,
+                productUnitId: unit.id,
+                productName: group.productName,
+                unitName: unit.name,
+                lastImportPrice: roundVnd(group.lastCostPerBase * factor),
+                currentImportPrice: roundVnd(group.currentCostPerBase * factor),
+                currentSellingPrice,
+                commonSellingPrice: pendingPrice != null ? pendingPrice : currentSellingPrice,
+            });
+        }
+    }
+    return rows;
+}
+
+export function toPriceAdjustmentPayload(rows = []) {
+    return (rows || [])
+        .filter((row) => priceAdjustmentKey(row?.productId, row?.productUnitId))
+        .map((row) => ({
+            productId: Number(row.productId),
+            productUnitId: Number(row.productUnitId),
+            sellingPrice: roundVnd(row.commonSellingPrice),
+        }));
+}
+
+/** Ghi giá bán mới lên từng ĐVT trên form — mở lại popup vẫn thấy số vừa sửa. */
+export function applyPendingSellingPricesToLines(lines = [], adjustments = []) {
+    const pendingMap = pendingPriceMap(adjustments);
+    if (pendingMap.size === 0) return lines;
+
+    return (lines || []).map((line) => {
+        const productId = Number(line?.productId);
+        if (!Number.isFinite(productId) || productId <= 0) return line;
+
+        const productUnits = (line.productUnits || []).map((unit) => {
+            const key = priceAdjustmentKey(productId, unit?.id);
+            if (!key || !pendingMap.has(key)) return unit;
+            return { ...unit, pendingSellingPrice: pendingMap.get(key) };
+        });
+
+        const selectedKey = priceAdjustmentKey(productId, line.productUnitId);
+        return {
+            ...line,
+            productUnits,
+            pendingSellingPrice:
+                selectedKey && pendingMap.has(selectedKey)
+                    ? pendingMap.get(selectedKey)
+                    : line.pendingSellingPrice,
+        };
+    });
+}
+
+export function collectPendingPriceAdjustments(lines = [], fallback = []) {
+    const map = pendingPriceMap(fallback);
+    const result = new Map();
+    for (const [key, sellingPrice] of map.entries()) {
+        const [productId, productUnitId] = key.split('-').map(Number);
+        result.set(key, { productId, productUnitId, sellingPrice });
+    }
+    for (const line of lines || []) {
+        for (const unit of line.productUnits || []) {
+            if (unit?.pendingSellingPrice == null) continue;
+            const key = priceAdjustmentKey(line.productId, unit.id);
+            if (!key) continue;
+            result.set(key, {
+                productId: Number(line.productId),
+                productUnitId: Number(unit.id),
+                sellingPrice: roundVnd(unit.pendingSellingPrice),
+            });
+        }
+    }
+    return [...result.values()];
+}
+

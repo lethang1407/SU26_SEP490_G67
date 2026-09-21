@@ -1,0 +1,653 @@
+.tax-accounting-page {
+    color: #0f172a;
+}
+
+.tax-accounting-page__header {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    align-items: flex-start;
+    margin-bottom: 24px;
+}
+
+.tax-accounting-eyebrow {
+    margin: 0 0 6px;
+    color: #2563eb;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.tax-accounting-page__actions {
+    display: flex;
+    align-items: end;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.tax-accounting-page__actions label {
+    width: 100%;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.tax-accounting-page__actions select,
+.tax-accounting-button {
+    min-height: 38px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #0f172a;
+    font: inherit;
+}
+
+.tax-accounting-page__actions select {
+    padding: 0 12px;
+}
+
+.tax-accounting-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 13px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.tax-accounting-button:disabled {
+    cursor: wait;
+    opacity: 0.6;
+}
+
+.tax-accounting-button--secondary:hover {
+    background: #f1f5f9;
+}
+
+.tax-accounting-button--primary {
+    border-color: #2563eb;
+    background: #2563eb;
+    color: #ffffff;
+}
+
+.tax-accounting-button--primary:hover {
+    border-color: #1d4ed8;
+    background: #1d4ed8;
+}
+
+.tax-accounting-alert {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border: 1px solid;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.tax-accounting-alert--danger {
+    border-color: #fecaca;
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.tax-accounting-alert--warning {
+    border-color: #fed7aa;
+    background: #fff7ed;
+    color: #9a3412;
+}
+
+.tax-accounting-loading,
+.tax-accounting-empty {
+    padding: 28px;
+    color: #64748b;
+    text-align: center;
+}
+
+.tax-accounting-kpis {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.tax-accounting-kpi,
+.tax-accounting-panel {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.tax-accounting-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 18px;
+}
+
+.tax-accounting-kpi span,
+.tax-accounting-kpi small,
+.tax-accounting-muted {
+    color: #64748b;
+}
+
+.tax-accounting-kpi span {
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.tax-accounting-kpi strong {
+    color: #0f172a;
+    font-size: 24px;
+    line-height: 1.1;
+}
+
+.tax-accounting-kpi small {
+    font-size: 12px;
+}
+
+.tax-accounting-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+    gap: 18px;
+    margin-bottom: 18px;
+}
+
+.tax-accounting-panel {
+    overflow: hidden;
+}
+
+.tax-accounting-panel__heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 18px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #1d4ed8;
+}
+
+.tax-accounting-panel__heading h2 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 16px;
+}
+
+.tax-accounting-heading-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: auto;
+    border: 0;
+    background: transparent;
+    color: #2563eb;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.tax-accounting-heading-action:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.tax-accounting-panel__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 18px 18px;
+}
+
+.tax-accounting-details {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin: 0;
+    padding: 18px;
+}
+
+.tax-accounting-details div {
+    min-width: 0;
+}
+
+.tax-accounting-details dt {
+    margin-bottom: 4px;
+    color: #64748b;
+    font-size: 12px;
+}
+
+.tax-accounting-details dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.tax-accounting-reconciliation {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 18px;
+    padding: 16px;
+    border-left: 4px solid #f97316;
+    background: #fff7ed;
+}
+
+.tax-accounting-reconciliation.is-complete {
+    border-left-color: #16a34a;
+    background: #f0fdf4;
+}
+
+.tax-accounting-reconciliation strong {
+    font-size: 16px;
+}
+
+.tax-accounting-reconciliation span,
+.tax-accounting-muted {
+    font-size: 13px;
+}
+
+.tax-accounting-muted {
+    margin: 0 18px 18px;
+}
+
+.tax-accounting-table-wrap {
+    overflow-x: auto;
+}
+
+.tax-accounting-table-wrap table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 680px;
+}
+
+.tax-accounting-table-wrap th,
+.tax-accounting-table-wrap td {
+    padding: 13px 18px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 13px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.tax-accounting-table-wrap th {
+    color: #64748b;
+    background: #f8fafc;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.tax-accounting-status {
+    display: inline-flex;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.tax-accounting-status--open {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.tax-accounting-status--closed {
+    background: #e2e8f0;
+    color: #475569;
+}
+
+.tax-accounting-status--missing {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.tax-accounting-status--draft {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.tax-accounting-status--approved {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.tax-accounting-status--rejected {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.tax-accounting-table-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 0;
+    background: transparent;
+    color: #2563eb;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.tax-accounting-table-action:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.tax-accounting-table-action--danger {
+    color: #dc2626;
+}
+
+.tax-accounting-row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.tax-accounting-adjustments {
+    margin-top: 18px;
+}
+
+.tax-accounting-reports {
+    margin-bottom: 18px;
+}
+
+.tax-accounting-report-controls {
+    display: flex;
+    align-items: end;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 16px 18px;
+}
+
+.tax-accounting-report-controls label {
+    display: grid;
+    gap: 5px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.tax-accounting-report-controls select {
+    min-height: 38px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 0 10px;
+    background: #ffffff;
+    color: #0f172a;
+    font: inherit;
+}
+
+.tax-accounting-report-tabs {
+    display: flex;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.tax-accounting-report-tabs button {
+    min-height: 38px;
+    padding: 0 14px;
+    border: 0;
+    border-right: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #475569;
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.tax-accounting-report-tabs button:last-child {
+    border-right: 0;
+}
+
+.tax-accounting-report-tabs button.is-active {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.tax-accounting-report-result {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 30px;
+    margin: 0 18px 18px;
+    padding: 16px;
+    border: 1px solid #dbeafe;
+    background: #f8fbff;
+}
+
+.tax-accounting-report-result > div {
+    display: grid;
+    gap: 5px;
+}
+
+.tax-accounting-report-result span {
+    color: #64748b;
+    font-size: 12px;
+}
+
+.tax-accounting-report-result strong {
+    color: #0f172a;
+    font-size: 16px;
+}
+
+.tax-accounting-report-warning {
+    flex-basis: 100%;
+    margin: 0;
+    color: #9a3412;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.tax-accounting-period-detail {
+    margin-top: 18px;
+}
+
+.tax-accounting-alert--inline {
+    margin: 16px 18px 0;
+}
+
+.tax-accounting-period-toolbar {
+    display: flex;
+    align-items: end;
+    flex-wrap: wrap;
+    gap: 22px;
+    padding: 18px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.tax-accounting-period-toolbar > div:not(.tax-accounting-period-toolbar__actions) {
+    display: grid;
+    gap: 6px;
+}
+
+.tax-accounting-period-toolbar span {
+    color: #64748b;
+    font-size: 12px;
+}
+
+.tax-accounting-period-toolbar strong {
+    font-size: 14px;
+}
+
+.tax-accounting-period-toolbar__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.tax-accounting-issues {
+    margin: 16px 18px;
+    padding: 12px 14px;
+    border-left: 4px solid #dc2626;
+    background: #fef2f2;
+    color: #991b1b;
+    font-size: 13px;
+}
+
+.tax-accounting-issues ul {
+    margin: 7px 0 0;
+    padding-left: 18px;
+}
+
+.tax-accounting-modal--small {
+    width: min(520px, 100%);
+}
+
+.tax-accounting-modal-overlay {
+    position: fixed;
+    z-index: 1000;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, 0.45);
+}
+
+.tax-accounting-modal {
+    width: min(620px, 100%);
+    max-height: min(760px, calc(100vh - 40px));
+    overflow-y: auto;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.22);
+}
+
+.tax-accounting-modal__header {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 20px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.tax-accounting-modal__header h2 {
+    margin: 0 0 5px;
+    color: #0f172a;
+    font-size: 19px;
+}
+
+.tax-accounting-modal__header p {
+    margin: 0;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.tax-accounting-modal__close {
+    align-self: flex-start;
+    border: 0;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    font-size: 26px;
+    line-height: 1;
+}
+
+.tax-accounting-modal form {
+    display: grid;
+    gap: 14px;
+    padding: 20px;
+}
+
+.tax-accounting-modal label {
+    display: grid;
+    gap: 6px;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.tax-accounting-modal input,
+.tax-accounting-modal select,
+.tax-accounting-modal textarea {
+    box-sizing: border-box;
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    padding: 10px 11px;
+    background: #ffffff;
+    color: #0f172a;
+    font: inherit;
+    font-weight: 400;
+}
+
+.tax-accounting-modal textarea {
+    min-height: 90px;
+    resize: vertical;
+}
+
+.tax-accounting-modal input:focus,
+.tax-accounting-modal select:focus,
+.tax-accounting-modal textarea:focus {
+    outline: 2px solid rgba(37, 99, 235, 0.2);
+    border-color: #2563eb;
+}
+
+.tax-accounting-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.tax-accounting-modal__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 6px;
+}
+
+@media (max-width: 900px) {
+    .tax-accounting-page__header,
+    .tax-accounting-grid {
+        display: block;
+    }
+
+    .tax-accounting-page__actions {
+        margin-top: 16px;
+    }
+
+    .tax-accounting-grid > .tax-accounting-panel + .tax-accounting-panel {
+        margin-top: 18px;
+    }
+}
+
+@media (max-width: 640px) {
+    .tax-accounting-kpis {
+        grid-template-columns: 1fr;
+    }
+
+    .tax-accounting-details {
+        grid-template-columns: 1fr;
+    }
+
+    .tax-accounting-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .tax-accounting-report-controls {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .tax-accounting-report-controls > .tax-accounting-button,
+    .tax-accounting-report-controls > label,
+    .tax-accounting-report-tabs {
+        width: 100%;
+    }
+
+    .tax-accounting-report-tabs button {
+        flex: 1;
+    }
+}

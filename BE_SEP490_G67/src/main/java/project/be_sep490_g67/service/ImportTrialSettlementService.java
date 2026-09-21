@@ -75,17 +75,12 @@ public class ImportTrialSettlementService {
         if (!supplierRepository.existsByIdAndIsRemovedFalse(supplierId)) {
             throw new AppException(ErrorCode.NOT_FOUND_SUPPLIER);
         }
-        List<ImportOrderDetail> openLines = importOrderDetailRepository.findOpenTrialLinesBySupplierId(supplierId);
-        Map<Integer, List<ImportOrderDetail>> byOrder = openLines.stream()
-                .collect(Collectors.groupingBy(
-                        d -> d.getImportOrder().getId(),
-                        LinkedHashMap::new,
-                        Collectors.toList()));
-        List<ImportTrialPreviewResponse> result = new ArrayList<>();
-        for (List<ImportOrderDetail> lines : byOrder.values()) {
-            result.add(toPreview(lines.get(0).getImportOrder(), lines));
-        }
-        return result;
+        return toPreviews(importOrderDetailRepository.findOpenTrialLinesBySupplierId(supplierId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ImportTrialPreviewResponse> previewOpenAll() {
+        return toPreviews(importOrderDetailRepository.findOpenTrialLines());
     }
 
     @Transactional
@@ -138,9 +133,7 @@ public class ImportTrialSettlementService {
             responseLines.add(applied.response());
         }
 
-        BigDecimal discount = request.getDiscountAmount() != null
-                ? request.getDiscountAmount()
-                : BigDecimal.ZERO;
+        BigDecimal discount = roundVnd(request.getDiscountAmount());
         if (discount.compareTo(BigDecimal.ZERO) < 0 || discount.compareTo(totalPayable) > 0) {
             throw new AppException(ErrorCode.INVALID_TRIAL_DISCOUNT);
         }
@@ -158,8 +151,8 @@ public class ImportTrialSettlementService {
         }
         BigDecimal remainingAfterAdjust = newTotalCost.subtract(alreadyPaid).max(BigDecimal.ZERO);
 
-        BigDecimal paidAmount = request.getPaidAmount() != null ? request.getPaidAmount() : BigDecimal.ZERO;
-        if (paidAmount.compareTo(BigDecimal.ZERO) < 0 || paidAmount.compareTo(remainingAfterAdjust) > 0) {
+        BigDecimal paidAmount = roundVnd(request.getPaidAmount());
+        if (paidAmount.compareTo(remainingAfterAdjust) > 0) {
             throw new AppException(ErrorCode.INVALID_IMPORT_PAID_AMOUNT);
         }
 
@@ -206,6 +199,19 @@ public class ImportTrialSettlementService {
             throw new AppException(ErrorCode.IMPORT_ORDER_NOT_IMPORTED);
         }
         return order;
+    }
+
+    private List<ImportTrialPreviewResponse> toPreviews(List<ImportOrderDetail> openLines) {
+        Map<Integer, List<ImportOrderDetail>> byOrder = openLines.stream()
+                .collect(Collectors.groupingBy(
+                        d -> d.getImportOrder().getId(),
+                        LinkedHashMap::new,
+                        Collectors.toList()));
+        List<ImportTrialPreviewResponse> result = new ArrayList<>();
+        for (List<ImportOrderDetail> lines : byOrder.values()) {
+            result.add(toPreview(lines.get(0).getImportOrder(), lines));
+        }
+        return result;
     }
 
     private ImportTrialPreviewResponse toPreview(ImportOrder order, List<ImportOrderDetail> openLines) {
@@ -356,9 +362,14 @@ public class ImportTrialSettlementService {
 
     @Transactional(readOnly = true)
     public List<ImportTrialSettleResponse> listByOrder(Integer orderId) {
-        if (importOrderRepository.findActiveByIdForUpdate(orderId).isEmpty()) {
+        if (importOrderRepository.findDetailById(orderId).isEmpty()) {
             throw new AppException(ErrorCode.NOT_FOUND_IMPORT_ORDER);
         }
+        return listHistory(orderId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ImportTrialSettleResponse> listHistory(Integer orderId) {
         return settlementRepository.findByImportOrderIdWithLines(orderId).stream()
                 .map(this::toHistoryResponse)
                 .toList();
@@ -427,6 +438,7 @@ public class ImportTrialSettlementService {
                 .productName(names.displayName())
                 .decision(line.getDecision())
                 .receivedQty(line.getReceivedQty())
+                .systemRemainingQty(line.getSystemRemainingQty())
                 .countedRemainingQty(line.getCountedRemainingQty())
                 .unsellableQty(line.getUnsellableQty())
                 .returnedQty(line.getReturnedQty())
@@ -527,7 +539,14 @@ public class ImportTrialSettlementService {
                 ? unitBase
                 : BigDecimal.ONE;
         return cost.multiply(BigDecimal.valueOf(Math.max(qtyBase, 0)))
-                .divide(base, 2, RoundingMode.HALF_UP);
+                .divide(base, 0, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal roundVnd(BigDecimal value) {
+        if (value == null || value.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        return value.setScale(0, RoundingMode.HALF_UP);
     }
 
     private Map<Integer, String> loadBaseUnitNames(List<Integer> productIds) {

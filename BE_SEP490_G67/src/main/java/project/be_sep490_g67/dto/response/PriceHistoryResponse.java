@@ -25,6 +25,9 @@ public class PriceHistoryResponse {
     BigDecimal costPerUnit;
     Integer quantity;
     String unitName;
+    BigDecimal unitBase;
+    String baseUnitName;
+    BigDecimal baseCostPerUnit;
 
     String changeType;
     BigDecimal oldCostPrice;

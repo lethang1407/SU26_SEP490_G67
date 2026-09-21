@@ -94,6 +94,10 @@ api.interceptors.response.use(
       }
     }
 
+    if (response.config?.responseType === 'blob') {
+      return response;
+    }
+
     return response.data;
   },
   async (error) => {

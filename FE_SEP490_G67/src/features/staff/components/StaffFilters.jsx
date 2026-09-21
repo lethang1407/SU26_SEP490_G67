@@ -1,13 +1,11 @@
-import { ChevronDown, Search } from 'lucide-react';
-import { ALL_POSITIONS, NAME_SORT_OPTIONS, STAFF_POSITIONS } from '../constants';
+import { ChevronDown, Search, ShieldCheck } from 'lucide-react';
+import { ROLE_TEMPLATE_FILTER_OPTIONS } from '../constants';
 
 export default function StaffFilters({
     searchKeyword,
-    positionFilter,
-    nameSort,
+    roleTemplateFilter,
     onSearchChange,
-    onPositionChange,
-    onNameSortChange,
+    onRoleTemplateChange,
 }) {
     return (
         <div className="staff-filters">
@@ -16,39 +14,24 @@ export default function StaffFilters({
                 <input
                     type="text"
                     className="staff-search__input"
-                    placeholder="Nhập tên nhân viên..."
+                    placeholder="Tìm kiếm nhân viên (tên, SĐT)..."
                     value={searchKeyword}
                     onChange={(event) => onSearchChange(event.target.value)}
                 />
             </div>
             <div className="staff-filters__group">
                 <div className="staff-filter">
-                    <span className="staff-filter__label">Vị trí:</span>
+                    <span className="staff-filter__label">
+                        <ShieldCheck size={16} className="text-primary me-1 inline-icon" />
+                        Mẫu vai trò:
+                    </span>
                     <div className="staff-filter__select-wrapper">
                         <select
                             className="staff-filter__select"
-                            value={positionFilter}
-                            onChange={(event) => onPositionChange(event.target.value)}
+                            value={roleTemplateFilter}
+                            onChange={(event) => onRoleTemplateChange(event.target.value)}
                         >
-                            <option value={ALL_POSITIONS}>{ALL_POSITIONS}</option>
-                            {STAFF_POSITIONS.map((position) => (
-                                <option key={position} value={position}>
-                                    {position}
-                                </option>
-                            ))}
-                        </select>
-                        <ChevronDown size={18} className="staff-filter__icon" />
-                    </div>
-                </div>
-                <div className="staff-filter">
-                    <span className="staff-filter__label">Tên:</span>
-                    <div className="staff-filter__select-wrapper">
-                        <select
-                            className="staff-filter__select"
-                            value={nameSort}
-                            onChange={(event) => onNameSortChange(event.target.value)}
-                        >
-                            {NAME_SORT_OPTIONS.map((option) => (
+                            {ROLE_TEMPLATE_FILTER_OPTIONS.map((option) => (
                                 <option key={option.value} value={option.value}>
                                     {option.label}
                                 </option>

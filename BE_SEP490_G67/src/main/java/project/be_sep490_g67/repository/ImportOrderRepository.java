@@ -32,7 +32,7 @@ public interface ImportOrderRepository extends JpaRepository<ImportOrder, Intege
             """)
     List<ImportOrder> searchBySupplier(@Param("supplierId") Integer supplierId, @Param("search") String search);
 
-    // Danh sách đơn nhập toàn cửa hàng — lọc search + orderStatus ở SQL;
+    // Danh sách đơn nhập toàn cửa hàng — search mã phiếu / NCC / tên SP (kể cả SP cha);
     // remainingDebt vẫn derive ở Service nên pagination cũng cắt ở Service.
     @Query("""
             SELECT io FROM ImportOrder io
@@ -41,7 +41,19 @@ public interface ImportOrderRepository extends JpaRepository<ImportOrder, Intege
               AND (s.id IS NULL OR s.isRemoved = false)
               AND (:search IS NULL OR :search = ''
                    OR LOWER(io.orderCode) LIKE LOWER(CONCAT('%', :search, '%'))
-                   OR (s.id IS NOT NULL AND LOWER(s.name) LIKE LOWER(CONCAT('%', :search, '%'))))
+                   OR (s.id IS NOT NULL AND LOWER(s.name) LIKE LOWER(CONCAT('%', :search, '%')))
+                   OR EXISTS (
+                        SELECT 1
+                        FROM ImportOrderDetail d
+                        JOIN d.product p
+                        LEFT JOIN p.parent parent
+                        WHERE d.importOrder = io
+                          AND (d.isRemoved = false OR d.isRemoved IS NULL)
+                          AND (
+                                LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%'))
+                                OR (parent IS NOT NULL AND LOWER(parent.name) LIKE LOWER(CONCAT('%', :search, '%')))
+                              )
+                   ))
               AND (:orderStatus IS NULL OR :orderStatus = '' OR :orderStatus = 'ALL'
                    OR io.orderStatus = :orderStatus)
             ORDER BY CASE WHEN io.orderStatus = 'DRAFT' THEN 0 ELSE 1 END,

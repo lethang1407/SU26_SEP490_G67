@@ -1,11 +1,19 @@
 import { api } from '@/lib/api-clien';
 
 export const suppliersApi = {
-    getSuppliers: async ({ page = 0, size = 10, search = '', categoryId = null, productId = null } = {}) => {
+    getSuppliers: async ({
+        page = 0,
+        size = 10,
+        search = '',
+        categoryId = null,
+        productId = null,
+        hasOpenTrial = false,
+    } = {}) => {
         const params = { page, size };
         if (search && search.trim()) params.search = search.trim();
         if (categoryId != null) params.categoryId = categoryId;
         if (productId != null) params.productId = productId;
+        if (hasOpenTrial) params.hasOpenTrial = true;
         const response = await api.get('/suppliers', { params });
         return response.result;
     },
@@ -35,6 +43,11 @@ export const suppliersApi = {
         if (search && search.trim()) params.search = search.trim();
         const response = await api.get(`/suppliers/${supplierId}/import-orders`, { params });
         return response.result;
+    },
+
+    getAllOpenTrial: async () => {
+        const response = await api.get('/suppliers/trial-open');
+        return response.result ?? [];
     },
 
     getOpenTrial: async (supplierId) => {

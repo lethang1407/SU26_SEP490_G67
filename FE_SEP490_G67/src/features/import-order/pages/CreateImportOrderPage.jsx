@@ -10,6 +10,7 @@ import ImportOrderLineTable from '../components/ImportOrderLineTable';
 import ImportOrderCreateSidebar from '../components/ImportOrderCreateSidebar';
 import ImportOrderAlertModal from '../components/ImportOrderAlertModal';
 import ImportOrderReturnSection from '../components/ImportOrderReturnSection';
+import ImportOrderPriceSetupModal from '../components/ImportOrderPriceSetupModal';
 import {
     mapPendingReturnLine,
     selectedReturnDeduction,
@@ -24,6 +25,10 @@ import {
     computeOpenTrialAmount,
     computeRegularPayableAmount,
     isValidImportQuantity,
+    buildImportPriceSetupRows,
+    toPriceAdjustmentPayload,
+    applyPendingSellingPricesToLines,
+    collectPendingPriceAdjustments,
 } from '../utils/importOrderUtils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Supplier.css';
@@ -51,6 +56,7 @@ function buildFormSnapshot({
     discountAmount,
     returnLineIds = [],
     pendingReturnLines = [],
+    priceAdjustments = [],
 }) {
     return JSON.stringify({
         supplierId: supplier?.id ?? null,
@@ -58,6 +64,11 @@ function buildFormSnapshot({
         invoiceImageUrl: invoiceImageUrl || '',
         discountAmount: Number(discountAmount) || 0,
         returnLineIds: selectedReturnSnapshot(pendingReturnLines, returnLineIds),
+        priceAdjustments: (priceAdjustments || []).map((item) => ({
+            productId: Number(item.productId),
+            productUnitId: Number(item.productUnitId),
+            sellingPrice: Number(item.sellingPrice) || 0,
+        })),
         lines: (lines || []).map((line) => ({
             productId: line.productId,
             productUnitId: line.productUnitId ?? null,
@@ -76,6 +87,10 @@ function normalizeProductUnits(productUnits) {
         id: unit.id,
         name: unit.name || 'Chai',
         unitBase: Number(unit.unitBase) || 1,
+        sellingPrice: Number(unit.sellingPrice) || 0,
+        ...(unit.pendingSellingPrice != null
+            ? { pendingSellingPrice: Number(unit.pendingSellingPrice) || 0 }
+            : {}),
     }));
 }
 
@@ -157,6 +172,7 @@ function toApiPayload(orderStatus, {
     lines,
     returnLineIds = [],
     pendingReturnLines = [],
+    priceAdjustments = [],
 }) {
     const byKey = new Map((pendingReturnLines || []).map((line) => [String(line.key), line]));
     const returnLines = returnLineIds
@@ -170,6 +186,8 @@ function toApiPayload(orderStatus, {
             };
         })
         .filter(Boolean);
+
+    const productIds = new Set(lines.map((line) => Number(line.productId)).filter((id) => id > 0));
 
     return {
         supplierId: hasValidSupplier(supplier) ? Number(supplier.id) : null,
@@ -192,6 +210,12 @@ function toApiPayload(orderStatus, {
             isTrial: resolveLineType(line) === 'TRIAL',
             lineType: resolveLineType(line),
         })),
+        ...(orderStatus === ORDER_STATUS.IMPORTED
+            ? {
+                priceAdjustments: collectPendingPriceAdjustments(lines, priceAdjustments)
+                    .filter((item) => productIds.has(Number(item.productId))),
+            }
+            : {}),
     };
 }
 
@@ -232,6 +256,8 @@ export default function CreateImportOrderPage() {
     const [pendingReturnLines, setPendingReturnLines] = useState([]);
     const [selectedReturnLineKeys, setSelectedReturnLineKeys] = useState([]);
     const [loadingReturns, setLoadingReturns] = useState(false);
+    const [priceAdjustments, setPriceAdjustments] = useState([]);
+    const [priceSetupOpen, setPriceSetupOpen] = useState(false);
 
     const displayLines = useMemo(() => {
         const regular = lines.filter((line) => resolveLineType(line) === 'REGULAR');
@@ -239,6 +265,10 @@ export default function CreateImportOrderPage() {
         const promo = lines.filter((line) => resolveLineType(line) === 'PROMOTION');
         return [...regular, ...trial, ...promo];
     }, [lines]);
+    const priceSetupRows = useMemo(
+        () => buildImportPriceSetupRows(lines, priceAdjustments),
+        [lines, priceAdjustments],
+    );
 
     const allowNavigateRef = useRef(false);
     const initialSnapshotRef = useRef(null);
@@ -308,8 +338,9 @@ export default function CreateImportOrderPage() {
                 discountAmount,
                 returnLineIds: selectedReturnLineKeys,
                 pendingReturnLines,
+                priceAdjustments,
             }),
-        [supplier, lines, note, invoiceImageUrl, discountAmount, selectedReturnLineKeys, pendingReturnLines],
+        [supplier, lines, note, invoiceImageUrl, discountAmount, selectedReturnLineKeys, pendingReturnLines, priceAdjustments],
     );
 
     const isDirty = useMemo(() => {
@@ -455,6 +486,7 @@ export default function CreateImportOrderPage() {
                 paidAmountTouchedRef.current = false;
                 setPaidAmount(0);
                 setLines(mappedLines);
+                setPriceAdjustments([]);
 
                 if (selected) {
                     setSupplier(selected);
@@ -480,6 +512,7 @@ export default function CreateImportOrderPage() {
                         .map((line) => String(line.detailId))
                         .filter(Boolean),
                     pendingReturnLines: (detail.returnLines || []).map(mapPendingReturnLine),
+                    priceAdjustments: [],
                 });
             })
             .catch((error) => {
@@ -849,12 +882,9 @@ export default function CreateImportOrderPage() {
                 resolveLineType(line) !== 'PROMOTION' && (Number(line.costPerUnit) || 0) <= 0,
         );
         if (missingPriceLine) {
-            const isTrial = resolveLineType(missingPriceLine) === 'TRIAL';
             showAlertModal(
                 'Chưa nhập đơn giá',
-                isTrial
-                    ? `Hàng bán thử "${missingPriceLine.productName}" phải nhập giá thỏa thuận.`
-                    : `Đơn giá của "${missingPriceLine.productName}" chưa nhập.`,
+                `Đơn giá của "${missingPriceLine.productName}" chưa nhập.`,
             );
             return false;
         }
@@ -869,7 +899,10 @@ export default function CreateImportOrderPage() {
     };
 
     const submitOrder = async (orderStatus, options = {}) => {
-        const { skipSuccessModal = false, proceedBlockedNavigation = false } = options;
+        const {
+            skipSuccessModal = false,
+            proceedBlockedNavigation = false,
+        } = options;
 
         // Complete đã validate riêng; draft vẫn validate bằng modal
         if (orderStatus === ORDER_STATUS.DRAFT) {
@@ -887,6 +920,7 @@ export default function CreateImportOrderPage() {
             lines,
             returnLineIds: selectedReturnLineKeys,
             pendingReturnLines,
+            priceAdjustments,
         });
 
         setSubmitting(true);
@@ -937,6 +971,7 @@ export default function CreateImportOrderPage() {
                 discountAmount,
                 returnLineIds: selectedReturnLineKeys,
                 pendingReturnLines,
+                priceAdjustments,
             });
 
             const successMessage =
@@ -960,18 +995,8 @@ export default function CreateImportOrderPage() {
                 return true;
             }
 
-            // Nhập hàng thành công: về danh sách + toast góc màn hình
-            if (orderStatus === ORDER_STATUS.IMPORTED) {
-                navigateAfterSuccess(successMessage);
-                return true;
-            }
-
-            showAlertModal('Lưu phiếu tạm', successMessage, {
-                onConfirm: () => {
-                    closeAlertModal();
-                    navigateAfterSuccess();
-                },
-            });
+            // Lưu tạm / hoàn thành: về danh sách + toast, không hỏi thêm
+            navigateAfterSuccess(successMessage);
             return true;
         } catch (error) {
             const message =
@@ -1013,7 +1038,39 @@ export default function CreateImportOrderPage() {
 
     const handleComplete = () => {
         if (!validate({ useModal: true, requireSupplier: true }) || submitting || loadingDetail) return;
-        submitOrder(ORDER_STATUS.IMPORTED);
+        const willApplyPrices = collectPendingPriceAdjustments(lines, priceAdjustments).length > 0;
+        showAlertModal(
+            'Hoàn thành phiếu nhập',
+            willApplyPrices
+                ? 'Hệ thống sẽ cập nhật bảng giá mới cho những sản phẩm đang nhập. Bạn có chắc chắn muốn lưu không?'
+                : 'Bạn có chắc chắn muốn hoàn thành phiếu nhập này?',
+            {
+                cancelLabel: 'Bỏ qua',
+                onConfirm: () => {
+                    closeAlertModal();
+                    submitOrder(ORDER_STATUS.IMPORTED);
+                },
+            },
+        );
+    };
+
+    const handleOpenPriceSetup = () => {
+        if (submitting || loadingDetail) return;
+        if (lines.length === 0) {
+            showAlertModal(
+                'Thiết lập giá',
+                'Vui lòng thêm ít nhất một sản phẩm trước khi thiết lập giá.',
+            );
+            return;
+        }
+        setPriceSetupOpen(true);
+    };
+
+    const handleConfirmPriceSetup = (rows) => {
+        const nextAdjustments = toPriceAdjustmentPayload(rows);
+        setPriceAdjustments(nextAdjustments);
+        setLines((prev) => applyPendingSellingPricesToLines(prev, nextAdjustments));
+        setPriceSetupOpen(false);
     };
 
     const handleCancelDraft = () => {
@@ -1078,6 +1135,16 @@ export default function CreateImportOrderPage() {
                                         <div>
                                             <h2 className="ioc-section__title">I. Hàng nhập</h2>
                                         </div>
+                                        {lines.length > 0 ? (
+                                            <button
+                                                type="button"
+                                                className="ioc-price-setup-btn"
+                                                onClick={handleOpenPriceSetup}
+                                                disabled={submitting || loadingDetail}
+                                            >
+                                                Thiết lập giá
+                                            </button>
+                                        ) : null}
                                     </header>
                                     <ImportOrderLineTable
                                         lines={displayLines}
@@ -1157,6 +1224,14 @@ export default function CreateImportOrderPage() {
                     onClose={handleStayOnPage}
                     onDanger={handleLeaveWithoutSave}
                     onConfirm={handleSaveDraftAndLeave}
+                />
+
+                <ImportOrderPriceSetupModal
+                    open={priceSetupOpen}
+                    rows={priceSetupRows}
+                    submitting={submitting}
+                    onClose={() => setPriceSetupOpen(false)}
+                    onConfirm={handleConfirmPriceSetup}
                 />
 
                 <SupplierAddNewModal

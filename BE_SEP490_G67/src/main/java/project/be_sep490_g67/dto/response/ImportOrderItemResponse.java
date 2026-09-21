@@ -35,6 +35,8 @@ public class ImportOrderItemResponse {
     /** Giá bán hiện tại — dùng cảnh báo lỗ. */
     BigDecimal sellingPrice;
     BigDecimal lineTotal;
+    /** Tiền phải trả sau quyết toán — chỉ dòng TRIAL SETTLED; null nếu chưa chốt. */
+    BigDecimal settledPayableAmount;
     LocalDate expiryDate;
     String note;
     Boolean isPromotion;
@@ -57,5 +59,6 @@ public class ImportOrderItemResponse {
         Integer id;
         String name;
         BigDecimal unitBase;
+        BigDecimal sellingPrice;
     }
 }

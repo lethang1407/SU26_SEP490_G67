@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import project.be_sep490_g67.constants.StaffConstants;
 import project.be_sep490_g67.dto.request.CreateSalesOrderRequest;
 import project.be_sep490_g67.dto.response.SalesOrderDetailResponse;
 import project.be_sep490_g67.dto.response.SalesOrderListResponse;
@@ -53,11 +54,13 @@ public class SalesOrderService {
     UserRepository userRepository;
     DebtPolicy debtPolicy;
     NotificationService notificationService;
+    AccountingService accountingService;
 
     @Transactional
     public SalesOrderResponse createOrder(CreateSalesOrderRequest request,
                                           boolean isDebt,
                                           Integer createdBy) {
+        accountingService.lockForSourceWrite();
         // Resolve customer (optional với đơn thường, bắt buộc với đơn nợ)
         Customer customer = null;
         if (request.getCustomerId() != null) {
@@ -104,7 +107,7 @@ public class SalesOrderService {
         order.setPaidAmount(BigDecimal.ZERO);
         SalesOrder saved = salesOrderRepository.save(order);
 
-        // Build line items, using FEFO to minus products
+        // Build line items, using FIFO (received_date) to minus products
         List<SalesOrderDetail> details = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
 
@@ -139,7 +142,7 @@ public class SalesOrderService {
                     UnitQuantityConverter.toBaseUnits(resolvedUnit, item.getQuantity()),
                     saved.getId(),
                     createdBy,
-                    resolvePicks(item));
+                    resolvePicks(item, resolvedUnit));
 
             BigDecimal unitPrice = UnitPriceResolver.resolve(product, resolvedUnit);
 
@@ -191,6 +194,7 @@ public class SalesOrderService {
         }
 
         salesOrderDetailRepository.saveAll(details);
+        accountingService.recordSale(saved);
         return toResponse(saved, details);
     }
 
@@ -212,11 +216,12 @@ public class SalesOrderService {
     }
 
     private List<StockDeductionService.StockPick> resolvePicks(
-            CreateSalesOrderRequest.OrderItemRequest item) {
+            CreateSalesOrderRequest.OrderItemRequest item, ProductUnit sellingUnit) {
         if (item.getPicks() != null && !item.getPicks().isEmpty()) {
             return item.getPicks().stream()
-                    .map(pick -> new StockDeductionService.StockPick(
-                            pick.getLocationId(), pick.getBatchId()))
+                    .map(pick -> StockDeductionService.StockPick.inSellingUnit(
+                            pick.getLocationId(), pick.getBatchId(),
+                            pick.getQuantity(), sellingUnit))
                     .toList();
         }
         List<Integer> locationIds = item.getLocationIds() != null && !item.getLocationIds().isEmpty()
@@ -274,7 +279,7 @@ public class SalesOrderService {
         }
         return userRepository.findActiveStaffByIdWithRoles(userId)
                 .map(user -> user.getRoles().stream()
-                        .anyMatch(role -> "MANAGER".equalsIgnoreCase(role.getName())))
+                        .anyMatch(role -> StaffConstants.MANAGER_ROLE_NAME.equalsIgnoreCase(role.getName())))
                 .orElse(false);
     }
 

@@ -27,9 +27,9 @@ public class ProductPosInfoResponse {
     Integer minStock;
     Boolean belowMinStock;
 
-    /** Null = POS trừ FEFO; chỉ set khi thu ngân chọn ô tường minh. */
+    /** Null = POS trừ FIFO; chỉ set khi thu ngân chọn ô tường minh. */
     Integer defaultLocationId;
-    /** Null cùng defaultLocationId khi đi FEFO. */
+    /** Null cùng defaultLocationId khi đi FIFO. */
     Integer defaultBatchId;
 
     List<UnitInfo> units;
@@ -65,6 +65,11 @@ public class ProductPosInfoResponse {
         String receivedDate;
         /** ISO-8601, có thể null. */
         String expiryDate;
+        /**
+         * Lô đã quá hạn nhưng kho chưa xử lý, hàng vẫn nằm ở ô này. POS hiện ra kèm
+         * dấu đỏ và không cho chọn; checkout cũng từ chối. Không tính vào availableQuantity.
+         */
+        Boolean expired;
         Integer quantity;
     }
 }

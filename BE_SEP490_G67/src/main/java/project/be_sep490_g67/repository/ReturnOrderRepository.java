@@ -13,6 +13,9 @@ import java.util.Optional;
 
 @Repository
 public interface ReturnOrderRepository extends JpaRepository<ReturnOrder, Integer> {
+    long countByCreatedAtIsNull();
+    List<ReturnOrder> findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByIdAsc(Instant start, Instant end);
+
 
     @Query("SELECT r FROM ReturnOrder r WHERE r.id = :id AND r.isRemoved = false")
     Optional<ReturnOrder> findActiveById(@Param("id") Integer id);

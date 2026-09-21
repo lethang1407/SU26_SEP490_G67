@@ -12,10 +12,7 @@ import {
     AlertCircle,
     Lock,
     QrCode,
-    Wifi,
-    WifiOff,
-    Cloud,
-    CloudOff,
+    WifiOff
 } from "lucide-react";
 import "../../../css/POS.css";
 import { isValidQtyInput, isValidQtyValue, isQtyInvalid, parseQty } from '../utils/validation';
@@ -26,14 +23,13 @@ import { useProductSearch } from '../hooks/useProductSearch';
 import { useCustomerSearch } from '../hooks/useCustomerSearch';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useOfflineSync } from '../hooks/useOfflineSync';
-import { pickKey, hasLocationProblem } from '../utils/cartLocation';
+import { hasLocationProblem, withPickQty, withTotalQty, withFifoPicks } from '../utils/cartLocation';
 import { hasNoSellableLocation, unsellableMessage } from '../utils/productStock';
 import {
     debtLevelMeta, canSellOnDebt, debtSummaryText, debtBlockReason, formatMoney,
     isOverdueCustomer, debtOverdueWarning,
 } from '../utils/debtStatus';
 import { formatVnd } from '../utils/money';
-import ProductSearchDropdown from '../components/ProductSearchDropdown';
 import LocationPicker from '../components/LocationPicker';
 import CustomerSearchDropdown from '../components/CustomerSearchDropdown';
 import QuickAddCustomerModal from '../components/QuickAddCustomerModal';
@@ -43,7 +39,7 @@ import ExchangeOrder from '../components/ExchangeOrder';
 import TransferQrPanel from '../components/TransferQrPanel';
 import OfflineOrdersModal from '../components/OfflineOrdersModal';
 import OfflineToast, { showOfflineToast } from '../components/OfflineToast';
-import PosHeaderMenu from '../components/PosHeaderMenu';
+import PosHeaderMenu, { PosHeaderLeft } from '../components/PosHeaderMenu';
 import { buildPaymentReference } from '../utils/vietqr';
 import { saveActiveCart, loadActiveCart } from '../utils/cartStorage';
 import { printInvoice } from '../utils/printInvoice';
@@ -245,7 +241,7 @@ const POSScreen = () => {
 
         const locations = (posInfo?.locations ?? []).filter((loc) => Number(loc.quantity ?? 0) > 0);
 
-        const newItem = {
+        const newItem = withFifoPicks({
             // Một sản phẩm là một dòng giỏ
             id: String(product.id),
             productId: product.id,
@@ -254,19 +250,19 @@ const POSScreen = () => {
             units,
             productUnitId: defaultUnit?.id ?? null,
             unit: defaultUnit?.name ?? 'N/A',
+            // Gồm cả lô hết hạn (expired) — LocationPicker hiện dấu đỏ, không cho lấy.
             locations,
-            // Không auto-pick → checkout FIFO; thu ngân vẫn chọn ô/lô khi cần
-            pickKeys: [],
             stockTotal: posInfo?.availableQuantity ?? null,
             stockSales: posInfo?.salesZoneQuantity ?? null,
             stockWarehouse: posInfo?.warehouseQuantity ?? null,
             qty: 1,
             price: defaultUnit?.sellingPrice ?? product.sellingPrice ?? 0,
-        };
+        });
         setCartItems((prev) => {
             const existing = prev.find((i) => i.id === newItem.id);
             if (existing) {
-                return prev.map((i) => i.id === newItem.id ? { ...i, qty: i.qty + 1 } : i);
+                // Quét thêm: lấp vào vị trí FIFO còn chỗ, giữ phần thu ngân đã chia tay.
+                return prev.map((i) => i.id === newItem.id ? withTotalQty(i, i.qty + 1) : i);
             }
             return [...prev, newItem];
         });
@@ -276,10 +272,8 @@ const POSScreen = () => {
         // Vị trí + lô lấy từ api pos-info
         try {
             const posInfo = await getProductPosInfo(product.id);
-            // Hàng chưa xếp vào ô nào thì checkout chắc chắn hụt kho. Chặn ngay lúc thêm
-            // thay vì để thu ngân phát hiện khi bấm thanh toán, lúc khách đã đứng chờ.
             if (hasNoSellableLocation(posInfo)) {
-                setPosInfoError(unsellableMessage(product.name));
+                setPosInfoError(unsellableMessage(product.name, posInfo));
                 return;
             }
             setPosInfoError(null);
@@ -305,19 +299,9 @@ const POSScreen = () => {
         }
     }, [addProductToCart]);
 
-    const togglePick = useCallback((id, key) => {
+    const setPickQty = useCallback((id, key, qty) => {
         setCartItems((prev) =>
-            prev.map((item) => {
-                if (item.id !== id) return item;
-                const current = item.pickKeys ?? [];
-                const next = current.includes(key)
-                    ? current.filter((k) => k !== key)
-                    : [...current, key];
-                const ordered = (item.locations ?? [])
-                    .map(pickKey)
-                    .filter((k) => next.includes(k));
-                return { ...item, pickKeys: ordered };
-            })
+            prev.map((item) => item.id === id ? withPickQty(item, key, qty) : item)
         );
     }, [setCartItems]);
 
@@ -329,12 +313,12 @@ const POSScreen = () => {
                     (u) => String(u.id) === String(productUnitId)
                 );
                 if (!selectedUnit) return item;
-                return {
+                return withFifoPicks({
                     ...item,
                     productUnitId: selectedUnit.id,
                     unit: selectedUnit.name,
                     price: selectedUnit.sellingPrice ?? 0,
-                };
+                });
             })
         );
     }, [setCartItems]);
@@ -397,7 +381,6 @@ const POSScreen = () => {
             unit: it.unitName || it.unit || 'Cái',
             productUnitId: it.productUnitId || null,
             locations: [],
-            pickKeys: [],
             stockTotal: 999,
             qty: it.quantity || it.qty || 1,
             price: it.unitPrice || it.price || 0,
@@ -502,7 +485,7 @@ const POSScreen = () => {
             setQtyInputs((prev) => { const n = { ...prev }; delete n[id]; return n; });
         } else {
             setCartItems((prev) =>
-                prev.map((item) => item.id === id ? { ...item, qty: parseQty(raw) } : item)
+                prev.map((item) => item.id === id ? withTotalQty(item, parseQty(raw)) : item)
             );
             setQtyInputs((prev) => { const n = { ...prev }; delete n[id]; return n; });
         }
@@ -625,67 +608,27 @@ const POSScreen = () => {
     return (
         <div className="pos-container">
             <header className="pos-header">
-                <div className="pos-header-left">
-                    <div className="search-wrapper">
-                        <Search className="search-icon" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Thêm sản phẩm vào đơn"
-                            className="search-input"
-                            value={searchInput}
-                            onChange={(e) => setSearchInput(e.target.value)}
-                            disabled={scanning}
-                            autoFocus
-                        />
-                        {showDropdown && (
-                            <ProductSearchDropdown
-                                results={searchResults}
-                                loading={searchLoading}
-                                error={searchError}
-                                onSelect={handleSearchSelect}
-                                onClose={() => {
-                                    setSearchInput('');
-                                    clearResults();
-                                }}
-                            />
-                        )}
-                    </div>
-
-                    {/*  Order Tabs  */}
-                    <div className="pos-header-tabs-area">
-                        <div className="pos-header-tabs">
-                            {tabs.map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    className={tab.id === activeTabId ? 'tab-active' : 'tab-inactive'}
-                                    onClick={() => setActiveTabId(tab.id)}
-                                    title={tabLabels[tab.id]}
-                                >
-                                    <span className="tab-label">{tabLabels[tab.id]}</span>
-                                    {tabs.length > 1 && (
-                                        <span
-                                            className="tab-close"
-                                            onClick={(e) => handleCloseTab(tab.id, e)}
-                                            title="Đóng hóa đơn này"
-                                        >
-                                            <X size={14} strokeWidth={2.5} />
-                                        </span>
-                                    )}
-                                </button>
-                            ))}
-                        </div>
-                        <button
-                            className="btn-add-tab"
-                            onClick={handleAddTab}
-                            disabled={tabs.length >= MAX_TABS}
-                            title={tabs.length >= MAX_TABS
-                                ? `Chỉ được mở tối đa ${MAX_TABS} hóa đơn`
-                                : 'Tạo hóa đơn mới'}
-                        >
-                            <Plus size={24} strokeWidth={3} />
-                        </button>
-                    </div>
-                </div>
+                <PosHeaderLeft
+                    searchInput={searchInput}
+                    onSearchInputChange={setSearchInput}
+                    scanning={scanning}
+                    showDropdown={showDropdown}
+                    searchResults={searchResults}
+                    searchLoading={searchLoading}
+                    searchError={searchError}
+                    onSelectProduct={handleSearchSelect}
+                    onCloseDropdown={() => {
+                        setSearchInput('');
+                        clearResults();
+                    }}
+                    tabs={tabs}
+                    tabLabels={tabLabels}
+                    activeTabId={activeTabId}
+                    onSelectTab={setActiveTabId}
+                    onCloseTab={handleCloseTab}
+                    onAddTab={handleAddTab}
+                    maxTabs={MAX_TABS}
+                />
 
                 <div className="pos-header-right flex items-center gap-3">
                     {/* Badge Chế độ Offline rõ ràng, nổi bật khi mất mạng */}
@@ -699,7 +642,6 @@ const POSScreen = () => {
                         </div>
                     )}
 
-                    {/* Nút Đồng bộ dữ liệu tròn chuẩn KiotViet */}
                     <div className="pos-sync-wrapper">
                         <button
                             type="button"
@@ -815,7 +757,7 @@ const POSScreen = () => {
                                                 {item.stockTotal != null && (
                                                     <div
                                                         className="cart-stock-line"
-                                                        title={`Quầy ${Number(item.stockSales ?? 0).toLocaleString('vi-VN')} · Kho ${Number(item.stockWarehouse ?? 0).toLocaleString('vi-VN')}`}
+                                                        title={`Quầy ${Number(item.stockSales ?? 0).toLocaleString('vi-VN')} - Kho ${Number(item.stockWarehouse ?? 0).toLocaleString('vi-VN')}`}
                                                     >
                                                         Tồn kho: {Number(item.stockTotal).toLocaleString('vi-VN')}
                                                     </div>
@@ -841,7 +783,7 @@ const POSScreen = () => {
                                             <td>
                                                 <LocationPicker
                                                     item={item}
-                                                    onToggle={(key) => togglePick(item.id, key)}
+                                                    onPickQtyChange={(key, qty) => setPickQty(item.id, key, qty)}
                                                 />
                                             </td>
                                             <td>

@@ -15,7 +15,8 @@ export const menus = [
         id: "dashboard",
         title: "Bảng điều khiển",
         icon: LayoutDashboard,
-        path: "/admin/dashboard"
+        path: "/admin/dashboard",
+        role: ["MANAGER"]
     },
     {
         id: "reports",
@@ -111,7 +112,7 @@ export const menus = [
         title: "Thuế & Kế Toán",
         icon: FileText,
         path: "/admin/accounting",
-        permission: ["AUDIT:VIEW", "CUSTOMER:DEBT_VIEW", "SUPPLIER:PAYMENT"]
+        role: ["MANAGER"]
     },
     {
         id: "staff",

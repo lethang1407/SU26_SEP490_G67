@@ -152,11 +152,7 @@ public interface ImportOrderDetailRepository extends JpaRepository<ImportOrderDe
     @Query("""
         SELECT d
         FROM ImportOrderDetail d
-        JOIN FETCH d.product p
-        LEFT JOIN FETCH p.parent
-        LEFT JOIN FETCH d.productUnit
-        JOIN FETCH d.importOrder o
-        WHERE o.id = :orderId
+        WHERE d.importOrder.id = :orderId
           AND (d.isRemoved = false OR d.isRemoved IS NULL)
           AND d.lineType = 'TRIAL'
           AND d.trialStatus = 'OPEN'
@@ -177,14 +173,23 @@ public interface ImportOrderDetailRepository extends JpaRepository<ImportOrderDe
     List<Integer> findOrderIdsWithOpenTrial(@Param("orderIds") List<Integer> orderIds);
 
     @Query("""
+        SELECT COUNT(DISTINCT o.id)
+        FROM ImportOrderDetail d
+        JOIN d.importOrder o
+        WHERE (d.isRemoved = false OR d.isRemoved IS NULL)
+          AND (o.isRemoved = false OR o.isRemoved IS NULL)
+          AND UPPER(o.orderStatus) = 'IMPORTED'
+          AND d.lineType = 'TRIAL'
+          AND d.trialStatus = 'OPEN'
+        """)
+    long countOpenTrialOrders();
+
+    @Query("""
         SELECT d
         FROM ImportOrderDetail d
-        JOIN FETCH d.product p
-        LEFT JOIN FETCH p.parent
-        LEFT JOIN FETCH d.productUnit
-        JOIN FETCH d.importOrder o
-        LEFT JOIN FETCH o.supplier
-        WHERE o.supplier.id = :supplierId
+        JOIN d.importOrder o
+        JOIN o.supplier s
+        WHERE s.id = :supplierId
           AND (d.isRemoved = false OR d.isRemoved IS NULL)
           AND (o.isRemoved = false OR o.isRemoved IS NULL)
           AND UPPER(o.orderStatus) = 'IMPORTED'
@@ -193,6 +198,21 @@ public interface ImportOrderDetailRepository extends JpaRepository<ImportOrderDe
         ORDER BY o.receivedDate DESC, o.id DESC, d.id ASC
         """)
     List<ImportOrderDetail> findOpenTrialLinesBySupplierId(@Param("supplierId") Integer supplierId);
+
+    @Query("""
+        SELECT d
+        FROM ImportOrderDetail d
+        JOIN d.importOrder o
+        JOIN o.supplier s
+        WHERE (d.isRemoved = false OR d.isRemoved IS NULL)
+          AND (o.isRemoved = false OR o.isRemoved IS NULL)
+          AND (s.isRemoved = false OR s.isRemoved IS NULL)
+          AND UPPER(o.orderStatus) = 'IMPORTED'
+          AND d.lineType = 'TRIAL'
+          AND d.trialStatus = 'OPEN'
+        ORDER BY o.receivedDate ASC, o.id ASC, d.id ASC
+        """)
+    List<ImportOrderDetail> findOpenTrialLines();
 
     @Query("""
         SELECT COALESCE(SUM(COALESCE(d.costPerUnit, 0) * d.quantity), 0)

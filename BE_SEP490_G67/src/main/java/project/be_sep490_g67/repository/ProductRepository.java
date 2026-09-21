@@ -82,7 +82,8 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
                       AND (child.isRemoved = false OR child.isRemoved IS NULL)
               )
               AND (
-                    lower(p.name) LIKE lower(concat('%', :query, '%'))
+                    :query IS NULL OR :query = ''
+                    OR lower(p.name) LIKE lower(concat('%', :query, '%'))
                     OR (p.barcode IS NOT NULL AND lower(p.barcode) LIKE lower(concat('%', :query, '%')))
                     OR (p.sku IS NOT NULL AND lower(p.sku) LIKE lower(concat('%', :query, '%')))
                     OR (parent IS NOT NULL AND lower(parent.name) LIKE lower(concat('%', :query, '%')))
