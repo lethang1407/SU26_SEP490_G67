@@ -15,24 +15,28 @@ public class CreateStorageLocationRequest {
     @Size(max = 50, message = "Khu vực tối đa 50 ký tự")
     String zone;
 
-    /** Tầng (số nguyên dương), map cột shelf. */
-    @NotBlank(message = "Tầng không được để trống")
-    @Pattern(regexp = "^[1-9]\\d*$", message = "Tầng phải là số nguyên dương")
+    /**
+     * Tầng (tuỳ chọn). Để trống = vị trí đơn giản (chỉ cần mã vị trí).
+     * Nếu nhập thì phải là số nguyên dương.
+     */
+    @Pattern(regexp = "^$|^[1-9]\\d*$", message = "Tầng phải là số nguyên dương")
     @Size(max = 20, message = "Tầng tối đa 20 ký tự")
     String shelf;
 
-    /** Số ô trên tầng (bắt đầu từ 1), map cột bin. */
-    @NotBlank(message = "Số ô không được để trống")
-    @Pattern(regexp = "^[1-9]\\d*$", message = "Số ô phải là số nguyên dương")
+    /**
+     * Số ô (tuỳ chọn). Đi kèm tầng khi dùng mô hình kệ.
+     */
+    @Pattern(regexp = "^$|^[1-9]\\d*$", message = "Số ô phải là số nguyên dương")
     @Size(max = 20, message = "Số ô tối đa 20 ký tự")
     String bin;
 
-    /** SM | MD | LG */
-    @NotBlank(message = "Kích thước ô không được để trống")
+    /** SM | MD | LG — tuỳ chọn, mặc định MD. */
     @Size(max = 10, message = "Kích thước tối đa 10 ký tự")
     String size;
 
-    /** Nếu trống, BE tự sinh ZONE-T{shelf}-O{bin}. */
+    /**
+     * Mã vị trí. Bắt buộc với vị trí đơn giản; nếu trống và có tầng/ô thì BE tự sinh.
+     */
     @Size(max = 50, message = "Mã vị trí tối đa 50 ký tự")
     String label;
 

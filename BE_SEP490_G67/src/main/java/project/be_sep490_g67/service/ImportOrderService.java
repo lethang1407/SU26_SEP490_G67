@@ -1301,9 +1301,19 @@ public class ImportOrderService {
         batch.setIsRemoved(false);
         StockBatch savedBatch = stockBatchRepository.save(batch);
 
+
+        StorageLocation receiving = storageLocationRepository.findReceivingLocation()
+                .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
+        BatchLocation bl = new BatchLocation();
+        bl.setBatch(savedBatch);
+        bl.setLocation(receiving);
+        bl.setQuantity(quantityIn);
+        bl.setIsRemoved(false);
+        BatchLocation savedBatchLocation = batchLocationRepository.save(bl);
+
         StockMovement movement = StockMovement.builder()
                 .stockBatch(savedBatch)
-                .batchLocation(null)
+                .batchLocation(savedBatchLocation)
                 .quantityDelta(quantityIn)
                 .stockAfter(quantityIn)
                 .movementType("IMPORT")
@@ -1313,7 +1323,7 @@ public class ImportOrderService {
         movement.setIsRemoved(false);
         stockMovementRepository.save(movement);
 
-        // Cập nhật giá vốn master theo giá base vừa nhập (lần sau search gợi ý đúng hơn)
+        // Cập nhật giá vốn master theo giá base vừa nhập
         Product product = detail.getProduct();
         if (product != null && costPerUnit != null) {
             product.setCostPrice(costPerUnit);

@@ -42,6 +42,16 @@
   min-width: 220px;
 }
 
+.wr-filters__field--year {
+  flex: 0 0 120px;
+  min-width: 120px;
+}
+
+.wr-filters__field--date {
+  flex: 0 0 170px;
+  min-width: 160px;
+}
+
 .wr-filters__field--type {
   flex: 0 0 180px;
   width: 180px;
@@ -68,6 +78,89 @@
 
 .wr-filters__select {
   cursor: pointer;
+}
+
+.wr-filters__select:focus {
+  outline: none;
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.wr-input-wrap {
+  position: relative;
+}
+
+.wr-input-wrap__icon {
+  position: absolute;
+  top: 50%;
+  left: 11px;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.wr-filters__select--with-icon {
+  padding-left: 32px;
+}
+
+.wr-year {
+  position: relative;
+}
+
+.wr-year__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wr-year__chevron {
+  flex-shrink: 0;
+  color: #94a3b8;
+  transition: transform 0.15s ease;
+}
+
+.wr-year__chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.wr-year__list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 40;
+  width: 100%;
+  max-height: 220px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.wr-year__option {
+  padding: 7px 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #334155;
+  cursor: pointer;
+}
+
+.wr-year__option:hover {
+  background: #f1f5f9;
+}
+
+.wr-year__option.is-selected {
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 600;
 }
 
 .wr-filters__select-btn {

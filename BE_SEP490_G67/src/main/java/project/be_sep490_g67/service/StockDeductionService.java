@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import project.be_sep490_g67.constants.StorageZoneType;
 import project.be_sep490_g67.entity.BatchLocation;
 import project.be_sep490_g67.entity.ProductUnit;
 import project.be_sep490_g67.entity.StockBatch;
@@ -240,7 +241,7 @@ public class StockDeductionService {
         }
         String where = rows.isEmpty()
                 ? "Vị trí đã chọn"
-                : "Vị trí " + rows.get(0).getLocation().getLabel();
+                : "Vị trí " + StorageZoneType.resolveDisplayLabel(rows.get(0).getLocation().getLabel());
         return where + " chỉ còn " + available + ", cần " + pick.baseQuantity() + ".";
     }
 
@@ -258,7 +259,7 @@ public class StockDeductionService {
         }
 
         String locationLabels = availableList.stream()
-                .map(bl -> bl.getLocation().getLabel())
+                .map(bl -> StorageZoneType.resolveDisplayLabel(bl.getLocation().getLabel()))
                 .filter(label -> label != null && !label.isBlank())
                 .distinct()
                 .collect(Collectors.joining(", "));

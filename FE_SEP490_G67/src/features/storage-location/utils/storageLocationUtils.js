@@ -1,10 +1,14 @@
 import {
     LOCATION_STATUS,
     NEAR_EXPIRY_DAYS,
+    RECEIVING_ZONE_CODE,
     SHELF_CAPACITY,
     SHELF_SIZE,
     SHELF_SIZE_LABEL,
     ZONE_TYPE,
+    getLocationDisplayLabel,
+    getZoneDisplayTitle,
+    isReceivingLocation,
     isReturnHoldLocation,
     normalizeShelfSize,
     normalizeZoneType,
@@ -150,6 +154,9 @@ export function getLocationStatus(location) {
 }
 
 export function formatLocationAddress(location) {
+    if (isReceivingLocation(location)) {
+        return getLocationDisplayLabel(location);
+    }
     const parts = [`Kệ ${location.zone}`];
     if (location.shelf) {
         parts.push(`Tầng ${location.shelf}`);
@@ -198,7 +205,7 @@ export function getZoneOptions(locations) {
         { value: 'all', label: 'Tất cả khu' },
         ...zones.map((zone) => ({
             value: zone,
-            label: `Kệ ${zone}`,
+            label: getZoneDisplayTitle({ zone }),
         })),
     ];
 }
@@ -485,8 +492,14 @@ export function groupLocationsByZone(locations) {
         };
     });
 
-    // Sort theo mã khu (RETURN_HOLD đã lọc ở tầng khác nếu cần)
-    return mapped.sort((a, b) => String(a.zone ?? '').localeCompare(String(b.zone ?? '')));
+    // NH (hàng mới nhập) lên đầu, còn lại theo mã khu A–Z
+    return mapped.sort((a, b) => {
+        const zoneA = String(a.zone ?? '');
+        const zoneB = String(b.zone ?? '');
+        if (zoneA === RECEIVING_ZONE_CODE && zoneB !== RECEIVING_ZONE_CODE) return -1;
+        if (zoneB === RECEIVING_ZONE_CODE && zoneA !== RECEIVING_ZONE_CODE) return 1;
+        return zoneA.localeCompare(zoneB);
+    });
 }
 
 /**
@@ -557,6 +570,9 @@ export function suggestLocationsForBatch(batch, locations, options = {}) {
         if (isReturnHoldLocation(location)) {
             continue;
         }
+        if (isReceivingLocation(location)) {
+            continue;
+        }
         if (location.isFull) {
             continue;
         }
@@ -597,7 +613,7 @@ export function suggestLocationsForBatch(batch, locations, options = {}) {
 
         scored.push({
             locationId: location.id,
-            label: location.label,
+            label: getLocationDisplayLabel(location),
             zone: location.zone,
             score,
             reason,

@@ -1,5 +1,10 @@
 import { AlertTriangle } from 'lucide-react';
-import { LOCATION_STATUS, LOCATION_STATUS_LABEL } from '../constants';
+import {
+    LOCATION_STATUS,
+    LOCATION_STATUS_LABEL,
+    getLocationDisplayLabel,
+    isReceivingLocation,
+} from '../constants';
 import {
     getLocationMetrics,
     getLocationProductPreview,
@@ -12,6 +17,8 @@ export default function StorageLocationCell({ location, isSelected, onSelect }) 
     const { batchCount, totalQty, productCount, product } = getLocationMetrics(location);
     const profile = getShelfProfile(location);
     const isEmpty = status === LOCATION_STATUS.EMPTY;
+    const isReceiving = isReceivingLocation(location);
+    const displayLabel = getLocationDisplayLabel(location);
     const productPreview = getLocationProductPreview(location, productCount > 1 ? 2 : 1);
     const fullProductTitle = (location.contents ?? [])
         .map((item) => item.productName)
@@ -28,14 +35,15 @@ export default function StorageLocationCell({ location, isSelected, onSelect }) 
                 `storage-location-cell--size-${profile.size}`,
                 isEmpty ? 'storage-location-cell--muted' : '',
                 isSelected ? 'storage-location-cell--selected' : '',
+                isReceiving ? 'storage-location-cell--receiving' : '',
             ]
                 .filter(Boolean)
                 .join(' ')}
             onClick={() => onSelect(location)}
-            title={`${location.label} · ${profile.sizeLabel}`}
+            title={`${displayLabel} · ${profile.sizeLabel}`}
         >
             <div className="storage-location-cell__header">
-                <span className="storage-location-cell__label">{location.label}</span>
+                <span className="storage-location-cell__label">{displayLabel}</span>
                 <span
                     className={`storage-location-cell__dot storage-location-cell__dot--${status}`}
                     title={LOCATION_STATUS_LABEL[status]}
@@ -44,7 +52,9 @@ export default function StorageLocationCell({ location, isSelected, onSelect }) 
 
             <span className="storage-location-cell__meta">
                 <span className="storage-location-cell__size">{profile.sizeLabel}</span>
-                {location.shelf || location.bin ? (
+                {isReceiving ? (
+                    <span className="storage-location-cell__address">Khu nhập hàng</span>
+                ) : location.shelf || location.bin ? (
                     <span className="storage-location-cell__address">
                         {location.shelf ? `Tầng ${location.shelf}` : '—'}
                         {location.bin ? ` · Ô ${location.bin}` : ''}
@@ -74,7 +84,7 @@ export default function StorageLocationCell({ location, isSelected, onSelect }) 
             {status === LOCATION_STATUS.NEAR_EXPIRY && (
                 <span className="storage-location-cell__badge">
                     <AlertTriangle size={12} />
-                    Sắp HSD
+                    Sắp hết HSD
                 </span>
             )}
             {status === LOCATION_STATUS.FULL ? (

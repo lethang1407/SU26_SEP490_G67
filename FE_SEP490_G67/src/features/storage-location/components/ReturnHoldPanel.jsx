@@ -107,13 +107,13 @@ export default function ReturnHoldPanel({
                 <div className="storage-return-hold-panel__empty storage-return-hold-panel__empty--box">
                     <Package size={20} />
                     <span>
-                        Chưa có vị trí chứa hàng đổi trả. Hãy chạy migration / khởi động lại backend.
+                        Chưa có vị trí chứa hàng đổi trả.
                     </span>
                 </div>
             ) : totalItems === 0 ? (
                 <div className="storage-return-hold-panel__empty storage-return-hold-panel__empty--box">
                     <Package size={20} />
-                    <span>Chưa có hàng đổi trả trong vị trí này.</span>
+                    <span>Chưa có hàng đổi trả .</span>
                 </div>
             ) : (
                 <>

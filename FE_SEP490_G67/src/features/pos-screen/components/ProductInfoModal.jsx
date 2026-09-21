@@ -3,6 +3,7 @@ import { X, AlertCircle, MapPin } from 'lucide-react';
 import { getProductPosInfo } from '../api';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import { formatVnd } from '../utils/money';
+import { formatLocationShort } from '../utils/cartLocation';
 
 /** Ngày dạng ISO (yyyy-MM-dd) từ BE -> dd/MM/yyyy, rỗng thì gạch ngang. */
 const formatVnDate = (isoDate) =>
@@ -136,7 +137,7 @@ export default function ProductInfoModal({ productId, onClose }) {
                                         >
                                             <td>
                                                 {loc.expired && <span className="loc-expired-dot loc-expired-dot--inline" />}
-                                                {loc.label}
+                                                {formatLocationShort(loc) || loc.label}
                                             </td>
                                             <td>{loc.zoneCode || '—'}</td>
                                             <td>{loc.batchCode ?? '—'}</td>

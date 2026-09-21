@@ -1,5 +1,6 @@
 import { Modal } from 'react-bootstrap';
 import StorageLocationCell from './StorageLocationCell';
+import { getZoneDisplayTitle } from '../constants';
 
 function ZoneSummaryPills({ stats }) {
     if (!stats) {
@@ -15,7 +16,7 @@ function ZoneSummaryPills({ stats }) {
             </span>
             {stats.nearExpiryCount > 0 && (
                 <span className="storage-location-zone__pill storage-location-zone__pill--warn">
-                    {stats.nearExpiryCount} sắp HSD
+                    {stats.nearExpiryCount} sắp hết HSD
                 </span>
             )}
         </div>
@@ -45,7 +46,7 @@ export default function ZoneDetailModal({
         >
             <Modal.Header className="storage-adjust-modal__header" closeButton>
                 <div className="storage-adjust-modal__header-main">
-                    <Modal.Title>Kệ {zoneGroup.zone}</Modal.Title>
+                    <Modal.Title>{getZoneDisplayTitle(zoneGroup)}</Modal.Title>
                     <div className="storage-zone-detail-modal__toolbar">
                         <ZoneSummaryPills stats={zoneGroup.stats} />
                     </div>
@@ -59,13 +60,16 @@ export default function ZoneDetailModal({
                     </div>
                 ) : (
                     floorGroups.map((floorGroup) => {
-                        const floorKey = floorGroup.floor ?? floorGroup.aisle ?? 'none';
+                        const floor = floorGroup.floor ?? floorGroup.aisle ?? null;
+                        const floorKey = floor ?? '_none';
                         const locations = floorGroup.locations ?? [];
                         return (
                             <div key={floorKey} className="storage-zone-detail-modal__floor">
-                                <h4 className="storage-zone-detail-modal__floor-title">
-                                    Tầng {floorKey}
-                                </h4>
+                                {floor ? (
+                                    <h4 className="storage-zone-detail-modal__floor-title">
+                                        Tầng {floor}
+                                    </h4>
+                                ) : null}
                                 <div className="storage-location-zone__shelves">
                                     {locations.map((location) => (
                                         <StorageLocationCell

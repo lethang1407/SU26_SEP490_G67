@@ -109,7 +109,12 @@ export function hasLocationProblem(item) {
 
 export function formatLocationShort(loc) {
     if (!loc) return null;
-    return loc.label || loc.zoneCode || String(loc.locationId);
+    const raw = loc.label || loc.zoneCode || String(loc.locationId);
+    const upper = String(raw).trim().toUpperCase();
+    if (upper === 'IMPORTED' || upper === 'NHAP-MOI' || upper === 'NH') {
+        return 'Khu nhập hàng';
+    }
+    return raw;
 }
 
 /** Các dòng đang lấy hàng, theo thứ tự FIFO. */

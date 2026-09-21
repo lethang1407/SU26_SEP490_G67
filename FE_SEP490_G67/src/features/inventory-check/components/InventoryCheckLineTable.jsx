@@ -8,7 +8,12 @@ import {
 } from '../utils/inventoryCheckUtils';
 
 function rowKeyOf(line) {
-    return line.id ?? `${line.productId}-${line.stockBatchId ?? 'ALL'}`;
+    return line.id ?? `${line.productId}-${line.locationId ?? 'LOC'}-${line.stockBatchId ?? 'BATCH'}`;
+}
+
+function batchesAtLocation(batches, locationId) {
+    if (locationId == null) return [];
+    return (batches ?? []).filter((b) => Number(b.locationId) === Number(locationId));
 }
 
 export default function InventoryCheckLineTable({
@@ -20,9 +25,11 @@ export default function InventoryCheckLineTable({
     onNoteChange,
     onRemoveLine,
     onBatchChange,
+    onLocationChange,
     onUnitChange,
     onExchangeBatch,
     onReturnBatch,
+    onCancelBatch,
 }) {
     const normalizedKeyword = keyword.trim().toLowerCase();
     const filteredLines = lines.filter((line) => {
@@ -33,7 +40,8 @@ export default function InventoryCheckLineTable({
         return (
             line.productCode?.toLowerCase().includes(normalizedKeyword) ||
             line.productName?.toLowerCase().includes(normalizedKeyword) ||
-            line.batchCode?.toLowerCase().includes(normalizedKeyword)
+            line.batchCode?.toLowerCase().includes(normalizedKeyword) ||
+            line.locationLabel?.toLowerCase().includes(normalizedKeyword)
         );
     });
 
@@ -70,6 +78,7 @@ export default function InventoryCheckLineTable({
                         <tr>
                             <th>Mã SP</th>
                             <th>Tên sản phẩm</th>
+                            <th>Vị trí</th>
                             <th>Lô</th>
                             <th>ĐVT</th>
                             <th>Tồn HT</th>
@@ -95,24 +104,47 @@ export default function InventoryCheckLineTable({
                                         {line.productName}
                                     </td>
                                     <td>
-                                        {editable && onBatchChange ? (
+                                        {editable && onLocationChange ? (
                                             <StyledSelect
-                                                value={line.stockBatchId ?? 'ALL'}
-                                                options={[
-                                                    { value: 'ALL', label: 'Tất cả lô' },
-                                                    ...(line.batches ?? []).map((batch) => ({
-                                                        value: batch.id,
-                                                        label: `${batch.batchCode} (${batch.quantity}${
-                                                            batch.expiryDate
-                                                                ? ` · HSD ${batch.expiryDate}`
-                                                                : ''
-                                                        })`,
-                                                    })),
-                                                ]}
-                                                onChange={(next) => onBatchChange(rowKey, next)}
+                                                value={line.locationId ?? ''}
+                                                options={(line.locations ?? []).map((loc) => ({
+                                                    value: loc.id,
+                                                    label: loc.label,
+                                                }))}
+                                                onChange={(next) => onLocationChange(rowKey, next)}
+                                                placeholder="Chọn vị trí"
                                             />
                                         ) : (
-                                            line.batchCode || 'Tất cả lô'
+                                            line.locationLabel || '—'
+                                        )}
+                                    </td>
+                                    <td>
+                                        {editable && onBatchChange ? (
+                                            <StyledSelect
+                                                value={line.stockBatchId ?? ''}
+                                                options={batchesAtLocation(
+                                                    line.batches,
+                                                    line.locationId,
+                                                ).map((batch) => ({
+                                                    value: batch.id,
+                                                    label: `${batch.batchCode} (${batch.quantity}${
+                                                        batch.expiryDate
+                                                            ? ` · HSD ${batch.expiryDate}`
+                                                            : ''
+                                                    })`,
+                                                }))}
+                                                onChange={(next) => onBatchChange(rowKey, next)}
+                                                placeholder="Chọn lô"
+                                                disabled={!line.locationId}
+                                                title={
+                                                    batchesAtLocation(line.batches, line.locationId)
+                                                        .length <= 1
+                                                        ? 'Vị trí chỉ có 1 lô — đã chọn tự động'
+                                                        : 'Chọn lô tại vị trí này'
+                                                }
+                                            />
+                                        ) : (
+                                            line.batchCode || '—'
                                         )}
                                     </td>
                                     <td>
@@ -133,7 +165,7 @@ export default function InventoryCheckLineTable({
                                         {line.systemQty}
                                     </td>
                                     <td>
-                                        {editable ? (
+                                        {editable && hasSpecificBatch ? (
                                             <input
                                                 type="number"
                                                 min="0"
@@ -147,7 +179,14 @@ export default function InventoryCheckLineTable({
                                                 }
                                             />
                                         ) : (
-                                            <span className="inventory-check-line-table__qty">
+                                            <span
+                                                className="inventory-check-line-table__qty"
+                                                title={
+                                                    editable && !hasSpecificBatch
+                                                        ? 'Chọn một lô cụ thể để chỉnh tồn thực tế'
+                                                        : undefined
+                                                }
+                                            >
                                                 {line.actualQty ?? '—'}
                                             </span>
                                         )}
@@ -218,14 +257,42 @@ export default function InventoryCheckLineTable({
                                                         >
                                                             Trả NCC
                                                         </button>
+                                                        <button
+                                                            type="button"
+                                                            className="inventory-check-line-table__action inventory-check-line-table__action--warning"
+                                                            onClick={() => onCancelBatch?.(line)}
+                                                            disabled={Number(line.systemQty) < 1}
+                                                            title={
+                                                                Number(line.systemQty) < 1
+                                                                    ? 'Không còn tồn để hủy'
+                                                                    : 'Hủy hàng (ghi giảm tồn, không trả NCC)'
+                                                            }
+                                                        >
+                                                            Hủy hàng
+                                                        </button>
                                                     </div>
                                                 ) : hasSpecificBatch && line.isTrial ? (
-                                                    <span
-                                                        className="text-muted"
-                                                        title="Hàng bán thử quyết toán trên phiếu nhập"
-                                                    >
-                                                        Bán thử
-                                                    </span>
+                                                    <div className="inventory-check-line-table__batch-actions">
+                                                        <span
+                                                            className="text-muted"
+                                                            title="Hàng bán thử quyết toán trên phiếu nhập"
+                                                        >
+                                                            Bán thử
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            className="inventory-check-line-table__action inventory-check-line-table__action--warning"
+                                                            onClick={() => onCancelBatch?.(line)}
+                                                            disabled={Number(line.systemQty) < 1}
+                                                            title={
+                                                                Number(line.systemQty) < 1
+                                                                    ? 'Không còn tồn để hủy'
+                                                                    : 'Hủy hàng (ghi giảm tồn, không trả NCC)'
+                                                            }
+                                                        >
+                                                            Hủy hàng
+                                                        </button>
+                                                    </div>
                                                 ) : null}
                                                 <button
                                                     type="button"

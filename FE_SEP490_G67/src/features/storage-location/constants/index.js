@@ -13,7 +13,7 @@ export const LOCATION_STATUS = {
 export const LOCATION_STATUS_LABEL = {
     [LOCATION_STATUS.EMPTY]: 'Trống',
     [LOCATION_STATUS.OCCUPIED]: 'Có hàng',
-    [LOCATION_STATUS.NEAR_EXPIRY]: 'Sắp hết hạn',
+    [LOCATION_STATUS.NEAR_EXPIRY]: 'Sắp hết HSD',
     [LOCATION_STATUS.FULL]: 'Đầy',
 };
 
@@ -90,6 +90,12 @@ export const ZONE_TYPE_OPTIONS = [
 export const RETURN_HOLD_ZONE_CODE = 'RT';
 export const RETURN_HOLD_LOCATION_LABEL = 'RT-HOLD';
 
+/** Vị trí nhận hàng mới nhập (chờ xếp kệ). */
+export const RECEIVING_ZONE_CODE = 'NH';
+/** Label kỹ thuật trong DB — không hiện trên UI. */
+export const RECEIVING_LOCATION_LABEL = 'IMPORTED';
+export const RECEIVING_DISPLAY_NAME = 'Khu nhập hàng';
+
 export function normalizeZoneType(raw) {
     const value = String(raw ?? '').trim().toUpperCase();
     if (value === ZONE_TYPE.RETURN_HOLD) return ZONE_TYPE.RETURN_HOLD;
@@ -99,4 +105,35 @@ export function normalizeZoneType(raw) {
 
 export function isReturnHoldLocation(location) {
     return normalizeZoneType(location?.zoneType) === ZONE_TYPE.RETURN_HOLD;
+}
+
+export function isReceivingLocation(location) {
+    const label = String(location?.label ?? '').trim().toUpperCase();
+    const zone = String(location?.zone ?? '').trim().toUpperCase();
+    return (
+        label === RECEIVING_LOCATION_LABEL ||
+        label === 'NHAP-MOI' ||
+        zone === RECEIVING_ZONE_CODE
+    );
+}
+
+/** Tên hiển thị ô kệ (ô nhập hàng → "Khu nhập hàng"). */
+export function getLocationDisplayLabel(location) {
+    if (!location) return '—';
+    if (isReceivingLocation(location)) {
+        return location.displayLabel || RECEIVING_DISPLAY_NAME;
+    }
+    return location.displayLabel || location.label || '—';
+}
+
+/** Tiêu đề khu trên lưới / modal. */
+export function getZoneDisplayTitle(groupOrZone) {
+    const zone = String(groupOrZone?.zone ?? groupOrZone ?? '').trim().toUpperCase();
+    if (zone === RECEIVING_ZONE_CODE) {
+        return RECEIVING_DISPLAY_NAME;
+    }
+    if (groupOrZone?.zoneTitle) {
+        return groupOrZone.zoneTitle;
+    }
+    return zone ? `Kệ ${zone}` : '—';
 }
