@@ -128,9 +128,14 @@ public class ImportSuggestionService {
             Integer productId = (Integer) row[0];
             Integer supplierId = (Integer) row[1];
             BigDecimal cost = (BigDecimal) row[2];
+            BigDecimal unitBase = row[3] instanceof BigDecimal ? (BigDecimal) row[3] : BigDecimal.ONE;
+            BigDecimal baseCost = (cost != null && unitBase != null && unitBase.compareTo(BigDecimal.ZERO) > 0)
+                    ? cost.divide(unitBase, 2, RoundingMode.HALF_UP)
+                    : (cost != null ? cost : BigDecimal.ZERO);
+
             map.computeIfAbsent(productId, k -> new LinkedHashMap<>());
             if (!map.get(productId).containsKey(supplierId)) {
-                map.get(productId).put(supplierId, cost);
+                map.get(productId).put(supplierId, baseCost);
             }
         }
         return map;

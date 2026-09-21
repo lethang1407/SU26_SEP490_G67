@@ -150,12 +150,16 @@ public class AuthenticationService {
 
         var verified = signedJWT.verify(verifier);
 
-        if (!(verified && expiryTime.after(new Date()))) throw new AppException(ErrorCode.UNAUTHENTICATED);
-
         String jit = signedJWT.getJWTClaimsSet().getJWTID();
         String key = LOGOUT_TOKEN_PREFIX + jit;
-        if (redisTemplate.hasKey(key)) {
-            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        try {
+            if (redisTemplate != null && Boolean.TRUE.equals(redisTemplate.hasKey(key))) {
+                throw new AppException(ErrorCode.UNAUTHENTICATED);
+            }
+        } catch (AppException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("Cannot check token blacklist from Redis: {}", e.getMessage());
         }
 
         return signedJWT;

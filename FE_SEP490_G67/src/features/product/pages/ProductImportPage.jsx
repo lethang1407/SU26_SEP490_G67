@@ -787,7 +787,7 @@ export default function ProductImportPage() {
                         setSuccessMsg('');
                       }}
                     >
-                      ✕ Xóa lọc
+                      Xóa lọc
                     </button>
                   </div>
                 )}
@@ -852,6 +852,17 @@ export default function ProductImportPage() {
           onChangeQty={(id, quantity) =>
             setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], quantity } }))
           }
+          onChangePrice={(id, price, unitBase) => {
+            const safeBase = Number(unitBase) > 0 ? Number(unitBase) : 1;
+            const baseCost = Number(price) / safeBase;
+            setOverrides((prev) => ({
+              ...prev,
+              [id]: {
+                ...prev[id],
+                costPerUnit: baseCost,
+              },
+            }));
+          }}
           onChangeCover={(id, coverDays) =>
             setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], coverDays } }))
           }

@@ -59,14 +59,15 @@ public interface ImportOrderDetailRepository extends JpaRepository<ImportOrderDe
 
     /**
      * Recent costs by product + supplier — newest order first.
-     * Columns: productId, supplierId, costPerUnit, orderId
+     * Columns: productId, supplierId, costPerUnit, unitBase, orderId
      */
     @Query("""
-        SELECT p.id, s.id, d.costPerUnit, o.id
+        SELECT p.id, s.id, d.costPerUnit, u.unitBase, o.id
         FROM ImportOrderDetail d
         JOIN d.importOrder o
         JOIN o.supplier s
         JOIN d.product p
+        LEFT JOIN d.productUnit u
         WHERE p.id IN :productIds
           AND (d.isRemoved = false OR d.isRemoved IS NULL)
           AND (o.isRemoved = false OR o.isRemoved IS NULL)
