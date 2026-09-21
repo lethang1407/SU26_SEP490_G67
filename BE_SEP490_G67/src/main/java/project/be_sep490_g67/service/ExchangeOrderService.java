@@ -50,6 +50,7 @@ public class ExchangeOrderService {
     DebtPaymentRepository debtPaymentRepository;
     DebtPolicy debtPolicy;
     StockDeductionService stockDeductionService;
+    AccountingService accountingService;
 
     @Transactional(readOnly = true)
     public ExchangeOrderDetailResponse getOrderForExchange(Integer orderId) {
@@ -122,6 +123,7 @@ public class ExchangeOrderService {
             CreateExchangeOrderRequest request,
             Integer staffId) {
 
+        accountingService.lockForSourceWrite();
         // Validate original order exists
         SalesOrder originalOrder = salesOrderRepository.findByIdWithDetails(request.getOriginalOrderId())
                 .orElseThrow(() -> new AppException(ErrorCode.ORIGINAL_ORDER_NOT_FOUND));
@@ -331,6 +333,9 @@ public class ExchangeOrderService {
         originalOrder.setUpdatedBy(staffId);
         originalOrder.setUpdatedAt(Instant.now());
         salesOrderRepository.save(originalOrder);
+
+        accountingService.recordReturn(savedReturnOrder);
+        if (exchangeOrder != null) accountingService.recordSale(exchangeOrder);
 
         return buildExchangeOrderResponse(
                 savedReturnOrder,
