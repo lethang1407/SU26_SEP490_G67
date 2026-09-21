@@ -16,14 +16,12 @@ import project.be_sep490_g67.dto.response.ImportOrderResponse;
 import project.be_sep490_g67.dto.response.ImportOrderItemResponse;
 import project.be_sep490_g67.dto.response.ImportOrderListItemResponse;
 import project.be_sep490_g67.dto.response.ImportOrderReturnLineResponse;
-import project.be_sep490_g67.dto.response.ImportPriceAdjustmentResponse;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.dto.response.ProductAttributeResponse;
 import project.be_sep490_g67.enums.ImportLineType;
 import project.be_sep490_g67.mapper.ProductMapper;
 import project.be_sep490_g67.entity.ImportOrder;
 import project.be_sep490_g67.entity.ImportOrderDetail;
-import project.be_sep490_g67.entity.ImportOrderPriceAdjustment;
 import project.be_sep490_g67.entity.ImportReturnDetail;
 import project.be_sep490_g67.entity.Product;
 import project.be_sep490_g67.entity.ProductUnit;
@@ -37,7 +35,6 @@ import project.be_sep490_g67.entity.User;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.ImportOrderDetailRepository;
-import project.be_sep490_g67.repository.ImportOrderPriceAdjustmentRepository;
 import project.be_sep490_g67.repository.ImportOrderRepository;
 import project.be_sep490_g67.utils.UnitPriceResolver;
 import project.be_sep490_g67.repository.ProductRepository;
@@ -72,7 +69,6 @@ public class ImportOrderService {
 
     ImportOrderRepository importOrderRepository;
     ImportOrderDetailRepository importOrderDetailRepository;
-    ImportOrderPriceAdjustmentRepository importOrderPriceAdjustmentRepository;
     ProductRepository productRepository;
     SupplierRepository supplierRepository;
     SupplierPaymentRepository supplierPaymentRepository;
@@ -156,12 +152,11 @@ public class ImportOrderService {
         }
 
         importReturnService.syncSettledLines(saved, returnLines, isImported);
-        replacePriceAdjustments(saved, request.getPriceAdjustments());
 
         BigDecimal recordedPaid = BigDecimal.ZERO;
         if (isImported) {
             createStocksForImportedDetails(saved, details);
-            applyPendingSellingPrices(saved.getId());
+            applySellingPrices(request.getPriceAdjustments());
             if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
                 createInitialPayment(saved, supplier, paidAmount, request.getPaymentMethod());
                 recordedPaid = paidAmount;
@@ -254,12 +249,11 @@ public class ImportOrderService {
         }
 
         importReturnService.syncSettledLines(saved, returnLines, isImported);
-        replacePriceAdjustments(saved, request.getPriceAdjustments());
 
         BigDecimal recordedPaid = BigDecimal.ZERO;
         if (isImported) {
             createStocksForImportedDetails(saved, details);
-            applyPendingSellingPrices(saved.getId());
+            applySellingPrices(request.getPriceAdjustments());
             if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
                 createInitialPayment(saved, supplier, paidAmount, request.getPaymentMethod());
                 recordedPaid = paidAmount;
@@ -538,7 +532,6 @@ public class ImportOrderService {
                 .items(items)
                 .returnLines(importReturnService.listSettledForImportOrder(order.getId()))
                 .trialSettlements(importTrialSettlementService.listHistory(order.getId()))
-                .priceAdjustments(toPriceAdjustmentResponses(order.getId()))
                 .hasOpenTrial(hasOpenTrial)
                 .build();
     }
@@ -1233,21 +1226,14 @@ public class ImportOrderService {
     }
 
     /**
-     * null = không đụng bản đã lưu. Còn lại: xóa rồi ghi lại theo request.
-     * Chỉ áp vào giá bán master khi phiếu IMPORTED.
+     * Ghi giá bán mới vào product_units (và SP gốc nếu là ĐVT cơ bản).
+     * Chỉ gọi khi phiếu IMPORTED — phiếu tạm không lưu giá bán.
      */
-    private void replacePriceAdjustments(
-            ImportOrder order, List<CreateImportOrderRequest.PriceAdjustmentItem> items) {
-        if (items == null || order == null || order.getId() == null) {
+    private void applySellingPrices(List<CreateImportOrderRequest.PriceAdjustmentItem> items) {
+        if (items == null || items.isEmpty()) {
             return;
         }
-        importOrderPriceAdjustmentRepository.deleteByImportOrderId(order.getId());
-        if (items.isEmpty()) {
-            return;
-        }
-
         java.util.Set<Integer> seenUnitIds = new java.util.HashSet<>();
-        List<ImportOrderPriceAdjustment> rows = new ArrayList<>();
         for (CreateImportOrderRequest.PriceAdjustmentItem item : items) {
             if (item == null || item.getProductId() == null || item.getProductUnitId() == null) {
                 throw new AppException(ErrorCode.PRODUCT_UNIT_INVALID);
@@ -1261,32 +1247,11 @@ public class ImportOrderService {
             ProductUnit unit = productUnitRepository
                     .findByIdAndProduct_IdAndIsRemovedFalse(item.getProductUnitId(), item.getProductId())
                     .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_UNIT_NOT_FOUND));
-            ImportOrderPriceAdjustment row = new ImportOrderPriceAdjustment();
-            row.setImportOrder(order);
-            row.setProduct(unit.getProduct());
-            row.setProductUnit(unit);
-            row.setSellingPrice(item.getSellingPrice().setScale(2, RoundingMode.HALF_UP));
-            row.setIsRemoved(false);
-            rows.add(row);
-        }
-        if (!rows.isEmpty()) {
-            importOrderPriceAdjustmentRepository.saveAll(rows);
-        }
-    }
-
-    private void applyPendingSellingPrices(Integer orderId) {
-        List<ImportOrderPriceAdjustment> rows =
-                importOrderPriceAdjustmentRepository.findByImportOrder_IdAndIsRemovedFalse(orderId);
-        for (ImportOrderPriceAdjustment row : rows) {
-            ProductUnit unit = row.getProductUnit();
-            if (unit == null || Boolean.TRUE.equals(unit.getIsRemoved())) {
-                continue;
-            }
-            BigDecimal price = row.getSellingPrice() != null ? row.getSellingPrice() : BigDecimal.ZERO;
+            BigDecimal price = item.getSellingPrice().setScale(2, RoundingMode.HALF_UP);
             unit.setSellingPrice(price);
             productUnitRepository.save(unit);
 
-            Product product = row.getProduct() != null ? row.getProduct() : unit.getProduct();
+            Product product = unit.getProduct();
             if (product != null && isBaseUnit(unit)) {
                 product.setSellingPrice(price);
                 productRepository.save(product);
@@ -1298,17 +1263,6 @@ public class ImportOrderService {
         return unit != null
                 && unit.getUnitBase() != null
                 && unit.getUnitBase().compareTo(BigDecimal.ONE) == 0;
-    }
-
-    private List<ImportPriceAdjustmentResponse> toPriceAdjustmentResponses(Integer orderId) {
-        return importOrderPriceAdjustmentRepository.findByImportOrder_IdAndIsRemovedFalse(orderId)
-                .stream()
-                .map(row -> ImportPriceAdjustmentResponse.builder()
-                        .productId(row.getProduct() != null ? row.getProduct().getId() : null)
-                        .productUnitId(row.getProductUnit() != null ? row.getProductUnit().getId() : null)
-                        .sellingPrice(row.getSellingPrice())
-                        .build())
-                .toList();
     }
 
     /**

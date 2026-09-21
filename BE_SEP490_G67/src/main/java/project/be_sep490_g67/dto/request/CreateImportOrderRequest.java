@@ -103,9 +103,8 @@ public class CreateImportOrderRequest {
     }
 
     /**
-     * Giá bán mới đã thiết lập trên phiếu tạm.
-     * Chỉ ghi vào product_units / products khi orderStatus = IMPORTED.
-     * null = giữ nguyên bản đã lưu; [] = xóa hết điều chỉnh.
+     * Giá bán mới từ màn nhập. Chỉ ghi vào product_units / products khi IMPORTED.
+     * Phiếu tạm bỏ qua field này.
      */
     @Valid
     List<PriceAdjustmentItem> priceAdjustments;

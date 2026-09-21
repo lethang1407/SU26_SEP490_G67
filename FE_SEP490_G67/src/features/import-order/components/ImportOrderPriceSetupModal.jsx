@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { formatMoneyInput, formatMoneyPlain, parseMoneyInput } from '../utils/importOrderUtils';
 import '../../../css/Supplier.css';
@@ -12,11 +12,13 @@ export default function ImportOrderPriceSetupModal({
     onConfirm,
 }) {
     const [draftRows, setDraftRows] = useState([]);
+    const rowsRef = useRef(rows);
+    rowsRef.current = rows;
 
     useEffect(() => {
         if (!open) return;
-        setDraftRows((rows || []).map((row) => ({ ...row })));
-    }, [open, rows]);
+        setDraftRows((rowsRef.current || []).map((row) => ({ ...row })));
+    }, [open]);
 
     if (!open) return null;
 
@@ -43,6 +45,7 @@ export default function ImportOrderPriceSetupModal({
                         </h2>
                         <p className="ioc-price-setup-modal__hint">
                             Sửa cột Giá bán mới theo từng đơn vị tính, rồi bấm Xong.
+                            Số vừa sửa được giữ trên phiếu này; giá bán hệ thống chỉ đổi khi Hoàn thành.
                         </p>
                     </div>
                     <button
@@ -130,7 +133,7 @@ export default function ImportOrderPriceSetupModal({
                         onClick={() => onConfirm?.(draftRows)}
                         disabled={submitting || draftRows.length === 0}
                     >
-                        {submitting ? 'Đang lưu...' : 'Xong'}
+                        Xong
                     </button>
                 </div>
             </div>
