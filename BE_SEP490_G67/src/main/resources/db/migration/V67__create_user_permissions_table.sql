@@ -1,4 +1,4 @@
--- V65: Create user_permissions table for custom permissions assigned to users
+-- V67: Create user_permissions table for custom permissions assigned to users
 CREATE TABLE IF NOT EXISTS `user_permissions` (
   `user_id` INT NOT NULL,
   `permission_id` INT NOT NULL,

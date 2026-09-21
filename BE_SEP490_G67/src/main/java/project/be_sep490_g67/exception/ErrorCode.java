@@ -106,7 +106,7 @@ public enum ErrorCode {
     TRIAL_PRODUCT_ALREADY_IN_STORE(1083,
             "Hàng bán thử chỉ dành cho sản phẩm mới, chưa từng có ở cửa hàng.",
             HttpStatus.BAD_REQUEST),
-    TRIAL_COST_REQUIRED(1084, "Hàng bán thử phải có giá thỏa thuận để ghi công nợ và quyết toán sau.", HttpStatus.BAD_REQUEST),
+    TRIAL_COST_REQUIRED(1084, "Hàng bán thử phải nhập đơn giá.", HttpStatus.BAD_REQUEST),
     TRIAL_NOT_FOUND(1085, "Phiếu này không có hàng bán thử đang treo.", HttpStatus.BAD_REQUEST),
     TRIAL_ALREADY_SETTLED(1086, "Dòng bán thử này đã quyết toán.", HttpStatus.BAD_REQUEST),
     TRIAL_DECISION_INVALID(1087, "Quyết định quyết toán hàng bán thử không hợp lệ.", HttpStatus.BAD_REQUEST),

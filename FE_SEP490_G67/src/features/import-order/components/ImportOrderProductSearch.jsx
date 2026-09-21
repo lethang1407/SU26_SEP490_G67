@@ -11,6 +11,7 @@ function mapProduct(product) {
         id: unit.id,
         name: unit.name,
         unitBase: Number(unit.unitBase) || 1,
+        sellingPrice: Number(unit.sellingPrice ?? unit.sellPrice) || 0,
     }));
     const baseUnit = productUnits.find((unit) => unit.unitBase === 1) || productUnits[0];
     const lastCostPerBase = Number(product.lastCostPerBase ?? product.costPrice ?? 0) || 0;
