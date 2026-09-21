@@ -1992,25 +1992,32 @@
 /* Flexbox rows → detail là sibling div, KHÔNG bị clip */
 .pi-thead {
   display: flex;
-  align-items: center;
-  background: var(--gray-9);
-  border-bottom: 1px solid var(--blue-mid);
+  align-items: stretch;
+  background: #F8FAFC;
+  border-bottom: 1px solid #CBD5E1;
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 3;
   flex-shrink: 0;
+  min-height: 48px;
+  box-sizing: border-box;
 }
 
 .pi-th {
-  padding: 14px 10px;
-  font-size: 15px;
-  font-weight: 700;
-  color: #334155;
-  white-space: nowrap;
-  flex-shrink: 0;
+  padding: 8px 10px;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
+  color: #475569;
+  white-space: nowrap !important;
+  box-sizing: border-box;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  line-height: 1.2;
 }
 
-/* Sizes - Không có scrollbar ngang, vừa vặn 100% chiều rộng */
+/* Sizes - Cố định kích thước các cột trên Header & Dòng dữ liệu */
 .pi-th,
 .pi-td {
   box-sizing: border-box;
@@ -2019,6 +2026,9 @@
 .pi-th.col-cb,
 .pi-td.col-cb {
   width: 44px;
+  min-width: 44px;
+  max-width: 44px;
+  flex: 0 0 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2046,6 +2056,9 @@
 .pi-th.col-img,
 .pi-td.col-img {
   width: 50px;
+  min-width: 50px;
+  max-width: 50px;
+  flex: 0 0 50px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2054,14 +2067,25 @@
   position: relative;
 }
 
-.pi-th.col-name,
+/* Cột Tên hàng */
+.pi-th.col-name {
+  flex: 1 1 240px;
+  min-width: 220px;
+  white-space: nowrap !important;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: left;
+  padding: 8px 12px;
+}
+
 .pi-td.col-name {
-  flex: 2;
+  flex: 1 1 240px;
   min-width: 220px;
   white-space: normal !important;
   word-break: break-word;
   line-height: 1.45;
-  font-size: 15.5px;
+  font-size: 14.5px;
   font-weight: 600;
   color: #0F172A;
   display: flex;
@@ -2072,16 +2096,23 @@
   padding: 8px 12px;
 }
 
+/* Cột Đơn vị */
 .pi-th.col-unit,
 .pi-td.col-unit {
   width: 80px;
+  min-width: 80px;
+  max-width: 80px;
+  flex: 0 0 80px;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  font-size: 15px;
-  color: #334155;
   padding: 0 4px;
+}
+
+.pi-td.col-unit {
+  font-size: 14px;
+  color: #475569;
 }
 
 .pi-th.col-cprod,
@@ -2094,60 +2125,89 @@
 /* Cột Giá bán */
 .pi-th.col-ps,
 .pi-td.col-ps {
-  width: 115px;
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+  flex: 0 0 120px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   text-align: right;
-  font-size: 15.5px;
+  padding: 0 8px;
+}
+
+.pi-td.col-ps {
+  font-size: 14.5px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: #0F172A;
-  padding: 0 8px;
 }
 
 /* Cột Giá vốn */
 .pi-th.col-pc,
 .pi-td.col-pc {
-  width: 115px;
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+  flex: 0 0 120px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   text-align: right;
-  font-size: 15px;
+  padding: 0 8px;
+}
+
+.pi-td.col-pc {
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
   color: #64748B;
-  padding: 0 8px;
 }
 
 /* Cột Tồn kho */
 .pi-th.col-st,
 .pi-td.col-st {
   width: 110px;
+  min-width: 110px;
+  max-width: 110px;
+  flex: 0 0 110px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   text-align: right;
-  font-variant-numeric: tabular-nums;
   padding: 0 8px;
 }
 
-/* Cột Mức bán */
+.pi-td.col-st {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Cột Mức bán (1 tháng) */
 .pi-th.col-rt,
 .pi-td.col-rt {
-  width: 135px;
+  width: 155px;
+  min-width: 155px;
+  max-width: 155px;
+  flex: 0 0 155px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   text-align: right;
-  font-variant-numeric: tabular-nums;
   padding: 0 8px;
+}
+
+.pi-td.col-rt {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Cột Thao tác */
 .pi-th.col-act,
 .pi-td.col-act {
-  width: 80px;
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+  flex: 0 0 120px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2165,8 +2225,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -2193,23 +2253,40 @@
 .pi-th--sortable {
   cursor: pointer;
   user-select: none;
-  transition: all 0.15s ease;
-  gap: 4px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  gap: 5px;
+  white-space: nowrap !important;
+  flex-wrap: nowrap !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
 }
 
 .pi-th--sortable:hover {
   background-color: #E2E8F0;
   color: #004AC6;
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
+/* Khi đang sắp xếp: Giữ nguyên font-size và font-weight (600) để không làm vỡ layout hay co giãn chữ */
 .pi-th--sortable.is-sorted {
   color: #004AC6;
-  font-weight: 800;
+  background-color: #EFF6FF;
+  border-radius: 4px;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
 }
 
 .pi-th-label {
-  white-space: nowrap;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
+  white-space: nowrap !important;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  line-height: 1.2;
 }
 
 .pi-sort-icon {
@@ -2217,8 +2294,10 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  min-height: 14px;
 }
 
 .sort-icon-active {
@@ -2227,12 +2306,12 @@
 
 .sort-icon-idle {
   color: #94A3B8;
-  opacity: 0.4;
+  opacity: 0.55;
   transition: opacity 0.15s ease;
 }
 
 .pi-th--sortable:hover .sort-icon-idle {
-  opacity: 0.9;
+  opacity: 1;
   color: #004AC6;
 }
 
@@ -2429,6 +2508,7 @@
     opacity: 0;
     transform: translateY(-50%) scale(0.92);
   }
+
   to {
     opacity: 1;
     transform: translateY(-50%) scale(1);
@@ -2950,6 +3030,7 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -5040,13 +5121,17 @@
 .pi-th.col-cat,
 .pi-td.col-cat {
   width: 120px;
-  flex-shrink: 0;
+  min-width: 120px;
+  max-width: 120px;
+  flex: 0 0 120px;
 }
 
 .pi-th.col-unit,
 .pi-td.col-unit {
-  width: 68px;
-  flex-shrink: 0;
+  width: 80px;
+  min-width: 80px;
+  max-width: 80px;
+  flex: 0 0 80px;
 }
 
 /* Category pill badge */
@@ -5236,11 +5321,13 @@
 
 .pi-th.col-act,
 .pi-td.col-act {
-  width: 135px;
-  flex-shrink: 0;
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+  flex: 0 0 120px;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   padding: 6px 4px;
 }
 
@@ -5540,11 +5627,28 @@
   border-color: #94A3B8;
 }
 
+.pi-modal-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .pi-modal-btn--primary {
   background: #004AC6;
   border: 1px solid #004AC6;
   color: #ffffff;
   box-shadow: 0 2px 4px rgba(0, 74, 198, 0.2);
+}
+
+.pi-modal-btn--primary:hover:not(:disabled) {
+  background: #003da8;
+  border-color: #003da8;
+  box-shadow: 0 4px 8px rgba(0, 74, 198, 0.3);
+}
+
+.pi-modal-btn--primary:active:not(:disabled) {
+  background: #00328a;
+  transform: translateY(1px);
 }
 
 .pi-modal-btn--danger {
@@ -6901,6 +7005,198 @@
   text-decoration: underline;
 }
 
+/* --- Price & Unit Hover Tooltips in Stock Card --- */
+.pi-price-tooltip-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: help;
+  border-bottom: 1px dashed rgba(100, 116, 139, 0.4);
+}
+
+.pi-price-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: #0F172A;
+  color: #FFFFFF;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 400;
+  text-align: left;
+  line-height: 1.5;
+  white-space: nowrap;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.35), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+  z-index: 999999;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+}
+
+.pi-price-tooltip-wrapper:hover .pi-price-tooltip {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.pi-price-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #0F172A transparent transparent transparent;
+}
+
+.pi-price-tooltip--right {
+  left: auto;
+  right: 0;
+  transform: translateY(4px);
+}
+
+.pi-price-tooltip-wrapper:hover .pi-price-tooltip--right {
+  transform: translateY(0);
+}
+
+.pi-price-tooltip--right::after {
+  left: auto;
+  right: 14px;
+}
+
+.pi-expiry-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pi-expiry-badge--normal {
+  background: #F1F5F9;
+  color: #334155;
+  border: 1px solid #E2E8F0;
+}
+
+.pi-expiry-badge--expired {
+  background: #FEF2F2;
+  color: #DC2626;
+  border: 1px solid #FECACA;
+  font-weight: 700;
+}
+
+.pi-expiry-badge--warning {
+  background: #FFFBEB;
+  color: #D97706;
+  border: 1px solid #FDE68A;
+}
+
+/* Tab indicator for expired batches */
+.pi-edit-tab-item--has-expired {
+  position: relative;
+}
+
+.pi-tab-expired-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #FEF2F2;
+  color: #DC2626;
+  border: 1px solid #FECACA;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  margin-left: 7px;
+  vertical-align: middle;
+  line-height: 1.2;
+  box-shadow: 0 1px 2px rgba(220, 38, 38, 0.1);
+  animation: piPulseWarning 2s infinite ease-in-out;
+}
+
+.pi-edit-tab-item.active .pi-tab-expired-badge {
+  background: #FEE2E2;
+  border-color: #F87171;
+  color: #B91C1C;
+}
+
+.pi-tab-expired-icon {
+  flex-shrink: 0;
+  color: #DC2626;
+  animation: piWiggle 2.5s infinite ease-in-out;
+}
+
+@keyframes piPulseWarning {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    transform: scale(1);
+  }
+
+  50% {
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
+    transform: scale(1.02);
+  }
+}
+
+@keyframes piWiggle {
+
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  10%,
+  30% {
+    transform: rotate(-8deg);
+  }
+
+  20%,
+  40% {
+    transform: rotate(8deg);
+  }
+}
+
+/* Alert banner inside stock card tab/modal */
+.pi-stock-expired-alert-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #FFF1F2;
+  border: 1px solid #FECDD3;
+  border-left: 4px solid #E11D48;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  color: #9F1239;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.pi-stock-expired-alert-icon {
+  flex-shrink: 0;
+  color: #E11D48;
+  margin-top: 2px;
+}
+
+.pi-stock-expired-alert-text {
+  flex: 1;
+}
+
+.pi-highlight-expired-count {
+  font-weight: 700;
+  color: #BE123C;
+}
+
 /* ================================================================
    QUICK BARCODE SCAN MODAL & SCANNER UI
    ================================================================ */
@@ -7166,18 +7462,22 @@
   border: 1px solid #E2E8F0;
   border-radius: 8px;
   overflow: hidden;
+  background: #FFFFFF;
 }
 
 .pi-conv-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13.5px;
+  font-family: inherit;
 }
 
 .pi-conv-table th {
-  background: #F1F5F9;
+  background: #F8FAFC;
   color: #475569;
+  font-size: 13px;
   font-weight: 600;
+  font-family: inherit;
   padding: 10px 14px;
   border-bottom: 1px solid #E2E8F0;
   text-align: left;
@@ -7186,6 +7486,10 @@
 .pi-conv-table td {
   padding: 11px 14px;
   border-bottom: 1px solid #F1F5F9;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: #1E293B;
+  vertical-align: middle;
 }
 
 .pi-conv-table tr:last-child td {
@@ -7193,7 +7497,7 @@
 }
 
 .pi-conv-table tr:hover td {
-  background: #FAFAFA;
+  background: #F8FAFC;
 }
 
 /* ============================================
@@ -7472,6 +7776,7 @@
     opacity: 0;
     transform: translate3d(24px, 16px, 0) scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
@@ -7483,8 +7788,347 @@
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
   }
+
   to {
     opacity: 0;
     transform: translate3d(24px, 12px, 0) scale(0.95);
   }
+}
+
+/* ─── VÙNG: SEARCHABLE SUPPLIER DROPDOWN TRONG BẢNG CHUẨN BỊ ĐƠN NHẬP ─── */
+.pi-supplier-search-dropdown-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.pi-supplier-search-trigger {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 13px;
+  color: #64748b;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.pi-supplier-search-trigger:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.pi-supplier-search-trigger.is-open {
+  border-color: #004ac6;
+  box-shadow: 0 0 0 2px rgba(0, 74, 198, 0.15);
+  background: #ffffff;
+}
+
+.pi-supplier-search-trigger.has-value {
+  color: #0f172a;
+  font-weight: 500;
+}
+
+.pi-supplier-search-trigger.is-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #f1f5f9;
+}
+
+.pi-supplier-search-trigger-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.pi-supplier-icon {
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.pi-supplier-search-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+.pi-supplier-search-trigger-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.pi-supplier-search-clear-btn {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.pi-supplier-search-clear-btn:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.pi-supplier-search-chevron {
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+/* Dropdown Menu Portaled */
+.pi-supplier-search-portal-menu {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  box-shadow: 0 14px 36px -4px rgba(15, 23, 42, 0.2), 0 4px 12px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: piDropdownFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+@keyframes piDropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.pi-supplier-search-header {
+  padding: 8px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pi-supplier-search-input-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.pi-supplier-search-input-icon {
+  position: absolute;
+  left: 9px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.pi-supplier-search-input {
+  width: 100%;
+  height: 32px;
+  padding: 0 26px 0 30px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12.5px;
+  color: #0f172a;
+  background: #ffffff;
+  outline: none;
+  transition: all 0.12s ease;
+  box-sizing: border-box;
+}
+
+.pi-supplier-search-input:focus {
+  border-color: #004ac6;
+  box-shadow: 0 0 0 2px rgba(0, 74, 198, 0.12);
+}
+
+.pi-supplier-search-input-clear {
+  position: absolute;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.12s ease;
+}
+
+.pi-supplier-search-input-clear:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.pi-supplier-search-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  background: #e2e8f0;
+  padding: 2px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.pi-supplier-search-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pi-supplier-search-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.pi-supplier-search-item:hover,
+.pi-supplier-search-item.is-highlighted {
+  background: #f0f7ff;
+}
+
+.pi-supplier-search-item.is-selected {
+  background: #e0e7ff;
+  color: #1e1b4b;
+}
+
+.pi-supplier-item-main {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pi-supplier-item-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pi-supplier-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pi-supplier-search-item.is-selected .pi-supplier-item-name {
+  color: #004ac6;
+  font-weight: 700;
+}
+
+.pi-supplier-badge-suggested {
+  font-size: 10px;
+  font-weight: 600;
+  color: #059669;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 1px 5px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.pi-supplier-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #64748b;
+  flex-wrap: wrap;
+}
+
+.pi-supplier-meta-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: #f1f5f9;
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: #475569;
+  font-family: inherit;
+}
+
+.pi-supplier-meta-lead {
+  color: #64748b;
+}
+
+.pi-supplier-item-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.pi-supplier-item-price {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #004ac6;
+  background: #eff6ff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #dbeafe;
+}
+
+.pi-supplier-selected-check {
+  color: #004ac6;
+  flex-shrink: 0;
+}
+
+.pi-supplier-search-empty {
+  padding: 24px 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.pi-supplier-search-reset-btn {
+  margin-top: 10px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #004ac6;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.pi-supplier-search-reset-btn:hover {
+  background: #dbeafe;
 }

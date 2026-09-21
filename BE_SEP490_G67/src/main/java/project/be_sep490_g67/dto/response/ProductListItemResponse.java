@@ -31,7 +31,9 @@ public class ProductListItemResponse {
     BigDecimal avgDailyRate;
     BigDecimal avgWeeklyRate;
     Integer sold14Days;
+    Integer sold30Days;
     Integer onHand;
+    Integer minStock;
     Double coverDaysLeft;
     /** hot | slow | warn | season | ok | stop | new */
     String facetStatus;

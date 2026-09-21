@@ -19,7 +19,9 @@ import TransferQrPanel from '../components/TransferQrPanel';
 import { useStorePaymentInfo } from '../hooks/useStorePaymentInfo';
 import { buildPaymentReference } from '../utils/vietqr';
 import { getOrderForExchange, processExchangeOrder, searchProductsByName, getInvoiceData, getProductPosInfo } from "../api";
-import { pickKey, hasLocationProblem, toStockPicks } from '../utils/cartLocation';
+import {
+    hasLocationProblem, toStockPicks, withPickQty, withTotalQty, withFifoPicks,
+} from '../utils/cartLocation';
 import {
     displayStock, hasNoSellableLocation, isUnsellable, UNSELLABLE_HINT, unsellableMessage,
 } from '../utils/productStock';
@@ -404,7 +406,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
             if (isValidQtyValue(raw)) {
                 const qty = parseQty(raw);
                 setExchangeItems(items => items.map(item => item.productId === productId
-                    ? { ...item, qty, total: qty * item.price }
+                    ? { ...withTotalQty(item, qty), total: qty * item.price }
                     : item));
             }
             const next = { ...prev };
@@ -413,15 +415,11 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
         });
     }, []);
 
-    const handleToggleExchangePick = useCallback((productId, key) => {
+    const handleExchangePickQty = useCallback((productId, key, qty) => {
         setExchangeItems(prev => prev.map(item => {
             if (item.productId !== productId) return item;
-            const current = item.pickKeys ?? [];
-            const next = current.includes(key)
-                ? current.filter(k => k !== key)
-                : [...current, key];
-            const ordered = (item.locations ?? []).map(pickKey).filter(k => next.includes(k));
-            return { ...item, pickKeys: ordered };
+            const next = withPickQty(item, key, qty);
+            return { ...next, total: next.qty * item.price };
         }));
         setValidationErrors(prev => ({ ...prev, exchangeItems: null }));
     }, []);
@@ -434,13 +432,13 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
             );
             if (!selectedUnit) return item;
             const newPrice = selectedUnit.sellingPrice ?? item.price;
-            return {
+            return withFifoPicks({
                 ...item,
                 productUnitId: selectedUnit.id,
                 unitName: selectedUnit.name,
                 price: newPrice,
                 total: item.qty * newPrice
-            };
+            });
         }));
     }, []);
 
@@ -452,7 +450,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
             setExchangeItems(prev => prev.map((item, i) => {
                 if (i === existingIndex) {
                     const newQty = item.qty + 1;
-                    return { ...item, qty: newQty, total: newQty * item.price };
+                    return { ...withTotalQty(item, newQty), total: newQty * item.price };
                 }
                 return item;
             }));
@@ -479,7 +477,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
 
             // Giống giỏ POS: chưa xếp vị trí thì không lấy đi được, chặn ngay ở đây.
             if (hasNoSellableLocation(posInfo)) {
-                setPosInfoError(unsellableMessage(product.name));
+                setPosInfoError(unsellableMessage(product.name, posInfo));
                 return;
             }
 
@@ -491,7 +489,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
 
             const locations = (posInfo?.locations ?? []).filter((loc) => Number(loc.quantity ?? 0) > 0);
 
-            const newItem = {
+            const newItem = withFifoPicks({
                 productId: product.id,
                 productCode: product.barcode || `SP${String(product.id).padStart(6, '0')}`,
                 productName: product.name,
@@ -501,12 +499,11 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                 price,
                 total: price,
                 locations,
-                pickKeys: [],
                 stockTotal: posInfo?.availableQuantity ?? null,
                 stockSales: posInfo?.salesZoneQuantity ?? null,
                 stockWarehouse: posInfo?.warehouseQuantity ?? null,
                 productUnitId: defaultUnit?.id ?? null
-            };
+            });
             setExchangeItems(prev => [...prev, newItem]);
         }
 
@@ -591,7 +588,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
         });
 
         if (isOnline && exchangeItems.some(hasLocationProblem)) {
-            errors.exchangeItems = 'Chưa chọn vị trí lấy hàng hoặc các vị trí đã chọn không đủ số lượng.';
+            errors.exchangeItems = 'Số lượng nhập ở một vị trí vượt quá tồn tại vị trí đó.';
         }
 
         if (settlement.hasCashMovement && !refundMethod) {
@@ -828,7 +825,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                 : exchangeItems.length === 0
                     ? 'Chưa có hàng lấy mới nên không có số tiền nào để thu.'
                     : exchangeItems.some(hasLocationProblem)
-                        ? 'Các vị trí đã chọn không đủ số lượng.'
+                        ? 'Có vị trí nhập vượt tồn.'
                         : settlement.totalCashIn <= 0
                             ? 'Đơn đổi trả chưa có số tiền cần thu.'
                             : null;
@@ -1195,7 +1192,7 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                                             <td>
                                                 <LocationPicker
                                                     item={item}
-                                                    onToggle={(key) => handleToggleExchangePick(item.productId, key)}
+                                                    onPickQtyChange={(key, qty) => handleExchangePickQty(item.productId, key, qty)}
                                                 />
                                             </td>
                                             <td>

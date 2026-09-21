@@ -46,7 +46,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ImportSuggestionService {
 
-    static final int SALES_WINDOW_DAYS = 14;
+    static final int SALES_WINDOW_DAYS = 30;
     static final int SAFETY_DAYS = 1;
     static final int DEFAULT_LEAD_DAYS = 3;
     static final int STORE_COVER_DEFAULT = 7;
@@ -169,6 +169,10 @@ public class ImportSuggestionService {
         int usableSellDays = resolveUsableSellDays(p.getId(), leadDays);
         double avg = avgDaily.doubleValue();
         double horizon = leadDays + cover.days + SAFETY_DAYS;
+        int resolvedMinStock = p.getMinStock() != null && p.getMinStock() > 0
+                ? p.getMinStock()
+                : (p.getParent() != null && p.getParent().getMinStock() != null ? p.getParent().getMinStock() : 0);
+
         double soqRaw = Math.max(0, avg * horizon - onHand);
         double soqCapped = usableSellDays < Integer.MAX_VALUE / 8
                 ? Math.min(soqRaw, avg * usableSellDays)
@@ -177,8 +181,11 @@ public class ImportSuggestionService {
         if (suggestedQty == 0 && onHand <= 0 && avg > 0) {
             suggestedQty = (int) Math.ceil(avg * Math.max(cover.days, 1));
         }
+        if (suggestedQty == 0 && onHand < resolvedMinStock && resolvedMinStock > 0) {
+            suggestedQty = Math.max(1, resolvedMinStock - onHand);
+        }
 
-        boolean orderToday = onHand <= 0 || (avg > 0 && onHand / avg <= leadDays + SAFETY_DAYS);
+        boolean orderToday = onHand <= 0 || (resolvedMinStock > 0 && onHand <= resolvedMinStock) || (avg > 0 && onHand / avg <= leadDays + SAFETY_DAYS);
 
         String whyFacts = String.format(
                 "%s · ~%s/%s · NCC giao ~%d ngày%s",
@@ -216,8 +223,9 @@ public class ImportSuggestionService {
                 .coverSourceLabel(cover.label)
                 .costPerUnit(costPerUnit)
                 .onHand(onHand)
-                .minStock(p.getMinStock() == null ? 0 : p.getMinStock())
+                .minStock(resolvedMinStock)
                 .sold14Days((int) soldQty)
+                .sold30Days((int) soldQty)
                 .avgDailyRate(avgDaily)
                 .unitName(resolveUnitName(p))
                 .supplierOptions(options)

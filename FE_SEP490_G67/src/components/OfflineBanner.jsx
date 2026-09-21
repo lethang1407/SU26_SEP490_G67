@@ -10,7 +10,7 @@ export default function OfflineBanner() {
     const [wasOffline, setWasOffline] = useState(false);
     const [showRestored, setShowRestored] = useState(false);
 
-    // Watch pending queue count
+    // Watch pending queue count via events (no 3s interval polling)
     useEffect(() => {
         let mounted = true;
         const checkQueue = async () => {
@@ -26,10 +26,10 @@ export default function OfflineBanner() {
         };
 
         checkQueue();
-        const interval = setInterval(checkQueue, 3000);
+        window.addEventListener('offline-queue-changed', checkQueue);
         return () => {
             mounted = false;
-            clearInterval(interval);
+            window.removeEventListener('offline-queue-changed', checkQueue);
         };
     }, []);
 

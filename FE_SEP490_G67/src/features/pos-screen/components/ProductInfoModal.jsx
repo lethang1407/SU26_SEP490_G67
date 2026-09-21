@@ -129,8 +129,15 @@ export default function ProductInfoModal({ productId, onClose }) {
                                 </thead>
                                 <tbody>
                                     {info.locations.map((loc) => (
-                                        <tr key={`${loc.locationId}-${loc.batchId}`}>
-                                            <td>{loc.label}</td>
+                                        <tr
+                                            key={`${loc.locationId}-${loc.batchId}`}
+                                            className={loc.expired ? 'loc-row--expired' : undefined}
+                                            title={loc.expired ? 'Lô đã hết hạn — không bán được, báo kho xử lý' : undefined}
+                                        >
+                                            <td>
+                                                {loc.expired && <span className="loc-expired-dot loc-expired-dot--inline" />}
+                                                {loc.label}
+                                            </td>
                                             <td>{loc.zoneCode || '—'}</td>
                                             <td>{loc.batchCode ?? '—'}</td>
                                             <td className="text-right">

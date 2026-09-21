@@ -4,6 +4,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.response.ApiResponse;
@@ -24,6 +25,7 @@ public class RevenueReportController {
 
     RevenueReportService revenueReportService;
 
+    @PreAuthorize("hasRole('MANAGER')")
     @GetMapping("/overview")
     public ApiResponse<RevenueReportOverviewResponse> overview(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
@@ -37,6 +39,7 @@ public class RevenueReportController {
                 .build();
     }
 
+    @PreAuthorize("hasRole('MANAGER')")
     @GetMapping("/transactions")
     public ApiResponse<PageResponse<RevenueTransactionRowResponse>> transactions(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
@@ -53,6 +56,7 @@ public class RevenueReportController {
                 .build();
     }
 
+    @PreAuthorize("hasRole('MANAGER')")
     @GetMapping("/staff-options")
     public ApiResponse<List<RevenueStaffOptionResponse>> staffOptions() {
         return ApiResponse.<List<RevenueStaffOptionResponse>>builder()

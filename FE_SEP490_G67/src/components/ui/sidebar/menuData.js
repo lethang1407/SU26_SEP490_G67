@@ -15,7 +15,8 @@ export const menus = [
         id: "dashboard",
         title: "Bảng điều khiển",
         icon: LayoutDashboard,
-        path: "/admin/dashboard"
+        path: "/admin/dashboard",
+        role: ["MANAGER"]
     },
     {
         id: "reports",

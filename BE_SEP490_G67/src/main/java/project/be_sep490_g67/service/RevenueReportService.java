@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import project.be_sep490_g67.constants.StaffConstants;
 import project.be_sep490_g67.dto.response.PageResponse;
 import project.be_sep490_g67.dto.response.RevenueReportOverviewResponse;
 import project.be_sep490_g67.dto.response.RevenueReportOverviewResponse.*;
@@ -197,7 +198,7 @@ public class RevenueReportService {
     private boolean isOwner(User user) {
         return user.getRoles() != null
                 && !user.getRoles().isEmpty()
-                && user.getRoles().stream().allMatch(r -> "MANAGER".equalsIgnoreCase(r.getName()));
+                && user.getRoles().stream().allMatch(r -> StaffConstants.MANAGER_ROLE_NAME.equalsIgnoreCase(r.getName()));
     }
 
     //  Internal: compute totals for a period

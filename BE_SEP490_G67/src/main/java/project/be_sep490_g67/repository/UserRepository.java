@@ -32,18 +32,22 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     @Query("SELECT u.id FROM User u WHERE u.username = :username AND u.isRemoved = false")
     Optional<Integer> findIdByUsername(@Param("username") String username);
 
-    @EntityGraph(attributePaths = {"roles"})
+    @EntityGraph(attributePaths = {"roles", "roles.permissions", "customPermissions"})
     @Query("""
             SELECT u FROM User u
             WHERE u.isRemoved = false
             AND EXISTS (
                 SELECT 1 FROM u.roles r
-                WHERE UPPER(r.name) IN ('STAFF', 'MANAGER')
+                WHERE UPPER(r.name) = 'STAFF'
+            )
+            AND NOT EXISTS (
+                SELECT 1 FROM u.roles r2
+                WHERE UPPER(r2.name) = 'MANAGER'
             )
             """)
     List<User> findAllActiveStaff();
 
-    @EntityGraph(attributePaths = {"roles"})
+    @EntityGraph(attributePaths = {"roles", "roles.permissions", "customPermissions"})
     @Query("SELECT u FROM User u WHERE u.id = :id AND u.isRemoved = false")
     Optional<User> findActiveStaffByIdWithRoles(@Param("id") Integer id);
 

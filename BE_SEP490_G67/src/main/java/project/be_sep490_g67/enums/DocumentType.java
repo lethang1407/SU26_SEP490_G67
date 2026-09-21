@@ -4,9 +4,7 @@ public enum DocumentType {
 
     SALE_INVOICE("HD"),
     CREDIT_NOTE("HDT"),
-    EXCHANGE_INVOICE("HDD"),
-        RECONSTRUCTED_INVOICE("HDR");
-
+    EXCHANGE_INVOICE("HDD");
     private final String prefix;
 
     DocumentType(String prefix) {

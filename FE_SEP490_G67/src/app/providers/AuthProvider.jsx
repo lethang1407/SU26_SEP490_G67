@@ -18,15 +18,17 @@ const AuthProvider = ({ children }) => {
         if (!localStorage.getItem('accessToken')) {
             setUser(null);
             setLoadingUser(false);
-            return;
+            return null;
         }
         try {
             setLoadingUser(true);
             const profile = await getProfile();
             setUser(profile);
+            return profile;
         } catch (error) {
             console.error('Failed to load user profile:', error);
             setUser(null);
+            return null;
         } finally {
             setLoadingUser(false);
         }
@@ -41,7 +43,7 @@ const AuthProvider = ({ children }) => {
         }
     }, [authenticated, fetchUserProfile]);
 
-    const login = (authResult) => {
+    const login = async (authResult) => {
         if (!authResult || !authResult.token || !authResult.authenticated) {
             logout();
             throw new Error('Authentication failed: Invalid response from server.');
@@ -52,7 +54,7 @@ const AuthProvider = ({ children }) => {
         setAccessToken(token);
         setAuthenticated(true);
         localStorage.setItem('accessToken', token);
-        fetchUserProfile();
+        return await fetchUserProfile();
     };
 
     const logout = async () => {
@@ -69,22 +71,38 @@ const AuthProvider = ({ children }) => {
     };
 
     const hasPermission = useCallback((perm) => {
-        // if (!perm) return true;
-        // if (!user) return false;
-        // if (user.roles?.includes('MANAGER') || user.roles?.includes('ROLE_MANAGER')) return true;
-        // if (Array.isArray(perm)) {
-        //     return perm.some(p => user.permissions?.includes(p));
-        // }
-        return true;
+        if (!perm) return true;
+        if (!user) return false;
+
+        const userRoles = Array.isArray(user.roles) ? user.roles : [];
+        const isManager = userRoles.some(r => {
+            const clean = String(r).replace(/^ROLE_/, '').toUpperCase();
+            return clean === 'MANAGER' || clean === 'ADMIN';
+        });
+        if (isManager) return true;
+
+        const userPerms = Array.isArray(user.permissions) ? user.permissions : [];
+        if (Array.isArray(perm)) {
+            return perm.some(p => userPerms.includes(p));
+        }
+        return userPerms.includes(perm);
     }, [user]);
 
     const hasRole = useCallback((role) => {
         if (!role) return true;
         if (!user) return false;
+
+        const userRoles = Array.isArray(user.roles) ? user.roles : [];
+        const normalizedUserRoles = userRoles.map(r => String(r).replace(/^ROLE_/, '').toUpperCase());
+
         if (Array.isArray(role)) {
-            return role.some(r => user.roles?.includes(r));
+            return role.some(r => {
+                const clean = String(r).replace(/^ROLE_/, '').toUpperCase();
+                return normalizedUserRoles.includes(clean);
+            });
         }
-        return user.roles?.includes(role);
+        const clean = String(role).replace(/^ROLE_/, '').toUpperCase();
+        return normalizedUserRoles.includes(clean);
     }, [user]);
 
     const contextValue = {

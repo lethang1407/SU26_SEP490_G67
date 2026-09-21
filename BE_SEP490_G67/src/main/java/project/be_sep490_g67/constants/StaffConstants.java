@@ -13,11 +13,19 @@ public final class StaffConstants {
 
     public static final String DEFAULT_STAFF_ROLE = "staff";
 
-    
-    
+    public static final Set<String> DEFAULT_STAFF_PERMISSIONS = Set.of(
+            "PRODUCT:VIEW",
+            "POS:SALE",
+            "POS:EXCHANGE",
+            "SALES_ORDER:VIEW_OWN",
+            "SALES_ORDER:INVOICE",
+            "CUSTOMER:VIEW"
+    );
+
     public static final Set<String> STAFF_ROLE_NAMES = Set.of(
             "staff"
     );
+
 
     public static final Map<String, String> ROLE_TO_POSITION = Map.of(
             "staff", "Nhân viên",
