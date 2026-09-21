@@ -8,6 +8,7 @@ import AlertNoticeModal from '../../../components/ui/AlertNoticeModal';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import {
     createInventoryCheck,
+    cancelStockBatch,
     fetchInventoryCheckAttention,
     fetchInventoryCheckProductPreview,
 } from '../api';
@@ -25,18 +26,80 @@ import {
 } from '../components/InventoryCheckSidePanels';
 import { getProfile } from '../../profile/api';
 import { INVENTORY_CHECK_ROUTES } from '../constants';
+import {
+    RECEIVING_DISPLAY_NAME,
+    RECEIVING_LOCATION_LABEL,
+} from '../../storage-location/constants';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Inventory.css';
 import '../../../css/InventoryCheck.css';
 import '../../../css/ImportOrder.css';
 import '../../../css/Supplier.css';
 
-function lineKey(productId, stockBatchId) {
-    return `${productId}-${stockBatchId ?? 'ALL'}`;
+function lineKey(productId, locationId, stockBatchId) {
+    return `${productId}-${locationId ?? 'LOC'}-${stockBatchId ?? 'BATCH'}`;
 }
 
-function buildLineFromPreview(preview, stockBatchId = null) {
+function toLocationDisplayLabel(label) {
+    const upper = String(label ?? '').trim().toUpperCase();
+    if (upper === RECEIVING_LOCATION_LABEL || upper === 'NHAP-MOI') {
+        return RECEIVING_DISPLAY_NAME;
+    }
+    return label || null;
+}
+
+function uniqueLocations(batches) {
+    const map = new Map();
+    for (const batch of batches ?? []) {
+        if (batch?.locationId == null) continue;
+        if (!map.has(batch.locationId)) {
+            map.set(batch.locationId, {
+                id: batch.locationId,
+                label:
+                    toLocationDisplayLabel(batch.locationLabel)
+                    || `Vị trí #${batch.locationId}`,
+            });
+        }
+    }
+    return [...map.values()];
+}
+
+function batchesAtLocation(batches, locationId) {
+    if (locationId == null) return [];
+    return (batches ?? []).filter((b) => Number(b.locationId) === Number(locationId));
+}
+
+function pickDefaultBatch(batches, preferredBatchId = null) {
+    if (!batches?.length) return null;
+    if (preferredBatchId != null) {
+        const preferred = batches.find((b) => Number(b.id) === Number(preferredBatchId));
+        if (preferred) return preferred;
+    }
+    return batches[0];
+}
+
+function applyBatchToLine(line, batch, locationId, locationLabel) {
+    const systemQty = batch?.quantity ?? 0;
+    return {
+        ...line,
+        id: `new-${lineKey(line.productId, locationId, batch?.id ?? null)}`,
+        locationId: locationId ?? null,
+        locationLabel: toLocationDisplayLabel(locationLabel) ?? null,
+        stockBatchId: batch?.id ?? null,
+        batchCode: batch?.batchCode ?? null,
+        systemQty,
+        actualQty: systemQty,
+        importPrice: batch?.costPerUnit ?? line.importPrice ?? 0,
+        supplierId: batch?.supplierId ?? null,
+        supplierName: batch?.supplierName ?? null,
+        importOrderId: batch?.importOrderId ?? null,
+        isTrial: Boolean(batch?.isTrial),
+    };
+}
+
+function buildLineFromPreview(preview, preferredBatchId = null) {
     const batches = preview.batches ?? [];
+    const locations = uniqueLocations(batches);
     const units = (preview.units ?? []).map((unit) => ({
         id: unit.id,
         name: unit.name,
@@ -49,15 +112,25 @@ function buildLineFromPreview(preview, stockBatchId = null) {
         (preview.unit
             ? { id: null, name: preview.unit, unitBase: 1, isBase: true }
             : { id: null, name: 'Cái', unitBase: 1, isBase: true });
-    const selected = stockBatchId
-        ? batches.find((b) => b.id === stockBatchId)
-        : null;
-    const systemQtyBase = selected
-        ? (selected.quantity ?? 0)
-        : (preview.systemQty ?? 0);
+
+    let location =
+        preferredBatchId != null
+            ? locations.find((loc) =>
+                  batchesAtLocation(batches, loc.id).some(
+                      (b) => Number(b.id) === Number(preferredBatchId),
+                  ),
+              )
+            : null;
+    if (!location) {
+        location = locations[0] ?? null;
+    }
+
+    const atLocation = batchesAtLocation(batches, location?.id);
+    const selected = pickDefaultBatch(atLocation, preferredBatchId);
+    const systemQtyBase = selected?.quantity ?? 0;
 
     return {
-        id: `new-${lineKey(preview.productId, stockBatchId)}`,
+        id: `new-${lineKey(preview.productId, location?.id, selected?.id)}`,
         productId: preview.productId,
         productCode: preview.productCode,
         productName: preview.productName,
@@ -65,7 +138,10 @@ function buildLineFromPreview(preview, stockBatchId = null) {
         units,
         selectedUnitId: baseUnit.id,
         unitBase: baseUnit.unitBase,
-        stockBatchId: stockBatchId ?? null,
+        locationId: location?.id ?? null,
+        locationLabel: toLocationDisplayLabel(location?.label) ?? null,
+        locations,
+        stockBatchId: selected?.id ?? null,
         batchCode: selected?.batchCode ?? null,
         batches,
         systemQty: systemQtyBase,
@@ -118,6 +194,12 @@ function getAvailableReturnQty(line, localReturnLines) {
     return Math.min(byActual, bySystem);
 }
 
+/** SL còn có thể hủy hàng theo tồn HT trên dòng. */
+function getAvailableCancelQty(line) {
+    if (!line?.stockBatchId) return 0;
+    return Math.max(0, Number(line.systemQty ?? 0));
+}
+
 function todayInputValue() {
     const now = new Date();
     const yyyy = now.getFullYear();
@@ -158,12 +240,14 @@ export default function CreateInventoryCheckPage() {
 
     const visibleAttention = useMemo(() => {
         if (!attention.length || !lines.length) return attention;
-        const selectedKeys = new Set(
-            lines.map((line) => lineKey(line.productId, line.stockBatchId)),
+        const selectedBatchIds = new Set(
+            lines
+                .filter((line) => line.stockBatchId != null)
+                .map((line) => Number(line.stockBatchId)),
         );
         return attention.filter((item) => {
-            const key = lineKey(item.productId, item.batchId ?? null);
-            return !selectedKeys.has(key);
+            if (item.batchId == null) return true;
+            return !selectedBatchIds.has(Number(item.batchId));
         });
     }, [attention, lines]);
 
@@ -217,33 +301,24 @@ export default function CreateInventoryCheckPage() {
     }, [isDirty]);
 
     const addOrMergeLine = (nextLine) => {
-        const key = lineKey(nextLine.productId, nextLine.stockBatchId);
+        if (nextLine.locationId == null || nextLine.stockBatchId == null) {
+            queueMicrotask(() =>
+                setWarning(
+                    'Sản phẩm chưa được xếp vị trí trong cửa hàng. Hãy xếp hàng lên vị trí trước khi kiểm.',
+                ),
+            );
+            return;
+        }
+        const key = lineKey(nextLine.productId, nextLine.locationId, nextLine.stockBatchId);
         setLines((prev) => {
-            const hasAll = prev.some(
-                (line) => line.productId === nextLine.productId && line.stockBatchId == null,
-            );
-            const hasBatch = prev.some(
-                (line) => line.productId === nextLine.productId && line.stockBatchId != null,
-            );
-            if (nextLine.stockBatchId == null && hasBatch) {
+            if (
+                prev.some(
+                    (line) =>
+                        lineKey(line.productId, line.locationId, line.stockBatchId) === key,
+                )
+            ) {
                 queueMicrotask(() =>
-                    setWarning(
-                        'Sản phẩm này đã có dòng kiểm theo lô. Không thể thêm dòng “Tất cả lô”.',
-                    ),
-                );
-                return prev;
-            }
-            if (nextLine.stockBatchId != null && hasAll) {
-                queueMicrotask(() =>
-                    setWarning(
-                        'Sản phẩm này đang kiểm “Tất cả lô”. Không thể thêm dòng lô riêng.',
-                    ),
-                );
-                return prev;
-            }
-            if (prev.some((line) => lineKey(line.productId, line.stockBatchId) === key)) {
-                queueMicrotask(() =>
-                    setWarning('Dòng sản phẩm/lô này đã có trong phiếu kiểm.'),
+                    setWarning('Dòng sản phẩm / vị trí / lô này đã có trong phiếu kiểm.'),
                 );
                 return prev;
             }
@@ -278,31 +353,46 @@ export default function CreateInventoryCheckPage() {
         );
     };
 
+    const rowMatches = (line, rowKey) =>
+        (line.id ?? lineKey(line.productId, line.locationId, line.stockBatchId)) === rowKey;
+
+    const handleLocationChange = (rowKey, nextLocationId) => {
+        setLines((prev) =>
+            prev.map((line) => {
+                if (!rowMatches(line, rowKey)) return line;
+                const locationId =
+                    nextLocationId === '' || nextLocationId == null
+                        ? null
+                        : Number(nextLocationId);
+                const location = (line.locations ?? []).find(
+                    (loc) => Number(loc.id) === Number(locationId),
+                );
+                const atLocation = batchesAtLocation(line.batches, locationId);
+                const selected = pickDefaultBatch(atLocation);
+                return applyBatchToLine(
+                    line,
+                    selected,
+                    locationId,
+                    location?.label ?? null,
+                );
+            }),
+        );
+    };
+
     const handleBatchChange = (rowKey, nextBatchId) => {
         setLines((prev) =>
             prev.map((line) => {
-                if ((line.id ?? lineKey(line.productId, line.stockBatchId)) !== rowKey) {
-                    return line;
-                }
-                const batchId = nextBatchId === '' || nextBatchId === 'ALL' ? null : Number(nextBatchId);
-                const selected = batchId
-                    ? (line.batches ?? []).find((b) => b.id === batchId)
-                    : null;
-                const systemQty = selected
-                    ? (selected.quantity ?? 0)
-                    : (line.batches ?? []).reduce((sum, b) => sum + (b.quantity ?? 0), 0);
-                return {
-                    ...line,
-                    id: `new-${lineKey(line.productId, batchId)}`,
-                    stockBatchId: batchId,
-                    batchCode: selected?.batchCode ?? null,
-                    systemQty,
-                    actualQty: systemQty,
-                    supplierId: selected?.supplierId ?? null,
-                    supplierName: selected?.supplierName ?? null,
-                    importOrderId: selected?.importOrderId ?? null,
-                    isTrial: Boolean(selected?.isTrial),
-                };
+                if (!rowMatches(line, rowKey)) return line;
+                const batchId =
+                    nextBatchId === '' || nextBatchId == null ? null : Number(nextBatchId);
+                const atLocation = batchesAtLocation(line.batches, line.locationId);
+                const selected = atLocation.find((b) => Number(b.id) === Number(batchId)) ?? null;
+                return applyBatchToLine(
+                    line,
+                    selected,
+                    line.locationId,
+                    line.locationLabel,
+                );
             }),
         );
     };
@@ -310,7 +400,7 @@ export default function CreateInventoryCheckPage() {
     const handleUnitChange = (rowKey, nextUnitId) => {
         setLines((prev) =>
             prev.map((line) => {
-                if ((line.id ?? lineKey(line.productId, line.stockBatchId)) !== rowKey) {
+                if (!rowMatches(line, rowKey)) {
                     return line;
                 }
                 const units = line.units ?? [];
@@ -337,30 +427,27 @@ export default function CreateInventoryCheckPage() {
 
     const handleActualQtyChange = (rowKey, value) => {
         setLines((prev) =>
-            prev.map((line) =>
-                (line.id ?? lineKey(line.productId, line.stockBatchId)) === rowKey
-                    ? { ...line, actualQty: value === '' ? '' : Number(value) }
-                    : line,
-            ),
+            prev.map((line) => {
+                if (!rowMatches(line, rowKey)) {
+                    return line;
+                }
+                // “Tất cả lô”: không cho chỉnh tồn thực tế — chỉ chỉnh khi chọn lô cụ thể.
+                if (line.stockBatchId == null) {
+                    return line;
+                }
+                return { ...line, actualQty: value === '' ? '' : Number(value) };
+            }),
         );
     };
 
     const handleNoteChange = (rowKey, value) => {
         setLines((prev) =>
-            prev.map((line) =>
-                (line.id ?? lineKey(line.productId, line.stockBatchId)) === rowKey
-                    ? { ...line, note: value }
-                    : line,
-            ),
+            prev.map((line) => (rowMatches(line, rowKey) ? { ...line, note: value } : line)),
         );
     };
 
     const handleRemoveLine = (rowKey) => {
-        setLines((prev) =>
-            prev.filter(
-                (line) => (line.id ?? lineKey(line.productId, line.stockBatchId)) !== rowKey,
-            ),
-        );
+        setLines((prev) => prev.filter((line) => !rowMatches(line, rowKey)));
     };
 
     const openReturnDraftModal = (line, mode) => {
@@ -368,11 +455,72 @@ export default function CreateInventoryCheckPage() {
         setReturnTarget(line);
     };
 
-    const handleConfirmReturnDraft = ({ batchId, quantity, returnReason, method, line }) => {
+    const handleConfirmReturnDraft = async ({ batchId, quantity, returnReason, method, line }) => {
         setReturnSubmitting(true);
         setError(null);
         try {
             const returnQty = Number(quantity) || 0;
+
+            if (method === RETURN_DRAFT_MODE.CANCEL) {
+                const remaining = getAvailableCancelQty(line);
+                if (returnQty < 1 || returnQty > remaining) {
+                    setError(
+                        remaining < 1
+                            ? 'Không còn số lượng để hủy.'
+                            : `Số lượng hủy không được vượt quá ${remaining}.`,
+                    );
+                    return;
+                }
+                const result = await cancelStockBatch(batchId, returnQty);
+                const cancelledQty = Number(result?.cancelledQuantity ?? returnQty);
+                setLines((prev) =>
+                    prev.map((row) => {
+                        if (
+                            row.stockBatchId == null ||
+                            Number(row.stockBatchId) !== Number(batchId)
+                        ) {
+                            return row;
+                        }
+                        const nextSystem = Math.max(0, Number(row.systemQty ?? 0) - cancelledQty);
+                        const currentActual = Number(row.actualQty);
+                        const nextActual = Number.isFinite(currentActual)
+                            ? Math.max(0, currentActual - cancelledQty)
+                            : row.actualQty;
+                        const nextBatches = (row.batches ?? []).map((batch) =>
+                            Number(batch.id) === Number(batchId)
+                                ? {
+                                      ...batch,
+                                      quantity: Math.max(
+                                          0,
+                                          Number(batch.quantity ?? 0) - cancelledQty,
+                                      ),
+                                  }
+                                : batch,
+                        );
+                        return {
+                            ...row,
+                            systemQty: nextSystem,
+                            actualQty: nextActual,
+                            batches: nextBatches,
+                            note:
+                                returnReason && !row.note
+                                    ? returnReason
+                                    : row.note,
+                        };
+                    }),
+                );
+                setReturnTarget(null);
+                setSuccess({
+                    kind: 'cancel-goods',
+                    message: `Đã hủy ${cancelledQty} hàng${
+                        result?.batchCode || line?.batchCode
+                            ? ` (lô ${result?.batchCode || line?.batchCode})`
+                            : ''
+                    }.`,
+                });
+                return;
+            }
+
             const draftMethod = method || returnMode || RETURN_DRAFT_MODE.RETURN;
             const remaining = getAvailableReturnQty(line, localReturnLines);
             if (returnQty < 1 || returnQty > remaining) {
@@ -446,6 +594,10 @@ export default function CreateInventoryCheckPage() {
             );
 
             setReturnTarget(null);
+        } catch (cancelError) {
+            setError(
+                getApiErrorMessage(cancelError, 'Không thể hủy hàng. Vui lòng thử lại.'),
+            );
         } finally {
             setReturnSubmitting(false);
         }
@@ -657,11 +809,30 @@ export default function CreateInventoryCheckPage() {
                             </Alert>
                         )}
 
-                        <InventoryCheckAttentionPanel
-                            items={visibleAttention}
-                            loading={attentionLoading}
-                            onAddItem={handleAddAttentionItem}
-                        />
+                        <div className="inventory-check-top-panels">
+                            <InventoryCheckAttentionPanel
+                                items={visibleAttention}
+                                loading={attentionLoading}
+                                onAddItem={handleAddAttentionItem}
+                            />
+                            <InventoryCheckSummaryPanel
+                                lines={lines}
+                                note={note}
+                                noteEditable
+                                onNoteChange={setNote}
+                                showNote
+                                showMeta
+                                checkDate={checkDate}
+                                checkerName={checkerName}
+                                plainDisplay
+                            />
+                            <InventoryCheckReturnDraftPanel
+                                draft={localDraftView}
+                                loading={false}
+                                showCommit={false}
+                                onRemoveLine={handleRemoveDraftLine}
+                            />
+                        </div>
 
                         <section className="inventory-check-search-section">
                             <InventoryCheckProductSearch onSelect={(p) => handleSelectProduct(p)} />
@@ -672,7 +843,7 @@ export default function CreateInventoryCheckPage() {
                             ) : null}
                         </section>
 
-                        <div className="inventory-check-detail-layout">
+                        <div className="inventory-check-detail-layout inventory-check-detail-layout--full">
                             <div className="inventory-check-detail-main">
                                 <InventoryCheckLineTable
                                     lines={lines}
@@ -683,6 +854,7 @@ export default function CreateInventoryCheckPage() {
                                     onNoteChange={handleNoteChange}
                                     onRemoveLine={handleRemoveLine}
                                     onBatchChange={handleBatchChange}
+                                    onLocationChange={handleLocationChange}
                                     onUnitChange={handleUnitChange}
                                     onExchangeBatch={(line) =>
                                         openReturnDraftModal(line, RETURN_DRAFT_MODE.EXCHANGE)
@@ -690,28 +862,11 @@ export default function CreateInventoryCheckPage() {
                                     onReturnBatch={(line) =>
                                         openReturnDraftModal(line, RETURN_DRAFT_MODE.RETURN)
                                     }
+                                    onCancelBatch={(line) =>
+                                        openReturnDraftModal(line, RETURN_DRAFT_MODE.CANCEL)
+                                    }
                                 />
                             </div>
-
-                            <aside className="inventory-check-detail-sidebar">
-                                <InventoryCheckSummaryPanel
-                                    lines={lines}
-                                    note={note}
-                                    noteEditable
-                                    onNoteChange={setNote}
-                                    showNote
-                                    showMeta
-                                    checkDate={checkDate}
-                                    checkerName={checkerName}
-                                    plainDisplay
-                                />
-                                <InventoryCheckReturnDraftPanel
-                                    draft={localDraftView}
-                                    loading={false}
-                                    showCommit={false}
-                                    onRemoveLine={handleRemoveDraftLine}
-                                />
-                            </aside>
                         </div>
                     </div>
                 </main>
@@ -722,7 +877,9 @@ export default function CreateInventoryCheckPage() {
                 mode={returnMode}
                 availableQty={
                     returnTarget
-                        ? getAvailableReturnQty(returnTarget, localReturnLines)
+                        ? returnMode === RETURN_DRAFT_MODE.CANCEL
+                            ? getAvailableCancelQty(returnTarget)
+                            : getAvailableReturnQty(returnTarget, localReturnLines)
                         : 0
                 }
                 onClose={() => !returnSubmitting && setReturnTarget(null)}
@@ -739,9 +896,11 @@ export default function CreateInventoryCheckPage() {
             <SuccessNoticeModal
                 open={Boolean(success)}
                 message={
-                    success
-                        ? `Đã lưu phiếu kiểm kho${success.code ? ` ${success.code}` : ''}.`
-                        : null
+                    success?.kind === 'cancel-goods'
+                        ? success.message
+                        : success
+                          ? `Đã lưu phiếu kiểm kho${success.code ? ` ${success.code}` : ''}.`
+                          : null
                 }
                 onClose={() => setSuccess(null)}
             />

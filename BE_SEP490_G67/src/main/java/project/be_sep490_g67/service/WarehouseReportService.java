@@ -49,6 +49,7 @@ public class WarehouseReportService {
             int size
     ) {
         List<String> movementTypes = WarehouseReportConstants.resolveMovementTypes(types);
+        String methodConstraint = WarehouseReportConstants.methodConstraintForGroups(types);
         InstantRange range = resolveRange(from, to);
         boolean productIdsEmpty = productIds == null || productIds.isEmpty();
         Collection<Integer> productIdFilter = productIdsEmpty ? List.of(-1) : productIds;
@@ -65,6 +66,16 @@ public class WarehouseReportService {
 
         DocumentLookup docs = loadDocumentCodes(periodMovements);
         Map<String, String> importReturnMethods = loadImportReturnMethods(periodMovements);
+
+        if (methodConstraint != null) {
+            periodMovements = periodMovements.stream()
+                    .filter(sm -> {
+                        String method = resolveImportReturnMethod(sm, importReturnMethods);
+                        return WarehouseReportConstants.matchesMethodConstraint(
+                                sm.getMovementType(), method, methodConstraint);
+                    })
+                    .toList();
+        }
 
         LinkedHashSet<Integer> productOrder = new LinkedHashSet<>();
         if (!productIdsEmpty) {
@@ -402,6 +413,24 @@ public class WarehouseReportService {
         return DT_FMT.format(instant.atZone(ZONE));
     }
 
+    private static String resolveImportReturnMethod(StockMovement sm, Map<String, String> methods) {
+        if (methods == null || methods.isEmpty()) {
+            return null;
+        }
+        if (!ImportReturnConstants.REFERENCE_TYPE.equals(sm.getReferenceType())
+                || sm.getReferenceId() == null) {
+            return null;
+        }
+        Integer batchId = sm.getStockBatch() != null ? sm.getStockBatch().getId() : null;
+        if (batchId != null) {
+            String byBatch = methods.get(sm.getReferenceId() + "#" + batchId);
+            if (byBatch != null) {
+                return byBatch;
+            }
+        }
+        return methods.get(String.valueOf(sm.getReferenceId()));
+    }
+
     private record InstantRange(Instant from, Instant toExclusive) {
     }
 
@@ -545,24 +574,6 @@ public class WarehouseReportService {
                     .closingQty(runningQty)
                     .closingAmount(runningAmount)
                     .build());
-        }
-
-        private static String resolveImportReturnMethod(StockMovement sm, Map<String, String> methods) {
-            if (methods == null || methods.isEmpty()) {
-                return null;
-            }
-            if (!ImportReturnConstants.REFERENCE_TYPE.equals(sm.getReferenceType())
-                    || sm.getReferenceId() == null) {
-                return null;
-            }
-            Integer batchId = sm.getStockBatch() != null ? sm.getStockBatch().getId() : null;
-            if (batchId != null) {
-                String byBatch = methods.get(sm.getReferenceId() + "#" + batchId);
-                if (byBatch != null) {
-                    return byBatch;
-                }
-            }
-            return methods.get(String.valueOf(sm.getReferenceId()));
         }
 
         WarehouseIoProductDTO toDto() {

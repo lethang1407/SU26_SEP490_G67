@@ -9,7 +9,6 @@ import {
     cancelReturnHold,
     createSupplierReturnFromHold,
     fetchStorageLocations,
-    fetchUnplacedBatches,
     releaseReturnHold,
     setStorageLocationFull,
 } from '../api';
@@ -18,7 +17,6 @@ import StorageLocationDetailModal from '../components/StorageLocationDetailModal
 import StorageLocationGrid from '../components/StorageLocationGrid';
 import StorageLocationToolbar from '../components/StorageLocationToolbar';
 import ReturnHoldPanel from '../components/ReturnHoldPanel';
-import UnplacedBatchesPanel from '../components/UnplacedBatchesPanel';
 import ZoneDetailModal from '../components/ZoneDetailModal';
 import { LOCATION_STATUS } from '../constants';
 import { IMPORT_RETURN_ROUTES } from '../../import-return/constants';
@@ -72,9 +70,7 @@ function buildLocationSearchSuggestions(locations, keyword) {
 export default function StorageLocationListPage() {
     const navigate = useNavigate();
     const [allLocations, setAllLocations] = useState([]);
-    const [unplacedBatches, setUnplacedBatches] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [unplacedLoading, setUnplacedLoading] = useState(true);
     const [error, setError] = useState(null);
     const [togglingFull, setTogglingFull] = useState(false);
 
@@ -87,7 +83,6 @@ export default function StorageLocationListPage() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showAdjustModal, setShowAdjustModal] = useState(false);
     const [adjustInitialLocationId, setAdjustInitialLocationId] = useState(null);
-    const [adjustInitialBatchId, setAdjustInitialBatchId] = useState(null);
     const [selectedZoneGroup, setSelectedZoneGroup] = useState(null);
     const [reloadKey, setReloadKey] = useState(0);
     const [draftLocations, setDraftLocations] = useState(null);
@@ -99,23 +94,17 @@ export default function StorageLocationListPage() {
 
         const loadLocations = async () => {
             setIsLoading(true);
-            setUnplacedLoading(true);
             setError(null);
 
             try {
-                const [locations, unplaced] = await Promise.all([
-                    fetchStorageLocations(),
-                    fetchUnplacedBatches().catch(() => []),
-                ]);
+                const locations = await fetchStorageLocations();
                 if (!isCancelled) {
                     setAllLocations(locations);
-                    setUnplacedBatches(unplaced);
                     setDraftLocations(null);
                 }
             } catch (fetchError) {
                 if (!isCancelled) {
                     setAllLocations([]);
-                    setUnplacedBatches([]);
                     setError(
                         getApiErrorMessage(
                             fetchError,
@@ -126,7 +115,6 @@ export default function StorageLocationListPage() {
             } finally {
                 if (!isCancelled) {
                     setIsLoading(false);
-                    setUnplacedLoading(false);
                 }
             }
         };
@@ -243,14 +231,12 @@ export default function StorageLocationListPage() {
 
     const handleAdjustLocation = (location) => {
         setAdjustInitialLocationId(location?.id ?? null);
-        setAdjustInitialBatchId(null);
         setSelectedLocation(null);
         setShowAdjustModal(true);
     };
 
-    const openAdjustModal = (batch = null) => {
+    const openAdjustModal = () => {
         setAdjustInitialLocationId(null);
-        setAdjustInitialBatchId(batch?.id ?? null);
         setShowAdjustModal(true);
     };
 
@@ -371,12 +357,6 @@ export default function StorageLocationListPage() {
                     ) : (
                         <>
                             <div className="storage-location-page__sections">
-                                <UnplacedBatchesPanel
-                                    batches={unplacedBatches}
-                                    loading={unplacedLoading}
-                                    onPlaceBatch={(batch) => openAdjustModal(batch)}
-                                />
-
                                 <StorageLocationGrid
                                     groups={zoneGroups}
                                     onOpenZone={handleOpenZone}
@@ -406,12 +386,10 @@ export default function StorageLocationListPage() {
                 onHide={() => {
                     setShowAdjustModal(false);
                     setAdjustInitialLocationId(null);
-                    setAdjustInitialBatchId(null);
                 }}
                 locations={locationsData}
                 onSaved={handleAdjustSaved}
                 initialLocationId={adjustInitialLocationId}
-                initialUnplacedBatchId={adjustInitialBatchId}
             />
 
             <ZoneDetailModal

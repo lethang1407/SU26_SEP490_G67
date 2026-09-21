@@ -7,7 +7,9 @@ public final class StorageZoneConstants {
     private static final Map<String, String> ZONE_TITLES = Map.of(
             "A", "Khu nước giải khát & sữa",
             "B", "Khu khô & gia vị",
-            "C", "Khu đông lạnh & kem"
+            "C", "Khu đông lạnh & kem",
+            "NH", "Khu nhập hàng",
+            "RT", "Hàng đổi trả"
     );
 
     private StorageZoneConstants() {

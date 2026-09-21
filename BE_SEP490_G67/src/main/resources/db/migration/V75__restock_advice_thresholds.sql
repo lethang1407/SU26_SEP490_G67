@@ -1,5 +1,5 @@
 -- ============================================================
--- V53: Ngưỡng phân loại cho widget "Sản phẩm cần quyết định nhập hàng".
+-- Ngưỡng phân loại cho widget "Sản phẩm cần quyết định nhập hàng".
 --
 -- Widget xếp sản phẩm tồn thấp/hết hàng thành ba mức dựa trên sản lượng bán gần
 -- đây, chứ không coi tồn <= min_stock là mặc định phải nhập:

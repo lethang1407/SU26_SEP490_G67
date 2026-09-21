@@ -15,7 +15,9 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UnplacedBatchResponse {
+    /** Id dòng batch_location tại NHAP-MOI (dùng để chuyển/move). */
     Integer id;
+    Integer batchLocationId;
     Integer batchId;
     Integer productId;
     Integer categoryId;

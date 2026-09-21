@@ -38,6 +38,7 @@ public class InventoryCheckProductPreviewResponse {
     public static class BatchOption {
         Integer id;
         String batchCode;
+        /** Số lượng tại vị trí (batch_location), không phải cả lô. */
         Integer quantity;
         String expiryDate;
         Integer importOrderId;
@@ -46,6 +47,8 @@ public class InventoryCheckProductPreviewResponse {
         BigDecimal costPerUnit;
         /** Lô bán thử — không gợi ý đổi/trả NCC (quyết toán trên phiếu nhập). */
         Boolean isTrial;
+        Integer locationId;
+        String locationLabel;
     }
 
     @Data

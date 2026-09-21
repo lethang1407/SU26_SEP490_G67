@@ -7,11 +7,8 @@ import WarehouseReportPagination from '../components/WarehouseReportPagination';
 import SupplierOrderDetailModal from '../../supplier/components/SupplierOrderDetailModal';
 import SalesOrderDetailModal from '../../pos-screen/components/SalesOrderDetailModal';
 import ImportReturnDetailModal from '../../import-return/components/ImportReturnDetailModal';
-import {
-  downloadWarehouseReport,
-  warehouseReportApi,
-} from '../api';
-import { resolvePresetRange } from '../utils/warehouseReportUtils';
+import { warehouseReportApi } from '../api';
+import { resolveYearRange } from '../utils/warehouseReportUtils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/WarehouseReport.css';
 import '../../../css/ImportOrder.css';
@@ -26,10 +23,17 @@ const EMPTY_SUMMARY = {
   closingAmount: 0,
 };
 
+function initialFilters() {
+  const year = String(new Date().getFullYear());
+  const { from, to } = resolveYearRange(year);
+  return { year, fromDate: from, toDate: to };
+}
+
 export default function WarehouseReportPage() {
-  const initialRange = resolvePresetRange('all');
-  const [fromDate, setFromDate] = useState(initialRange.from || '');
-  const [toDate, setToDate] = useState(initialRange.to || '');
+  const initial = initialFilters();
+  const [year, setYear] = useState(initial.year);
+  const [fromDate, setFromDate] = useState(initial.fromDate);
+  const [toDate, setToDate] = useState(initial.toDate);
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [typeFilter, setTypeFilter] = useState('');
   const [page, setPage] = useState(0);
@@ -67,9 +71,21 @@ export default function WarehouseReportPage() {
     loadReport();
   }, [loadReport]);
 
-  const handleDateChange = ({ fromDate: nextFrom = '', toDate: nextTo = '' }) => {
-    setFromDate(nextFrom || '');
-    setToDate(nextTo || '');
+  const handleYearChange = (nextYear) => {
+    const range = resolveYearRange(nextYear);
+    setYear(nextYear);
+    setFromDate(range.from);
+    setToDate(range.to);
+    setPage(0);
+  };
+
+  const handleFromChange = (value) => {
+    setFromDate(value || '');
+    setPage(0);
+  };
+
+  const handleToChange = (value) => {
+    setToDate(value || '');
     setPage(0);
   };
 
@@ -81,26 +97,6 @@ export default function WarehouseReportPage() {
   const handleTypeChange = (value) => {
     setTypeFilter(value);
     setPage(0);
-  };
-
-  const handleExport = async () => {
-    try {
-      const types = typeFilter ? [typeFilter] : [];
-      const productIds = selectedProducts.map((p) => p.id);
-      const blob = await warehouseReportApi.exportInventoryIo({
-        from: fromDate || undefined,
-        to: toDate || undefined,
-        productIds,
-        types,
-      });
-      downloadWarehouseReport(
-        blob,
-        `bao-cao-nhap-xuat-ton-${new Date().toISOString().slice(0, 10)}.csv`,
-      );
-    } catch (err) {
-      console.error(err);
-      setError('Xuất Excel thất bại.');
-    }
   };
 
   const handleDocumentClick = (line) => {
@@ -131,7 +127,7 @@ export default function WarehouseReportPage() {
         <div className="dashboard-container wr-page">
           <div className="wr-page__header">
             <div>
-              <h1 className="wr-page__title">Báo cáo nhập xuất tồn chi tiết</h1>
+              <h1 className="wr-page__title">Báo cáo kho hàng</h1>
               <p className="wr-page__subtitle">
                 Chi tiết từng phiếu nhập/xuất, nhóm theo hàng hóa
               </p>
@@ -139,16 +135,16 @@ export default function WarehouseReportPage() {
           </div>
 
           <WarehouseReportFilters
+            year={year}
             fromDate={fromDate}
             toDate={toDate}
-            onDateChange={handleDateChange}
+            onYearChange={handleYearChange}
+            onFromChange={handleFromChange}
+            onToChange={handleToChange}
             selectedProducts={selectedProducts}
             onProductsChange={handleProductsChange}
             typeFilter={typeFilter}
             onTypeChange={handleTypeChange}
-            onRefresh={loadReport}
-            onExport={handleExport}
-            loading={loading}
           />
 
           {error && <div className="wr-alert">{error}</div>}

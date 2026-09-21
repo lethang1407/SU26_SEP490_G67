@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, BookOpen, Clock, Package, Calendar, ExternalLink, AlertCircle, AlertTriangle } from 'lucide-react';
+import { X, BookOpen, Clock, Package, Calendar, AlertCircle, AlertTriangle } from 'lucide-react';
 import { productsApi } from '../api';
 import ProductToast, { ProductToastContainer } from './ProductToast';
+import ImportOrderDetailModal from '../../import-order/components/ImportOrderDetailModal';
 import '../../../css/Product.css';
 
 export default function ProductStockCardModal({
@@ -13,6 +14,7 @@ export default function ProductStockCardModal({
   const [freshProduct, setFreshProduct] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [viewOrderId, setViewOrderId] = useState(null);
 
   useEffect(() => {
     if (isOpen && product?.id) {
@@ -315,16 +317,18 @@ export default function ProductStockCardModal({
                       </td>
                       <td style={{ fontFamily: 'monospace' }}>
                         {item.orderId ? (
-                          <a
-                            href={`/admin/warehouse/import/${item.orderId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
                             className="pi-order-link"
-                            title={`Xem chi tiết đơn nhập #${item.orderCode || item.orderId} (Mở tab mới)`}
+                            title={`Xem chi tiết đơn nhập #${item.orderCode || item.orderId}`}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setViewOrderId(item.orderId);
+                            }}
                           >
                             {item.orderCode || item.code || `NH${String(item.orderId).padStart(5, '0')}`}
-                            <ExternalLink size={12} style={{ opacity: 0.7 }} />
-                          </a>
+                          </button>
                         ) : (
                           <span style={{ fontWeight: 600, color: '#2563EB' }}>
                             {item.orderCode || item.code || `PO#${idx + 1}`}
@@ -414,6 +418,12 @@ export default function ProductStockCardModal({
           )}
         </ProductToastContainer>
       </div>
+
+      <ImportOrderDetailModal
+        open={!!viewOrderId}
+        orderId={viewOrderId}
+        onClose={() => setViewOrderId(null)}
+      />
     </div>
   );
 }

@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import ImportOrderExpandPanel from './ImportOrderExpandPanel';
+import '../../../css/Supplier.css';
+import '../../../css/ImportOrder.css';
 
 export default function ImportOrderDetailModal({
     open,
@@ -29,8 +32,12 @@ export default function ImportOrderDetailModal({
 
     if (!open || !orderId) return null;
 
-    return (
-        <div className="supplier-modal-overlay" onClick={onClose} role="presentation">
+    return createPortal(
+        <div
+            className="supplier-modal-overlay supplier-modal-overlay--stacked import-order-detail-modal-overlay"
+            onClick={onClose}
+            role="presentation"
+        >
             <div
                 className="supplier-modal import-order-detail-modal"
                 onClick={(event) => event.stopPropagation()}
@@ -59,6 +66,7 @@ export default function ImportOrderDetailModal({
                     />
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }

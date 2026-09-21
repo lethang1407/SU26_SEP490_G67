@@ -1,10 +1,19 @@
 export const pickKey = (loc) =>
     loc ? `${loc.locationId}-${loc.batchId ?? 'all'}` : '';
 
-export const selectedKeys = (item) => item?.pickKeys ?? [];
+export const orderedLocations = (item) => item?.locations ?? [];
 
-export const selectedPicks = (item) =>
-    (item?.locations ?? []).filter((loc) => selectedKeys(item).includes(pickKey(loc)));
+/** Lô quá hạn kho chưa xử lý: vẫn hiện để thu ngân biết, nhưng không lấy được. */
+export const isExpired = (loc) => loc?.expired === true;
+
+/**
+ * Dòng lấy được hàng. Dòng không có locationId là vị trí giả của chế độ offline —
+ * gửi lên BE sẽ bị bỏ qua, nên coi như không có vị trí để FIFO toàn kho lo.
+ */
+export const sellableLocations = (item) =>
+    orderedLocations(item).filter((loc) => loc?.locationId != null && !isExpired(loc));
+
+export const hasPickableStock = (item) => sellableLocations(item).length > 0;
 
 /** Số đơn vị cơ sở trong một đơn vị bán đang chọn. */
 export function unitFactor(item) {
@@ -14,72 +23,127 @@ export function unitFactor(item) {
     return Number(unit?.unitBase) || 1;
 }
 
-export function toBaseUnits(item) {
-    return item.qty * unitFactor(item);
-}
+/**
+ * Số đơn vị bán tối đa lấy được ở một dòng. Tồn lưu theo đơn vị cơ sở nên làm tròn
+ * xuống: ô còn 95 lon thì lấy được 15 lốc 6 — lốc không xé lẻ giữa hai ô.
+ */
+export const capacityOf = (item, loc) =>
+    Math.floor(Number(loc?.quantity ?? 0) / unitFactor(item));
 
-/** Tổng tồn (đơn vị cơ sở) của các lô đã tick. */
-export const selectedQuantity = (item) =>
-    selectedPicks(item).reduce((sum, loc) => sum + Number(loc.quantity ?? 0), 0);
+const sumQty = (map) => Object.values(map).reduce((sum, q) => sum + Number(q || 0), 0);
 
-export function allocateQuantity(item) {
-    let remaining = toBaseUnits(item);
-    const parts = [];
-    for (const loc of selectedPicks(item)) {
-        if (remaining <= 0) break;
-        const take = Math.min(Number(loc.quantity ?? 0), remaining);
-        if (take > 0) {
-            parts.push({
-                key: pickKey(loc),
-                locationId: loc.locationId,
-                label: formatLocationShort(loc),
-                quantity: take,
-            });
-            remaining -= take;
+function shiftTotal(item, map, delta) {
+    const locs = sellableLocations(item);
+    const next = { ...map };
+    if (delta > 0) {
+        let rest = delta;
+        for (const loc of locs) {
+            if (rest <= 0) break;
+            const key = pickKey(loc);
+            const room = capacityOf(item, loc) - (next[key] ?? 0);
+            if (room <= 0) continue;
+            const add = Math.min(room, rest);
+            next[key] = (next[key] ?? 0) + add;
+            rest -= add;
+        }
+        if (rest > 0) {
+            const lastKey = pickKey(locs[locs.length - 1]);
+            next[lastKey] = (next[lastKey] ?? 0) + rest;
+        }
+    } else if (delta < 0) {
+        let rest = -delta;
+        for (const loc of [...locs].reverse()) {
+            if (rest <= 0) break;
+            const key = pickKey(loc);
+            const take = Math.min(next[key] ?? 0, rest);
+            if (take <= 0) continue;
+            next[key] -= take;
+            if (next[key] <= 0) delete next[key];
+            rest -= take;
         }
     }
-    return parts;
+    return next;
 }
 
-/** True khi chưa chọn ô/lô tường minh → checkout đi FIFO (không phải lỗi). */
-export const needsLocationPick = (item) => selectedPicks(item).length === 0;
+/** Chia `qty` theo FIFO từ đầu, bỏ qua mọi phân bổ cũ. */
+export const allocateFifo = (item, qty) => shiftTotal(item, {}, qty);
 
-export const isLocationShort = (item) =>
-    !needsLocationPick(item) && selectedQuantity(item) < toBaseUnits(item);
+export function pickQtyOf(item) {
+    if (!hasPickableStock(item)) return {};
+    return item.pickQty ?? allocateFifo(item, item.qty);
+}
 
-/** Chỉ lỗi khi đã chọn ô nhưng không đủ SL. FIFO (không pick) là hợp lệ. */
-export const hasLocationProblem = (item) => isLocationShort(item);
+export const qtyAt = (item, loc) => pickQtyOf(item)[pickKey(loc)] ?? 0;
+
+/** Thu ngân sửa số lượng ở một dòng vị trí → tổng dòng hàng cộng lại theo. */
+export function withPickQty(item, key, qty) {
+    const map = { ...pickQtyOf(item) };
+    if (qty > 0) map[key] = qty;
+    else delete map[key];
+    return { ...item, pickQty: map, qty: sumQty(map) };
+}
+
+/** Thu ngân sửa ô "Số lượng" tổng (hoặc quét thêm một cái) → chia lại phần chênh. */
+export function withTotalQty(item, qty) {
+    if (!hasPickableStock(item)) return { ...item, qty };
+    const map = pickQtyOf(item);
+    return { ...item, pickQty: shiftTotal(item, map, qty - sumQty(map)), qty };
+}
+
+export const withFifoPicks = (item) =>
+    hasPickableStock(item) ? { ...item, pickQty: allocateFifo(item, item.qty) } : item;
+
+/** Số nhập ở dòng này quy ra đơn vị cơ sở vượt tồn thật của dòng. */
+export const isOverCapacity = (item, loc) =>
+    qtyAt(item, loc) * unitFactor(item) > Number(loc?.quantity ?? 0);
+
+/**
+ * Chặn thanh toán khi có dòng vượt tồn. Tổng lệch `qty` chỉ xảy ra với dữ liệu hỏng,
+ * nhưng BE sẽ từ chối ngay (STOCK_PICK_QUANTITY_MISMATCH) nên chặn luôn ở đây.
+ */
+export function hasLocationProblem(item) {
+    if (!hasPickableStock(item)) return false;
+    return sellableLocations(item).some((loc) => isOverCapacity(item, loc))
+        || sumQty(pickQtyOf(item)) !== Number(item.qty);
+}
 
 export function formatLocationShort(loc) {
     if (!loc) return null;
-    return loc.label || loc.zoneCode || String(loc.locationId);
+    const raw = loc.label || loc.zoneCode || String(loc.locationId);
+    const upper = String(raw).trim().toUpperCase();
+    if (upper === 'IMPORTED' || upper === 'NHAP-MOI' || upper === 'NH') {
+        return 'Khu nhập hàng';
+    }
+    return raw;
 }
 
-/** Nhãn gọn trên nút chọn; null → UI hiện 「Tự động (FIFO)」. */
+/** Các dòng đang lấy hàng, theo thứ tự FIFO. */
+export const allocationParts = (item) =>
+    sellableLocations(item)
+        .filter((loc) => qtyAt(item, loc) > 0)
+        .map((loc) => ({
+            key: pickKey(loc),
+            label: formatLocationShort(loc),
+            quantity: qtyAt(item, loc),
+        }));
+
+/** Nhãn gọn trên nút chọn vị trí. */
 export function locationSummary(item) {
-    const picked = selectedPicks(item);
-    if (picked.length === 0) return null;
-    const first = formatLocationShort(picked[0]);
-    return picked.length === 1 ? first : `${first} +${picked.length - 1} lô`;
+    const parts = allocationParts(item);
+    if (parts.length === 0) return null;
+    return parts.length === 1 ? parts[0].label : `${parts[0].label} +${parts.length - 1}`;
 }
-
-/** Payload gửi BE: rỗng = FIFO; có phần tử = trừ đúng ô/lô đã chọn. */
-export const toStockPicks = (item) =>
-    selectedPicks(item).map((loc) => ({
-        locationId: loc.locationId,
-        batchId: loc.batchId ?? null,
-    }));
 
 /**
- * Sắp dòng vị trí theo FIFO (ngày nhập): lô về kho trước đứng trước.
- * Phải khớp ORDER BY của BE (BatchLocationRepository) — lệch nhau là thu ngân nhìn
- * một thứ tự mà checkout lại trừ theo thứ tự khác.
+ * Payload gửi BE. Có vị trí thì luôn gửi kèm số lượng từng dòng; rỗng (sản phẩm
+ * chưa tải được vị trí, ví dụ thêm lúc offline) = BE tự trừ FIFO toàn kho.
  */
-export function sortLocationsByFifo(locations) {
-    return [...(locations ?? [])].sort((a, b) => {
-        const recvA = a?.receivedDate ? Date.parse(a.receivedDate) : Number.POSITIVE_INFINITY;
-        const recvB = b?.receivedDate ? Date.parse(b.receivedDate) : Number.POSITIVE_INFINITY;
-        if (recvA !== recvB) return recvA - recvB;
-        return String(a?.label ?? '').localeCompare(String(b?.label ?? ''));
+export const toStockPicks = (item) =>
+    allocationParts(item).map((part) => {
+        const loc = sellableLocations(item).find((l) => pickKey(l) === part.key);
+        return {
+            locationId: loc.locationId,
+            batchId: loc.batchId ?? null,
+            quantity: part.quantity,
+        };
     });
-}

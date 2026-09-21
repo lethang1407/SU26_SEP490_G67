@@ -16,7 +16,10 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class StorageLocationResponse {
     Integer id;
+    /** Label kỹ thuật (vd. IMPORTED). */
     String label;
+    /** Tên hiển thị UI — với ô nhập hàng = "Khu nhập hàng". */
+    String displayLabel;
     /** Mã khu (A, B, …) — từ storage_zones.code */
     String zone;
     Integer zoneId;

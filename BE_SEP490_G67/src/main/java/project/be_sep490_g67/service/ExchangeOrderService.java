@@ -50,6 +50,7 @@ public class ExchangeOrderService {
     DebtPaymentRepository debtPaymentRepository;
     DebtPolicy debtPolicy;
     StockDeductionService stockDeductionService;
+    AccountingService accountingService;
 
     @Transactional(readOnly = true)
     public ExchangeOrderDetailResponse getOrderForExchange(Integer orderId) {
@@ -122,6 +123,7 @@ public class ExchangeOrderService {
             CreateExchangeOrderRequest request,
             Integer staffId) {
 
+        accountingService.lockForSourceWrite();
         // Validate original order exists
         SalesOrder originalOrder = salesOrderRepository.findByIdWithDetails(request.getOriginalOrderId())
                 .orElseThrow(() -> new AppException(ErrorCode.ORIGINAL_ORDER_NOT_FOUND));
@@ -245,14 +247,14 @@ public class ExchangeOrderService {
                 int baseQuantity = UnitQuantityConverter.toBaseUnits(resolvedUnit,
                         exchangeItem.getQuantity());
 
-                // Trừ kho đúng đường của giỏ hàng POS: FEFO khi thu ngân không chọn ô,
+                // Trừ kho đúng đường của giỏ hàng POS: FIFO khi thu ngân không chọn ô,
                 // và trừ thẳng batch_locations + quantityIn chứ không chỉ ghi một dòng sổ.
                 Integer soldFromBatchId = stockDeductionService.deductStockFromPicks(
                         exchangeItem.getProductId(),
                         baseQuantity,
                         savedReturnOrder.getId(),
                         staffId,
-                        resolvePicks(exchangeItem),
+                        resolvePicks(exchangeItem, resolvedUnit),
                         "EXCHANGE_ORDER");
 
                 BigDecimal exchangeUnitPrice = UnitPriceResolver.resolve(product, resolvedUnit);
@@ -332,6 +334,9 @@ public class ExchangeOrderService {
         originalOrder.setUpdatedAt(Instant.now());
         salesOrderRepository.save(originalOrder);
 
+        accountingService.recordReturn(savedReturnOrder);
+        if (exchangeOrder != null) accountingService.recordSale(exchangeOrder);
+
         return buildExchangeOrderResponse(
                 savedReturnOrder,
                 originalOrder,
@@ -351,18 +356,19 @@ public class ExchangeOrderService {
     }
 
     /**
-     * Ô/lô thu ngân đã tick cho một dòng hàng lấy mới. Rỗng/null = để FEFO tự chọn.
+     * Ô/lô thu ngân đã tick cho một dòng hàng lấy mới. Rỗng/null = để FIFO tự chọn.
      * {@code batchId} kiểu cũ bị bỏ qua: không kèm ô thì không biết trừ kệ nào.
      */
     private static List<StockDeductionService.StockPick> resolvePicks(
-            CreateExchangeOrderRequest.ExchangeItemRequest item) {
+            CreateExchangeOrderRequest.ExchangeItemRequest item, ProductUnit sellingUnit) {
         if (item.getPicks() == null || item.getPicks().isEmpty()) {
             return null;
         }
         return item.getPicks().stream()
                 .filter(pick -> pick != null && pick.getLocationId() != null)
-                .map(pick -> new StockDeductionService.StockPick(
-                        pick.getLocationId(), pick.getBatchId()))
+                .map(pick -> StockDeductionService.StockPick.inSellingUnit(
+                        pick.getLocationId(), pick.getBatchId(),
+                        pick.getQuantity(), sellingUnit))
                 .toList();
     }
 

@@ -5524,6 +5524,15 @@
   animation: piFadeIn 0.2s ease;
 }
 
+/* Modal đơn nhập mở từ thẻ kho phải nằm trên modal sản phẩm */
+.pi-modal-backdrop > .supplier-modal-overlay {
+  z-index: 10050;
+}
+
+.import-order-detail-modal-overlay.supplier-modal-overlay {
+  z-index: 11000;
+}
+
 .pi-modal-dialog {
   background: #ffffff;
   border-radius: 14px;
@@ -6997,6 +7006,11 @@
   padding: 2px 6px;
   margin: -2px -6px;
   transition: all 0.15s ease-in-out;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
 }
 
 .pi-order-link:hover {
@@ -8131,4 +8145,4 @@
 
 .pi-supplier-search-reset-btn:hover {
   background: #dbeafe;
-}
+}

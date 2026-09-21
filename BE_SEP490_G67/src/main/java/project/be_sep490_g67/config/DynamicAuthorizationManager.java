@@ -11,6 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
+import project.be_sep490_g67.constants.StaffConstants;
 import project.be_sep490_g67.entity.ApiEndpointPermission;
 import project.be_sep490_g67.repository.ApiEndpointPermissionRepository;
 
@@ -75,8 +76,8 @@ public class DynamicAuthorizationManager implements AuthorizationManager<Request
         boolean hasAccess = authentication.getAuthorities().stream().anyMatch(authority -> {
             String authName = authority.getAuthority();
             if (authName == null) return false;
-            return "ROLE_MANAGER".equalsIgnoreCase(authName)
-                    || "MANAGER".equalsIgnoreCase(authName)
+            return ("ROLE_" + StaffConstants.MANAGER_ROLE_NAME).equalsIgnoreCase(authName)
+                    || StaffConstants.MANAGER_ROLE_NAME.equalsIgnoreCase(authName)
                     || requiredPermission.equalsIgnoreCase(authName);
         });
 

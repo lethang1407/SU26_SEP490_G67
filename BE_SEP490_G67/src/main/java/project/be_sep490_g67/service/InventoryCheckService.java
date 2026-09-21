@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import project.be_sep490_g67.constants.StorageZoneType;
 import project.be_sep490_g67.dto.request.CreateInventoryCheckRequest;
 import project.be_sep490_g67.dto.response.InventoryCheckAttentionItemResponse;
 import project.be_sep490_g67.dto.response.InventoryCheckDetailResponse;
@@ -195,6 +196,11 @@ public class InventoryCheckService {
                     : actualQty;
             int delta = adjustQty - systemQty;
 
+            // “Tất cả lô”: chỉ ghi nhận đối soát, không được lệch tồn / điều chỉnh tự động theo FIFO.
+            if (targetBatch == null && delta != 0) {
+                throw new AppException(ErrorCode.INVENTORY_CHECK_ALL_BATCH_QTY_LOCKED);
+            }
+
             InventoryCheckDetail detail = new InventoryCheckDetail();
             detail.setInventoryCheck(savedCheck);
             detail.setProduct(product);
@@ -206,11 +212,7 @@ public class InventoryCheckService {
             inventoryCheckDetailRepository.save(detail);
 
             if (delta != 0) {
-                if (targetBatch != null) {
-                    applySingleBatchAdjustment(targetBatch, delta, savedCheck);
-                } else {
-                    applyProductStockAdjustment(product, delta, savedCheck);
-                }
+                applySingleBatchAdjustment(targetBatch, delta, savedCheck);
             }
         }
 
@@ -247,7 +249,7 @@ public class InventoryCheckService {
     }
 
     /**
-     * delta &lt; 0: trừ tồn FEFO theo lô + kệ.
+     * delta &lt; 0: trừ tồn FIFO theo ngày nhập, theo lô + kệ.
      * delta &gt; 0: cộng vào lô gần nhất (hoặc tạo lô điều chỉnh chưa xếp kệ).
      */
     private void applyProductStockAdjustment(Product product, int delta, InventoryCheck check) {
@@ -390,9 +392,9 @@ public class InventoryCheckService {
     }
 
     private InventoryCheckProductPreviewResponse toProductPreview(Product product) {
-        List<StockBatch> batches = stockBatchRepository.findAvailableWithImportByProductId(product.getId());
-        List<InventoryCheckProductPreviewResponse.BatchOption> options = batches.stream()
-                .map(this::toBatchOption)
+        List<BatchLocation> placed = batchLocationRepository.findAvailableByProductId(product.getId());
+        List<InventoryCheckProductPreviewResponse.BatchOption> options = placed.stream()
+                .map(this::toBatchOptionFromLocation)
                 .toList();
         int systemQty = options.stream().mapToInt(b -> b.getQuantity() != null ? b.getQuantity() : 0).sum();
         List<ProductUnit> productUnits = productUnitRepository
@@ -419,19 +421,25 @@ public class InventoryCheckService {
                 .build();
     }
 
-    private InventoryCheckProductPreviewResponse.BatchOption toBatchOption(StockBatch batch) {
+    private InventoryCheckProductPreviewResponse.BatchOption toBatchOptionFromLocation(BatchLocation bl) {
+        StockBatch batch = bl.getBatch();
         ImportOrder importOrder = batch.getImportOrder();
         Supplier supplier = importOrder != null ? importOrder.getSupplier() : null;
+        String locationLabel = bl.getLocation() != null
+                ? StorageZoneType.resolveDisplayLabel(bl.getLocation().getLabel())
+                : null;
         return InventoryCheckProductPreviewResponse.BatchOption.builder()
                 .id(batch.getId())
                 .batchCode(batch.getBatchCode())
-                .quantity(batch.getQuantityIn() != null ? batch.getQuantityIn() : 0)
+                .quantity(bl.getQuantity() != null ? bl.getQuantity() : 0)
                 .expiryDate(batch.getExpiryDate() != null ? batch.getExpiryDate().toString() : null)
                 .importOrderId(importOrder != null ? importOrder.getId() : null)
                 .supplierId(supplier != null ? supplier.getId() : null)
                 .supplierName(supplier != null ? supplier.getName() : null)
                 .costPerUnit(batch.getCostPerUnit())
                 .isTrial(Boolean.TRUE.equals(batch.getIsTrial()))
+                .locationId(bl.getLocation() != null ? bl.getLocation().getId() : null)
+                .locationLabel(locationLabel)
                 .build();
     }
 

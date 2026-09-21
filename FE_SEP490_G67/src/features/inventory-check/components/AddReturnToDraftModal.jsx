@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 const MODE = {
     RETURN: 'RETURN',
     EXCHANGE: 'EXCHANGE',
+    CANCEL: 'CANCEL',
 };
 
 const MODE_COPY = {
@@ -14,6 +15,7 @@ const MODE_COPY = {
         confirmLabel: 'Trả nhà cung cấp',
         submittingLabel: 'Đang trả...',
         exhaustedHint: 'Đã trả/đổi hết số lượng có thể.',
+        requireImportOrder: true,
     },
     [MODE.EXCHANGE]: {
         title: 'Thêm vào phiếu đổi cho NCC',
@@ -22,6 +24,17 @@ const MODE_COPY = {
         confirmLabel: 'Đổi cho nhà cung cấp',
         submittingLabel: 'Đang thêm...',
         exhaustedHint: 'Đã trả/đổi hết số lượng có thể.',
+        requireImportOrder: true,
+    },
+    [MODE.CANCEL]: {
+        title: 'Hủy hàng',
+        qtyLabel: 'Số lượng hủy',
+        reasonLabel: 'Lý do hủy (tuỳ chọn)',
+        confirmLabel: 'Hủy hàng',
+        submittingLabel: 'Đang hủy...',
+        exhaustedHint: 'Không còn số lượng để hủy.',
+        requireImportOrder: false,
+        entireLabel: 'Hủy toàn bộ còn lại',
     },
 };
 
@@ -66,6 +79,7 @@ export default function AddReturnToDraftModal({
 
     const qtyNum = Number(quantity);
     const unit = line.unit ? ` ${line.unit}` : '';
+    const needsImportOrder = copy.requireImportOrder !== false;
     const canSubmit =
         !submitting &&
         maxQty >= 1 &&
@@ -73,7 +87,7 @@ export default function AddReturnToDraftModal({
         qtyNum >= 1 &&
         qtyNum <= maxQty &&
         line.stockBatchId != null &&
-        line.importOrderId != null;
+        (!needsImportOrder || line.importOrderId != null);
 
     const handleQuantityChange = (value) => {
         setQuantity(value);
@@ -156,7 +170,7 @@ export default function AddReturnToDraftModal({
                             disabled={submitting || maxQty < 1}
                         />
                         <span>
-                            Toàn bộ còn lại ({maxQty}
+                            {copy.entireLabel || 'Toàn bộ còn lại'} ({maxQty}
                             {unit})
                         </span>
                     </label>
@@ -165,7 +179,11 @@ export default function AddReturnToDraftModal({
                         <input
                             type="text"
                             value={returnReason}
-                            placeholder="Ví dụ: gần HSD, bao bì lỗi..."
+                            placeholder={
+                                mode === MODE.CANCEL
+                                    ? 'Ví dụ: hỏng, hết hạn, mất mát...'
+                                    : 'Ví dụ: gần HSD, bao bì lỗi...'
+                            }
                             onChange={(event) => setReturnReason(event.target.value)}
                             disabled={submitting}
                         />

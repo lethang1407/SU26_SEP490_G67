@@ -36,6 +36,7 @@ import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.ImportOrderDetailRepository;
 import project.be_sep490_g67.repository.ImportOrderRepository;
+import project.be_sep490_g67.utils.UnitPriceResolver;
 import project.be_sep490_g67.repository.ProductRepository;
 import project.be_sep490_g67.repository.ProductUnitRepository;
 import project.be_sep490_g67.repository.ProductAttributeRepository;
@@ -155,6 +156,7 @@ public class ImportOrderService {
         BigDecimal recordedPaid = BigDecimal.ZERO;
         if (isImported) {
             createStocksForImportedDetails(saved, details);
+            applySellingPrices(request.getPriceAdjustments());
             if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
                 createInitialPayment(saved, supplier, paidAmount, request.getPaymentMethod());
                 recordedPaid = paidAmount;
@@ -251,6 +253,7 @@ public class ImportOrderService {
         BigDecimal recordedPaid = BigDecimal.ZERO;
         if (isImported) {
             createStocksForImportedDetails(saved, details);
+            applySellingPrices(request.getPriceAdjustments());
             if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
                 createInitialPayment(saved, supplier, paidAmount, request.getPaymentMethod());
                 recordedPaid = paidAmount;
@@ -1197,6 +1200,7 @@ public class ImportOrderService {
                         .id(unit.getId())
                         .name(unit.getName())
                         .unitBase(unit.getUnitBase())
+                        .sellingPrice(UnitPriceResolver.resolveOrNull(null, unit))
                         .build())
                 .toList();
     }
@@ -1219,6 +1223,46 @@ public class ImportOrderService {
     private BigDecimal toBaseCostPerUnit(BigDecimal costPerUnit, ProductUnit productUnit) {
         BigDecimal safeCost = costPerUnit != null ? costPerUnit : BigDecimal.ZERO;
         return safeCost.divide(resolveUnitBase(productUnit), 2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Ghi giá bán mới vào product_units (và SP gốc nếu là ĐVT cơ bản).
+     * Chỉ gọi khi phiếu IMPORTED — phiếu tạm không lưu giá bán.
+     */
+    private void applySellingPrices(List<CreateImportOrderRequest.PriceAdjustmentItem> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        java.util.Set<Integer> seenUnitIds = new java.util.HashSet<>();
+        for (CreateImportOrderRequest.PriceAdjustmentItem item : items) {
+            if (item == null || item.getProductId() == null || item.getProductUnitId() == null) {
+                throw new AppException(ErrorCode.PRODUCT_UNIT_INVALID);
+            }
+            if (item.getSellingPrice() == null || item.getSellingPrice().compareTo(BigDecimal.ZERO) < 0) {
+                throw new AppException(ErrorCode.PRODUCT_PRICE_INVALID);
+            }
+            if (!seenUnitIds.add(item.getProductUnitId())) {
+                continue;
+            }
+            ProductUnit unit = productUnitRepository
+                    .findByIdAndProduct_IdAndIsRemovedFalse(item.getProductUnitId(), item.getProductId())
+                    .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_UNIT_NOT_FOUND));
+            BigDecimal price = item.getSellingPrice().setScale(2, RoundingMode.HALF_UP);
+            unit.setSellingPrice(price);
+            productUnitRepository.save(unit);
+
+            Product product = unit.getProduct();
+            if (product != null && isBaseUnit(unit)) {
+                product.setSellingPrice(price);
+                productRepository.save(product);
+            }
+        }
+    }
+
+    private boolean isBaseUnit(ProductUnit unit) {
+        return unit != null
+                && unit.getUnitBase() != null
+                && unit.getUnitBase().compareTo(BigDecimal.ONE) == 0;
     }
 
     /**
@@ -1257,9 +1301,19 @@ public class ImportOrderService {
         batch.setIsRemoved(false);
         StockBatch savedBatch = stockBatchRepository.save(batch);
 
+
+        StorageLocation receiving = storageLocationRepository.findReceivingLocation()
+                .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
+        BatchLocation bl = new BatchLocation();
+        bl.setBatch(savedBatch);
+        bl.setLocation(receiving);
+        bl.setQuantity(quantityIn);
+        bl.setIsRemoved(false);
+        BatchLocation savedBatchLocation = batchLocationRepository.save(bl);
+
         StockMovement movement = StockMovement.builder()
                 .stockBatch(savedBatch)
-                .batchLocation(null)
+                .batchLocation(savedBatchLocation)
                 .quantityDelta(quantityIn)
                 .stockAfter(quantityIn)
                 .movementType("IMPORT")
@@ -1269,7 +1323,7 @@ public class ImportOrderService {
         movement.setIsRemoved(false);
         stockMovementRepository.save(movement);
 
-        // Cập nhật giá vốn master theo giá base vừa nhập (lần sau search gợi ý đúng hơn)
+        // Cập nhật giá vốn master theo giá base vừa nhập
         Product product = detail.getProduct();
         if (product != null && costPerUnit != null) {
             product.setCostPrice(costPerUnit);
