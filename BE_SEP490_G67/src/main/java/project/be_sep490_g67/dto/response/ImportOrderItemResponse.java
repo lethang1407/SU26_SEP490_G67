@@ -59,5 +59,6 @@ public class ImportOrderItemResponse {
         Integer id;
         String name;
         BigDecimal unitBase;
+        BigDecimal sellingPrice;
     }
 }

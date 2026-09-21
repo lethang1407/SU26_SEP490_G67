@@ -101,4 +101,28 @@ public class CreateImportOrderRequest {
         /** true = bán thử. Có thể dùng thay cho lineType = TRIAL. */
         Boolean isTrial;
     }
+
+    /**
+     * Giá bán mới từ màn nhập. Chỉ ghi vào product_units / products khi IMPORTED.
+     * Phiếu tạm bỏ qua field này.
+     */
+    @Valid
+    List<PriceAdjustmentItem> priceAdjustments;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class PriceAdjustmentItem {
+
+        @NotNull(message = "productId không được để trống")
+        Integer productId;
+
+        @NotNull(message = "productUnitId không được để trống")
+        Integer productUnitId;
+
+        @NotNull(message = "Giá bán không được để trống")
+        @DecimalMin(value = "0.0", inclusive = true, message = "Giá bán không được âm")
+        BigDecimal sellingPrice;
+    }
 }
