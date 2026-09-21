@@ -398,7 +398,7 @@ export default function CustomerDebtPage() {
           ) : data.content.length === 0 ? (
             <tr>
               <td colSpan="6" className="text-center py-5 text-muted">
-                Không tìm thấy dữ liệu.
+                Không có khách hàng.
               </td>
             </tr>
           ) : (

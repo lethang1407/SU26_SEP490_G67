@@ -94,7 +94,7 @@ function emptyProfileForm(year) {
     taxpayerAddress: '',
     taxAuthority: '',
     declaredMethod: 'UNKNOWN',
-    invoiceRegistrationStatus: 'UNKNOWN',
+    invoiceRegistrationStatus: 'NOT_REGISTERED',
   };
 }
 
@@ -117,7 +117,7 @@ function emptyAdjustmentForm() {
     signedAmount: '',
     classification: 'CORRECTION',
     inclusionReason: '',
-    evidence: '',
+    evidence: 'Điều chỉnh doanh thu',
   };
 }
 
@@ -222,6 +222,9 @@ export default function TaxAccountingOverviewPage() {
       ...(profile ? {
         trackingStartedAt: toDateTimeLocal(profile.trackingStartedAt),
         ...information,
+        invoiceRegistrationStatus: profile.invoiceRegistrationStatus === 'UNKNOWN'
+          ? 'NOT_REGISTERED'
+          : profile.invoiceRegistrationStatus,
       } : {}),
     });
     setError('');
@@ -253,9 +256,9 @@ export default function TaxAccountingOverviewPage() {
       taxpayerIdentity: form.taxpayerIdentity.trim(),
       taxpayerName: form.taxpayerName.trim(),
       taxpayerAddress: form.taxpayerAddress.trim(),
-      taxAuthority: form.taxAuthority.trim(),
+      taxAuthority: form.taxpayerAddress.trim(),
       declaredMethod: 'REVENUE_BASED',
-      invoiceRegistrationStatus: form.invoiceRegistrationStatus || 'UNKNOWN',
+      invoiceRegistrationStatus: form.invoiceRegistrationStatus || 'NOT_REGISTERED',
     };
     try {
       if (profile) {
@@ -397,12 +400,13 @@ export default function TaxAccountingOverviewPage() {
 
   const openAdjustmentForm = (adjustment = null) => {
     const information = adjustment?.information ?? adjustment ?? {};
+    const selectedPeriodId = selectedMonth ? periodByMonth.get(Number(selectedMonth))?.id : null;
     setAdjustmentForm({
       ...emptyAdjustmentForm(),
       ...information,
       occurredAt: toDateTimeLocal(information.occurredAt),
       sourceId: information.sourceId ?? '',
-      relatedPeriodId: information.relatedPeriodId ?? '',
+      relatedPeriodId: information.relatedPeriodId ?? selectedPeriodId ?? '',
       signedAmount: information.signedAmount ?? '',
     });
     setAdjustmentError('');
@@ -423,7 +427,7 @@ export default function TaxAccountingOverviewPage() {
       signedAmount: String(adjustmentForm.signedAmount),
       classification: adjustmentForm.classification || 'CORRECTION',
       inclusionReason: adjustmentForm.inclusionReason.trim(),
-      evidence: adjustmentForm.evidence.trim(),
+      evidence: adjustmentForm.evidence?.trim() || 'Điều chỉnh doanh thu',
     };
     try {
       if (adjustmentModal.type === 'edit') {
@@ -587,7 +591,6 @@ export default function TaxAccountingOverviewPage() {
                       <div><dt>Tên người nộp thuế</dt><dd>{information.taxpayerName || 'Chưa cập nhật'}</dd></div>
                       <div><dt>Mã số thuế / định danh</dt><dd>{information.taxpayerIdentity || 'Chưa cập nhật'}</dd></div>
                       <div><dt>Địa chỉ</dt><dd>{information.taxpayerAddress || 'Chưa cập nhật'}</dd></div>
-                      <div><dt>Cơ quan thuế</dt><dd>{information.taxAuthority || 'Chưa cập nhật'}</dd></div>
                       <div><dt>Mốc bắt đầu theo dõi</dt><dd>{formatDate(profile.trackingStartedAt)}</dd></div>
                     </dl>
                     <div className="tax-accounting-panel__actions">
