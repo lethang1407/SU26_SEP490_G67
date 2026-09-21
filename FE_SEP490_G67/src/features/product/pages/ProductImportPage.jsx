@@ -170,13 +170,16 @@ export default function ProductImportPage() {
   useEffect(() => {
     loadCategories();
     suppliersApi
-      .getSuppliers({ page: 0, size: 200 })
+      .getSuppliers({ page: 0, size: 1000 })
       .then((pageRes) => {
         const list = pageRes?.content || pageRes?.items || [];
         setSupplierFallback(
           (Array.isArray(list) ? list : []).map((s) => ({
             id: s.id,
             name: s.name,
+            code: s.code,
+            phoneNumber: s.phoneNumber || s.phone,
+            contactPerson: s.contactPerson,
             leadTimeDays: s.leadTimeDays ?? 3,
             costPerUnit: null,
             cheapest: false,
@@ -587,10 +590,8 @@ export default function ProductImportPage() {
     }
   };
 
-  const handleOpenDraftPo = (orderId) => {
-    if (orderId) {
-      navigate(`/admin/warehouse/import/${orderId}/edit`);
-    }
+  const handleOpenDraftPo = () => {
+    navigate('/admin/warehouse/import');
   };
 
   const clearAllSelection = () => {
@@ -659,19 +660,15 @@ export default function ProductImportPage() {
       clearAllSelection();
       setIsOrderPanelOpen(false);
 
-      if (Array.isArray(created) && created.length > 0 && created[0]?.id) {
-        const firstPoId = created[0].id;
-        navigate(`/admin/warehouse/import/${firstPoId}/edit`);
-        return;
-      }
-
       const codes = (created || []).map((o) => o.orderCode).filter(Boolean);
-      setSuccessMsg(
-        codes.length
-          ? `Đã tạo ${codes.length} đơn nhập: ${codes.join(', ')}.`
-          : 'Đã tạo đơn nhập thành công.',
-      );
-      await loadProducts();
+      const msg = codes.length
+        ? `Đã tạo ${codes.length} đơn nhập nháp: ${codes.join(', ')}.`
+        : 'Đã tạo đơn nhập nháp thành công.';
+
+      navigate('/admin/warehouse/import', {
+        state: { successMessage: msg },
+      });
+      return;
     } catch (err) {
       console.error(err);
       setErrorMsg(
@@ -709,31 +706,6 @@ export default function ProductImportPage() {
                 </div>
 
                 <div className="pi-head-actions">
-                  {(selectedIds.size > 0 || panelItems.length > 0) && (
-                    <div className="pi-head-action-group">
-                      <button
-                        type="button"
-                        className="pi-btn-action pi-btn-action--secondary"
-                        onClick={() => setIsOrderPanelOpen(true)}
-                        style={{ border: 'none', background: 'transparent', boxShadow: 'none' }}
-                      >
-                        <ShoppingCart size={16} />
-                        Đơn chuẩn bị ({panelItems.length || selectedIds.size})
-                      </button>
-                      <button
-                        type="button"
-                        className="pi-btn-clear-selection"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          clearAllSelection();
-                        }}
-                        title="Bỏ chọn tất cả và xóa đơn chuẩn bị"
-                        aria-label="Bỏ chọn tất cả"
-                      >
-                        <X size={15} />
-                      </button>
-                    </div>
-                  )}
                   <button
                     type="button"
                     className="pi-btn-action pi-btn-action--primary"

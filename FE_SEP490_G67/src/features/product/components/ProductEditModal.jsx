@@ -21,6 +21,7 @@ import {
   Check,
   FolderPlus,
   AlertTriangle,
+  AlertCircle,
   Calendar,
   ExternalLink,
 } from 'lucide-react';
@@ -430,6 +431,24 @@ export default function ProductEditModal({
   const [stockHistory, setStockHistory] = useState([]);
   const [loadingStockHistory, setLoadingStockHistory] = useState(false);
 
+  // Check if any batches in stockHistory are expired
+  const expiredBatchesCount = useMemo(() => {
+    if (!Array.isArray(stockHistory) || stockHistory.length === 0) return 0;
+    const now = new Date();
+    const nowOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return stockHistory.filter((item) => {
+      if (!item.expiryDate) return false;
+      try {
+        const d = new Date(item.expiryDate);
+        if (isNaN(d.getTime())) return false;
+        const dOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        return dOnly < nowOnly;
+      } catch {
+        return false;
+      }
+    }).length;
+  }, [stockHistory]);
+
   // Category Searchable Dropdown & Quick Create Modal State
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
@@ -445,7 +464,7 @@ export default function ProductEditModal({
   const barcodeInputRef = useRef(null);
   const [barcodeScannerTarget, setBarcodeScannerTarget] = useState(null);
   const savedCreatedIdRef = useRef(null);
-  const markUserTouched = () => {};
+  const markUserTouched = () => { };
 
 
   // Keyboard Escape listener
@@ -903,8 +922,6 @@ export default function ProductEditModal({
     });
   }, [parentAttributes, formData.name, isOpen]);
 
-  if (!isOpen) return null;
-
   const handleInputChange = (field, value) => {
     markUserTouched();
     setFormData((prev) => {
@@ -1068,7 +1085,7 @@ export default function ProductEditModal({
     setSuccessMsg('');
 
     if (!formData.baseUnitName?.trim()) {
-      setErrorMsg('Vui lòng thiết lập Đơn vị tính cơ bản (Gốc) trước khi thêm đơn vị quy đổi.');
+      setErrorMsg('Vui lòng thiết lập Đơn vị tính cơ bản (nhỏ nhất) trước khi thêm đơn vị quy đổi.');
       return;
     }
 
@@ -1078,7 +1095,7 @@ export default function ProductEditModal({
       return;
     }
     if (unitName.toLowerCase() === (formData.baseUnitName || '').trim().toLowerCase()) {
-      setErrorMsg(`Đơn vị quy đổi không được trùng với đơn vị gốc (${formData.baseUnitName}).`);
+      setErrorMsg(`Đơn vị quy đổi không được trùng với đơn vị tính cơ bản (${formData.baseUnitName}).`);
       return;
     }
     const numRate = Number(rate);
@@ -1131,7 +1148,7 @@ export default function ProductEditModal({
       return;
     }
     if (!formData.baseUnitName?.trim()) {
-      setErrorMsg('Vui lòng nhập đơn vị tính cơ bản (Gốc).');
+      setErrorMsg('Vui lòng nhập đơn vị tính cơ bản (nhỏ nhất).');
       return;
     }
     if (formData.sellingPrice !== '' && formData.sellingPrice !== null && Number(formData.sellingPrice) < 0) {
@@ -1254,6 +1271,8 @@ export default function ProductEditModal({
     }
   };
 
+  if (!isOpen) return null;
+
   return (
     <div className="pi-modal-backdrop">
       <div className="pi-modal-dialog pi-edit-modal" onClick={(e) => e.stopPropagation()}>
@@ -1293,7 +1312,7 @@ export default function ProductEditModal({
             </button>
             <button
               type="button"
-              className={`pi-edit-tab-item ${modalTab === 'stockCard' ? 'active' : ''}`}
+              className={`pi-edit-tab-item ${modalTab === 'stockCard' ? 'active' : ''} ${expiredBatchesCount > 0 ? 'pi-edit-tab-item--has-expired' : ''}`}
               onClick={() => {
                 setModalTab('stockCard');
                 setErrorMsg('');
@@ -1301,7 +1320,13 @@ export default function ProductEditModal({
               }}
             >
               <BookOpen size={15} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-              Thẻ kho & Lịch sử giá
+              <span>Thẻ kho & Lịch sử giá</span>
+              {expiredBatchesCount > 0 && (
+                <span className="pi-tab-expired-badge" title={`Sản phẩm có ${expiredBatchesCount} lô hàng đã hết hạn!`}>
+                  <AlertTriangle size={12} className="pi-tab-expired-icon" />
+                  <span>{expiredBatchesCount} lô hết hạn</span>
+                </span>
+              )}
             </button>
           </div>
         )}
@@ -1549,11 +1574,11 @@ export default function ProductEditModal({
                   </p>
                 </div>
 
-                {/* Đơn vị cơ bản (Gốc) */}
+                {/* Đơn vị cơ bản (nhỏ nhất) */}
                 <div className="pi-conv-add-card" style={{ marginBottom: 16 }}>
                   <div className="pi-edit-field" style={{ maxWidth: 380 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <label className="pi-edit-label" style={{ marginBottom: 0 }}>Đơn vị tính cơ bản (Gốc) *</label>
+                      <label className="pi-edit-label" style={{ marginBottom: 0 }}>Đơn vị tính cơ bản (nhỏ nhất) *</label>
                       {!formData.baseUnitName?.trim() && !isChild && (
                         <span style={{ fontSize: 11.5, color: '#DC2626', fontWeight: 600, background: '#FEE2E2', padding: '1px 6px', borderRadius: 4 }}>
                           Chưa điền
@@ -1595,30 +1620,32 @@ export default function ProductEditModal({
                             <tr>
                               <th>Tên đơn vị</th>
                               <th>Tỷ lệ quy đổi</th>
-                              <th style={{ minWidth: 160 }}>Giá bán theo ĐV (VNĐ)</th>
+                              {!isCreateMode && <th style={{ minWidth: 160 }}>Giá bán theo ĐV (VNĐ)</th>}
                             </tr>
                           </thead>
                           <tbody>
                             {conversions.map((conv, idx) => (
                               <tr key={conv.id || conv.name || idx}>
-                                <td style={{ fontWeight: 600, color: '#0F172A' }}>{conv.name || 'N/A'}</td>
-                                <td style={{ color: '#0369A1', fontWeight: 600 }}>
+                                <td style={{ fontWeight: 600, color: '#0F172A', fontSize: 13.5 }}>{conv.name || 'N/A'}</td>
+                                <td style={{ color: '#0369A1', fontWeight: 600, fontSize: 13.5 }}>
                                   1 {conv.name || 'ĐV'} = {conv.unitBase} {formData.baseUnitName || 'N/A'}
                                 </td>
-                                <td>
-                                  <MoneyInput
-                                    className="pi-edit-input"
-                                    style={{ fontSize: 13, padding: '5px 8px', textAlign: 'right', width: '100%', boxSizing: 'border-box' }}
-                                    placeholder={formData.sellingPrice && Number(formData.sellingPrice) > 0 ? `${(Number(formData.sellingPrice) * Number(conv.unitBase)).toLocaleString('vi-VN')} đ` : 'N/A'}
-                                    value={conv.sellingPrice ?? ''}
-                                    onChange={(val) => {
-                                      markUserTouched();
-                                      setConversions((prev) =>
-                                        prev.map((item, i) => (i === idx ? { ...item, sellingPrice: val, isCustomPrice: Boolean(val && Number(val) > 0), isAutoPrice: false } : item))
-                                      );
-                                    }}
-                                  />
-                                </td>
+                                {!isCreateMode && (
+                                  <td>
+                                    <MoneyInput
+                                      className="pi-edit-input"
+                                      style={{ fontSize: 13, padding: '5px 8px', textAlign: 'right', width: '100%', boxSizing: 'border-box' }}
+                                      placeholder={formData.sellingPrice && Number(formData.sellingPrice) > 0 ? `${(Number(formData.sellingPrice) * Number(conv.unitBase)).toLocaleString('vi-VN')} đ` : 'N/A'}
+                                      value={conv.sellingPrice ?? ''}
+                                      onChange={(val) => {
+                                        markUserTouched();
+                                        setConversions((prev) =>
+                                          prev.map((item, i) => (i === idx ? { ...item, sellingPrice: val, isCustomPrice: Boolean(val && Number(val) > 0), isAutoPrice: false } : item))
+                                        );
+                                      }}
+                                    />
+                                  </td>
+                                )}
                               </tr>
                             ))}
                           </tbody>
@@ -1636,7 +1663,7 @@ export default function ProductEditModal({
                       + Thêm đơn vị tính quy đổi (Bao, Thùng, Lốc, Vỉ...)
                     </h4>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.2fr auto', gap: 12, alignItems: 'flex-end' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isCreateMode ? '1.5fr 1fr auto' : '1.2fr 1fr 1.2fr auto', gap: 12, alignItems: 'flex-end' }}>
                       <div className="pi-edit-field">
                         <label className="pi-edit-label">Đơn vị quy đổi *</label>
                         <UnitAutocompleteInput
@@ -1649,27 +1676,29 @@ export default function ProductEditModal({
 
                       <div className="pi-edit-field">
                         <label className="pi-edit-label">
-                          Tỷ lệ quy đổi ({formData.baseUnitName || 'Gốc'}) *
+                          Tỷ lệ quy đổi (theo {formData.baseUnitName || 'ĐVT nhỏ nhất'}) *
                         </label>
                         <input
                           type="number"
                           min="1"
                           className="pi-edit-input"
-                          placeholder={`1 ${fromUnit.trim() || 'ĐV'} = ? ${formData.baseUnitName || 'ĐV gốc'}`}
+                          placeholder={`1 ${fromUnit.trim() || 'ĐV'} = ? ${formData.baseUnitName || 'ĐVT nhỏ nhất'}`}
                           value={rate}
                           onChange={(e) => setRate(e.target.value)}
                         />
                       </div>
 
-                      <div className="pi-edit-field">
-                        <label className="pi-edit-label">Giá bán theo ĐV này (VNĐ)</label>
-                        <MoneyInput
-                          className="pi-edit-input"
-                          placeholder={formData.sellingPrice && rate && Number(rate) > 0 ? `${(Number(formData.sellingPrice) * Number(rate)).toLocaleString('vi-VN')} đ` : (formData.sellingPrice && Number(formData.sellingPrice) > 0 ? 'Mặc định = Tỷ lệ × Giá gốc' : 'N/A')}
-                          value={convSellPrice}
-                          onChange={(val) => setConvSellPrice(val)}
-                        />
-                      </div>
+                      {!isCreateMode && (
+                        <div className="pi-edit-field">
+                          <label className="pi-edit-label">Giá bán theo ĐV này (VNĐ)</label>
+                          <MoneyInput
+                            className="pi-edit-input"
+                            placeholder={formData.sellingPrice && rate && Number(rate) > 0 ? `${(Number(formData.sellingPrice) * Number(rate)).toLocaleString('vi-VN')} đ` : (formData.sellingPrice && Number(formData.sellingPrice) > 0 ? 'Mặc định = Tỷ lệ × Giá cơ bản' : 'N/A')}
+                            value={convSellPrice}
+                            onChange={(val) => setConvSellPrice(val)}
+                          />
+                        </div>
+                      )}
 
                       <button
                         type="button"
@@ -1696,31 +1725,33 @@ export default function ProductEditModal({
                             <tr>
                               <th>Tên đơn vị</th>
                               <th>Tỷ lệ quy đổi</th>
-                              <th style={{ minWidth: 160 }}>Giá bán theo ĐV (VNĐ)</th>
+                              {!isCreateMode && <th style={{ minWidth: 160 }}>Giá bán theo ĐV (VNĐ)</th>}
                               <th style={{ width: 60, textAlign: 'center' }}>Xóa</th>
                             </tr>
                           </thead>
                           <tbody>
                             {conversions.map((conv, idx) => (
                               <tr key={conv.id || conv.name || idx}>
-                                <td style={{ fontWeight: 600, color: '#0F172A' }}>{conv.name || 'N/A'}</td>
-                                <td style={{ color: '#0369A1', fontWeight: 600 }}>
+                                <td style={{ fontWeight: 600, color: '#0F172A', fontSize: 13.5 }}>{conv.name || 'N/A'}</td>
+                                <td style={{ color: '#0369A1', fontWeight: 600, fontSize: 13.5 }}>
                                   1 {conv.name || 'ĐV'} = {conv.unitBase} {formData.baseUnitName || 'N/A'}
                                 </td>
-                                <td>
-                                  <MoneyInput
-                                    className="pi-edit-input"
-                                    style={{ fontSize: 13, padding: '5px 8px', textAlign: 'right', width: '100%', boxSizing: 'border-box' }}
-                                    placeholder={formData.sellingPrice && Number(formData.sellingPrice) > 0 ? `${(Number(formData.sellingPrice) * Number(conv.unitBase)).toLocaleString('vi-VN')} đ` : 'N/A'}
-                                    value={conv.sellingPrice ?? ''}
-                                    onChange={(val) => {
-                                      markUserTouched();
-                                      setConversions((prev) =>
-                                        prev.map((item, i) => (i === idx ? { ...item, sellingPrice: val, isCustomPrice: Boolean(val && Number(val) > 0), isAutoPrice: false } : item))
-                                      );
-                                    }}
-                                  />
-                                </td>
+                                {!isCreateMode && (
+                                  <td>
+                                    <MoneyInput
+                                      className="pi-edit-input"
+                                      style={{ fontSize: 13, padding: '5px 8px', textAlign: 'right', width: '100%', boxSizing: 'border-box' }}
+                                      placeholder={formData.sellingPrice && Number(formData.sellingPrice) > 0 ? `${(Number(formData.sellingPrice) * Number(conv.unitBase)).toLocaleString('vi-VN')} đ` : 'N/A'}
+                                      value={conv.sellingPrice ?? ''}
+                                      onChange={(val) => {
+                                        markUserTouched();
+                                        setConversions((prev) =>
+                                          prev.map((item, i) => (i === idx ? { ...item, sellingPrice: val, isCustomPrice: Boolean(val && Number(val) > 0), isAutoPrice: false } : item))
+                                        );
+                                      }}
+                                    />
+                                  </td>
+                                )}
                                 <td style={{ textAlign: 'center' }}>
                                   <button
                                     type="button"
@@ -1773,7 +1804,7 @@ export default function ProductEditModal({
                         }}
                       >
                         <option value={formData.baseUnitName || ''}>
-                          {formData.baseUnitName || 'Đơn vị cơ bản'} (Đơn vị gốc)
+                          {formData.baseUnitName || 'Đơn vị cơ bản'} (Đơn vị tính nhỏ nhất)
                         </option>
                         {conversions.map((conv) => (
                           <option key={conv.id || conv.name} value={conv.name}>
@@ -1785,7 +1816,7 @@ export default function ProductEditModal({
                   </div>
 
                   <div style={{ fontSize: 12, color: '#475569', marginTop: 8, background: '#F8FAFC', padding: '6px 10px', borderRadius: 6, border: '1px solid #E2E8F0' }}>
-                    💡 Tương đương: <strong style={{ color: '#0369A1' }}>{computedBaseMinStock} {formData.baseUnitName || 'ĐV gốc'}</strong>. Hệ thống sẽ cảnh báo khi tổng tồn kho &le; mức này.
+                    💡 Tương đương: <strong style={{ color: '#0369A1' }}>{computedBaseMinStock} {formData.baseUnitName || 'ĐVT nhỏ nhất'}</strong>. Hệ thống sẽ cảnh báo khi tổng tồn kho &le; mức này.
                   </div>
                 </div>
               </div>
@@ -1939,8 +1970,8 @@ export default function ProductEditModal({
                             <tr>
                               <th>Tên biến thể</th>
                               <th style={{ width: 220 }}>Mã vạch</th>
-                              <th style={{ width: 125 }}>Giá vốn (đ)</th>
-                              <th style={{ width: 125 }}>Giá bán (đ)</th>
+                              {!isCreateMode && <th style={{ width: 125 }}>Giá vốn (đ)</th>}
+                              {!isCreateMode && <th style={{ width: 125 }}>Giá bán (đ)</th>}
                               <th style={{ width: 115 }}>Trạng thái</th>
                               <th style={{ width: 50, textAlign: 'center' }}>Xóa</th>
                             </tr>
@@ -1977,24 +2008,28 @@ export default function ProductEditModal({
                                     </button>
                                   </div>
                                 </td>
-                                <td>
-                                  <MoneyInput
-                                    className="pi-edit-input"
-                                    value={v.costPrice}
-                                    onChange={(val) => handleVariantChange(v.key, 'costPrice', val)}
-                                    style={{ fontSize: 13, padding: '5px 8px', textAlign: 'right' }}
-                                    placeholder="0"
-                                  />
-                                </td>
-                                <td>
-                                  <MoneyInput
-                                    className="pi-edit-input"
-                                    value={v.sellingPrice}
-                                    onChange={(val) => handleVariantChange(v.key, 'sellingPrice', val)}
-                                    style={{ fontSize: 13, padding: '5px 8px', textAlign: 'right', fontWeight: 600 }}
-                                    placeholder="0"
-                                  />
-                                </td>
+                                {!isCreateMode && (
+                                  <td>
+                                    <MoneyInput
+                                      className="pi-edit-input"
+                                      value={v.costPrice}
+                                      onChange={(val) => handleVariantChange(v.key, 'costPrice', val)}
+                                      style={{ fontSize: 13, padding: '5px 8px', textAlign: 'right' }}
+                                      placeholder="0"
+                                    />
+                                  </td>
+                                )}
+                                {!isCreateMode && (
+                                  <td>
+                                    <MoneyInput
+                                      className="pi-edit-input"
+                                      value={v.sellingPrice}
+                                      onChange={(val) => handleVariantChange(v.key, 'sellingPrice', val)}
+                                      style={{ fontSize: 13, padding: '5px 8px', textAlign: 'right', fontWeight: 600 }}
+                                      placeholder="0"
+                                    />
+                                  </td>
+                                )}
                                 <td>
                                   <select
                                     className="pi-edit-input"
@@ -2026,47 +2061,49 @@ export default function ProductEditModal({
                 </div>
               )}
 
-              {/* Section 4: Giá vốn & Giá bán */}
-              <div className="pi-edit-section" style={{ marginTop: 20 }}>
-                <div className="pi-edit-sec-head">
-                  <h3 className="pi-edit-sec-title">
-                    <DollarSign size={16} color="#059669" />
-                    {isChild ? 'Giá vốn & Giá bán của biến thể này' : 'Giá vốn & Giá bán chung'}
-                  </h3>
-                  {isParent && variants.length > 0 && (
-                    <p className="pi-edit-sec-desc">
-                      Giá này sẽ là giá mặc định cho sản phẩm cha và các biến thể con mới thêm.
-                    </p>
-                  )}
-                  {isChild && (
-                    <p className="pi-edit-sec-desc">
-                      Bạn có thể đặt giá vốn và giá bán riêng cho biến thể này độc lập với sản phẩm cha.
-                    </p>
-                  )}
-                </div>
-
-                <div className="pi-edit-field-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                  <div className="pi-edit-field">
-                    <label className="pi-edit-label">Giá vốn (VNĐ)</label>
-                    <MoneyInput
-                      className="pi-edit-input"
-                      value={formData.costPrice}
-                      onChange={(val) => handleInputChange('costPrice', val)}
-                      placeholder="0"
-                    />
+              {/* Section 4: Giá vốn & Giá bán (Ẩn khi tạo mới vì giá bắt đầu từ đơn nhập) */}
+              {!isCreateMode && (
+                <div className="pi-edit-section" style={{ marginTop: 20 }}>
+                  <div className="pi-edit-sec-head">
+                    <h3 className="pi-edit-sec-title">
+                      <DollarSign size={16} color="#059669" />
+                      {isChild ? 'Giá vốn & Giá bán của biến thể này' : 'Giá vốn & Giá bán chung'}
+                    </h3>
+                    {isParent && variants.length > 0 && (
+                      <p className="pi-edit-sec-desc">
+                        Giá này sẽ là giá mặc định cho sản phẩm cha và các biến thể con mới thêm.
+                      </p>
+                    )}
+                    {isChild && (
+                      <p className="pi-edit-sec-desc">
+                        Bạn có thể đặt giá vốn và giá bán riêng cho biến thể này độc lập với sản phẩm cha.
+                      </p>
+                    )}
                   </div>
 
-                  <div className="pi-edit-field">
-                    <label className="pi-edit-label">Giá bán (VNĐ)</label>
-                    <MoneyInput
-                      className="pi-edit-input"
-                      value={formData.sellingPrice}
-                      onChange={(val) => handleInputChange('sellingPrice', val)}
-                      placeholder="0"
-                    />
+                  <div className="pi-edit-field-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                    <div className="pi-edit-field">
+                      <label className="pi-edit-label">Giá vốn (VNĐ)</label>
+                      <MoneyInput
+                        className="pi-edit-input"
+                        value={formData.costPrice}
+                        onChange={(val) => handleInputChange('costPrice', val)}
+                        placeholder="0"
+                      />
+                    </div>
+
+                    <div className="pi-edit-field">
+                      <label className="pi-edit-label">Giá bán (VNĐ)</label>
+                      <MoneyInput
+                        className="pi-edit-input"
+                        value={formData.sellingPrice}
+                        onChange={(val) => handleInputChange('sellingPrice', val)}
+                        placeholder="0"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Footer */}
@@ -2139,128 +2176,261 @@ export default function ProductEditModal({
         )}
 
         {/* TAB 2: THẺ KHO & LỊCH SỬ GIÁ */}
-        {modalTab === 'stockCard' && (
-          <div className="pi-modal-body pi-stock-card-body">
-            {/* Overview Stats Bar */}
-            <div className="pi-stock-overview-bar" style={{ marginBottom: 20 }}>
-              <div className="pi-stock-stat-item">
-                <span className="pi-stock-stat-label">Tồn kho hiện tại</span>
-                <span className="pi-stock-stat-val pi-stock-stat-val--blue">
-                  {product?.onHand ?? product?.stock ?? 0} {formData.baseUnitName || product?.unitName || 'Cái'}
+        {modalTab === 'stockCard' && (() => {
+          const baseUnitLabel = formData.baseUnitName || product?.baseUnitName || product?.unitName || 'Cái';
+          const convUnits = (Array.isArray(formData.conversionUnits) && formData.conversionUnits.length > 0)
+            ? formData.conversionUnits
+            : (Array.isArray(product?.conversionUnits) ? product.conversionUnits : []);
+          const curCost = (formData.costPrice != null && formData.costPrice !== '' && Number(formData.costPrice) >= 0)
+            ? Number(formData.costPrice)
+            : (product?.costPrice != null && Number(product.costPrice) >= 0)
+              ? Number(product.costPrice)
+              : null;
+          const curSell = (formData.sellingPrice != null && formData.sellingPrice !== '' && Number(formData.sellingPrice) >= 0)
+            ? Number(formData.sellingPrice)
+            : (product?.sellingPrice != null && Number(product.sellingPrice) >= 0)
+              ? Number(product.sellingPrice)
+              : null;
+
+          const renderExpiry = (dateStr) => {
+            if (!dateStr) return <span style={{ color: '#94A3B8' }}>N/A</span>;
+            try {
+              const d = new Date(dateStr);
+              if (isNaN(d.getTime())) return <span>{dateStr}</span>;
+              const now = new Date();
+              const dOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+              const nowOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+              const diffDays = Math.ceil((dOnly - nowOnly) / (1000 * 60 * 60 * 24));
+              const formatted = d.toLocaleDateString('vi-VN');
+
+              if (diffDays < 0) {
+                return (
+                  <span className="pi-expiry-badge pi-expiry-badge--expired" title={`Đã hết hạn (${Math.abs(diffDays)} ngày trước)`}>
+                    <AlertCircle size={12} />
+                    {formatted} (Hết hạn)
+                  </span>
+                );
+              }
+              return (
+                <span style={{ color: '#334155', fontSize: 13, whiteSpace: 'nowrap' }}>
+                  {formatted}
                 </span>
-              </div>
-              <div className="pi-stock-stat-item">
-                <span className="pi-stock-stat-label">Giá vốn hiện tại</span>
-                <span className="pi-stock-stat-val">
-                  {(formData.costPrice != null && formData.costPrice !== '' && Number(formData.costPrice) >= 0)
-                    ? `${Number(formData.costPrice).toLocaleString('vi-VN')} đ`
-                    : (product?.costPrice != null && Number(product.costPrice) >= 0)
-                      ? `${Number(product.costPrice).toLocaleString('vi-VN')} đ`
-                      : '—'}
-                </span>
-              </div>
-              <div className="pi-stock-stat-item">
-                <span className="pi-stock-stat-label">Giá bán niêm yết</span>
-                <span className="pi-stock-stat-val pi-stock-stat-val--green">
-                  {(formData.sellingPrice != null && formData.sellingPrice !== '' && Number(formData.sellingPrice) >= 0)
-                    ? `${Number(formData.sellingPrice).toLocaleString('vi-VN')} đ`
-                    : (product?.sellingPrice != null && Number(product.sellingPrice) >= 0)
-                      ? `${Number(product.sellingPrice).toLocaleString('vi-VN')} đ`
-                      : '—'}
-                </span>
-              </div>
-            </div>
+              );
+            } catch {
+              return <span>{dateStr || 'N/A'}</span>;
+            }
+          };
 
-            {/* Body: History Table */}
-            <h3 className="pi-unit-section-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Clock size={15} color="#64748B" />
-              Lịch sử biến động giá nhập & Giao dịch kho
-            </h3>
+          return (
+            <div className="pi-modal-body pi-stock-card-body">
+              {/* Expired Batches Warning Banner */}
+              {expiredBatchesCount > 0 && (
+                <div className="pi-stock-expired-alert-banner">
+                  <AlertTriangle size={18} className="pi-stock-expired-alert-icon" />
+                  <div className="pi-stock-expired-alert-text">
+                    <strong>Cảnh báo hàng hết hạn:</strong> Sản phẩm này có <span className="pi-highlight-expired-count">{expiredBatchesCount} lô nhập đã hết hạn sử dụng</span>. Vui lòng kiểm tra các dòng được đánh dấu đỏ trong bảng lịch sử bên dưới để kịp thời xử lý.
+                  </div>
+                </div>
+              )}
 
-            {loadingStockHistory && (
-              <div className="pi-stock-loading">
-                Đang tải dữ liệu thẻ kho…
-              </div>
-            )}
+              {/* Overview Stats Bar with Hover Breakdown */}
+              <div className="pi-stock-overview-bar" style={{ marginBottom: 20 }}>
+                <div className="pi-stock-stat-item">
+                  <span className="pi-stock-stat-label">Tồn kho hiện tại</span>
+                  <span className="pi-stock-stat-val pi-stock-stat-val--blue">
+                    {product?.onHand ?? product?.stock ?? 0} {baseUnitLabel}
+                  </span>
+                </div>
 
-            {!loadingStockHistory && stockHistory.length === 0 && (
-              <div className="pi-stock-empty">
-                <Package size={36} color="#CBD5E1" />
-                <p>Chưa có biến động giao dịch hoặc lịch sử giá cho sản phẩm này.</p>
-              </div>
-            )}
-
-            {!loadingStockHistory && stockHistory.length > 0 && (
-              <div className="pi-stock-table-wrap">
-                <table className="pi-stock-table">
-                  <thead>
-                    <tr>
-                      <th>Thời gian</th>
-                      <th>Mã chứng từ / Đơn nhập</th>
-                      <th>Nhà cung cấp</th>
-                      <th style={{ textAlign: 'right' }}>Giá nhập</th>
-                      <th style={{ textAlign: 'right' }}>Số lượng</th>
-                      <th>Ghi chú</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stockHistory.map((item, idx) => (
-                      <tr key={item.id || idx}>
-                        <td style={{ color: '#64748B', whiteSpace: 'nowrap' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <Calendar size={13} color="#94A3B8" />
-                            {item.orderDate || item.createdAt ? new Date(item.orderDate || item.createdAt).toLocaleDateString('vi-VN') : '—'}
+                <div className="pi-stock-stat-item">
+                  <span className="pi-stock-stat-label">Giá vốn hiện tại</span>
+                  <div className="pi-price-tooltip-wrapper">
+                    <span className="pi-stock-stat-val">
+                      {curCost != null ? `${curCost.toLocaleString('vi-VN')} đ / ${baseUnitLabel}` : 'N/A'}
+                    </span>
+                    {curCost != null && (
+                      <div className="pi-price-tooltip">
+                        <div style={{ fontWeight: 600, marginBottom: 4, color: '#93C5FD' }}>
+                          🏷️ Giá vốn trên ĐVT cơ bản: {curCost.toLocaleString('vi-VN')} đ / {baseUnitLabel}
+                        </div>
+                        {convUnits.length > 0 && (
+                          <div style={{ fontSize: 11.5, color: '#E2E8F0', borderTop: '1px solid rgba(255,255,255,0.15)', paddingTop: 4, marginTop: 4 }}>
+                            <div style={{ fontWeight: 500, color: '#CBD5E1', marginBottom: 2 }}>Giá vốn theo đơn vị quy đổi:</div>
+                            {convUnits.map(u => {
+                              const ratio = Number(u.unitBase || u.ratio || 1);
+                              const unitCost = curCost * ratio;
+                              return (
+                                <div key={u.id || u.name} style={{ marginLeft: 6 }}>
+                                  • 1 {u.name} ({ratio} {baseUnitLabel}) ~ <strong>{Math.round(unitCost).toLocaleString('vi-VN')} đ</strong>
+                                </div>
+                              );
+                            })}
                           </div>
-                        </td>
-                        <td style={{ fontFamily: 'monospace' }}>
-                          {item.orderId ? (
-                            <a
-                              href={`/admin/warehouse/import/${item.orderId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="pi-order-link"
-                              title={`Xem chi tiết đơn nhập #${item.orderCode || item.orderId} (Mở tab mới)`}
-                            >
-                              {item.orderCode || item.code || `NH${String(item.orderId).padStart(5, '0')}`}
-                              <ExternalLink size={12} style={{ opacity: 0.7 }} />
-                            </a>
-                          ) : (
-                            <span style={{ fontWeight: 600, color: '#2563EB' }}>
-                              {item.orderCode || item.code || `PO#${idx + 1}`}
-                            </span>
-                          )}
-                        </td>
-                        <td style={{ color: '#334155' }}>
-                          {item.supplierName || item.supplier || 'Nhà cung cấp lẻ'}
-                        </td>
-                        <td style={{ textAlign: 'right', fontWeight: 600, color: '#0F172A' }}>
-                          {item.oldCostPrice != null && item.newCostPrice != null && Number(item.oldCostPrice) !== Number(item.newCostPrice) ? (
-                            <div>
-                              <span style={{ fontSize: 11, color: '#64748B', textDecoration: 'line-through', marginRight: 4 }}>
-                                {Number(item.oldCostPrice).toLocaleString('vi-VN')} đ
-                              </span>
-                              <span>{Number(item.newCostPrice).toLocaleString('vi-VN')} đ</span>
-                            </div>
-                          ) : (item.costPerUnit != null || item.price != null) ? (
-                            `${Number(item.costPerUnit ?? item.price).toLocaleString('vi-VN')} đ / ${item.unitName || formData.baseUnitName || 'ĐVT'}`
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                        <td style={{ textAlign: 'right', fontWeight: 600, color: '#059669' }}>
-                          {item.quantity != null ? `+${item.quantity} ${item.unitName || formData.baseUnitName || 'ĐVT'}` : '—'}
-                        </td>
-                        <td style={{ color: '#64748B', fontSize: 12.5 }}>
-                          {item.note || item.reason || (item.changeType ? item.changeType : 'Nhập hàng')}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pi-stock-stat-item">
+                  <span className="pi-stock-stat-label">Giá bán niêm yết</span>
+                  <div className="pi-price-tooltip-wrapper">
+                    <span className="pi-stock-stat-val pi-stock-stat-val--green">
+                      {curSell != null ? `${curSell.toLocaleString('vi-VN')} đ / ${baseUnitLabel}` : 'N/A'}
+                    </span>
+                    {curSell != null && (
+                      <div className="pi-price-tooltip">
+                        <div style={{ fontWeight: 600, marginBottom: 4, color: '#86EFAC' }}>
+                          💰 Giá bán lẻ trên ĐVT cơ bản: {curSell.toLocaleString('vi-VN')} đ / {baseUnitLabel}
+                        </div>
+                        {convUnits.length > 0 && (
+                          <div style={{ fontSize: 11.5, color: '#E2E8F0', borderTop: '1px solid rgba(255,255,255,0.15)', paddingTop: 4, marginTop: 4 }}>
+                            <div style={{ fontWeight: 500, color: '#CBD5E1', marginBottom: 2 }}>Giá bán theo đơn vị quy đổi:</div>
+                            {convUnits.map(u => {
+                              const ratio = Number(u.unitBase || u.ratio || 1);
+                              const unitSell = (u.sellingPrice != null && Number(u.sellingPrice) > 0)
+                                ? Number(u.sellingPrice)
+                                : curSell * ratio;
+                              return (
+                                <div key={u.id || u.name} style={{ marginLeft: 6 }}>
+                                  • {u.name} (x{ratio} {baseUnitLabel}): <strong>{Math.round(unitSell).toLocaleString('vi-VN')} đ</strong>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
-        )}
+
+              {/* Body: History Table */}
+              <h3 className="pi-unit-section-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Clock size={15} color="#64748B" />
+                Lịch sử biến động giá nhập & Giao dịch kho
+              </h3>
+
+              {loadingStockHistory && (
+                <div className="pi-stock-loading">
+                  Đang tải dữ liệu thẻ kho…
+                </div>
+              )}
+
+              {!loadingStockHistory && stockHistory.length === 0 && (
+                <div className="pi-stock-empty">
+                  <Package size={36} color="#CBD5E1" />
+                  <p>Chưa có biến động giao dịch hoặc lịch sử giá cho sản phẩm này.</p>
+                </div>
+              )}
+
+              {!loadingStockHistory && stockHistory.length > 0 && (
+                <div className="pi-stock-table-wrap">
+                  <table className="pi-stock-table">
+                    <thead>
+                      <tr>
+                        <th>Thời gian</th>
+                        <th>Mã chứng từ / Đơn nhập</th>
+                        <th>Hạn sử dụng</th>
+                        <th>Nhà cung cấp</th>
+                        <th style={{ textAlign: 'right' }}>Giá nhập</th>
+                        <th style={{ textAlign: 'right' }}>Số lượng</th>
+                        <th>Ghi chú</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stockHistory.map((item, idx) => (
+                        <tr key={item.id || idx}>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#475569', whiteSpace: 'nowrap' }}>
+                              <Calendar size={13} color="#94A3B8" />
+                              {item.orderDate || item.createdAt ? new Date(item.orderDate || item.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
+                            </div>
+                          </td>
+                          <td style={{ fontFamily: 'monospace' }}>
+                            {item.orderId ? (
+                              <a
+                                href={`/admin/warehouse/import/${item.orderId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="pi-order-link"
+                                title={`Xem chi tiết đơn nhập #${item.orderCode || item.orderId} (Mở tab mới)`}
+                              >
+                                {item.orderCode || item.code || `NH${String(item.orderId).padStart(5, '0')}`}
+                                <ExternalLink size={12} style={{ opacity: 0.7 }} />
+                              </a>
+                            ) : (
+                              <span style={{ fontWeight: 600, color: '#2563EB' }}>
+                                {item.orderCode || item.code || `PO#${idx + 1}`}
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            {renderExpiry(item.expiryDate)}
+                          </td>
+                          <td style={{ color: '#334155' }}>
+                            {item.supplierName || item.supplier || 'N/A'}
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: 600, color: '#0F172A' }}>
+                            {item.oldCostPrice != null && item.newCostPrice != null && Number(item.oldCostPrice) !== Number(item.newCostPrice) ? (
+                              <div className="pi-price-tooltip-wrapper">
+                                <span style={{ fontSize: 11, color: '#64748B', textDecoration: 'line-through', marginRight: 4 }}>
+                                  {Number(item.oldCostPrice).toLocaleString('vi-VN')} đ
+                                </span>
+                                <span>{Number(item.newCostPrice).toLocaleString('vi-VN')} đ</span>
+                                <div className="pi-price-tooltip pi-price-tooltip--right">
+                                  <div>Giá nhập mới: {Number(item.newCostPrice).toLocaleString('vi-VN')} đ / {item.unitName || baseUnitLabel}</div>
+                                  {item.unitBase && Number(item.unitBase) > 1 && (
+                                    <div style={{ fontSize: 11, color: '#CBD5E1', marginTop: 3 }}>
+                                      • ĐVT cơ bản: {Number(item.baseCostPerUnit || Math.round(item.newCostPrice / item.unitBase)).toLocaleString('vi-VN')} đ / {item.baseUnitName || baseUnitLabel}<br />
+                                      • Tỷ lệ: 1 {item.unitName} = {item.unitBase} {item.baseUnitName || baseUnitLabel}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (item.costPerUnit != null || item.price != null) ? (
+                              <div className="pi-price-tooltip-wrapper">
+                                <span>{Number(item.costPerUnit ?? item.price).toLocaleString('vi-VN')} đ / {item.unitName || baseUnitLabel}</span>
+                                <div className="pi-price-tooltip pi-price-tooltip--right">
+                                  <div>Giá nhập: {Number(item.costPerUnit ?? item.price).toLocaleString('vi-VN')} đ / {item.unitName || baseUnitLabel}</div>
+                                  {item.unitBase && Number(item.unitBase) > 1 ? (
+                                    <div style={{ fontSize: 11, color: '#CBD5E1', marginTop: 3 }}>
+                                      • ĐVT cơ bản: <strong>{Number(item.baseCostPerUnit || Math.round((item.costPerUnit ?? item.price) / item.unitBase)).toLocaleString('vi-VN')} đ / {item.baseUnitName || baseUnitLabel}</strong><br />
+                                      • Tỷ lệ quy đổi: 1 {item.unitName} = {item.unitBase} {item.baseUnitName || baseUnitLabel}
+                                    </div>
+                                  ) : (
+                                    <div style={{ fontSize: 11, color: '#CBD5E1', marginTop: 2 }}>
+                                      (Giá nhập trên đơn vị cơ bản: {item.unitName || baseUnitLabel})
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              'N/A'
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: 600, color: '#059669' }}>
+                            <div className="pi-price-tooltip-wrapper">
+                              <span>+{item.quantity ?? item.qty ?? 0} {item.unitName || baseUnitLabel}</span>
+                              {item.unitBase && Number(item.unitBase) > 1 && (
+                                <div className="pi-price-tooltip pi-price-tooltip--right">
+                                  Tương đương: +{(item.quantity ?? item.qty ?? 0) * Number(item.unitBase)} {item.baseUnitName || baseUnitLabel} (ĐVT cơ bản)
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td style={{ color: '#64748B', fontSize: 12.5 }}>
+                            {item.note || item.reason || (item.changeType ? item.changeType : 'Nhập hàng') || 'N/A'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Footer for StockCard tab */}
         {modalTab !== 'info' && (
@@ -2335,7 +2505,7 @@ export default function ProductEditModal({
                 <div className="pi-nested-modal-footer">
                   <button
                     type="button"
-                    className="pi-edit-btn-cancel"
+                    className="pi-modal-btn pi-modal-btn--secondary"
                     onClick={() => setIsCreateCategoryModalOpen(false)}
                     disabled={creatingCategory}
                   >
@@ -2343,7 +2513,7 @@ export default function ProductEditModal({
                   </button>
                   <button
                     type="submit"
-                    className="pi-edit-btn-save"
+                    className="pi-modal-btn pi-modal-btn--primary"
                     disabled={creatingCategory}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                   >

@@ -12,11 +12,11 @@
 --       import_order_details / stock_adjustments / notifications /
 --       notification_recipients / audit_logs)
 --
---  Tài khoản test (tất cả dùng password: Test@123)
---    username: admin        / role: ADMIN
---    username: cashier01    / role: CASHIER
---    username: accountant01 / role: ACCOUNTANT
---    username: warehouse01  / role: WAREHOUSE
+--  Tài khoản test (tất cả dùng password: password123)
+--    username: admin        / role: MANAGER (Chủ cửa hàng - Toàn quyền)
+--    username: cashier01    / role: STAFF (Mẫu vai trò: Thu ngân - Bán hàng POS)
+--    username: accountant01 / role: STAFF (Mẫu vai trò: Kế toán / Thu chi)
+--    username: warehouse01  / role: WAREHOUSE -> role: STAFF (Mẫu vai trò: Nhân viên Kho)
 -- ============================================================
 
 SET NAMES utf8mb4;
@@ -38,20 +38,21 @@ ON DUPLICATE KEY UPDATE
     `address`        = VALUES(`address`);
 
 -- ============================================================
--- 1. ROLES  (idempotent)
+-- 1. ROLES  (Hệ thống chỉ có 2 roles: MANAGER & STAFF)
 -- ============================================================
-INSERT IGNORE INTO `roles`
+INSERT INTO `roles`
     (`id`,`name`,`description`,`is_removed`,`created_at`,`updated_at`)
 VALUES
-(1,'ADMIN',     'Chu cua hang - toan quyen',  b'0',NOW(),NOW()),
-(2,'CASHIER',   'Thu ngan - ban hang POS',    b'0',NOW(),NOW()),
-(3,'ACCOUNTANT','Ke toan',                    b'0',NOW(),NOW()),
-(4,'WAREHOUSE', 'Nhan vien kho hang',         b'0',NOW(),NOW());
+(1,'MANAGER', 'Quản lý / Chủ cửa hàng - toàn quyền', b'0',NOW(),NOW()),
+(2,'STAFF',   'Nhân viên',                         b'0',NOW(),NOW())
+ON DUPLICATE KEY UPDATE
+    `name`        = VALUES(`name`),
+    `description` = VALUES(`description`);
 
 -- ============================================================
 -- 2. PERMISSIONS  (idempotent)
 -- ============================================================
-INSERT IGNORE INTO `permissions`
+INSERT INTO `permissions`
     (`id`,`module`,`code`,`name`,`is_removed`,`created_at`,`updated_at`)
 VALUES
 (1,'STAFF','STAFF:VIEW',                 'Xem danh sách & chi tiết nhân viên', b'0',NOW(),NOW()),
@@ -85,27 +86,25 @@ VALUES
 (29,'CUSTOMER','CUSTOMER:DEBT_VIEW',      'Xem công nợ khách hàng',            b'0',NOW(),NOW()),
 (30,'CUSTOMER','CUSTOMER:DEBT_MANAGE',    'Quản lý thu nợ khách hàng',         b'0',NOW(),NOW()),
 (31,'AUDIT','AUDIT:VIEW',                 'Xem bất thường đối soát',           b'0',NOW(),NOW()),
-(32,'AUDIT','AUDIT:RESOLVE',              'Xử lý bất thường đối soát',         b'0',NOW(),NOW());
+(32,'AUDIT','AUDIT:RESOLVE',              'Xử lý bất thường đối soát',         b'0',NOW(),NOW())
+ON DUPLICATE KEY UPDATE
+    `module`      = VALUES(`module`),
+    `code`        = VALUES(`code`),
+    `name`        = VALUES(`name`);
 
 -- ============================================================
 -- 3. ROLE_PERMISSIONS  (idempotent)
 -- ============================================================
--- Role 1 (ADMIN): All permissions 1..32
--- Role 2 (CASHIER): 6, 23, 24, 26, 27, 28
--- Role 3 (ACCOUNTANT): 6, 14, 18, 22, 25, 26, 27, 28, 29, 30, 31, 32
--- Role 4 (WAREHOUSE): 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21
+-- Role 1 (MANAGER): All permissions 1..32
+-- Role 2 (STAFF): Mặc định các quyền bán hàng cơ bản (6, 23, 24, 26, 27, 28)
 INSERT IGNORE INTO `role_permissions` (`permission_id`,`role_id`) VALUES
--- ADMIN (1)
+-- MANAGER (1)
 (1,1),(2,1),(3,1),(4,1),(5,1),(6,1),(7,1),(8,1),(9,1),(10,1),
 (11,1),(12,1),(13,1),(14,1),(15,1),(16,1),(17,1),(18,1),(19,1),(20,1),
 (21,1),(22,1),(23,1),(24,1),(25,1),(26,1),(27,1),(28,1),(29,1),(30,1),
 (31,1),(32,1),
--- CASHIER (2)
-(6,2),(23,2),(24,2),(26,2),(27,2),(28,2),
--- ACCOUNTANT (3)
-(6,3),(14,3),(18,3),(22,3),(25,3),(26,3),(27,3),(28,3),(29,3),(30,3),(31,3),(32,3),
--- WAREHOUSE (4)
-(6,4),(7,4),(8,4),(9,4),(10,4),(11,4),(12,4),(13,4),(14,4),(15,4),(16,4),(17,4),(18,4),(19,4),(20,4),(21,4);
+-- STAFF (2)
+(6,2),(23,2),(24,2),(26,2),(27,2),(28,2);
 
 -- ============================================================
 -- 4. USERS
@@ -140,10 +139,58 @@ ON DUPLICATE KEY UPDATE
     `password_hash` = VALUES(`password_hash`);
 
 -- ============================================================
--- 5. USERS_ROLES
+-- 5. USERS_ROLES (Tất cả nhân viên mang role STAFF, chủ cửa hàng mang role MANAGER)
 -- ============================================================
 INSERT IGNORE INTO `users_roles` (`roles_id`,`users_id`) VALUES
-(1,1),(2,2),(3,3),(4,4);
+(1,1),  -- admin -> MANAGER
+(2,2),  -- cashier01 -> STAFF
+(2,3),  -- accountant01 -> STAFF
+(2,4);  -- warehouse01 -> STAFF
+
+-- ============================================================
+-- 5.1. USER_PERMISSIONS (Gán quyền chi tiết theo mẫu vai trò của từng nhân viên)
+-- ============================================================
+INSERT IGNORE INTO `user_permissions` (`user_id`,`permission_id`) VALUES
+-- 1. admin: Full 32 permissions
+(1,1),(1,2),(1,3),(1,4),(1,5),(1,6),(1,7),(1,8),(1,9),(1,10),
+(1,11),(1,12),(1,13),(1,14),(1,15),(1,16),(1,17),(1,18),(1,19),(1,20),
+(1,21),(1,22),(1,23),(1,24),(1,25),(1,26),(1,27),(1,28),(1,29),(1,30),
+(1,31),(1,32),
+
+-- 2. cashier01: Mẫu Thu ngân (Bán hàng)
+(2,6),   -- PRODUCT:VIEW
+(2,23),  -- POS:SALE
+(2,24),  -- POS:EXCHANGE
+(2,26),  -- SALES_ORDER:VIEW_OWN
+(2,27),  -- SALES_ORDER:INVOICE
+(2,28),  -- CUSTOMER:VIEW
+
+-- 3. accountant01: Mẫu Kế toán / Thu chi
+(3,6),   -- PRODUCT:VIEW
+(3,14),  -- IMPORT:VIEW
+(3,18),  -- SUPPLIER:VIEW
+(3,22),  -- SUPPLIER:PAYMENT
+(3,25),  -- SALES_ORDER:VIEW_ALL
+(3,27),  -- SALES_ORDER:INVOICE
+(3,28),  -- CUSTOMER:VIEW
+(3,29),  -- CUSTOMER:DEBT_VIEW
+(3,30),  -- CUSTOMER:DEBT_MANAGE
+(3,31),  -- AUDIT:VIEW
+(3,32),  -- AUDIT:RESOLVE
+
+-- 4. warehouse01: Mẫu Nhân viên Kho
+(4,6),   -- PRODUCT:VIEW
+(4,7),   -- PRODUCT:CREATE
+(4,8),   -- PRODUCT:UPDATE
+(4,10),  -- WAREHOUSE:VIEW
+(4,11),  -- WAREHOUSE:LOCATION_MANAGE
+(4,12),  -- WAREHOUSE:CHECK_VIEW
+(4,13),  -- WAREHOUSE:CHECK_CREATE
+(4,14),  -- IMPORT:VIEW
+(4,15),  -- IMPORT:CREATE
+(4,16),  -- IMPORT:UPDATE
+(4,18),  -- SUPPLIER:VIEW
+(4,19);  -- SUPPLIER:CREATE
 
 -- ============================================================
 -- 6. CATEGORIES
@@ -355,6 +402,17 @@ VALUES
 (5,'SUP-005','Cty HPC Viet Nam',                 'Hoang Van E','0289012345',
     '32 Cach Mang Thang 8, Q.3, TP.HCM','CSCA & do dung gia dinh',b'0',NOW(),NOW(),1)
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`);
+
+-- ============================================================
+-- 11.1. SUPPLIER_CATEGORY (Lien ket Nha cung cap voi Nhom danh muc hang hoa)
+-- ============================================================
+INSERT IGNORE INTO `supplier_category` (`supplier_id`, `category_id`) VALUES
+(1, 1), -- SUP-001 -> Do uong
+(2, 2), -- SUP-002 -> Thuc pham kho
+(3, 3), -- SUP-003 -> Banh keo
+(4, 4), -- SUP-004 -> Gia vi
+(5, 5), -- SUP-005 -> Cham soc ca nhan
+(5, 6); -- SUP-005 -> Do dung gia dinh
 
 -- ============================================================
 -- 12. STORAGE ZONES & LOCATIONS
@@ -639,11 +697,11 @@ ON DUPLICATE KEY UPDATE `return_code`=VALUES(`return_code`);
 -- 24. RETURN ORDER DETAILS
 -- ============================================================
 INSERT INTO `return_order_details`
-    (`id`,`return_order_id`,`product_id`,`quantity`,`unit_price`,
-     `line_refund`,`is_removed`,`created_at`,`updated_at`,`created_by`)
+    (`id`,`return_order_id`,`product_id`,`sales_order_detail_id`,`quantity`,`unit_price`,
+     `line_refund`,`resolution_type`,`item_condition`,`is_removed`,`created_at`,`updated_at`,`created_by`)
 VALUES
-(1,1,2, 1,12000.00,12000.00,b'0','2026-08-03 14:00:00','2026-08-03 14:00:00',2),
-(2,2,12,1,75000.00,75000.00,b'0','2026-08-07 09:30:00','2026-08-07 09:30:00',2)
+(1,1,2, 2,1,12000.00,12000.00,'REFUND','DEFECTIVE',b'0','2026-08-03 14:00:00','2026-08-03 14:00:00',2),
+(2,2,12,11,1,75000.00,75000.00,'EXCHANGE','RESTOCKABLE',b'0','2026-08-07 09:30:00','2026-08-07 09:30:00',2)
 ON DUPLICATE KEY UPDATE `quantity`=VALUES(`quantity`);
 
 -- ============================================================
@@ -753,7 +811,7 @@ VALUES
     '{"order_status":"PENDING"}','{"order_status":"COMPLETED"}',
     b'0','2026-08-04 14:30:00','2026-08-04 14:30:00',1),
 (3,1,'users',2,'CREATE',NULL,
-    '{"username":"cashier01","role":"CASHIER","status":"ACTIVE"}',
+    '{"username":"cashier01","role":"STAFF","status":"ACTIVE"}',
     b'0','2026-07-01 07:55:00','2026-07-01 07:55:00',1),
 (4,2,'return_orders',1,'CREATE',NULL,
     '{"return_code":"RET-20260803-001","refund":12000}',

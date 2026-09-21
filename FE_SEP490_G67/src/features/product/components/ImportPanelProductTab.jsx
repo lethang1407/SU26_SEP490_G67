@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Trash2, Search, Layers, Info } from 'lucide-react';
+import SupplierSearchDropdown from './SupplierSearchDropdown';
 
 function resolveCost(item, overrides) {
   if (overrides[item.productId]?.costPerUnit != null) {
@@ -33,6 +34,33 @@ function getBaseUnitName(item) {
 
 function formatMoney(n) {
   return `${Number(n || 0).toLocaleString('vi-VN')} đ`;
+}
+
+function buildSupplierOptions(suggestedList = [], fallbackList = []) {
+  const map = new Map();
+  if (Array.isArray(suggestedList)) {
+    suggestedList.forEach((s) => {
+      if (s && s.id != null) {
+        map.set(Number(s.id), {
+          ...s,
+          id: Number(s.id),
+          isSuggested: true,
+        });
+      }
+    });
+  }
+  if (Array.isArray(fallbackList)) {
+    fallbackList.forEach((s) => {
+      if (s && s.id != null && !map.has(Number(s.id))) {
+        map.set(Number(s.id), {
+          ...s,
+          id: Number(s.id),
+          isSuggested: false,
+        });
+      }
+    });
+  }
+  return Array.from(map.values());
 }
 
 export default function ImportPanelProductTab({
@@ -109,16 +137,16 @@ export default function ImportPanelProductTab({
               <th style={{ width: 140, textAlign: 'center' }}>Tồn / Tối thiểu</th>
               <th style={{ width: 140, textAlign: 'center' }}>
                 <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                  <span>Bán (2 tuần)</span>
+                  <span>Bán (1 tháng)</span>
                   <span
-                    title="Tính theo tổng lượng hàng bán ra trong 14 ngày (2 tuần) gần nhất để dự báo và quyết định số lượng cần nhập chính xác."
+                    title="Tính theo tổng lượng hàng bán ra trong 30 ngày (1 tháng) gần nhất để dự báo và quyết định số lượng cần nhập chính xác."
                     style={{ cursor: 'help', display: 'inline-flex', alignItems: 'center', color: '#64748B' }}
                   >
                     <Info size={14} />
                   </span>
                 </div>
               </th>
-              <th style={{ width: 230 }}>Nhà cung cấp</th>
+              <th style={{ minWidth: 250, width: 250 }}>Nhà cung cấp</th>
               <th style={{ width: 120 }}>Đơn vị</th>
               <th style={{ width: 105, textAlign: 'center' }}>Số lượng</th>
               <th style={{ width: 130, textAlign: 'right' }}>Đơn giá</th>
@@ -132,29 +160,41 @@ export default function ImportPanelProductTab({
               const units = resolveUnits(item);
               const defaultUnit = pickDefaultUnit(units);
               const unitId = ov.productUnitId ?? defaultUnit?.id ?? '';
-              const unitBase = Number(ov.unitBase ?? defaultUnit?.unitBase ?? 1) || 1;
-              const packQty = ov.quantity ?? Math.max(1, Math.ceil(Number(item.suggestedQty || 1) / unitBase));
-              const cost = Number(ov.costPerUnit ?? resolveCost(item, overrides));
-              const lineTotal = packQty * unitBase * cost;
+              const selectedUnit = units.find((u) => String(u.id) === String(unitId)) ||
+                units.find((u) => u.id == null && unitId == null) ||
+                defaultUnit;
+              const currentUnitName = ov.unitName || selectedUnit?.name || item.unitName || 'sp';
+              const unitBase = Number(ov.unitBase ?? selectedUnit?.unitBase ?? 1) || 1;
+              const packQty = Number(ov.quantity ?? item.suggestedQty ?? 1) || 1;
+              const baseCost = Number(ov.costPerUnit ?? resolveCost(item, overrides));
+              const unitCost = baseCost * unitBase;
+              const lineTotal = packQty * unitCost;
 
               const onHand = Number(item.onHand || 0);
               const minStock = Number(item.minStock || 0);
               const avgDailyRate = Number(item.avgDailyRate || 0);
-              const sold14Days = item.sold14Days != null ? Number(item.sold14Days) : Math.round(avgDailyRate * 14);
+              const sold30Days = item.sold30Days != null ? Number(item.sold30Days) : (item.sold14Days != null ? Number(item.sold14Days) : Math.round(avgDailyRate * 30));
               const baseUnitName = getBaseUnitName(item);
 
               const supplierId = ov.supplierId ?? item.supplierId ?? '';
-              const optionsFromSuggest = Array.isArray(item.supplierOptions) ? item.supplierOptions : [];
-              const options = optionsFromSuggest.length > 0 ? optionsFromSuggest : supplierFallback;
+              const options = buildSupplierOptions(item.supplierOptions, supplierFallback);
 
-              const handleSupplierChange = (e) => {
-                const id = Number(e.target.value) || null;
-                const found = options.find((s) => s.id === id);
+              const handleSupplierChange = (selectedSupplier) => {
+                if (!selectedSupplier) {
+                  onChangeSupplier?.(item.productId, {
+                    supplierId: null,
+                    supplierName: '',
+                    costPerUnit: item.costPerUnit || baseCost,
+                    leadTimeDays: item.leadTimeDays || 3,
+                  });
+                  return;
+                }
+                const id = Number(selectedSupplier.id) || null;
                 onChangeSupplier?.(item.productId, {
                   supplierId: id,
-                  supplierName: found?.name || '',
-                  costPerUnit: found?.costPerUnit != null ? Number(found.costPerUnit) : cost,
-                  leadTimeDays: found?.leadTimeDays ?? (ov.leadTimeDays ?? item.leadTimeDays ?? 3),
+                  supplierName: selectedSupplier.name || '',
+                  costPerUnit: selectedSupplier.costPerUnit != null ? Number(selectedSupplier.costPerUnit) : baseCost,
+                  leadTimeDays: selectedSupplier.leadTimeDays ?? (ov.leadTimeDays ?? item.leadTimeDays ?? 3),
                 });
               };
 
@@ -164,12 +204,12 @@ export default function ImportPanelProductTab({
                   units.find((u) => u.id == null && nextId == null) ||
                   defaultUnit;
                 const nextBase = Number(found?.unitBase || 1) || 1;
-                const nextPackQty = Math.max(1, Math.round((packQty * unitBase) / nextBase));
+                // Giữ nguyên số lượng hiện tại, không tự động quy đổi số lượng/số kg
                 onChangeUnit?.(item.productId, {
                   productUnitId: found?.id ?? null,
                   unitName: found?.name || 'sp',
                   unitBase: nextBase,
-                  quantity: nextPackQty,
+                  quantity: packQty,
                 });
               };
 
@@ -227,26 +267,22 @@ export default function ImportPanelProductTab({
                       style={{
                         fontSize: 12.5,
                         fontWeight: 600,
-                        color: sold14Days > 0 ? '#0284C7' : '#94A3B8',
+                        color: sold30Days > 0 ? '#0284C7' : '#94A3B8',
                       }}
-                      title={`Đã bán ${sold14Days} ${baseUnitName} trong 14 ngày qua`}
+                      title={`Đã bán ${sold30Days} ${baseUnitName} trong 30 ngày qua`}
                     >
-                      {sold14Days.toLocaleString('vi-VN')} {baseUnitName}
+                      {sold30Days.toLocaleString('vi-VN')} {baseUnitName}
                     </span>
                   </td>
-                  <td>
-                    <select
-                      className="pi-table-select"
-                      value={supplierId || ''}
+                  <td style={{ minWidth: 250 }}>
+                    <SupplierSearchDropdown
+                      value={supplierId}
+                      options={options}
                       onChange={handleSupplierChange}
-                    >
-                      <option value="">-- Chọn NCC --</option>
-                      {options.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name} {s.costPerUnit != null ? `(${formatMoney(s.costPerUnit)})` : ''}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="-- Chọn NCC --"
+                      unitBase={unitBase}
+                      unitName={currentUnitName}
+                    />
                   </td>
                   <td>
                     <select
@@ -271,10 +307,15 @@ export default function ImportPanelProductTab({
                       onChange={handleQtyChange}
                     />
                   </td>
-                  <td style={{ textAlign: 'right', fontWeight: 500, color: '#475569' }}>
-                    {formatMoney(cost)}
+                  <td style={{ textAlign: 'right' }}>
+                    <div
+                      style={{ fontWeight: 600, color: '#0F172A', fontSize: 13 }}
+                      title={unitBase > 1 ? `Đơn giá theo ${currentUnitName}: ${formatMoney(unitCost)} (Đơn vị gốc: ${formatMoney(baseCost)}/${baseUnitName})` : undefined}
+                    >
+                      {formatMoney(unitCost)}
+                    </div>
                   </td>
-                  <td style={{ textAlign: 'right', fontWeight: 700, color: '#0F172A' }}>
+                  <td style={{ textAlign: 'right', fontWeight: 700, color: '#0F172A', fontSize: 13.5 }}>
                     {formatMoney(lineTotal)}
                   </td>
                   <td style={{ textAlign: 'center' }}>

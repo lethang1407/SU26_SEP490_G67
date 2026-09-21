@@ -23,4 +23,8 @@ public class SupplierListPageResponse {
     int totalPages;
     BigDecimal totalDebt;
     long debtSupplierCount;
+    /** Tổng giá trị bán thử OPEN toàn hệ thống. */
+    BigDecimal openTrialAmount;
+    long openTrialSupplierCount;
+    long openTrialOrderCount;
 }

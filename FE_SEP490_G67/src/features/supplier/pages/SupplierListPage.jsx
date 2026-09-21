@@ -6,6 +6,7 @@ import SupplierSummaryCards from '../components/SupplierSummaryCards';
 import SupplierToolbar from '../components/SupplierToolbar';
 import SupplierTable from '../components/SupplierTable';
 import SupplierDetailModal from '../components/SupplierDetailModal';
+import OpenTrialQueueModal from '../components/OpenTrialQueueModal';
 import SupplierPagination from '../components/SupplierPagination';
 import SupplierAddNewModal from '../components/SupplierAddNewModal';
 import SupplierSuccessToast from '../components/SupplierSuccessToast';
@@ -25,6 +26,9 @@ const EMPTY_PAGE = {
     totalPages: 1,
     totalDebt: 0,
     debtSupplierCount: 0,
+    openTrialAmount: 0,
+    openTrialSupplierCount: 0,
+    openTrialOrderCount: 0,
 };
 
 export default function SupplierListPage() {
@@ -47,6 +51,7 @@ export default function SupplierListPage() {
     const [addError, setAddError] = useState('');
     const [selectedSupplierId, setSelectedSupplierId] = useState(null);
     const [toast, setToast] = useState('');
+    const [trialQueueOpen, setTrialQueueOpen] = useState(false);
 
     // Deep-link từ phiếu nhập: mở đúng NCC (search theo mã rồi expand)
     useEffect(() => {
@@ -190,6 +195,9 @@ export default function SupplierListPage() {
     const summary = {
         totalDebt: data.totalDebt ?? 0,
         debtSupplierCount: data.debtSupplierCount ?? 0,
+        openTrialAmount: data.openTrialAmount ?? 0,
+        openTrialSupplierCount: data.openTrialSupplierCount ?? 0,
+        openTrialOrderCount: data.openTrialOrderCount ?? 0,
     };
 
     const pagination = {
@@ -239,7 +247,11 @@ export default function SupplierListPage() {
                             </div>
                         </header>
 
-                        <SupplierSummaryCards summary={summary} />
+                        <SupplierSummaryCards
+                            summary={summary}
+                            trialQueueOpen={trialQueueOpen}
+                            onOpenTrialQueue={() => setTrialQueueOpen(true)}
+                        />
 
                         <SupplierToolbar
                             supplierKeyword={keyword}
@@ -274,6 +286,20 @@ export default function SupplierListPage() {
                             onPageChange={(nextPage) => {
                                 setSelectedSupplierId(null);
                                 setPage(nextPage);
+                            }}
+                        />
+
+                        <OpenTrialQueueModal
+                            open={trialQueueOpen}
+                            onClose={() => setTrialQueueOpen(false)}
+                            onSettled={(result) => {
+                                fetchSuppliers({ silent: true });
+                                const code = result?.orderCode;
+                                setToast(
+                                    code
+                                        ? `Đã quyết toán bán thử phiếu ${code}.`
+                                        : 'Đã quyết toán bán thử.',
+                                );
                             }}
                         />
 

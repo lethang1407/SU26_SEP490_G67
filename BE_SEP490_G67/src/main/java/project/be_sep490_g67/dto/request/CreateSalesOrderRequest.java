@@ -89,5 +89,14 @@ public class CreateSalesOrderRequest {
          * Null = lấy FIFO mọi lô đang nằm ở ô này.
          */
         Integer batchId;
+
+        /**
+         * Số lượng lấy tại dòng này, tính theo đơn vị bán của dòng hàng (cùng đơn vị
+         * với {@code OrderItemRequest.quantity}). Null = vét dòng này cho tới khi đủ,
+         * đúng hành vi trước khi POS có ô nhập theo vị trí — đơn offline xếp hàng từ
+         * trước vẫn gửi dạng đó nên không được bắt buộc. Ràng buộc &gt; 0 và tổng khớp
+         * dòng hàng do StockDeductionService kiểm.
+         */
+        Integer quantity;
     }
 }

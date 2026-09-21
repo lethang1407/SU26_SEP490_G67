@@ -75,17 +75,12 @@ public class ImportTrialSettlementService {
         if (!supplierRepository.existsByIdAndIsRemovedFalse(supplierId)) {
             throw new AppException(ErrorCode.NOT_FOUND_SUPPLIER);
         }
-        List<ImportOrderDetail> openLines = importOrderDetailRepository.findOpenTrialLinesBySupplierId(supplierId);
-        Map<Integer, List<ImportOrderDetail>> byOrder = openLines.stream()
-                .collect(Collectors.groupingBy(
-                        d -> d.getImportOrder().getId(),
-                        LinkedHashMap::new,
-                        Collectors.toList()));
-        List<ImportTrialPreviewResponse> result = new ArrayList<>();
-        for (List<ImportOrderDetail> lines : byOrder.values()) {
-            result.add(toPreview(lines.get(0).getImportOrder(), lines));
-        }
-        return result;
+        return toPreviews(importOrderDetailRepository.findOpenTrialLinesBySupplierId(supplierId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ImportTrialPreviewResponse> previewOpenAll() {
+        return toPreviews(importOrderDetailRepository.findOpenTrialLines());
     }
 
     @Transactional
@@ -206,6 +201,19 @@ public class ImportTrialSettlementService {
             throw new AppException(ErrorCode.IMPORT_ORDER_NOT_IMPORTED);
         }
         return order;
+    }
+
+    private List<ImportTrialPreviewResponse> toPreviews(List<ImportOrderDetail> openLines) {
+        Map<Integer, List<ImportOrderDetail>> byOrder = openLines.stream()
+                .collect(Collectors.groupingBy(
+                        d -> d.getImportOrder().getId(),
+                        LinkedHashMap::new,
+                        Collectors.toList()));
+        List<ImportTrialPreviewResponse> result = new ArrayList<>();
+        for (List<ImportOrderDetail> lines : byOrder.values()) {
+            result.add(toPreview(lines.get(0).getImportOrder(), lines));
+        }
+        return result;
     }
 
     private ImportTrialPreviewResponse toPreview(ImportOrder order, List<ImportOrderDetail> openLines) {
@@ -356,9 +364,14 @@ public class ImportTrialSettlementService {
 
     @Transactional(readOnly = true)
     public List<ImportTrialSettleResponse> listByOrder(Integer orderId) {
-        if (importOrderRepository.findActiveByIdForUpdate(orderId).isEmpty()) {
+        if (importOrderRepository.findDetailById(orderId).isEmpty()) {
             throw new AppException(ErrorCode.NOT_FOUND_IMPORT_ORDER);
         }
+        return listHistory(orderId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ImportTrialSettleResponse> listHistory(Integer orderId) {
         return settlementRepository.findByImportOrderIdWithLines(orderId).stream()
                 .map(this::toHistoryResponse)
                 .toList();
@@ -427,6 +440,7 @@ public class ImportTrialSettlementService {
                 .productName(names.displayName())
                 .decision(line.getDecision())
                 .receivedQty(line.getReceivedQty())
+                .systemRemainingQty(line.getSystemRemainingQty())
                 .countedRemainingQty(line.getCountedRemainingQty())
                 .unsellableQty(line.getUnsellableQty())
                 .returnedQty(line.getReturnedQty())

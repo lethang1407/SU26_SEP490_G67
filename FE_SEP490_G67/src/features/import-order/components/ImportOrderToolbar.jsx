@@ -25,10 +25,10 @@ export default function ImportOrderToolbar({
                     <input
                         type="text"
                         className="supplier-toolbar__search-input"
-                        placeholder="Tìm theo mã nhập hàng hoặc tên nhà cung cấp"
+                        placeholder="Tìm theo mã nhập hàng, nhà cung cấp hoặc sản phẩm"
                         value={keyword}
                         onChange={(event) => onKeywordChange(event.target.value)}
-                        aria-label="Tìm đơn nhập hàng"
+                        aria-label="Tìm phiếu nhập hàng"
                     />
                 </div>
 

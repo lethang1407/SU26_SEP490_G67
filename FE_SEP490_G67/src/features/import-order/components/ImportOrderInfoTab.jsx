@@ -1,12 +1,16 @@
 import { Link } from 'react-router-dom';
 import { ExternalLink, ImageIcon } from 'lucide-react';
-import { IMPORT_ORDER_STATUS, IMPORT_ORDER_STATUS_LABEL, ORDER_STATUS_LABEL } from '../constants';
+import { IMPORT_ORDER_STATUS_LABEL, ORDER_STATUS, ORDER_STATUS_LABEL } from '../constants';
 import {
     computeDisplayLineTotal,
     computeOpenTrialAmount,
+    computeSettledTrialAmount,
+    describeSettledTrial,
     formatDate,
     formatMoneyPlain,
+    hasSettledTrial,
     resolveLineType,
+    settlementLineByDetailId,
 } from '../utils/importOrderUtils';
 import { mapPendingReturnLine } from '../utils/importReturnAttachUtils';
 import ImportOrderReturnSection from './ImportOrderReturnSection';
@@ -21,15 +25,22 @@ export default function ImportOrderInfoTab({
     const promoItems = items.filter((item) => resolveLineType(item) === 'PROMOTION');
     const displayItems = [...regularItems, ...trialItems, ...promoItems];
     const returnLines = (order.returnLines || []).map(mapPendingReturnLine);
+    const trialSettlements = order.trialSettlements || [];
+    const settleByDetailId = settlementLineByDetailId(trialSettlements);
     const computedGoodsTotal = displayItems.reduce(
         (sum, item) => sum + computeDisplayLineTotal(item),
         0,
     );
     const computedOpenTrial = computeOpenTrialAmount(displayItems);
+    const computedSettledTrial = computeSettledTrialAmount(displayItems);
+    const showSettledTrial =
+        trialSettlements.length > 0
+        || (hasSettledTrial(displayItems) && order.settledTrialAmount != null);
     const openTrialAmount =
         order.openTrialAmount != null ? Number(order.openTrialAmount) || 0 : computedOpenTrial;
-    const goodsTotal =
-        order.openTrialAmount != null ? Number(order.goodsTotal) || 0 : computedGoodsTotal;
+    const settledTrialAmount =
+        order.settledTrialAmount != null ? Number(order.settledTrialAmount) || 0 : computedSettledTrial;
+    const goodsTotal = computedGoodsTotal;
     const discountAmount = Number(order.discountAmount) || 0;
     const returnDeductionAmount = Number(order.returnDeductionAmount) || 0;
     const supplierRefundAmount = Number(order.supplierRefundAmount) || 0;
@@ -40,15 +51,13 @@ export default function ImportOrderInfoTab({
             ? Number(order.remainingDebt) || 0
             : Math.max(totalCost - paidAmount, 0);
     const netGoods = Math.max(goodsTotal - discountAmount - returnDeductionAmount, 0);
-    const displayDue =
-        order.remainingDebt != null
-            ? Math.max(remainingDebt + paidAmount, totalCost, netGoods)
-            : Math.max(totalCost, netGoods);
+    const isImported = order.orderStatus === ORDER_STATUS.IMPORTED;
+    const displayDue = isImported
+        ? totalCost
+        : Math.max(totalCost, netGoods);
     const itemCount = displayItems.filter((item) => resolveLineType(item) !== 'PROMOTION').length;
     const statusClass = String(order.orderStatus || '').toLowerCase();
-    const showPaymentBadge =
-        order.status === IMPORT_ORDER_STATUS.DEBT
-        || order.status === IMPORT_ORDER_STATUS.PENDING_SETTLEMENT;
+    const showPaymentBadge = isImported && Boolean(order.status);
     const receivedLabel = order.receivedDate ? formatDate(order.receivedDate) : '—';
 
     return (
@@ -181,13 +190,25 @@ export default function ImportOrderInfoTab({
                                             {isTrial ? (
                                                 <div className="ioc-line-meta">
                                                     <span
-                                                        className="ioc-promo-chip ioc-trial-chip ioc-trial-chip--on"
+                                                        className={`ioc-promo-chip ioc-trial-chip ioc-trial-chip--on${
+                                                            item.trialStatus === 'SETTLED'
+                                                                ? ' ioc-trial-chip--settled'
+                                                                : ''
+                                                        }`}
                                                         title="Hàng bán thử — quyết toán khi nhân viên NCC đến"
                                                     >
                                                         {item.trialStatus === 'SETTLED'
                                                             ? 'Bán thử · đã quyết toán'
                                                             : 'Bán thử'}
                                                     </span>
+                                                    {item.trialStatus === 'SETTLED' ? (
+                                                        <span className="import-order-expand__settle-note">
+                                                            {describeSettledTrial(
+                                                                item,
+                                                                settleByDetailId.get(item.id),
+                                                            )}
+                                                        </span>
+                                                    ) : null}
                                                 </div>
                                             ) : isPromotion ? (
                                                 <div className="ioc-line-meta">
@@ -232,9 +253,11 @@ export default function ImportOrderInfoTab({
                                             ) : (
                                                 <span
                                                     title={
-                                                        isTrial && item.trialStatus !== 'SETTLED'
-                                                            ? 'Giá trị thỏa thuận — đã ghi vào công nợ NCC'
-                                                            : undefined
+                                                        isTrial && item.trialStatus === 'SETTLED'
+                                                            ? 'Giá trị lúc nhận (số lượng × đơn giá)'
+                                                            : isTrial
+                                                              ? 'Giá trị thỏa thuận — đã ghi vào công nợ NCC'
+                                                              : undefined
                                                     }
                                                 >
                                                     {formatMoneyPlain(computeDisplayLineTotal(item))}
@@ -277,6 +300,12 @@ export default function ImportOrderInfoTab({
                         <div className="import-order-expand__summary-row import-order-expand__summary-row--trial">
                             <span>Hàng bán thử</span>
                             <strong>{formatMoneyPlain(openTrialAmount)}</strong>
+                        </div>
+                    ) : null}
+                    {showSettledTrial ? (
+                        <div className="import-order-expand__summary-row import-order-expand__summary-row--trial">
+                            <span>Quyết toán bán thử</span>
+                            <strong>{formatMoneyPlain(settledTrialAmount)}</strong>
                         </div>
                     ) : null}
                     <div className="import-order-expand__summary-row">

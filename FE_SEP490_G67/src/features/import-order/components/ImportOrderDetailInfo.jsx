@@ -1,4 +1,4 @@
-import { formatCurrency, formatDate, computeOpenTrialAmount, computeGoodsTotal } from '../utils/importOrderUtils';
+import { formatCurrency, formatDate, computeOpenTrialAmount, computeGoodsTotal, computeSettledTrialAmount, hasSettledTrial } from '../utils/importOrderUtils';
 import ImportOrderStatusBadge from './ImportOrderStatusBadge';
 
 export default function ImportOrderDetailInfo({ order }) {
@@ -11,10 +11,14 @@ export default function ImportOrderDetailInfo({ order }) {
         order.openTrialAmount != null
             ? Number(order.openTrialAmount) || 0
             : computeOpenTrialAmount(items);
-    const goodsTotal =
-        order.openTrialAmount != null
-            ? Number(order.goodsTotal ?? order.totalCost) || 0
-            : computeGoodsTotal(items) || Number(order.totalCost) || 0;
+    const settledTrialAmount =
+        order.settledTrialAmount != null
+            ? Number(order.settledTrialAmount) || 0
+            : computeSettledTrialAmount(items);
+    const showSettledTrial =
+        (order.trialSettlements || []).length > 0
+        || (hasSettledTrial(items) && order.settledTrialAmount != null);
+    const goodsTotal = computeGoodsTotal(items);
 
     return (
         <section className="import-order-side-card">
@@ -53,6 +57,14 @@ export default function ImportOrderDetailInfo({ order }) {
                         <dt>Hàng bán thử</dt>
                         <dd className="import-order-info-list__amount">
                             {formatCurrency(openTrialAmount)}
+                        </dd>
+                    </div>
+                ) : null}
+                {showSettledTrial ? (
+                    <div className="import-order-info-list__item">
+                        <dt>Quyết toán bán thử</dt>
+                        <dd className="import-order-info-list__amount">
+                            {formatCurrency(settledTrialAmount)}
                         </dd>
                     </div>
                 ) : null}

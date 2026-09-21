@@ -5,22 +5,36 @@ import ImportTrialSettleModal from '../../import-order/components/ImportTrialSet
 import ImportTrialHistory from '../../import-order/components/ImportTrialHistory';
 import '../../../css/ImportOrder.css';
 
+function trialApiErrorMessage(error) {
+    return error?.response?.data?.message
+        || error?.message
+        || 'Không tải được hàng bán thử. Vui lòng thử lại.';
+}
+
 export default function SupplierTrialTab({ supplierId, refreshToken, onSettled }) {
     const [orders, setOrders] = useState([]);
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
     const [settlingOrderId, setSettlingOrderId] = useState(null);
 
     const fetchData = useCallback(() => {
         if (!supplierId) return;
         setLoading(true);
-        Promise.all([
-            suppliersApi.getOpenTrial(supplierId).catch(() => []),
-            suppliersApi.getTrialHistory(supplierId).catch(() => []),
+        setError('');
+        Promise.allSettled([
+            suppliersApi.getOpenTrial(supplierId),
+            suppliersApi.getTrialHistory(supplierId),
         ])
             .then(([openResult, historyResult]) => {
-                setOrders(openResult || []);
-                setHistory(historyResult || []);
+                const openFailed = openResult.status === 'rejected';
+                const historyFailed = historyResult.status === 'rejected';
+                setOrders(openFailed ? [] : (openResult.value || []));
+                setHistory(historyFailed ? [] : (historyResult.value || []));
+                if (openFailed || historyFailed) {
+                    const reason = openFailed ? openResult.reason : historyResult.reason;
+                    setError(trialApiErrorMessage(reason));
+                }
             })
             .finally(() => setLoading(false));
     }, [supplierId]);
@@ -33,6 +47,17 @@ export default function SupplierTrialTab({ supplierId, refreshToken, onSettled }
         return <p className="supplier-detail-empty-text">Đang tải hàng bán thử...</p>;
     }
 
+    if (error && !orders.length && !history.length) {
+        return (
+            <div className="supplier-trial-tab">
+                <p className="supplier-detail-empty-text supplier-trial-tab__error">{error}</p>
+                <button type="button" className="supplier-btn supplier-btn--primary" onClick={fetchData}>
+                    Thử lại
+                </button>
+            </div>
+        );
+    }
+
     if (!orders.length && !history.length) {
         return (
             <p className="supplier-detail-empty-text">
@@ -43,6 +68,9 @@ export default function SupplierTrialTab({ supplierId, refreshToken, onSettled }
 
     return (
         <div className="supplier-trial-tab">
+            {error ? (
+                <p className="supplier-detail-empty-text supplier-trial-tab__error">{error}</p>
+            ) : null}
             {orders.length > 0 ? (
                 <section>
                     {orders.map((order) => (
@@ -76,7 +104,7 @@ export default function SupplierTrialTab({ supplierId, refreshToken, onSettled }
                                         <span
                                             className={showBasePrice ? 'trial-settle-product' : undefined}
                                         >
-                                            <span className={showBasePrice ? 'trial-settle-product__name' : undefined}>
+                                            <span className="trial-settle-product__name">
                                                 {line.productName}
                                             </span>
                                             {showBasePrice ? (

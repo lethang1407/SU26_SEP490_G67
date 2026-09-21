@@ -1,10 +1,10 @@
 import { useContext } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../providers/AuthProvider';
-import { getRoutePermissionConfig } from '../config/routePermissions';
+import { getRoutePermissionConfig, getDefaultLandingPath } from '../config/routePermissions';
 
 export default function ProtectedRoute({ children, requiredPermission, requiredRole }) {
-    const { authenticated, loadingUser, hasPermission, hasRole } = useContext(AuthContext);
+    const { authenticated, loadingUser, user, hasPermission, hasRole } = useContext(AuthContext);
     const location = useLocation();
 
     if (!authenticated) {
@@ -24,12 +24,15 @@ export default function ProtectedRoute({ children, requiredPermission, requiredR
     const permToCheck = requiredPermission ?? routeConfig?.permission;
     const roleToCheck = requiredRole ?? routeConfig?.role;
 
-    if (permToCheck && !hasPermission(permToCheck)) {
-        return <Navigate to="/admin/dashboard" replace />;
-    }
+    const isPermAllowed = !permToCheck || hasPermission(permToCheck);
+    const isRoleAllowed = !roleToCheck || hasRole(roleToCheck);
 
-    if (roleToCheck && !hasRole(roleToCheck)) {
-        return <Navigate to="/admin/dashboard" replace />;
+    if (!isPermAllowed || !isRoleAllowed) {
+        const fallbackPath = getDefaultLandingPath(hasRole, hasPermission, user);
+        if (location.pathname === fallbackPath) {
+            return <Navigate to="/profile" replace />;
+        }
+        return <Navigate to={fallbackPath} replace />;
     }
 
     return children;

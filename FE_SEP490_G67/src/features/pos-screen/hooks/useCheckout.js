@@ -90,7 +90,7 @@ export function useCheckout() {
         if (isOnline) {
             const badLine = cartItems.find(hasLocationProblem);
             if (badLine) {
-                return `"${badLine.name}": chưa chọn vị trí lấy hàng hoặc các vị trí đã chọn không đủ số lượng.`;
+                return `"${badLine.name}": số lượng nhập ở một vị trí vượt quá tồn tại vị trí đó.`;
             }
         }
 

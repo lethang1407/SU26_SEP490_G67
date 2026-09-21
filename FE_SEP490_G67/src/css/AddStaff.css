@@ -51,8 +51,52 @@
 }
 
 /* ============================================
-   FORM LAYOUT
+   FORM LAYOUT (2 COLUMNS)
    ============================================ */
+
+.add-staff-form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+}
+
+.add-staff-form-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+}
+
+.add-staff-form-grid--two-col {
+    display: grid;
+    grid-template-columns: minmax(360px, 440px) minmax(480px, 1fr);
+    gap: 24px;
+    align-items: start;
+    width: 100%;
+}
+
+.add-staff-form-grid--single {
+    max-width: 800px;
+}
+
+.add-staff-form-col-left {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.add-staff-form-col-right {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+@media (max-width: 1100px) {
+    .add-staff-form-grid--two-col {
+        grid-template-columns: 1fr;
+    }
+}
 
 .add-staff-layout {
     display: grid;
@@ -73,7 +117,7 @@
 }
 
 .add-staff-main--full {
-    max-width: 900px;
+    max-width: 100%;
 }
 
 .add-staff-roles {
@@ -471,3 +515,236 @@
 .add-staff-back-link:hover {
     text-decoration: underline;
 }
+
+/* ============================================
+   PHÂN QUYỀN NHANH KHI TẠO NHÂN VIÊN MỚI
+   ============================================ */
+
+.add-staff-card--permissions {
+    border: 1px solid #e2e8f0;
+}
+
+.add-staff-card__header--perm {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.add-staff-perm-head-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.add-staff-card__icon--perm {
+    background: #eff6ff !important;
+    color: #2563eb !important;
+}
+
+.add-staff-card__subtitle {
+    margin: 3px 0 0 0;
+    font-size: 13px;
+    color: #64748b;
+    font-weight: 400;
+}
+
+.add-staff-perm-count-badge {
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #dbeafe;
+}
+
+.add-staff-perm-count-badge strong {
+    color: #1d4ed8;
+    font-weight: 700;
+}
+
+.add-staff-role-templates-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+}
+
+.add-staff-role-card {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 16px;
+    border-radius: 12px;
+    border: 1.5px solid #e2e8f0;
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    user-select: none;
+}
+
+.add-staff-role-card:hover {
+    border-color: #93c5fd;
+    background: #f8fafc;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.add-staff-role-card.is-selected {
+    border-color: #2563eb;
+    background: #f0f7ff;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08);
+}
+
+.add-staff-role-card.is-mandatory {
+    cursor: default;
+    border-color: #bfdbfe;
+    background: #f8fafc;
+}
+
+.add-staff-role-card__left {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+}
+
+.add-staff-role-card__icon-box {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.add-staff-role-card__icon-box--blue {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.add-staff-role-card__icon-box--emerald {
+    background: #ecfdf5;
+    color: #059669;
+}
+
+.add-staff-role-card__icon-box--purple {
+    background: #f5f3ff;
+    color: #7c3aed;
+}
+
+.add-staff-role-card__icon-box--amber {
+    background: #fffbeb;
+    color: #d97706;
+}
+
+.add-staff-role-card__info {
+    min-width: 0;
+    flex: 1;
+}
+
+.add-staff-role-card__title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.add-staff-role-card__name {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.add-staff-role-card.is-selected .add-staff-role-card__name {
+    color: #1e40af;
+}
+
+.add-staff-role-card__badge-mandatory {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 6px;
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.add-staff-role-card__badge-all {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 6px;
+    background: #fdf2f8;
+    color: #be185d;
+    border: 1px solid #fbcfe8;
+}
+
+.add-staff-role-card__desc {
+    font-size: 12.5px;
+    color: #64748b;
+    margin: 4px 0 10px 0;
+    line-height: 1.45;
+}
+
+.add-staff-role-card__perms-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.add-staff-role-card__pill {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: #e2e8f0;
+    color: #475569;
+    transition: all 0.15s ease;
+}
+
+.add-staff-role-card.is-selected .add-staff-role-card__pill {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.add-staff-role-card__check-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 2px;
+}
+
+.add-staff-role-card__checkbox {
+    width: 19px;
+    height: 19px;
+    accent-color: #2563eb;
+    cursor: pointer;
+}
+
+.add-staff-role-card__checkbox:disabled {
+    cursor: default;
+}
+
+.add-staff-perm-note {
+    margin-top: 18px;
+    padding: 12px 16px;
+    background: #eff6ff;
+    border-radius: 10px;
+    border: 1px solid #dbeafe;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: #1e40af;
+    line-height: 1.5;
+}
+
