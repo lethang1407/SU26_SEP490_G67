@@ -54,11 +54,13 @@ public class SalesOrderService {
     UserRepository userRepository;
     DebtPolicy debtPolicy;
     NotificationService notificationService;
+    AccountingService accountingService;
 
     @Transactional
     public SalesOrderResponse createOrder(CreateSalesOrderRequest request,
                                           boolean isDebt,
                                           Integer createdBy) {
+        accountingService.lockForSourceWrite();
         // Resolve customer (optional với đơn thường, bắt buộc với đơn nợ)
         Customer customer = null;
         if (request.getCustomerId() != null) {
@@ -192,6 +194,7 @@ public class SalesOrderService {
         }
 
         salesOrderDetailRepository.saveAll(details);
+        accountingService.recordSale(saved);
         return toResponse(saved, details);
     }
 
