@@ -94,7 +94,7 @@ function emptyProfileForm(year) {
     taxpayerAddress: '',
     taxAuthority: '',
     declaredMethod: 'UNKNOWN',
-    invoiceRegistrationStatus: 'UNKNOWN',
+    invoiceRegistrationStatus: 'NOT_REGISTERED',
   };
 }
 
@@ -222,6 +222,9 @@ export default function TaxAccountingOverviewPage() {
       ...(profile ? {
         trackingStartedAt: toDateTimeLocal(profile.trackingStartedAt),
         ...information,
+        invoiceRegistrationStatus: profile.invoiceRegistrationStatus === 'UNKNOWN'
+          ? 'NOT_REGISTERED'
+          : profile.invoiceRegistrationStatus,
       } : {}),
     });
     setError('');
@@ -255,7 +258,7 @@ export default function TaxAccountingOverviewPage() {
       taxpayerAddress: form.taxpayerAddress.trim(),
       taxAuthority: form.taxpayerAddress.trim(),
       declaredMethod: 'REVENUE_BASED',
-      invoiceRegistrationStatus: form.invoiceRegistrationStatus || 'UNKNOWN',
+      invoiceRegistrationStatus: form.invoiceRegistrationStatus || 'NOT_REGISTERED',
     };
     try {
       if (profile) {
