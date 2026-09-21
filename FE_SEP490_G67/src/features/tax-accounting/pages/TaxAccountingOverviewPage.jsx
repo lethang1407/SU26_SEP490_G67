@@ -400,12 +400,13 @@ export default function TaxAccountingOverviewPage() {
 
   const openAdjustmentForm = (adjustment = null) => {
     const information = adjustment?.information ?? adjustment ?? {};
+    const selectedPeriodId = selectedMonth ? periodByMonth.get(Number(selectedMonth))?.id : null;
     setAdjustmentForm({
       ...emptyAdjustmentForm(),
       ...information,
       occurredAt: toDateTimeLocal(information.occurredAt),
       sourceId: information.sourceId ?? '',
-      relatedPeriodId: information.relatedPeriodId ?? '',
+      relatedPeriodId: information.relatedPeriodId ?? selectedPeriodId ?? '',
       signedAmount: information.signedAmount ?? '',
     });
     setAdjustmentError('');
