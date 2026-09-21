@@ -8,7 +8,7 @@ import SupplierOrderDetailModal from '../../supplier/components/SupplierOrderDet
 import SalesOrderDetailModal from '../../pos-screen/components/SalesOrderDetailModal';
 import ImportReturnDetailModal from '../../import-return/components/ImportReturnDetailModal';
 import { warehouseReportApi } from '../api';
-import { resolvePresetRange } from '../utils/warehouseReportUtils';
+import { resolveYearRange } from '../utils/warehouseReportUtils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/WarehouseReport.css';
 import '../../../css/ImportOrder.css';
@@ -23,10 +23,17 @@ const EMPTY_SUMMARY = {
   closingAmount: 0,
 };
 
+function initialFilters() {
+  const year = String(new Date().getFullYear());
+  const { from, to } = resolveYearRange(year);
+  return { year, fromDate: from, toDate: to };
+}
+
 export default function WarehouseReportPage() {
-  const initialRange = resolvePresetRange('all');
-  const [fromDate, setFromDate] = useState(initialRange.from || '');
-  const [toDate, setToDate] = useState(initialRange.to || '');
+  const initial = initialFilters();
+  const [year, setYear] = useState(initial.year);
+  const [fromDate, setFromDate] = useState(initial.fromDate);
+  const [toDate, setToDate] = useState(initial.toDate);
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [typeFilter, setTypeFilter] = useState('');
   const [page, setPage] = useState(0);
@@ -64,9 +71,21 @@ export default function WarehouseReportPage() {
     loadReport();
   }, [loadReport]);
 
-  const handleDateChange = ({ fromDate: nextFrom = '', toDate: nextTo = '' }) => {
-    setFromDate(nextFrom || '');
-    setToDate(nextTo || '');
+  const handleYearChange = (nextYear) => {
+    const range = resolveYearRange(nextYear);
+    setYear(nextYear);
+    setFromDate(range.from);
+    setToDate(range.to);
+    setPage(0);
+  };
+
+  const handleFromChange = (value) => {
+    setFromDate(value || '');
+    setPage(0);
+  };
+
+  const handleToChange = (value) => {
+    setToDate(value || '');
     setPage(0);
   };
 
@@ -116,9 +135,12 @@ export default function WarehouseReportPage() {
           </div>
 
           <WarehouseReportFilters
+            year={year}
             fromDate={fromDate}
             toDate={toDate}
-            onDateChange={handleDateChange}
+            onYearChange={handleYearChange}
+            onFromChange={handleFromChange}
+            onToChange={handleToChange}
             selectedProducts={selectedProducts}
             onProductsChange={handleProductsChange}
             typeFilter={typeFilter}

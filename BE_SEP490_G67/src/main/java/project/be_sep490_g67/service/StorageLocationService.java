@@ -538,7 +538,7 @@ public class StorageLocationService {
                 .label(location.getLabel())
                 .displayLabel(receiving
                         ? StorageZoneType.RECEIVING_DISPLAY_NAME
-                        : location.getLabel())
+                        : StorageZoneType.resolveDisplayLabel(location.getLabel()))
                 .zone(zoneCode)
                 .zoneId(zone != null ? zone.getId() : null)
                 .zoneTitle(receiving

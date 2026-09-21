@@ -20,83 +20,25 @@ export function formatVnDate(date) {
   return `${d}/${m}/${date.getFullYear()}`;
 }
 
-function startOfDay(date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
+/** Số năm trong dropdown, tính ngược từ năm hiện tại. */
+const YEAR_SPAN = 20;
+
+export function buildYearOptions(now = new Date()) {
+  const current = now.getFullYear();
+  return Array.from({ length: YEAR_SPAN }, (_, i) => {
+    const year = current - i;
+    return { value: String(year), label: String(year) };
+  });
 }
 
-function startOfWeekMonday(date) {
-  const d = startOfDay(date);
-  const day = d.getDay();
-  const offset = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + offset);
-  return d;
-}
-
-function startOfQuarter(date) {
-  const d = startOfDay(date);
-  const q = Math.floor(d.getMonth() / 3) * 3;
-  return new Date(d.getFullYear(), q, 1);
-}
-
-/** @returns {{ from: string|null, to: string|null }} */
-export function resolvePresetRange(preset) {
-  const today = startOfDay(new Date());
-
-  switch (preset) {
-    case 'today':
-      return { from: toIsoDate(today), to: toIsoDate(today) };
-    case 'yesterday': {
-      const y = new Date(today);
-      y.setDate(y.getDate() - 1);
-      return { from: toIsoDate(y), to: toIsoDate(y) };
-    }
-    case 'last-7': {
-      const from = new Date(today);
-      from.setDate(from.getDate() - 6);
-      return { from: toIsoDate(from), to: toIsoDate(today) };
-    }
-    case 'last-30': {
-      const from = new Date(today);
-      from.setDate(from.getDate() - 29);
-      return { from: toIsoDate(from), to: toIsoDate(today) };
-    }
-    case 'this-week':
-      return { from: toIsoDate(startOfWeekMonday(today)), to: toIsoDate(today) };
-    case 'this-month': {
-      const from = new Date(today.getFullYear(), today.getMonth(), 1);
-      return { from: toIsoDate(from), to: toIsoDate(today) };
-    }
-    case 'this-quarter':
-      return { from: toIsoDate(startOfQuarter(today)), to: toIsoDate(today) };
-    case 'this-year': {
-      const from = new Date(today.getFullYear(), 0, 1);
-      return { from: toIsoDate(from), to: toIsoDate(today) };
-    }
-    case 'all':
-    default:
-      return { from: null, to: null };
-  }
-}
-
-export function detectPreset(from, to) {
-  if (!from && !to) return 'all';
-  const presets = [
-    'today',
-    'yesterday',
-    'last-7',
-    'last-30',
-    'this-week',
-    'this-month',
-    'this-quarter',
-    'this-year',
-  ];
-  for (const key of presets) {
-    const range = resolvePresetRange(key);
-    if (range.from === from && range.to === to) return key;
-  }
-  return 'custom';
+/** Khoảng ngày mặc định theo năm (01/01 → 31/12). */
+export function resolveYearRange(year) {
+  const y = Number(year);
+  if (!y) return { from: '', to: '' };
+  return {
+    from: toIsoDate(new Date(y, 0, 1)),
+    to: toIsoDate(new Date(y, 11, 31)),
+  };
 }
 
 export function formatMoney(value) {

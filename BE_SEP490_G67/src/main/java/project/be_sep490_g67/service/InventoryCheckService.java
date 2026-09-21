@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import project.be_sep490_g67.constants.StorageZoneType;
 import project.be_sep490_g67.dto.request.CreateInventoryCheckRequest;
 import project.be_sep490_g67.dto.response.InventoryCheckAttentionItemResponse;
 import project.be_sep490_g67.dto.response.InventoryCheckDetailResponse;
@@ -424,7 +425,9 @@ public class InventoryCheckService {
         StockBatch batch = bl.getBatch();
         ImportOrder importOrder = batch.getImportOrder();
         Supplier supplier = importOrder != null ? importOrder.getSupplier() : null;
-        String locationLabel = bl.getLocation() != null ? bl.getLocation().getLabel() : null;
+        String locationLabel = bl.getLocation() != null
+                ? StorageZoneType.resolveDisplayLabel(bl.getLocation().getLabel())
+                : null;
         return InventoryCheckProductPreviewResponse.BatchOption.builder()
                 .id(batch.getId())
                 .batchCode(batch.getBatchCode())

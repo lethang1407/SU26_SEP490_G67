@@ -20,6 +20,18 @@ public final class StorageZoneType {
     private StorageZoneType() {
     }
 
+    /** Label kỹ thuật IMPORTED / NHAP-MOI → tên hiển thị cho UI. */
+    public static String resolveDisplayLabel(String label) {
+        if (label == null || label.isBlank()) {
+            return label;
+        }
+        if (RECEIVING_LOCATION_LABEL.equalsIgnoreCase(label.trim())
+                || "NHAP-MOI".equalsIgnoreCase(label.trim())) {
+            return RECEIVING_DISPLAY_NAME;
+        }
+        return label;
+    }
+
     public static boolean isValid(String type) {
         return WAREHOUSE.equals(type) || RETURN_HOLD.equals(type) || SALES.equals(type);
     }

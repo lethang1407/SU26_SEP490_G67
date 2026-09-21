@@ -26,6 +26,10 @@ import {
 } from '../components/InventoryCheckSidePanels';
 import { getProfile } from '../../profile/api';
 import { INVENTORY_CHECK_ROUTES } from '../constants';
+import {
+    RECEIVING_DISPLAY_NAME,
+    RECEIVING_LOCATION_LABEL,
+} from '../../storage-location/constants';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Inventory.css';
 import '../../../css/InventoryCheck.css';
@@ -36,6 +40,14 @@ function lineKey(productId, locationId, stockBatchId) {
     return `${productId}-${locationId ?? 'LOC'}-${stockBatchId ?? 'BATCH'}`;
 }
 
+function toLocationDisplayLabel(label) {
+    const upper = String(label ?? '').trim().toUpperCase();
+    if (upper === RECEIVING_LOCATION_LABEL || upper === 'NHAP-MOI') {
+        return RECEIVING_DISPLAY_NAME;
+    }
+    return label || null;
+}
+
 function uniqueLocations(batches) {
     const map = new Map();
     for (const batch of batches ?? []) {
@@ -43,7 +55,9 @@ function uniqueLocations(batches) {
         if (!map.has(batch.locationId)) {
             map.set(batch.locationId, {
                 id: batch.locationId,
-                label: batch.locationLabel || `Vị trí #${batch.locationId}`,
+                label:
+                    toLocationDisplayLabel(batch.locationLabel)
+                    || `Vị trí #${batch.locationId}`,
             });
         }
     }
@@ -70,7 +84,7 @@ function applyBatchToLine(line, batch, locationId, locationLabel) {
         ...line,
         id: `new-${lineKey(line.productId, locationId, batch?.id ?? null)}`,
         locationId: locationId ?? null,
-        locationLabel: locationLabel ?? null,
+        locationLabel: toLocationDisplayLabel(locationLabel) ?? null,
         stockBatchId: batch?.id ?? null,
         batchCode: batch?.batchCode ?? null,
         systemQty,
@@ -125,7 +139,7 @@ function buildLineFromPreview(preview, preferredBatchId = null) {
         selectedUnitId: baseUnit.id,
         unitBase: baseUnit.unitBase,
         locationId: location?.id ?? null,
-        locationLabel: location?.label ?? null,
+        locationLabel: toLocationDisplayLabel(location?.label) ?? null,
         locations,
         stockBatchId: selected?.id ?? null,
         batchCode: selected?.batchCode ?? null,

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import project.be_sep490_g67.constants.ProductConstants;
+import project.be_sep490_g67.constants.StorageZoneType;
 import project.be_sep490_g67.dto.request.CreateProductRequest;
 import project.be_sep490_g67.dto.request.ProductAttributeRequest;
 import project.be_sep490_g67.dto.request.ProductConversionUnitRequest;
@@ -602,7 +603,11 @@ public class ProductService {
 
     private static String describeLocation(StorageLocation location) {
         if (location.getLabel() != null && !location.getLabel().isBlank()) {
-            return location.getLabel();
+            return StorageZoneType.resolveDisplayLabel(location.getLabel());
+        }
+        StorageZone zone = location.getStorageZone();
+        if (zone != null && StorageZoneType.RECEIVING_ZONE_CODE.equalsIgnoreCase(zone.getCode())) {
+            return StorageZoneType.RECEIVING_DISPLAY_NAME;
         }
         String composed = Stream.of(location.getZoneCode(), location.getAisle(),
                         location.getShelf(), location.getBin())

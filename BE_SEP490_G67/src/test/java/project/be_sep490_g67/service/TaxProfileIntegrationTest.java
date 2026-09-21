@@ -1061,7 +1061,7 @@ class TaxProfileIntegrationTest {
                     old_value LONGTEXT,new_value LONGTEXT,FOREIGN KEY(user_id) REFERENCES users(id))
                     """);
             new ResourceDatabasePopulator(new ClassPathResource(
-                    "db/migration/V67__create_accounting_model.sql")).execute(ds);
+                    "db/migration/V72__create_accounting_model.sql")).execute(ds);
             sql.execute("""
                     CREATE TABLE sales_orders (id INT AUTO_INCREMENT PRIMARY KEY,is_removed BIT DEFAULT 0,
                     created_at DATETIME(6),updated_at DATETIME(6),created_by INT,updated_by INT,
