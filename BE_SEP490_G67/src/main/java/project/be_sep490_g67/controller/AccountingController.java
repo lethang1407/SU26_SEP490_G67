@@ -30,8 +30,10 @@ public class AccountingController {
     @Autowired
     private TaxTemplateService taxTemplateService;
 
-    @GetMapping(value = "/tax-support/01-tkn-cnkd.docx",
-            produces = "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    // The response sets the document content type explicitly.  Do not constrain
+    // the mapping with `produces`: when the service rejects an export (409), the
+    // exception handler must still be able to return its JSON error response.
+    @GetMapping(value = "/tax-support/01-tkn-cnkd.docx")
     public ResponseEntity<byte[]> annualRevenueNotice(@PathVariable Integer year,
             @RequestParam(defaultValue = "YEAR") TaxPeriodType periodType) {
         return ResponseEntity.ok()
@@ -48,8 +50,7 @@ public class AccountingController {
         return ApiResponse.success(accountingService.getS1aRevenueBook(year, month));
     }
 
-    @GetMapping(value = "/{month}/tax-support/s1a.xlsx",
-            produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    @GetMapping(value = "/{month}/tax-support/s1a.xlsx")
     public ResponseEntity<byte[]> s1aExcel(@PathVariable Integer year, @PathVariable Integer month) {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,

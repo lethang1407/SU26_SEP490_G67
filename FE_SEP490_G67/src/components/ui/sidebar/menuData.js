@@ -112,7 +112,7 @@ export const menus = [
         title: "Thuế & Kế Toán",
         icon: FileText,
         path: "/admin/accounting",
-        permission: ["AUDIT:VIEW", "CUSTOMER:DEBT_VIEW", "SUPPLIER:PAYMENT"]
+        role: ["MANAGER"]
     },
     {
         id: "staff",
