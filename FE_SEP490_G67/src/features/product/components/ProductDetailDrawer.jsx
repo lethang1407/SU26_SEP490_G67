@@ -47,7 +47,7 @@ export default function ProductDetailDrawer({
     selling != null && cost != null ? selling - cost : null;
   const coverOverride = product.coverDaysOverride;
   const categoryCover = product.categoryCoverDays ?? 14;
-  const categoryName = product.categoryName || '—';
+  const categoryName = product.categoryName || 'N/A';
 
   return (
     <>
@@ -72,7 +72,7 @@ export default function ProductDetailDrawer({
                 SKU: <b>{product.sku || product.code || `SP${String(product.id).padStart(6, '0')}`}</b>
               </div>
               <div className="meta-line">
-                Mã vạch: <b>{product.barcode || '—'}</b>
+                Mã vạch: <b>{product.barcode || 'N/A'}</b>
               </div>
               <div className="meta-line">
                 Danh mục: <b>{categoryName}</b>
@@ -95,12 +95,12 @@ export default function ProductDetailDrawer({
               </div>
               <div className="field">
                 <div className="field-label">Nhà cung cấp</div>
-                <div className="field-value">{product.supplierName || '—'}</div>
+                <div className="field-value">{product.supplierName || 'N/A'}</div>
               </div>
               {Array.isArray(product.attributes) && product.attributes.map((attr, idx) => (
                 <div key={attr.id || idx} className="field">
                   <div className="field-label">{attr.name}</div>
-                  <div className="field-value">{attr.value || '—'}</div>
+                  <div className="field-value">{attr.value || 'N/A'}</div>
                 </div>
               ))}
               <div className="field full">
@@ -117,13 +117,13 @@ export default function ProductDetailDrawer({
               <div className="field">
                 <div className="field-label">Giá bán</div>
                 <div className="field-value price-big">
-                  {selling != null ? formatMoney(selling) : '—'}
+                  {selling != null ? formatMoney(selling) : 'N/A'}
                 </div>
               </div>
               <div className="field">
                 <div className="field-label">Giá nhập</div>
                 <div className="field-value">
-                  {cost != null ? formatMoney(cost) : '—'}
+                  {cost != null ? formatMoney(cost) : 'N/A'}
                 </div>
               </div>
               <div className="field">
@@ -138,7 +138,7 @@ export default function ProductDetailDrawer({
                     )}
                   </div>
                 ) : (
-                  <div className="field-value muted">—</div>
+                  <div className="field-value muted">N/A</div>
                 )}
               </div>
               <div className="field">
@@ -171,11 +171,11 @@ export default function ProductDetailDrawer({
             <div className="field-grid" style={{ marginTop: 12 }}>
               <div className="field">
                 <div className="field-label">Vị trí kệ</div>
-                <div className="field-value muted">{product.shelfLocation || '—'}</div>
+                <div className="field-value muted">{product.shelfLocation || 'N/A'}</div>
               </div>
               <div className="field">
                 <div className="field-label">Nhập gần nhất</div>
-                <div className="field-value muted">{product.lastImportNote || '—'}</div>
+                <div className="field-value muted">{product.lastImportNote || 'N/A'}</div>
               </div>
             </div>
           </div>

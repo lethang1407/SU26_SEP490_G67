@@ -194,6 +194,7 @@ public class ProductCommandService {
         product.setStatus(status);
         product.setCostPrice(cost);
         product.setSellingPrice(sell);
+        product.setMinStock(request.getMinStock() != null ? request.getMinStock() : 5);
         product.setSeasonTag(blankToNull(request.getSeasonTag()));
         product.setIsRemoved(false);
         if (product.getCreatedAt() == null) {
@@ -430,6 +431,7 @@ public class ProductCommandService {
                 .status(product.getStatus())
                 .costPrice(product.getCostPrice())
                 .sellingPrice(product.getSellingPrice())
+                .minStock(product.getMinStock() != null ? product.getMinStock() : 5)
                 .seasonTag(product.getSeasonTag())
                 .categoryCoverDays(category != null && category.getCoverDays() != null
                         ? category.getCoverDays()
@@ -685,6 +687,7 @@ public class ProductCommandService {
             child.setCategory(category);
             child.setCostPrice(parentProduct.getCostPrice());
             child.setSellingPrice(parentProduct.getSellingPrice());
+            child.setMinStock(parentProduct.getMinStock() != null ? parentProduct.getMinStock() : 5);
             child.setDescription(parentProduct.getDescription());
             child.setSeasonTag(parentProduct.getSeasonTag());
             child.setStatus(parentProduct.getStatus());
@@ -797,6 +800,7 @@ public class ProductCommandService {
                     childStatus = "inactive";
                 }
                 child.setStatus(childStatus);
+                child.setMinStock(parentProduct.getMinStock() != null ? parentProduct.getMinStock() : 5);
                 child.setDescription(parentProduct.getDescription());
                 child.setSeasonTag(parentProduct.getSeasonTag());
 

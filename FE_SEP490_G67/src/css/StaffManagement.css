@@ -93,10 +93,12 @@
 }
 
 .staff-filter__label {
+    display: inline-flex;
+    align-items: center;
     font-size: 13px;
     font-weight: 600;
-    color: #64748b;
-    letter-spacing: 0.4px;
+    color: #475569;
+    letter-spacing: 0.3px;
     text-transform: uppercase;
 }
 
@@ -111,9 +113,9 @@
 
 .staff-filter__select {
     appearance: none;
-    min-width: 168px;
+    min-width: 220px;
     padding: 10px 40px 10px 14px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid #cbd5e1;
     border-radius: 10px;
     background-color: #fff;
     font-size: 14px;
@@ -126,13 +128,13 @@
 }
 
 .staff-filter__select:hover {
-    border-color: #cbd5e1;
+    border-color: #94a3b8;
     background-color: #fafbfd;
     box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
 }
 
 .staff-filter__select:focus {
-    border-color: #93c5fd;
+    border-color: #3b82f6;
     background-color: #fff;
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
@@ -147,23 +149,11 @@
     line-height: 1.4;
 }
 
-.staff-filter__select option:hover {
-    background-color: #f8fafc;
-    color: #1e293b;
-}
-
 .staff-filter__select option:checked,
 .staff-filter__select option:active {
     background-color: #eff6ff;
-    background: linear-gradient(0deg, #eff6ff, #eff6ff);
     color: #2563eb;
     font-weight: 600;
-}
-
-.staff-filter__select option:focus {
-    background-color: #dbeafe;
-    color: #1d4ed8;
-    outline: none;
 }
 
 .staff-filter__icon {
@@ -181,6 +171,7 @@
     border-radius: 14px;
     border: 1px solid #eaedf3;
     overflow: hidden;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
 .staff-table-wrapper {
@@ -193,36 +184,12 @@
     table-layout: fixed;
 }
 
-.staff-table__col-index {
-    width: 8%;
-}
-
-.staff-table__col-spacer {
-    width: 10%;
-}
-
-.staff-table__col-name {
-    width: 26%;
-}
-
-.staff-table__col-gap {
-    width: 6%;
-}
-
-.staff-table__col-phone {
-    width: 26%;
-}
-
-.staff-table__col-position {
-    width: 24%;
-}
-
 .staff-table thead th {
-    padding: 14px 24px;
+    padding: 14px 20px;
     font-size: 13px;
     font-weight: 600;
-    color: #64748b;
-    background: #f1f5f9;
+    color: #475569;
+    background: #f8fafc;
     border-bottom: 1px solid #e2e8f0;
     white-space: nowrap;
     text-align: left;
@@ -230,11 +197,6 @@
 
 .staff-table thead th.staff-table__col-index {
     text-align: center;
-}
-
-.staff-table thead .staff-table__col-spacer,
-.staff-table thead .staff-table__col-gap {
-    padding: 14px 0;
 }
 
 .staff-table tbody tr {
@@ -246,18 +208,13 @@
 }
 
 .staff-table__row:hover {
-    background: #fafbfd;
+    background: #f8fafc;
 }
 
 .staff-table tbody td {
-    padding: 18px 24px;
+    padding: 16px 20px;
     border-bottom: 1px solid #f1f5f9;
     vertical-align: middle;
-}
-
-.staff-table tbody .staff-table__col-spacer,
-.staff-table tbody .staff-table__col-gap {
-    padding: 18px 0;
 }
 
 .staff-table tbody tr:last-child td {
@@ -279,24 +236,45 @@
 }
 
 .staff-table__phone {
-    font-size: 15px;
-    font-weight: 400;
-    color: #334155;
-    text-align: left;
-}
-
-.staff-table__position {
-    font-size: 15px;
-    font-weight: 400;
+    font-size: 14px;
+    font-weight: 500;
     color: #334155;
     text-align: left;
 }
 
 .staff-table__empty {
-    padding: 32px 24px;
+    padding: 40px 24px;
     text-align: center;
     font-size: 14px;
     color: #64748b;
+}
+
+/* Badge hiển thị Mẫu vai trò phân quyền */
+.staff-role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 9999px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid transparent;
+    letter-spacing: 0.1px;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    transition: all 0.2s ease;
+}
+
+.staff-btn-perm {
+    font-weight: 500;
+    border-radius: 8px;
+    padding: 6px 12px;
+    transition: all 0.2s ease;
+}
+
+.staff-btn-perm:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
 }
 
 @media (max-width: 768px) {
@@ -340,6 +318,6 @@
 
     .staff-table thead th,
     .staff-table tbody td {
-        padding: 14px 16px;
+        padding: 12px 14px;
     }
 }

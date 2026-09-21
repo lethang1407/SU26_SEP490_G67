@@ -12,17 +12,20 @@ import project.be_sep490_g67.dto.request.CreateStaffRequest;
 import project.be_sep490_g67.dto.request.UpdateStaffRequest;
 import project.be_sep490_g67.dto.response.StaffDetailResponse;
 import project.be_sep490_g67.dto.response.StaffListResponse;
+import project.be_sep490_g67.entity.Permission;
 import project.be_sep490_g67.entity.Role;
 import project.be_sep490_g67.entity.User;
 import project.be_sep490_g67.exception.AppException;
 import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.mapper.StaffMapper;
+import project.be_sep490_g67.repository.PermissionRepository;
 import project.be_sep490_g67.repository.RoleRepository;
 import project.be_sep490_g67.repository.UserRepository;
 import project.be_sep490_g67.utils.PasswordValidator;
 import project.be_sep490_g67.utils.PhoneNumberUtil;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -37,6 +40,7 @@ import java.util.stream.Collectors;
 public class StaffService {
     UserRepository userRepository;
     RoleRepository roleRepository;
+    PermissionRepository permissionRepository;
     StaffMapper staffMapper;
     PasswordEncoder passwordEncoder;
 
@@ -51,6 +55,7 @@ public class StaffService {
                 .map(staffMapper::toListResponse)
                 .toList();
     }
+
 
     @Transactional(readOnly = true)
     public StaffDetailResponse getStaffById(Integer staffId) {
@@ -97,11 +102,20 @@ public class StaffService {
         user.setUpdatedBy(actorId);
         user.setRoles(new LinkedHashSet<>(resolveStaffRoles(request.getRoles())));
 
+        // Mặc định quyền Bán hàng (POS) là quyền bắt buộc, cộng thêm các quyền được chọn nhanh
+        Set<String> permsToAssign = new LinkedHashSet<>(StaffConstants.DEFAULT_STAFF_PERMISSIONS);
+        if (request.getPermissions() != null && !request.getPermissions().isEmpty()) {
+            permsToAssign.addAll(request.getPermissions());
+        }
+        List<Permission> resolvedPerms = permissionRepository.findByCodeInIgnoreCaseAndIsRemovedFalse(new ArrayList<>(permsToAssign));
+        user.setCustomPermissions(new LinkedHashSet<>(resolvedPerms));
+
         User savedUser = userRepository.save(user);
         log.info("Created staff with id={}", savedUser.getId());
 
         return getStaffById(savedUser.getId());
     }
+
 
     @Transactional
     public StaffDetailResponse updateStaff(Integer staffId, UpdateStaffRequest request, String actorUsername) {
@@ -202,8 +216,14 @@ public class StaffService {
         }
 
         String normalizedKeyword = keyword.trim().toLowerCase(Locale.ROOT);
-        return user.getFullName() != null
+        boolean matchesName = user.getFullName() != null
                 && user.getFullName().toLowerCase(Locale.ROOT).contains(normalizedKeyword);
+        boolean matchesPhone = user.getPhoneNumber() != null
+                && user.getPhoneNumber().contains(normalizedKeyword);
+        boolean matchesUsername = user.getUsername() != null
+                && user.getUsername().toLowerCase(Locale.ROOT).contains(normalizedKeyword);
+
+        return matchesName || matchesPhone || matchesUsername;
     }
 
     private boolean matchesPosition(User user, String position) {

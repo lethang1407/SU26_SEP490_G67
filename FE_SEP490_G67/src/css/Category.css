@@ -441,15 +441,20 @@
 }
 
 .cat-modal__foot {
-  padding: 14px 20px 18px;
+  padding: 14px 20px;
   border-top: 1px solid #e5e8ec;
   display: flex;
-  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
   background: #fafbfc;
 }
 
 .cat-modal__foot .cat-btn {
-  flex: 1;
+  padding: 9px 20px;
+  font-size: 13.5px;
+  font-weight: 600;
+  border-radius: 8px;
 }
 
 @keyframes cat-fade-in {

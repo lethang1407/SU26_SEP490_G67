@@ -152,7 +152,7 @@ SET @col_exists := (
 );
 SET @sql := IF(@col_exists = 0,
     'ALTER TABLE customers
-        ADD COLUMN is_check_unstable_debt TINYINT(1) NOT NULL DEFAULT 0 AFTER allow_debt',
+        ADD COLUMN is_check_unstable_debt TINYINT(1) NOT NULL DEFAULT 0',
     'DO 0');
 PREPARE stmt FROM @sql;
 EXECUTE stmt;

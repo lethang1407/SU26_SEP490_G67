@@ -62,7 +62,7 @@ public class NotificationAlertService {
      * Lô đã quá hạn mà vẫn còn hàng thật trên kệ.
      */
     @Transactional(readOnly = true)
-    public ScanResult scanExpired() {
+        public ScanResult scanExpired() {
         LocalDate today = LocalDate.now(STORE_ZONE);
         List<Object[]> rows = stockBatchRepository.findExpiredWithRemainingQuantity(today);
         if (rows.isEmpty()) {

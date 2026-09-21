@@ -37,6 +37,7 @@ public class ImportSuggestionResponse {
     Integer onHand;
     Integer minStock;
     Integer sold14Days;
+    Integer sold30Days;
     BigDecimal avgDailyRate;
     String unitName;
     List<SupplierOption> supplierOptions;

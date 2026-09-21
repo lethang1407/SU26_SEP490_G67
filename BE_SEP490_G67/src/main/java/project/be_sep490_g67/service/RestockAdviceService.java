@@ -26,19 +26,6 @@ import java.util.stream.Collectors;
 
 /**
  * Widget "Sản phẩm cần quyết định nhập hàng".
- *
- * <p>Hai nguyên tắc chi phối toàn bộ file này:
- * <p>
- * Chuẩn hoá đơn vị trước khi so sánh.</b> Tồn kho và {@code min_stock} tính
- * bằng đơn vị cơ sở (lon), còn đơn bán ghi theo đơn vị bán (thùng). Cộng thẳng
- * {@code quantity} sẽ coi 1 thùng bằng 1 lon. Mọi con số ở đây đã nhân {@code unitBase}
- * để về cùng đơn vị cơ sở; việc quy ngược sang đơn vị lớn chỉ xảy ra ở bước dựng chuỗi
- * hiển thị.
- *
- * <p><b>2. Tồn thấp không đồng nghĩa phải nhập.</b> Trạng thái kho
- * ({@link StockState}) và quyết định nhập ({@link RestockPriority}) là hai trục riêng.
- * Hết hàng mà cả kỳ không ai mua thì vẫn xếp bán chậm và CTA là "xem chi tiết", không
- * phải "nhập hàng".
  */
 @Service
 @RequiredArgsConstructor

@@ -109,7 +109,7 @@ public enum ErrorCode {
     TRIAL_PRODUCT_ALREADY_IN_STORE(1083,
             "Hàng bán thử chỉ dành cho sản phẩm mới, chưa từng có ở cửa hàng.",
             HttpStatus.BAD_REQUEST),
-    TRIAL_COST_REQUIRED(1084, "Hàng bán thử phải có giá thỏa thuận để ghi công nợ và quyết toán sau.", HttpStatus.BAD_REQUEST),
+    TRIAL_COST_REQUIRED(1084, "Hàng bán thử phải nhập đơn giá.", HttpStatus.BAD_REQUEST),
     TRIAL_NOT_FOUND(1085, "Phiếu này không có hàng bán thử đang treo.", HttpStatus.BAD_REQUEST),
     TRIAL_ALREADY_SETTLED(1086, "Dòng bán thử này đã quyết toán.", HttpStatus.BAD_REQUEST),
     TRIAL_DECISION_INVALID(1087, "Quyết định quyết toán hàng bán thử không hợp lệ.", HttpStatus.BAD_REQUEST),
@@ -146,6 +146,8 @@ public enum ErrorCode {
     IMPORT_ORDER_LINE_INVALID(1119, "Dòng nhập thiếu sản phẩm, nhà cung cấp hoặc số lượng không hợp lệ", HttpStatus.BAD_REQUEST),
     PRODUCT_EXCEL_INVALID(1120, "File Excel không hợp lệ. Chỉ nhận .xlsx và đúng mẫu (SKU/Barcode, Số lượng).", HttpStatus.BAD_REQUEST),
     PRODUCT_EXCEL_FAILED(1121, "Không xử lý được file Excel", HttpStatus.INTERNAL_SERVER_ERROR),
+    STOCK_PICK_QUANTITY_MISSING(1122, "Đã nhập số lượng theo vị trí thì mọi vị trí được chọn đều phải có số lượng lớn hơn 0", HttpStatus.BAD_REQUEST),
+    STOCK_PICK_QUANTITY_MISMATCH(1123, "Tổng số lượng lấy ở các vị trí phải bằng số lượng của dòng hàng", HttpStatus.BAD_REQUEST),
 
     // Invoice errors (3xxx)
     ORDER_NOT_FOUND(3001, "Không tìm thấy đơn hàng", HttpStatus.NOT_FOUND),

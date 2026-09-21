@@ -9,6 +9,7 @@ import project.be_sep490_g67.entity.User;
 import project.be_sep490_g67.utils.PhoneNumberUtil;
 
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -19,13 +20,35 @@ import java.util.stream.Collectors;
 public class StaffMapper {
     //mapper
     public StaffListResponse toListResponse(User user) {
+        Set<String> perms = new HashSet<>();
+        if (user.getRoles() != null) {
+            user.getRoles().forEach(r -> {
+                if (r.getPermissions() != null) {
+                    r.getPermissions().forEach(p -> {
+                        if (p.getCode() != null) perms.add(p.getCode());
+                    });
+                }
+            });
+        }
+        if (user.getCustomPermissions() != null) {
+            user.getCustomPermissions().forEach(p -> {
+                if (p.getCode() != null) perms.add(p.getCode());
+            });
+        }
+
+        if (perms.isEmpty()) {
+            perms.addAll(StaffConstants.DEFAULT_STAFF_PERMISSIONS);
+        }
+
         return StaffListResponse.builder()
                 .id(user.getId())
                 .name(user.getFullName())
                 .phone(PhoneNumberUtil.formatDisplay(user.getPhoneNumber()))
                 .position(resolvePositionsLabel(user.getRoles()))
+                .permissions(perms)
                 .build();
     }
+
 
     public StaffDetailResponse toDetailResponse(User user) {
         return StaffDetailResponse.builder()
