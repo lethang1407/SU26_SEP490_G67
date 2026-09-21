@@ -374,11 +374,6 @@ export default function SupplierSearchDropdown({
                               {s.phoneNumber || s.phone}
                             </span>
                           )}
-                          {s.leadTimeDays != null && (
-                            <span className="pi-supplier-meta-lead">
-                              Giao: {s.leadTimeDays} ngày
-                            </span>
-                          )}
                         </div>
                       </div>
 

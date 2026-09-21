@@ -68,6 +68,7 @@ export default function ImportPanelProductTab({
   overrides = {},
   supplierFallback = [],
   onChangeQty,
+  onChangePrice,
   onChangeSupplier,
   onChangeUnit,
   onRemove,
@@ -307,13 +308,19 @@ export default function ImportPanelProductTab({
                       onChange={handleQtyChange}
                     />
                   </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div
-                      style={{ fontWeight: 600, color: '#0F172A', fontSize: 13 }}
+                  <td style={{ textAlign: 'right', minWidth: 120 }}>
+                    <input
+                      type="text"
+                      className="pi-table-input"
+                      style={{ textAlign: 'right', fontWeight: 600, color: '#0F172A', width: '100%', boxSizing: 'border-box' }}
+                      value={unitCost ? Number(unitCost).toLocaleString('vi-VN') : '0'}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/[^\d]/g, '');
+                        const val = digits === '' ? 0 : Number(digits);
+                        onChangePrice?.(item.productId, val, unitBase);
+                      }}
                       title={unitBase > 1 ? `Đơn giá theo ${currentUnitName}: ${formatMoney(unitCost)} (Đơn vị gốc: ${formatMoney(baseCost)}/${baseUnitName})` : undefined}
-                    >
-                      {formatMoney(unitCost)}
-                    </div>
+                    />
                   </td>
                   <td style={{ textAlign: 'right', fontWeight: 700, color: '#0F172A', fontSize: 13.5 }}>
                     {formatMoney(lineTotal)}

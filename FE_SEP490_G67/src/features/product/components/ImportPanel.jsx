@@ -12,6 +12,7 @@ export default function ImportPanel({
   suggesting = false,
   supplierFallback = [],
   onChangeQty,
+  onChangePrice,
   onChangeSupplier,
   onChangeUnit,
   onRemove,
@@ -102,6 +103,7 @@ export default function ImportPanel({
             overrides={overrides}
             supplierFallback={supplierFallback}
             onChangeQty={onChangeQty}
+            onChangePrice={onChangePrice}
             onChangeSupplier={onChangeSupplier}
             onChangeUnit={onChangeUnit}
             onRemove={onRemove}
