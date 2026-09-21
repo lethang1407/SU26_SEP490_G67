@@ -117,7 +117,7 @@ function emptyAdjustmentForm() {
     signedAmount: '',
     classification: 'CORRECTION',
     inclusionReason: '',
-    evidence: '',
+    evidence: 'Điều chỉnh doanh thu',
   };
 }
 
@@ -426,7 +426,7 @@ export default function TaxAccountingOverviewPage() {
       signedAmount: String(adjustmentForm.signedAmount),
       classification: adjustmentForm.classification || 'CORRECTION',
       inclusionReason: adjustmentForm.inclusionReason.trim(),
-      evidence: adjustmentForm.evidence.trim(),
+      evidence: adjustmentForm.evidence?.trim() || 'Điều chỉnh doanh thu',
     };
     try {
       if (adjustmentModal.type === 'edit') {
