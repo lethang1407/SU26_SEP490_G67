@@ -11,6 +11,12 @@ public final class StorageZoneType {
     public static final String RETURN_HOLD_ZONE_CODE = "RT";
     public static final String RETURN_HOLD_LOCATION_LABEL = "RT-HOLD";
 
+    /** Khu / vị trí nhận hàng mới nhập (chờ xếp). Zone type = WAREHOUSE nên vẫn bán được. */
+    public static final String RECEIVING_ZONE_CODE = "NH";
+    /** Label kỹ thuật — không dùng làm text UI. */
+    public static final String RECEIVING_LOCATION_LABEL = "IMPORTED";
+    public static final String RECEIVING_DISPLAY_NAME = "Khu nhập hàng";
+
     private StorageZoneType() {
     }
 

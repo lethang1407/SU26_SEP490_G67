@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, Download, Package, RefreshCw } from 'lucide-react';
+import { ChevronDown, Package } from 'lucide-react';
 import ReportDateRangePicker from './ReportDateRangePicker';
 import ProductMultiSelectModal from './ProductMultiSelectModal';
 import { MOVEMENT_TYPE_OPTIONS } from '../api';
@@ -12,9 +12,6 @@ export default function WarehouseReportFilters({
   onProductsChange,
   typeFilter,
   onTypeChange,
-  onRefresh,
-  onExport,
-  loading,
 }) {
   const [productModalOpen, setProductModalOpen] = useState(false);
 
@@ -63,27 +60,6 @@ export default function WarehouseReportFilters({
               </option>
             ))}
           </select>
-        </div>
-
-        <div className="wr-filters__actions">
-          <button
-            type="button"
-            className="wr-btn wr-btn--primary"
-            onClick={onRefresh}
-            disabled={loading}
-          >
-            <RefreshCw size={16} className={loading ? 'wr-spin' : ''} />
-            Làm mới
-          </button>
-          <button
-            type="button"
-            className="wr-btn wr-btn--secondary"
-            onClick={onExport}
-            disabled={loading}
-          >
-            <Download size={16} />
-            Excel
-          </button>
         </div>
       </div>
 

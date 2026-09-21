@@ -7,10 +7,7 @@ import WarehouseReportPagination from '../components/WarehouseReportPagination';
 import SupplierOrderDetailModal from '../../supplier/components/SupplierOrderDetailModal';
 import SalesOrderDetailModal from '../../pos-screen/components/SalesOrderDetailModal';
 import ImportReturnDetailModal from '../../import-return/components/ImportReturnDetailModal';
-import {
-  downloadWarehouseReport,
-  warehouseReportApi,
-} from '../api';
+import { warehouseReportApi } from '../api';
 import { resolvePresetRange } from '../utils/warehouseReportUtils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/WarehouseReport.css';
@@ -83,26 +80,6 @@ export default function WarehouseReportPage() {
     setPage(0);
   };
 
-  const handleExport = async () => {
-    try {
-      const types = typeFilter ? [typeFilter] : [];
-      const productIds = selectedProducts.map((p) => p.id);
-      const blob = await warehouseReportApi.exportInventoryIo({
-        from: fromDate || undefined,
-        to: toDate || undefined,
-        productIds,
-        types,
-      });
-      downloadWarehouseReport(
-        blob,
-        `bao-cao-nhap-xuat-ton-${new Date().toISOString().slice(0, 10)}.csv`,
-      );
-    } catch (err) {
-      console.error(err);
-      setError('Xuất Excel thất bại.');
-    }
-  };
-
   const handleDocumentClick = (line) => {
     if (!line?.documentKind || !line?.documentId) return;
     setDocPopup({
@@ -131,7 +108,7 @@ export default function WarehouseReportPage() {
         <div className="dashboard-container wr-page">
           <div className="wr-page__header">
             <div>
-              <h1 className="wr-page__title">Báo cáo nhập xuất tồn chi tiết</h1>
+              <h1 className="wr-page__title">Báo cáo kho hàng</h1>
               <p className="wr-page__subtitle">
                 Chi tiết từng phiếu nhập/xuất, nhóm theo hàng hóa
               </p>
@@ -146,9 +123,6 @@ export default function WarehouseReportPage() {
             onProductsChange={handleProductsChange}
             typeFilter={typeFilter}
             onTypeChange={handleTypeChange}
-            onRefresh={loadReport}
-            onExport={handleExport}
-            loading={loading}
           />
 
           {error && <div className="wr-alert">{error}</div>}

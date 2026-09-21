@@ -29,6 +29,18 @@ public interface StorageLocationRepository extends JpaRepository<StorageLocation
             """)
     Optional<StorageLocation> findReturnHoldLocation();
 
+    /** Vị trí nhận hàng mới nhập (label kỹ thuật = IMPORTED; giữ NHAP-MOI để tương thích tạm). */
+    @Query("""
+            SELECT sl FROM StorageLocation sl
+            JOIN FETCH sl.storageZone sz
+            WHERE UPPER(sl.label) IN ('IMPORTED', 'NHAP-MOI')
+              AND sl.isRemoved = false
+              AND (sz.isRemoved = false OR sz.isRemoved IS NULL)
+            ORDER BY CASE WHEN UPPER(sl.label) = 'IMPORTED' THEN 0 ELSE 1 END, sl.id ASC
+            LIMIT 1
+            """)
+    Optional<StorageLocation> findReceivingLocation();
+
     @Query("""
             SELECT DISTINCT sl
             FROM StorageLocation sl

@@ -55,8 +55,9 @@ public class StorageLocationService {
     StockMovementRepository stockMovementRepository;
     ReturnOrderDetailRepository returnOrderDetailRepository;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<StorageLocationResponse> getAllLocations() {
+        backfillUnplacedIntoReceiving();
         return storageLocationRepository.findAllActiveWithContents().stream()
                 .map(this::toResponse)
                 .toList();
@@ -69,10 +70,16 @@ public class StorageLocationService {
         return toResponse(location);
     }
 
-    @Transactional(readOnly = true)
+    /**
+     * Hàng “chưa xếp” = tồn tại vị trí nhận NHAP-MOI.
+     * Backfill legacy (lô còn số chưa gán ô) vào NHAP-MOI trước khi trả danh sách.
+     */
+    @Transactional
     public List<UnplacedBatchResponse> getUnplacedBatches() {
-        return stockBatchRepository.findUnplacedBatches().stream()
-                .map(this::toUnplacedResponse)
+        backfillUnplacedIntoReceiving();
+        StorageLocation receiving = requireReceivingLocation();
+        return batchLocationRepository.findActiveByLocationId(receiving.getId()).stream()
+                .map(this::toUnplacedFromBatchLocation)
                 .toList();
     }
 
@@ -119,6 +126,11 @@ public class StorageLocationService {
         if (storageZoneService.isReturnHoldZone(zoneEntity)) {
             throw new AppException(ErrorCode.STORAGE_RETURN_HOLD_LOCKED);
         }
+        if (StorageZoneType.RECEIVING_ZONE_CODE.equalsIgnoreCase(zoneEntity.getCode())
+                || StorageZoneType.RECEIVING_LOCATION_LABEL.equalsIgnoreCase(label)
+                || "NHAP-MOI".equalsIgnoreCase(label)) {
+            throw new AppException(ErrorCode.STORAGE_RETURN_HOLD_LOCKED);
+        }
 
         StorageLocation location = new StorageLocation();
         location.setStorageZone(zoneEntity);
@@ -147,6 +159,10 @@ public class StorageLocationService {
         return toResponse(location);
     }
 
+    /**
+     * Xếp lô vào ô đích. Ưu tiên số lượng “thật sự chưa gán ô” (legacy);
+     * nếu không còn thì chuyển từ vị trí nhận NHAP-MOI.
+     */
     @Transactional
     public StorageLocationResponse assignBatch(AssignBatchRequest request) {
         StockBatch batch = stockBatchRepository.findActiveWithProductById(request.getBatchId())
@@ -158,20 +174,44 @@ public class StorageLocationService {
         assertNotFull(location);
 
         int remaining = getUnplacedQuantity(batch);
-        if (remaining <= 0) {
+        if (remaining > 0) {
+            int quantity = request.getQuantity() != null ? request.getQuantity() : remaining;
+            if (quantity < 1 || quantity > remaining) {
+                throw new AppException(ErrorCode.INSUFFICIENT_UNPLACED_QUANTITY);
+            }
+            upsertBatchLocation(batch, location, quantity);
+            return toResponse(storageLocationRepository.findActiveWithContentsById(location.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND)));
+        }
+
+        StorageLocation receiving = requireReceivingLocation();
+        if (Objects.equals(receiving.getId(), location.getId())) {
+            throw new AppException(ErrorCode.INVALID_BATCH_LOCATION_MOVE);
+        }
+
+        BatchLocation source = batchLocationRepository
+                .findActiveByBatchIdAndLocationId(batch.getId(), receiving.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.INSUFFICIENT_UNPLACED_QUANTITY));
+
+        int available = source.getQuantity() != null ? source.getQuantity() : 0;
+        int quantity = request.getQuantity() != null ? request.getQuantity() : available;
+        if (quantity < 1 || quantity > available) {
             throw new AppException(ErrorCode.INSUFFICIENT_UNPLACED_QUANTITY);
         }
 
-        int quantity = request.getQuantity() != null ? request.getQuantity() : remaining;
-        if (quantity < 1 || quantity > remaining) {
-            throw new AppException(ErrorCode.INSUFFICIENT_UNPLACED_QUANTITY);
+        int remainingOnSource = available - quantity;
+        if (remainingOnSource <= 0) {
+            source.setQuantity(0);
+            source.setIsRemoved(true);
+        } else {
+            source.setQuantity(remainingOnSource);
         }
-
+        batchLocationRepository.save(source);
         upsertBatchLocation(batch, location, quantity);
+        clearFullIfEmpty(receiving.getId());
 
-        StorageLocation refreshed = storageLocationRepository.findActiveWithContentsById(location.getId())
-                .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
-        return toResponse(refreshed);
+        return toResponse(storageLocationRepository.findActiveWithContentsById(location.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND)));
     }
 
     @Transactional
@@ -255,16 +295,43 @@ public class StorageLocationService {
         return toResponse(destination);
     }
 
+    /** Gỡ khỏi kệ → trả về vị trí nhận NHAP-MOI (không để “treo” ngoài mọi ô). */
     @Transactional
     public void unassignBatch(UnassignBatchRequest request) {
         BatchLocation batchLocation = batchLocationRepository.findActiveWithDetailsById(request.getBatchLocationId())
                 .orElseThrow(() -> new AppException(ErrorCode.BATCH_LOCATION_NOT_FOUND));
 
+        StorageLocation receiving = requireReceivingLocation();
         Integer locationId = batchLocation.getLocation().getId();
+        if (Objects.equals(locationId, receiving.getId())) {
+            return;
+        }
+
+        int quantity = batchLocation.getQuantity() != null ? batchLocation.getQuantity() : 0;
+        StockBatch batch = batchLocation.getBatch();
         batchLocation.setQuantity(0);
         batchLocation.setIsRemoved(true);
         batchLocationRepository.save(batchLocation);
+        if (quantity > 0) {
+            upsertBatchLocation(batch, receiving, quantity);
+        }
         clearFullIfEmpty(locationId);
+    }
+
+    public StorageLocation requireReceivingLocation() {
+        return storageLocationRepository.findReceivingLocation()
+                .orElseThrow(() -> new AppException(ErrorCode.STORAGE_LOCATION_NOT_FOUND));
+    }
+
+    /** Đưa phần tồn chưa gán ô (legacy) vào NHAP-MOI — idempotent. */
+    private void backfillUnplacedIntoReceiving() {
+        StorageLocation receiving = requireReceivingLocation();
+        for (StockBatch batch : stockBatchRepository.findUnplacedBatches()) {
+            int qty = getUnplacedQuantity(batch);
+            if (qty > 0) {
+                upsertBatchLocation(batch, receiving, qty);
+            }
+        }
     }
 
     /** Đẩy hàng từ RT-HOLD sang ô kho bán được. */
@@ -465,12 +532,18 @@ public class StorageLocationService {
                 ? zone.getTitle()
                 : StorageZoneConstants.resolveZoneTitle(zoneCode);
 
+        boolean receiving = isReceivingLocation(location);
         return StorageLocationResponse.builder()
                 .id(location.getId())
                 .label(location.getLabel())
+                .displayLabel(receiving
+                        ? StorageZoneType.RECEIVING_DISPLAY_NAME
+                        : location.getLabel())
                 .zone(zoneCode)
                 .zoneId(zone != null ? zone.getId() : null)
-                .zoneTitle(zoneTitle)
+                .zoneTitle(receiving
+                        ? StorageZoneType.RECEIVING_DISPLAY_NAME
+                        : zoneTitle)
                 .aisle(location.getAisle())
                 .shelf(location.getShelf())
                 .bin(location.getBin())
@@ -482,6 +555,21 @@ public class StorageLocationService {
                 .zoneType(zoneType)
                 .contents(mapContents(location))
                 .build();
+    }
+
+    private boolean isReceivingLocation(StorageLocation location) {
+        if (location == null) {
+            return false;
+        }
+        String label = location.getLabel();
+        if (label != null
+                && (StorageZoneType.RECEIVING_LOCATION_LABEL.equalsIgnoreCase(label)
+                        || "NHAP-MOI".equalsIgnoreCase(label))) {
+            return true;
+        }
+        StorageZone zone = location.getStorageZone();
+        return zone != null
+                && StorageZoneType.RECEIVING_ZONE_CODE.equalsIgnoreCase(zone.getCode());
     }
 
     private List<StorageLocationContentResponse> mapContents(StorageLocation location) {
@@ -510,6 +598,7 @@ public class StorageLocationService {
                 .quantity(batchLocation.getQuantity())
                 .importPrice(batch.getCostPerUnit() != null ? batch.getCostPerUnit() : product.getCostPrice())
                 .expiryDate(batch.getExpiryDate() != null ? batch.getExpiryDate().toString() : null)
+                .receivedDate(batch.getReceivedDate() != null ? batch.getReceivedDate().toString() : null)
                 .placedAt(resolvePlacedAt(batchLocation))
                 .build();
     }
@@ -524,10 +613,12 @@ public class StorageLocationService {
         return null;
     }
 
-    private UnplacedBatchResponse toUnplacedResponse(StockBatch batch) {
+    private UnplacedBatchResponse toUnplacedFromBatchLocation(BatchLocation batchLocation) {
+        StockBatch batch = batchLocation.getBatch();
         Product product = batch.getProduct();
         return UnplacedBatchResponse.builder()
-                .id(batch.getId())
+                .id(batchLocation.getId())
+                .batchLocationId(batchLocation.getId())
                 .batchId(batch.getId())
                 .productId(product.getId())
                 .categoryId(product.getCategory() != null ? product.getCategory().getId() : null)
@@ -536,7 +627,7 @@ public class StorageLocationService {
                 .productName(product.getName())
                 .unit(resolveBaseUnitName(product.getId()))
                 .batchCode(StockBatchUtils.resolveBatchCode(batch))
-                .quantity(getUnplacedQuantity(batch))
+                .quantity(batchLocation.getQuantity())
                 .importPrice(batch.getCostPerUnit() != null ? batch.getCostPerUnit() : product.getCostPrice())
                 .expiryDate(batch.getExpiryDate() != null ? batch.getExpiryDate().toString() : null)
                 .build();

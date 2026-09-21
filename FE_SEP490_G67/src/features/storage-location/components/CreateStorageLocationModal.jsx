@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Form, Modal, Spinner } from 'react-bootstrap';
 import { ChevronDown } from 'lucide-react';
 import { createStorageLocation, fetchStorageZones } from '../api';
-import { SHELF_SIZE_OPTIONS, ZONE_TYPE, normalizeZoneType } from '../constants';
+import { RECEIVING_ZONE_CODE, SHELF_SIZE_OPTIONS, ZONE_TYPE, normalizeZoneType } from '../constants';
 import { buildLocationLabel } from '../utils/storageLocationUtils';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 
@@ -157,7 +157,7 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
                 const codes = (zones ?? [])
                     .filter((z) => normalizeZoneType(z?.zoneType) !== ZONE_TYPE.RETURN_HOLD)
                     .map((z) => String(z?.code ?? '').trim().toUpperCase())
-                    .filter(Boolean);
+                    .filter((code) => code && code !== RECEIVING_ZONE_CODE);
                 setApiZones(codes);
             })
             .catch(() => {
@@ -172,9 +172,12 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
         const zones = new Set();
         existingZones.forEach((zone) => {
             const code = String(zone ?? '').trim().toUpperCase();
-            if (code) zones.add(code);
+            if (code && code !== RECEIVING_ZONE_CODE) zones.add(code);
         });
-        apiZones.forEach((zone) => zones.add(zone));
+        apiZones.forEach((zone) => {
+            const code = String(zone ?? '').trim().toUpperCase();
+            if (code && code !== RECEIVING_ZONE_CODE) zones.add(code);
+        });
         return [...zones].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     }, [existingZones, apiZones]);
 
