@@ -1,4 +1,4 @@
--- V66: Create supplier_category table for mapping suppliers to product categories
+-- V68: Create supplier_category table for mapping suppliers to product categories
 CREATE TABLE IF NOT EXISTS `supplier_category` (
   `supplier_id` INT NOT NULL,
   `category_id` INT NOT NULL,
