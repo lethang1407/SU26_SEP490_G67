@@ -774,7 +774,7 @@
 }
 
 .import-return-info-fields--plain .import-return-info-field__label::after {
-    content: ' :';
+    content: ':';
 }
 
 .import-return-info-fields--plain .import-return-info-field__value {

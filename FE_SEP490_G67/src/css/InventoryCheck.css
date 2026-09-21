@@ -531,7 +531,7 @@
 }
 
 .inventory-check-summary-fields--plain .inventory-check-summary-field__label::after {
-    content: ' :';
+    content: ':';
 }
 
 .inventory-check-summary-fields--plain .inventory-check-summary-field__plain {

@@ -108,7 +108,7 @@
 }
 
 .import-order-expand__tab--active::after {
-    content: '';
+    content: "";
     position: absolute;
     left: 14px;
     right: 14px;
@@ -1078,7 +1078,7 @@ a.supplier-btn {
 }
 
 .trial-settle-product__tip::before {
-    content: '';
+    content: "";
     position: absolute;
     left: 14px;
     top: -5px;
@@ -2869,6 +2869,8 @@ a.supplier-btn {
     font-weight: 400;
     color: #64748b;
 }
+
+.ioc-price-setup-modal__body {
     flex: 1;
     padding: 12px 22px 8px;
     min-height: 0;
