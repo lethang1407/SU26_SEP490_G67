@@ -15,6 +15,8 @@ public class ProductPosInfoResponse {
     Integer id;
     String name;
     String barcode;
+    /** Ảnh chính (is_main) trong product_images; không có thì lấy ảnh đầu, rồi ảnh của SP cha. */
+    String imageUrl;
     String categoryName;
     String description;
     BigDecimal sellingPrice;

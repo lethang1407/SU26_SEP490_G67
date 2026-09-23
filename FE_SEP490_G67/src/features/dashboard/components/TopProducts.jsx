@@ -132,7 +132,7 @@ export default function TopProducts() {
                             <tr key={item.productId}>
                                 <td>
                                     <div className="inv-table_product">{item.productName}</div>
-                                    {item.sku && <div className="inv-table_sku">{item.sku}</div>}
+                                    {/* {item.sku && <div className="inv-table_sku">{item.sku}</div>} */}
                                 </td>
                                 <td className="inv-table_stock">{item.stockRatioText}</td>
                                 <td>{item.soldInWindowText}</td>
