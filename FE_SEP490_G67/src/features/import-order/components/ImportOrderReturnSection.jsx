@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { RETURN_METHOD, formatMethod } from '../../import-return/constants';
+import ProductThumb from '../../pos-screen/components/ProductThumb';
 import { formatCurrency, formatMoneyPlain } from '../utils/importOrderUtils';
 import { lineAmount } from '../utils/importReturnAttachUtils';
 
@@ -36,6 +37,20 @@ export default function ImportOrderReturnSection({
                     : `ioc-lines-table ioc-return-table${readOnly ? ' ioc-return-table--readonly' : ''}`
             }
         >
+            {isExpand ? null : (
+                <colgroup>
+                    {readOnly ? null : <col className="ioc-return-table__col-check" />}
+                    <col className="ioc-lines-table__col--stt" />
+                    <col className="ioc-lines-table__col--image" />
+                    <col className="ioc-lines-table__col--name" />
+                    <col className="ioc-lines-table__col--unit" />
+                    <col className="ioc-lines-table__col--qty" />
+                    <col className="ioc-lines-table__col--price" />
+                    <col className="ioc-lines-table__col--date" />
+                    <col className="ioc-lines-table__col--note" />
+                    <col className="ioc-lines-table__col--total" />
+                </colgroup>
+            )}
             <thead>
                 <tr>
                     {readOnly ? null : (
@@ -53,12 +68,36 @@ export default function ImportOrderReturnSection({
                     <th className={isExpand ? 'import-order-expand__col-stt' : 'ioc-lines-table__stt'}>
                         STT
                     </th>
-                    <th>Tên hàng</th>
-                    <th className="ioc-return-table__method">Loại</th>
-                    <th className={isExpand ? 'import-order-expand__col-num' : undefined}>Số lượng</th>
-                    <th className={isExpand ? 'import-order-expand__col-num' : undefined}>Đơn giá</th>
-                    <th className="ioc-return-table__batch">Lô cũ</th>
-                    <th className={isExpand ? 'import-order-expand__col-num' : undefined}>Thành tiền</th>
+                    <th className="ioc-lines-table__col--image">Ảnh</th>
+                    <th className={isExpand ? undefined : 'ioc-lines-table__col--name'}>Tên hàng</th>
+                    <th className={isExpand ? 'ioc-return-table__method' : 'ioc-lines-table__col--unit'}>
+                        Loại
+                    </th>
+                    <th
+                        className={
+                            isExpand ? 'import-order-expand__col-num' : 'ioc-lines-table__col--qty'
+                        }
+                    >
+                        Số lượng
+                    </th>
+                    <th
+                        className={
+                            isExpand ? 'import-order-expand__col-num' : 'ioc-lines-table__col--price'
+                        }
+                    >
+                        Đơn giá
+                    </th>
+                    <th className={isExpand ? 'ioc-return-table__batch' : 'ioc-lines-table__col--date'}>
+                        Lô cũ
+                    </th>
+                    {isExpand ? null : <th className="ioc-lines-table__note" aria-hidden="true" />}
+                    <th
+                        className={
+                            isExpand ? 'import-order-expand__col-num' : 'ioc-lines-table__col--total'
+                        }
+                    >
+                        Thành tiền
+                    </th>
                 </tr>
             </thead>
             <tbody>
@@ -96,6 +135,14 @@ export default function ImportOrderReturnSection({
                                 }
                             >
                                 {index + 1}
+                            </td>
+                            <td className="ioc-lines-table__image">
+                                <ProductThumb
+                                    url={line.imageUrl}
+                                    alt={line.productName}
+                                    size={36}
+                                    preview
+                                />
                             </td>
                             <td>
                                 <div
@@ -153,7 +200,13 @@ export default function ImportOrderReturnSection({
                                     </select>
                                 )}
                             </td>
-                            <td className={isExpand ? 'import-order-expand__col-num' : undefined}>
+                            <td
+                                className={
+                                    isExpand
+                                        ? 'import-order-expand__col-num'
+                                        : 'ioc-lines-table__col--qty'
+                                }
+                            >
                                 {line.quantity}
                                 {line.unitName ? (
                                     <span className="import-order-expand__unit-label">
@@ -162,10 +215,23 @@ export default function ImportOrderReturnSection({
                                     </span>
                                 ) : null}
                             </td>
-                            <td className={isExpand ? 'import-order-expand__col-num' : undefined}>
+                            <td
+                                className={
+                                    isExpand
+                                        ? 'import-order-expand__col-num'
+                                        : 'ioc-lines-table__col--price'
+                                }
+                            >
                                 {formatMoney(line.returnPrice)}
                             </td>
-                            <td className="ioc-return-table__batch">{line.batchCode || '—'}</td>
+                            <td
+                                className={
+                                    isExpand ? 'ioc-return-table__batch' : 'ioc-lines-table__col--date'
+                                }
+                            >
+                                {line.batchCode || '—'}
+                            </td>
+                            {isExpand ? null : <td className="ioc-lines-table__note" />}
                             <td
                                 className={
                                     isExpand

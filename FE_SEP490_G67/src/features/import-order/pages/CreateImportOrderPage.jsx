@@ -841,7 +841,7 @@ export default function CreateImportOrderPage() {
             .finally(() => setAddingSupplier(false));
     };
 
-    const validate = ({ useModal = false, requireSupplier = true } = {}) => {
+    const validate = ({ useModal = false, requireSupplier = true, requirePrice = true } = {}) => {
         if (requireSupplier && !hasValidSupplier(supplier)) {
             showAlertModal(
                 'Hoàn thành phiếu nhập',
@@ -879,16 +879,18 @@ export default function CreateImportOrderPage() {
             );
             return false;
         }
-        const missingPriceLine = lines.find(
-            (line) =>
-                resolveLineType(line) !== 'PROMOTION' && (Number(line.costPerUnit) || 0) <= 0,
-        );
-        if (missingPriceLine) {
-            showAlertModal(
-                'Chưa nhập đơn giá',
-                `Đơn giá của "${missingPriceLine.productName}" chưa nhập.`,
+        if (requirePrice) {
+            const missingPriceLine = lines.find(
+                (line) =>
+                    resolveLineType(line) !== 'PROMOTION' && (Number(line.costPerUnit) || 0) <= 0,
             );
-            return false;
+            if (missingPriceLine) {
+                showAlertModal(
+                    'Chưa nhập đơn giá',
+                    `Đơn giá của "${missingPriceLine.productName}" chưa nhập.`,
+                );
+                return false;
+            }
         }
         return true;
     };
@@ -908,7 +910,7 @@ export default function CreateImportOrderPage() {
 
         // Complete đã validate riêng; draft vẫn validate bằng modal
         if (orderStatus === ORDER_STATUS.DRAFT) {
-            if (!validate({ useModal: false, requireSupplier: false }) || submitting || loadingDetail) return false;
+            if (!validate({ useModal: false, requireSupplier: false, requirePrice: false }) || submitting || loadingDetail) return false;
         } else if (submitting || loadingDetail) {
             return false;
         }
@@ -1018,7 +1020,7 @@ export default function CreateImportOrderPage() {
     const handleSaveDraftAndLeave = async () => {
         if (submitting || loadingDetail) return;
 
-        if (!validate({ useModal: false, requireSupplier: false })) {
+        if (!validate({ useModal: false, requireSupplier: false, requirePrice: false })) {
             // Thiếu NCC/SP: đóng guard, ở lại trang để sửa
             setLeaveGuardOpen(false);
             if (blocker.state === 'blocked') {

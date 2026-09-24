@@ -2771,7 +2771,9 @@ a.supplier-btn {
 .ioc-return-table th:nth-child(7),
 .ioc-return-table td:nth-child(7),
 .ioc-return-table th:nth-child(8),
-.ioc-return-table td:nth-child(8) {
+.ioc-return-table td:nth-child(8),
+.ioc-return-table th:nth-child(9),
+.ioc-return-table td:nth-child(9) {
     width: auto;
 }
 
@@ -2787,24 +2789,34 @@ a.supplier-btn {
     width: 44px;
 }
 
-.ioc-return-table th:nth-child(4),
-.ioc-return-table td:nth-child(4) {
-    width: 72px;
+.ioc-return-table th:nth-child(3),
+.ioc-return-table td:nth-child(3) {
+    width: 56px;
 }
 
 .ioc-return-table th:nth-child(5),
 .ioc-return-table td:nth-child(5) {
-    width: 88px;
+    width: 72px;
 }
 
 .ioc-return-table th:nth-child(6),
 .ioc-return-table td:nth-child(6) {
-    width: 100px;
+    width: 88px;
 }
 
 .ioc-return-table th:nth-child(7),
 .ioc-return-table td:nth-child(7) {
+    width: 100px;
+}
+
+.ioc-return-table th:nth-child(8),
+.ioc-return-table td:nth-child(8) {
     width: 132px;
+}
+
+.ioc-return-table th:nth-child(9),
+.ioc-return-table td:nth-child(9) {
+    width: 108px;
 }
 
 .ioc-return-table--readonly th:nth-child(1),
@@ -2814,32 +2826,41 @@ a.supplier-btn {
 
 .ioc-return-table--readonly th:nth-child(2),
 .ioc-return-table--readonly td:nth-child(2) {
-    width: auto;
+    width: 56px;
 }
 
 .ioc-return-table--readonly th:nth-child(3),
 .ioc-return-table--readonly td:nth-child(3) {
-    width: 72px;
+    width: auto;
 }
 
 .ioc-return-table--readonly th:nth-child(4),
 .ioc-return-table--readonly td:nth-child(4) {
-    width: 88px;
+    width: 72px;
 }
 
 .ioc-return-table--readonly th:nth-child(5),
 .ioc-return-table--readonly td:nth-child(5) {
-    width: 100px;
+    width: 88px;
 }
 
 .ioc-return-table--readonly th:nth-child(6),
 .ioc-return-table--readonly td:nth-child(6) {
-    width: 132px;
+    width: 100px;
 }
 
 .ioc-return-table--readonly th:nth-child(7),
 .ioc-return-table--readonly td:nth-child(7) {
+    width: 132px;
+}
+
+.ioc-return-table--readonly th:nth-child(8),
+.ioc-return-table--readonly td:nth-child(8) {
     width: 108px;
+}
+
+.ioc-return-table__col-check {
+    width: 40px;
 }
 
 .ioc-return-table__check {
@@ -2854,9 +2875,59 @@ a.supplier-btn {
     padding-right: 6px !important;
 }
 
-.ioc-return-table__batch {
-    width: 132px !important;
-    white-space: nowrap;
+.import-order-expand__table.ioc-return-table .ioc-return-table__method {
+    width: 72px !important;
+}
+
+.ioc-lines-table.ioc-return-table:not(.ioc-return-table--readonly) th:nth-child(1),
+.ioc-lines-table.ioc-return-table:not(.ioc-return-table--readonly) td:nth-child(1) {
+    width: 40px !important;
+}
+
+.ioc-lines-table.ioc-return-table:not(.ioc-return-table--readonly) th:nth-child(2),
+.ioc-lines-table.ioc-return-table:not(.ioc-return-table--readonly) td:nth-child(2) {
+    width: 52px !important;
+}
+
+.ioc-lines-table.ioc-return-table:not(.ioc-return-table--readonly) th:nth-child(3),
+.ioc-lines-table.ioc-return-table:not(.ioc-return-table--readonly) td:nth-child(3) {
+    width: 56px !important;
+}
+
+.ioc-lines-table.ioc-return-table:not(.ioc-return-table--readonly) th:nth-child(4),
+.ioc-lines-table.ioc-return-table:not(.ioc-return-table--readonly) td:nth-child(4) {
+    width: calc(26% - 40px) !important;
+}
+
+.ioc-lines-table.ioc-return-table:not(.ioc-return-table--readonly) th:nth-child(5),
+.ioc-lines-table.ioc-return-table:not(.ioc-return-table--readonly) td:nth-child(5) {
+    width: 112px !important;
+}
+
+.ioc-lines-table.ioc-return-table:not(.ioc-return-table--readonly) th:nth-child(6),
+.ioc-lines-table.ioc-return-table:not(.ioc-return-table--readonly) td:nth-child(6) {
+    width: 108px !important;
+}
+
+.ioc-lines-table.ioc-return-table:not(.ioc-return-table--readonly) th:nth-child(7),
+.ioc-lines-table.ioc-return-table:not(.ioc-return-table--readonly) td:nth-child(7) {
+    width: 108px !important;
+}
+
+.ioc-lines-table.ioc-return-table:not(.ioc-return-table--readonly) th:nth-child(8),
+.ioc-lines-table.ioc-return-table:not(.ioc-return-table--readonly) td:nth-child(8) {
+    width: 156px !important;
+}
+
+.ioc-lines-table.ioc-return-table:not(.ioc-return-table--readonly) th:nth-child(9),
+.ioc-lines-table.ioc-return-table:not(.ioc-return-table--readonly) td:nth-child(9) {
+    width: 16% !important;
+}
+
+.ioc-lines-table.ioc-return-table:not(.ioc-return-table--readonly) th:nth-child(10),
+.ioc-lines-table.ioc-return-table:not(.ioc-return-table--readonly) td:nth-child(10) {
+    width: 16% !important;
+    min-width: 160px;
 }
 
 .ioc-return-check {

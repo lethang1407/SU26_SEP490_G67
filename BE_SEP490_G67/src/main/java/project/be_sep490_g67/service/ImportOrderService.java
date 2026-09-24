@@ -96,7 +96,7 @@ public class ImportOrderService {
         boolean isImported = ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(orderStatus);
         List<CreateImportOrderRequest.LineItem> requestLines =
                 request.getLines() == null ? List.of() : request.getLines();
-        validateTrialLines(requestLines, null);
+        validateTrialLines(requestLines, null, isImported);
         Supplier supplier = resolveSupplier(request.getSupplierId(), isImported);
 
         Map<Integer, String> returnMethodOverrides = collectReturnMethodOverrides(request);
@@ -109,7 +109,7 @@ public class ImportOrderService {
         List<ImportOrderDetail> details = new ArrayList<>();
 
         for (CreateImportOrderRequest.LineItem line : requestLines) {
-            ImportOrderDetail detail = buildDetailFromLine(line);
+            ImportOrderDetail detail = buildDetailFromLine(line, isImported);
             details.add(detail);
             goodsTotal = goodsTotal.add(detail.getLineTotal() != null ? detail.getLineTotal() : BigDecimal.ZERO);
         }
@@ -193,7 +193,7 @@ public class ImportOrderService {
         boolean isImported = ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(orderStatus);
         List<CreateImportOrderRequest.LineItem> requestLines =
                 request.getLines() == null ? List.of() : request.getLines();
-        validateTrialLines(requestLines, order.getId());
+        validateTrialLines(requestLines, order.getId(), isImported);
         Supplier supplier = resolveSupplier(request.getSupplierId(), isImported);
 
         Map<Integer, String> returnMethodOverrides = collectReturnMethodOverrides(request);
@@ -206,7 +206,7 @@ public class ImportOrderService {
         List<ImportOrderDetail> details = new ArrayList<>();
 
         for (CreateImportOrderRequest.LineItem line : requestLines) {
-            ImportOrderDetail detail = buildDetailFromLine(line);
+            ImportOrderDetail detail = buildDetailFromLine(line, isImported);
             details.add(detail);
             goodsTotal = goodsTotal.add(detail.getLineTotal() != null ? detail.getLineTotal() : BigDecimal.ZERO);
         }
@@ -1062,7 +1062,7 @@ public class ImportOrderService {
      * Map dòng request → detail.
      * KM: lineTotal = 0. Bán thử: lineTotal = qty × giá, ghi vào công nợ lúc nhập.
      */
-    private ImportOrderDetail buildDetailFromLine(CreateImportOrderRequest.LineItem line) {
+    private ImportOrderDetail buildDetailFromLine(CreateImportOrderRequest.LineItem line, boolean requireCost) {
         Product product = productRepository.findById(line.getProductId())
                 .filter(p -> !Boolean.TRUE.equals(p.getIsRemoved()))
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
@@ -1073,7 +1073,7 @@ public class ImportOrderService {
         boolean isPromotion = lineType == ImportLineType.PROMOTION;
         boolean isTrial = lineType == ImportLineType.TRIAL;
         BigDecimal cost = line.getCostPerUnit() != null ? line.getCostPerUnit() : BigDecimal.ZERO;
-        if (!isPromotion && cost.compareTo(BigDecimal.ZERO) <= 0) {
+        if (requireCost && !isPromotion && cost.compareTo(BigDecimal.ZERO) <= 0) {
             throw new AppException(isTrial ? ErrorCode.TRIAL_COST_REQUIRED : ErrorCode.INVALID_IMPORT_COST);
         }
         BigDecimal lineTotal = lineType.isPayableAtImport()
@@ -1098,7 +1098,10 @@ public class ImportOrderService {
         return detail;
     }
 
-    private void validateTrialLines(List<CreateImportOrderRequest.LineItem> requestLines, Integer excludeOrderId) {
+    private void validateTrialLines(
+            List<CreateImportOrderRequest.LineItem> requestLines,
+            Integer excludeOrderId,
+            boolean requireCost) {
         java.util.Set<Integer> trialProductIds = new java.util.HashSet<>();
         java.util.Set<Integer> otherProductIds = new java.util.HashSet<>();
         for (CreateImportOrderRequest.LineItem line : requestLines) {
@@ -1108,7 +1111,7 @@ public class ImportOrderService {
             ImportLineType lineType = ImportLineType.from(line.getLineType(), line.getIsPromotion(), line.getIsTrial());
             if (lineType == ImportLineType.TRIAL) {
                 BigDecimal cost = line.getCostPerUnit() != null ? line.getCostPerUnit() : BigDecimal.ZERO;
-                if (cost.compareTo(BigDecimal.ZERO) <= 0) {
+                if (requireCost && cost.compareTo(BigDecimal.ZERO) <= 0) {
                     throw new AppException(ErrorCode.TRIAL_COST_REQUIRED);
                 }
                 trialProductIds.add(line.getProductId());
