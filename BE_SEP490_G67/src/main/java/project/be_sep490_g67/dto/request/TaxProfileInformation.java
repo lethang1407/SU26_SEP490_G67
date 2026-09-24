@@ -1,6 +1,5 @@
 package project.be_sep490_g67.dto.request;
 
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import project.be_sep490_g67.enums.DeclaredMethod;
 import project.be_sep490_g67.enums.InvoiceRegistrationStatus;
@@ -11,7 +10,7 @@ public record TaxProfileInformation(
         @Size(max = 200) String taxpayerName,
         @Size(max = 500) String taxpayerAddress,
         @Size(max = 255) String taxAuthority,
-        @NotNull DeclaredMethod declaredMethod,
-        @NotNull InvoiceRegistrationStatus invoiceRegistrationStatus) {
+        DeclaredMethod declaredMethod,
+        InvoiceRegistrationStatus invoiceRegistrationStatus) {
 }
 

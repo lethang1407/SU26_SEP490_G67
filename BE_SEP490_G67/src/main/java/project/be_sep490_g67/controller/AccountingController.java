@@ -16,6 +16,8 @@ import project.be_sep490_g67.dto.response.AccountingRevenueResponse;
 import project.be_sep490_g67.dto.response.AccountingSummaryResponse;
 import project.be_sep490_g67.dto.response.S1aRevenueBookResponse;
 import project.be_sep490_g67.enums.TaxPeriodType;
+import project.be_sep490_g67.enums.TaxExportMode;
+import project.be_sep490_g67.enums.S1aPeriodType;
 import project.be_sep490_g67.service.TaxTemplateService;
 import project.be_sep490_g67.service.AccountingService;
 
@@ -35,29 +37,54 @@ public class AccountingController {
     // exception handler must still be able to return its JSON error response.
     @GetMapping(value = "/tax-support/01-tkn-cnkd.docx")
     public ResponseEntity<byte[]> annualRevenueNotice(@PathVariable Integer year,
-            @RequestParam(defaultValue = "YEAR") TaxPeriodType periodType) {
+            @RequestParam(defaultValue = "YEAR") TaxPeriodType periodType,
+            @RequestParam(defaultValue = "PREVIEW") TaxExportMode mode) {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"01-TKN-CNKD-" + year + ".docx\"")
                 .contentType(MediaType.parseMediaType(
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
-                .body(taxTemplateService.exportAnnualRevenueNotice(year, periodType));
+                .body(taxTemplateService.exportAnnualRevenueNotice(year, periodType, mode));
     }
 
     @GetMapping("/{month}/tax-support/s1a")
     public ApiResponse<S1aRevenueBookResponse> s1a(@PathVariable Integer year,
-            @PathVariable Integer month) {
-        return ApiResponse.success(accountingService.getS1aRevenueBook(year, month));
+            @PathVariable Integer month,
+            @RequestParam(defaultValue = "PREVIEW") TaxExportMode mode) {
+        return ApiResponse.success(accountingService.getS1aRevenueBook(year, month, mode));
     }
 
     @GetMapping(value = "/{month}/tax-support/s1a.xlsx")
-    public ResponseEntity<byte[]> s1aExcel(@PathVariable Integer year, @PathVariable Integer month) {
+    public ResponseEntity<byte[]> s1aExcel(@PathVariable Integer year, @PathVariable Integer month,
+            @RequestParam(defaultValue = "PREVIEW") TaxExportMode mode) {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"S1a-HKD-" + year + "-" + month + ".xlsx\"")
                 .contentType(MediaType.parseMediaType(
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                .body(accountingService.exportS1aRevenueBook(year, month));
+                .body(accountingService.exportS1aRevenueBook(year, month, mode));
+    }
+
+    @GetMapping(value = "/tax-support/s1a.xlsx")
+    public ResponseEntity<byte[]> s1aWorkbook(@PathVariable Integer year,
+            @RequestParam(defaultValue = "YEAR") S1aPeriodType periodType,
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) Integer quarter) {
+        Integer periodNumber = periodType == S1aPeriodType.MONTH ? month : quarter;
+        if (periodType == S1aPeriodType.MONTH && periodNumber == null) {
+            throw new IllegalArgumentException("month là bắt buộc khi periodType=MONTH");
+        }
+        if (periodType == S1aPeriodType.QUARTER && periodNumber == null) {
+            throw new IllegalArgumentException("quarter là bắt buộc khi periodType=QUARTER");
+        }
+        String suffix = periodType == S1aPeriodType.MONTH ? "-T" + String.format("%02d", periodNumber)
+                : periodType == S1aPeriodType.QUARTER ? "-Q" + periodNumber : "";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"S1a-HKD-" + year + suffix + ".xlsx\"")
+                .contentType(MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(accountingService.exportS1aRevenueBook(year, periodType, periodNumber));
     }
 
     @GetMapping("/summary/months/{month}")
