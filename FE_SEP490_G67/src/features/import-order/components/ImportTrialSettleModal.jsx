@@ -161,7 +161,7 @@ export default function ImportTrialSettleModal({ open, orderId, onClose, onSettl
 
     return createPortal(
         <div
-            className="supplier-modal-overlay supplier-modal-overlay--stacked"
+            className="supplier-modal-overlay supplier-modal-overlay--stacked supplier-modal-overlay--front"
             onClick={onClose}
             role="presentation"
         >

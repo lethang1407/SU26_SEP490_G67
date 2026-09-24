@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Plus, Search } from 'lucide-react';
 import { importOrdersApi } from '../api';
 import ProductEditModal from '../../product/components/ProductEditModal';
+import ProductThumb from '../../pos-screen/components/ProductThumb';
 
 const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
@@ -28,6 +29,7 @@ function mapProduct(product) {
         unit: baseUnit?.name || 'Chai',
         lastCostPerBase,
         sellingPrice: Number(product.sellingPrice) || 0,
+        imageUrl: product.imageUrl || null,
         // Gợi ý theo ĐVT cơ bản; createLine sẽ nhân unitBase
         importPrice: lastCostPerBase,
         openPoId: product.openPoId || null,
@@ -57,6 +59,7 @@ function toCreatedImportProducts(createdProduct) {
                 sku: variant.sku,
                 barcode: variant.barcode || '',
                 sellingPrice: variant.sellingPrice ?? createdProduct.sellingPrice,
+                imageUrl: variant.imageUrl || createdProduct.imageUrl || createdProduct.imagePreview || null,
                 costPrice: variant.costPrice ?? createdProduct.costPrice,
                 lastCostPerBase: variant.costPrice ?? createdProduct.costPrice,
                 attributes: variant.attributes || [],
@@ -188,10 +191,17 @@ export default function ImportOrderProductSearch({ onSelect, onSelectMany }) {
                                                 handleSelect(product);
                                             }}
                                         >
-                                            <span className="ioc-search__item-name">
-                                                {product.name}
+                                            <ProductThumb
+                                                url={product.imageUrl}
+                                                alt={product.name}
+                                                size={40}
+                                                preview
+                                            />
+                                            <span className="ioc-search__item-text">
+                                                <span className="ioc-search__item-name">
+                                                    {product.name}
+                                                </span>
                                             </span>
-                                            <span className="ioc-search__item-meta">{product.code}</span>
                                         </button>
                                     </li>
                                 ))}

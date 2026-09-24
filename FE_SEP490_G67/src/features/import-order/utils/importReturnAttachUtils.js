@@ -14,6 +14,7 @@ export function mapPendingReturnLine(line) {
         returnCode: line.returnCode || '',
         productId: line.productId ?? null,
         productName: line.productName || '',
+        imageUrl: line.imageUrl || null,
         method: line.method || RETURN_METHOD.RETURN,
         quantity: Number(line.quantity) || 0,
         returnPrice: Number(line.returnPrice) || 0,

@@ -20,6 +20,8 @@ public class ImportOrderReturnLineResponse {
     String returnCode;
     Integer productId;
     String productName;
+    /** Ảnh đại diện; biến thể không có ảnh thì lấy ảnh sản phẩm cha. */
+    String imageUrl;
     String method;
     Integer quantity;
     BigDecimal returnPrice;

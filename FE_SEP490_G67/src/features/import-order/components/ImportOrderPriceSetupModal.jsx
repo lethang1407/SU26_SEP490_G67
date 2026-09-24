@@ -43,10 +43,6 @@ export default function ImportOrderPriceSetupModal({
                         <h2 id="ioc-price-setup-title" className="supplier-modal__title">
                             Thiết lập giá cho hàng nhập
                         </h2>
-                        <p className="ioc-price-setup-modal__hint">
-                            Sửa cột Giá bán mới theo từng đơn vị tính, rồi bấm Xong.
-                            Số vừa sửa được giữ trên phiếu này; giá bán hệ thống chỉ đổi khi Hoàn thành.
-                        </p>
                     </div>
                     <button
                         type="button"
