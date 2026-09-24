@@ -237,27 +237,26 @@ export default function ProductStockCardModal({
               </span>
             </div>
             {product.openPoId && (
-              <a
-                href={`/admin/warehouse/import/${product.openPoId}/edit`}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
+                onClick={() => setViewOrderId(product.openPoId)}
                 style={{
                   color: '#1D4ED8',
                   fontWeight: 600,
                   fontSize: 12.5,
-                  textDecoration: 'none',
+                  background: '#EFF6FF',
+                  borderRadius: 6,
+                  border: '1px solid #BFDBFE',
+                  cursor: 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 4,
                   padding: '4px 8px',
-                  background: '#EFF6FF',
-                  borderRadius: 6,
-                  border: '1px solid #BFDBFE',
                 }}
               >
                 <span>Xem đơn tạm</span>
                 <span>↗</span>
-              </a>
+              </button>
             )}
           </div>
         )}

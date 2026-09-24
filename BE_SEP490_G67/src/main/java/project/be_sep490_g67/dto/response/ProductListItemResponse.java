@@ -16,11 +16,12 @@ public class ProductListItemResponse {
     Integer id;
     Integer parentId;
     String parentName;
+    Integer categoryId;
+    String categoryName;
     String name;
     String sku;
     String barcode;
     String productImg;
-    String categoryName;
     String unitName;
     String supplierName;
     String description;

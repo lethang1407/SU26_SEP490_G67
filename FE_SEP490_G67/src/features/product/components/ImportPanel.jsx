@@ -16,6 +16,7 @@ export default function ImportPanel({
   onChangeSupplier,
   onChangeUnit,
   onRemove,
+  onSupplierCreated,
   onCreate,
   onClose,
   creating,
@@ -107,6 +108,7 @@ export default function ImportPanel({
             onChangeSupplier={onChangeSupplier}
             onChangeUnit={onChangeUnit}
             onRemove={onRemove}
+            onSupplierCreated={onSupplierCreated}
           />
 
           {/* Thanh Tổng kết thanh toán */}

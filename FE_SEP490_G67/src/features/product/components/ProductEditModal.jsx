@@ -356,6 +356,45 @@ function BarcodeCaptureModal({ isOpen, onClose, onCapture, targetTitle = 'hàng 
   );
 }
 
+const normalizeCategoryText = (str) =>
+  (str || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+
+const findMatchingCategory = (inputName, list = []) => {
+  const trimmed = (inputName || '').trim();
+  if (!trimmed) return null;
+  const normInput = normalizeCategoryText(trimmed);
+  const lowerInput = trimmed.toLowerCase();
+
+  // 1. Kiểm tra trùng khớp hoàn toàn (Exact match)
+  const exact = list.find((c) => {
+    const cName = (c.name || '').trim();
+    return cName.toLowerCase() === lowerInput || normalizeCategoryText(cName) === normInput;
+  });
+  if (exact) {
+    return { type: 'exact', category: exact };
+  }
+
+  // 2. Kiểm tra dạng chứa (Contains: danh mục cũ chứa từ khóa mới, hoặc từ khóa mới chứa danh mục cũ)
+  const contained = list.find((c) => {
+    const cName = (c.name || '').trim();
+    const cNorm = normalizeCategoryText(cName);
+    const cLower = cName.toLowerCase();
+    if (!cNorm || !normInput) return false;
+    return cLower.includes(lowerInput) || lowerInput.includes(cLower) ||
+           cNorm.includes(normInput) || normInput.includes(cNorm);
+  });
+  if (contained) {
+    return { type: 'contain', category: contained };
+  }
+
+  return null;
+};
+
 export default function ProductEditModal({
   isOpen,
   onClose,
@@ -457,7 +496,6 @@ export default function ProductEditModal({
 
   const [isCreateCategoryModalOpen, setIsCreateCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryDescription, setNewCategoryDescription] = useState('');
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [createCategoryError, setCreateCategoryError] = useState('');
 
@@ -519,9 +557,13 @@ export default function ProductEditModal({
     return categories.find((c) => String(c.id) === String(formData.categoryId));
   }, [categories, formData.categoryId]);
 
+  const suggestedCategoryMatch = useMemo(() => {
+    if (!isCreateCategoryModalOpen || !newCategoryName.trim()) return null;
+    return findMatchingCategory(newCategoryName, categories);
+  }, [isCreateCategoryModalOpen, newCategoryName, categories]);
+
   const handleOpenCreateCategoryModal = (initialName = '') => {
     setNewCategoryName(initialName);
-    setNewCategoryDescription('');
     setCreateCategoryError('');
     setIsCreateCategoryModalOpen(true);
     setIsCategoryDropdownOpen(false);
@@ -529,16 +571,28 @@ export default function ProductEditModal({
 
   const handleSaveNewCategory = async (e) => {
     if (e) e.preventDefault();
-    if (!newCategoryName.trim()) {
+    const trimmedName = newCategoryName.trim();
+    if (!trimmedName) {
       setCreateCategoryError('Vui lòng nhập tên nhóm hàng hóa (danh mục).');
       return;
     }
+
+    // Kiểm tra trùng lặp hoặc chứa danh mục đã có (Contain check)
+    const match = findMatchingCategory(trimmedName, categories);
+    if (match) {
+      if (match.type === 'exact') {
+        setCreateCategoryError(`Tên danh mục "${match.category.name}" đã tồn tại trong hệ thống.`);
+      } else {
+        setCreateCategoryError(`Tên danh mục "${trimmedName}" đã trùng hoặc tương tự với danh mục "${match.category.name}" đã có trong hệ thống.`);
+      }
+      return;
+    }
+
     setCreatingCategory(true);
     setCreateCategoryError('');
     try {
       const created = await categoriesApi.create({
-        name: newCategoryName.trim(),
-        description: newCategoryDescription.trim(),
+        name: trimmedName,
       });
       // Reload categories list
       const freshList = await categoriesApi.getAllCategories();
@@ -549,12 +603,14 @@ export default function ProductEditModal({
       if (created?.id) {
         handleInputChange('categoryId', String(created.id));
       } else {
-        const found = updatedCategories.find((c) => c.name?.trim().toLowerCase() === newCategoryName.trim().toLowerCase());
+        const found = updatedCategories.find(
+          (c) => (c.name || '').trim().toLowerCase() === trimmedName.toLowerCase()
+        );
         if (found?.id) handleInputChange('categoryId', String(found.id));
       }
 
       setIsCreateCategoryModalOpen(false);
-      setSuccessMsg(`Đã tạo và chọn danh mục "${newCategoryName.trim()}" thành công.`);
+      setSuccessMsg(`Đã tạo và chọn danh mục "${trimmedName}" thành công.`);
     } catch (err) {
       console.error(err);
       setCreateCategoryError(err?.response?.data?.message || err?.message || 'Có lỗi xảy ra khi tạo danh mục.');
@@ -1258,14 +1314,14 @@ export default function ProductEditModal({
           console.error('Lỗi khi tải ảnh lên:', imgErr);
           const imgErrMsg = imgErr.response?.data?.message || imgErr.message || 'Không thể tải ảnh sản phẩm lên Cloudinary.';
           setErrorMsg(`Sản phẩm đã được tạo/lưu thành công nhưng tải ảnh thất bại: ${imgErrMsg}. Bạn có thể bấm Lưu lại khi có mạng.`);
-          onProductUpdated?.();
+          onProductUpdated?.(savedProduct);
           return;
         }
       }
 
       setSuccessMsg(isCreateMode ? 'Đã tạo hàng hóa và các biến thể thành công!' : 'Đã cập nhật hàng hóa và biến thể thành công!');
       savedCreatedIdRef.current = null;
-      onProductUpdated?.();
+      onProductUpdated?.(savedProduct);
       setTimeout(() => {
         onClose();
       }, 700);
@@ -2492,21 +2548,56 @@ export default function ProductEditModal({
                       className="pi-edit-input"
                       placeholder="Nhập tên danh mục (ví dụ: Nước giải khát, Bánh kẹo...)"
                       value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      onChange={(e) => {
+                        setNewCategoryName(e.target.value);
+                        if (createCategoryError) setCreateCategoryError('');
+                      }}
                       required
                       autoFocus
                     />
                   </div>
-                  <div className="pi-edit-field">
-                    <label className="pi-edit-label">Mô tả danh mục (Tùy chọn)</label>
-                    <textarea
-                      className="pi-edit-input"
-                      style={{ minHeight: 70, resize: 'vertical' }}
-                      placeholder="Mô tả ngắn về nhóm hàng hóa..."
-                      value={newCategoryDescription}
-                      onChange={(e) => setNewCategoryDescription(e.target.value)}
-                    />
-                  </div>
+
+                  {suggestedCategoryMatch && (
+                    <div style={{
+                      padding: '10px 12px',
+                      background: '#EFF6FF',
+                      border: '1px solid #BFDBFE',
+                      borderRadius: 6,
+                      color: '#1E40AF',
+                      fontSize: 13,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                      marginTop: 4,
+                    }}>
+                      <span>
+                        {suggestedCategoryMatch.type === 'exact' ? 'Đã có danh mục trùng tên: ' : 'Đã có danh mục tương tự: '}
+                        <strong>{suggestedCategoryMatch.category.name}</strong>
+                      </span>
+                      <button
+                        type="button"
+                        style={{
+                          padding: '4px 10px',
+                          background: '#004AC6',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          borderRadius: 4,
+                          fontSize: 12,
+                          fontWeight: 500,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                        }}
+                        onClick={() => {
+                          handleInputChange('categoryId', String(suggestedCategoryMatch.category.id));
+                          setIsCreateCategoryModalOpen(false);
+                          setSuccessMsg(`Đã chọn danh mục "${suggestedCategoryMatch.category.name}".`);
+                        }}
+                      >
+                        Chọn luôn
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pi-nested-modal-footer">

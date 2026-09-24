@@ -1,0 +1,337 @@
+/* ==========================================================================
+   STAFF DETAIL MODAL - MODERN SAAS & KIOTVIET COMPACT POPUP
+   ========================================================================== */
+
+.staff-detail-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1050;
+    background-color: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    animation: staffModalFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes staffModalFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.staff-detail-modal-card {
+    background: #ffffff;
+    width: 100%;
+    max-width: 500px;
+    border-radius: 16px;
+    box-shadow: 0 20px 30px -10px rgba(15, 23, 42, 0.18),
+                0 10px 15px -3px rgba(15, 23, 42, 0.08),
+                0 0 0 1px rgba(226, 232, 240, 0.8);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: staffModalSlideUp 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes staffModalSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* ─── Modal Header ─── */
+.staff-detail-modal-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: #ffffff;
+}
+
+.staff-detail-header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.staff-detail-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+    border: 1px solid #bfdbfe;
+    box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.8);
+    flex-shrink: 0;
+}
+
+.staff-detail-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.25;
+}
+
+.staff-detail-subtitle {
+    margin: 3px 0 0;
+    font-size: 13px;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.staff-detail-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    background: #f8fafc;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.staff-detail-close-btn:hover {
+    background: #fee2e2;
+    color: #ef4444;
+}
+
+/* ─── Modal Body ─── */
+.staff-detail-modal-body {
+    padding: 20px 24px;
+    max-height: calc(85vh - 140px);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+/* Role Banner */
+.staff-detail-role-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    gap: 12px;
+}
+
+.staff-detail-role-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.staff-detail-perm-link-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #2563eb;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.staff-detail-perm-link-btn:hover {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+/* Form Fields */
+.staff-detail-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.staff-detail-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.staff-detail-label .required-star {
+    color: #ef4444;
+    margin-left: 2px;
+}
+
+.staff-detail-label .label-hint {
+    font-weight: 400;
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.staff-detail-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.staff-detail-input-icon {
+    position: absolute;
+    left: 12px;
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+.staff-detail-input {
+    width: 100%;
+    padding: 9.5px 14px 9.5px 38px;
+    font-size: 14px;
+    color: #0f172a;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    outline: none;
+    transition: all 0.15s ease;
+}
+
+.staff-detail-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.staff-detail-input--readonly {
+    background: #f8fafc;
+    color: #64748b;
+    border-color: #e2e8f0;
+    cursor: not-allowed;
+}
+
+.staff-detail-input--error {
+    border-color: #ef4444;
+}
+
+.staff-detail-input--error:focus {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+
+.staff-detail-toggle-pw {
+    position: absolute;
+    right: 10px;
+    background: none;
+    border: none;
+    color: #94a3b8;
+    padding: 4px;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s;
+}
+
+.staff-detail-toggle-pw:hover {
+    color: #475569;
+}
+
+.staff-detail-field-error {
+    font-size: 12px;
+    color: #ef4444;
+    margin-top: 2px;
+}
+
+.staff-detail-field-desc {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+/* ─── Modal Footer ─── */
+.staff-detail-modal-footer {
+    padding: 16px 24px;
+    background: #f8fafc;
+    border-top: 1px solid #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.staff-detail-btn {
+    padding: 9px 18px;
+    font-size: 13.5px;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+}
+
+.staff-detail-btn--cancel {
+    background: #ffffff;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+}
+
+.staff-detail-btn--cancel:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+}
+
+.staff-detail-btn--primary {
+    background: #2563eb;
+    color: #ffffff;
+    border: 1px solid #2563eb;
+    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
+}
+
+.staff-detail-btn--primary:hover:not(:disabled) {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+}
+
+.staff-detail-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.staff-detail-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    gap: 12px;
+    color: #64748b;
+    font-size: 14px;
+}

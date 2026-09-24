@@ -1,26 +1,29 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { KeyRound, ShieldCheck } from 'lucide-react';
-import { STAFF_ROUTES } from '../constants';
 import { getStaffRoleTemplate } from '../../permission/constants/permissionDictionary';
 import UserPermissionsModal from '../../permission/components/UserPermissionsModal';
+import StaffDetailModal from './StaffDetailModal';
 
 export default function StaffTable({ staffList, onRefresh }) {
-    const navigate = useNavigate();
-    const [selectedStaff, setSelectedStaff] = useState(null);
+    const [selectedStaffPerm, setSelectedStaffPerm] = useState(null);
+    const [selectedStaffDetail, setSelectedStaffDetail] = useState(null);
 
-    const handleRowClick = (staffId) => {
-        navigate(STAFF_ROUTES.detail(staffId));
+    const handleRowClick = (staff) => {
+        setSelectedStaffDetail(staff);
     };
 
     const handleOpenPermissions = (e, staff) => {
         e.stopPropagation();
-        setSelectedStaff(staff);
+        setSelectedStaffPerm(staff);
     };
 
-    const handleCloseModal = () => {
-        setSelectedStaff(null);
+    const handleClosePermModal = () => {
+        setSelectedStaffPerm(null);
         onRefresh?.();
+    };
+
+    const handleCloseDetailModal = () => {
+        setSelectedStaffDetail(null);
     };
 
     return (
@@ -58,7 +61,8 @@ export default function StaffTable({ staffList, onRefresh }) {
                                         <tr
                                             key={staff.id}
                                             className="staff-table__row"
-                                            onClick={() => handleRowClick(staff.id)}
+                                            onClick={() => handleRowClick(staff)}
+                                            title="Bấm để xem & chỉnh sửa thông tin nhân viên"
                                         >
                                             <td className="staff-table__index">{index + 1}</td>
                                             <td className="staff-table__name">
@@ -100,11 +104,22 @@ export default function StaffTable({ staffList, onRefresh }) {
                 </div>
             </div>
 
-            {selectedStaff && (
+            {/* Modal Chi tiết & Sửa thông tin nhân viên */}
+            <StaffDetailModal
+                show={!!selectedStaffDetail}
+                staffId={selectedStaffDetail?.id}
+                initialStaff={selectedStaffDetail}
+                onHide={handleCloseDetailModal}
+                onRefresh={onRefresh}
+                onOpenPermissions={(staff) => setSelectedStaffPerm(staff)}
+            />
+
+            {/* Modal Phân quyền chi tiết */}
+            {selectedStaffPerm && (
                 <UserPermissionsModal
-                    show={!!selectedStaff}
-                    onHide={handleCloseModal}
-                    user={selectedStaff}
+                    show={!!selectedStaffPerm}
+                    onHide={handleClosePermModal}
+                    user={selectedStaffPerm}
                 />
             )}
         </>

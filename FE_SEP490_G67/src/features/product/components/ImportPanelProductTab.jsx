@@ -72,6 +72,7 @@ export default function ImportPanelProductTab({
   onChangeSupplier,
   onChangeUnit,
   onRemove,
+  onSupplierCreated,
 }) {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -280,9 +281,12 @@ export default function ImportPanelProductTab({
                       value={supplierId}
                       options={options}
                       onChange={handleSupplierChange}
+                      onSupplierCreated={onSupplierCreated}
                       placeholder="-- Chọn NCC --"
                       unitBase={unitBase}
                       unitName={currentUnitName}
+                      categoryId={item.categoryId}
+                      categoryName={item.categoryName || item.category}
                     />
                   </td>
                   <td>
