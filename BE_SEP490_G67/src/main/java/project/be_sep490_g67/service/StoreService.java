@@ -17,7 +17,9 @@ import project.be_sep490_g67.repository.BusinessTaxProfileRepository;
 import project.be_sep490_g67.repository.AccountingPeriodRepository;
 import project.be_sep490_g67.repository.RevenueAdjustmentRepository;
 import project.be_sep490_g67.repository.UserRepository;
+import project.be_sep490_g67.repository.TaxRecordRepository;
 import project.be_sep490_g67.entity.BusinessTaxProfile;
+import project.be_sep490_g67.entity.TaxRecord;
 import project.be_sep490_g67.dto.request.*;
 import project.be_sep490_g67.dto.response.TaxProfileResponse;
 import project.be_sep490_g67.enums.*;
@@ -45,6 +47,7 @@ public class StoreService {
     AccountingPeriodRepository accountingPeriodRepository;
     RevenueAdjustmentRepository revenueAdjustmentRepository;
     UserRepository userRepository;
+    TaxRecordRepository taxRecordRepository;
     AuditLogService auditLogService;
 
     static final ZoneId TAX_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -77,18 +80,9 @@ public class StoreService {
         if (profiles.stream().anyMatch(p -> p.getTaxYear().equals(request.taxYear()))) {
             throw failure(HttpStatus.CONFLICT, "Hồ sơ năm đã tồn tại, kể cả hồ sơ đã xóa mềm");
         }
-        Instant common = commonStart(profiles);
         Instant supplied = normalizedStart(request.trackingStartedAt());
-        if (common != null && supplied != null && !common.equals(supplied)) {
-            throw failure(HttpStatus.CONFLICT, "Mốc khác mốc chung; hãy dùng thao tác đổi mốc");
-        }
-        Instant start = common != null ? common : supplied;
+        Instant start = supplied;
         validateStart(start, request.taxYear());
-        if (common == null && start != null) {
-            ensureTrackingChangeAllowed();
-            for (BusinessTaxProfile p : profiles) validateStart(start, p.getTaxYear());
-            synchronizeStart(profiles, start, actor, "Thiết lập mốc đầu tiên khi tạo hồ sơ");
-        }
         BusinessTaxProfile profile = new BusinessTaxProfile();
         profile.setStore(store);
         profile.setTaxYear(request.taxYear());
@@ -108,6 +102,7 @@ public class StoreService {
         Integer actor = taxActor();
         BusinessTaxProfile profile = selected(taxProfileRepository.findAllForUpdate(STORE_ID), year);
         checkVersion(profile, request.version());
+        ensureNotDeclared(profile);
         if (accountingPeriodRepository.existsByProfileIdAndStatus(profile.getId(), PeriodStatus.CLOSED)) {
             throw failure(HttpStatus.CONFLICT, "Hồ sơ có kỳ đóng; chưa hỗ trợ thay đổi thông tin");
         }
@@ -131,18 +126,10 @@ public class StoreService {
         if (profile.getStatus() == ProfileStatus.CONFIRMED) {
             throw failure(HttpStatus.CONFLICT, "Hồ sơ đã được xác nhận");
         }
-        Instant start = commonStart(profiles);
+        Instant start = profile.getTrackingStartedAt();
         if (start == null || blank(profile.getTaxpayerIdentity()) || blank(profile.getTaxpayerName())
-                || blank(profile.getTaxpayerAddress()) || blank(profile.getTaxAuthority())
-                || profile.getDeclaredMethod() == null || profile.getDeclaredMethod() == DeclaredMethod.UNKNOWN
-                || profile.getInvoiceRegistrationStatus() == null
-                || profile.getInvoiceRegistrationStatus() == InvoiceRegistrationStatus.UNKNOWN) {
-            throw failure(HttpStatus.BAD_REQUEST, "Cần đủ thông tin hộ, cơ quan thuế, phương pháp, trạng thái hóa đơn và mốc theo dõi");
-        }
-        for (BusinessTaxProfile p : profiles) validateStart(start, p.getTaxYear());
-        if (profiles.stream().anyMatch(p -> p.getTrackingStartedAt() == null)) {
-            ensureTrackingChangeAllowed();
-            synchronizeStart(profiles, start, actor, "Đồng bộ mốc khi xác nhận hồ sơ");
+                || blank(profile.getTaxpayerAddress())) {
+            throw failure(HttpStatus.BAD_REQUEST, "Cần đủ mã số thuế/định danh, tên, địa chỉ và mốc theo dõi");
         }
         String before = snapshot(profile);
         profile.setStatus(ProfileStatus.CONFIRMED);
@@ -160,19 +147,28 @@ public class StoreService {
         lockStore();
         Integer actor = taxActor();
         List<BusinessTaxProfile> profiles = taxProfileRepository.findAllForUpdate(STORE_ID);
-        checkVersion(selected(profiles, year), request.version());
+        BusinessTaxProfile profile = selected(profiles, year);
+        checkVersion(profile, request.version());
+        if (profile.getStatus() == ProfileStatus.CONFIRMED) {
+            throw failure(HttpStatus.CONFLICT, "Không được đổi mốc theo dõi sau khi hồ sơ đã xác nhận");
+        }
         Instant start = normalizedStart(request.trackingStartedAt());
         if (start == null || blank(request.reason()) || request.reason().length() > 1000) {
             throw failure(HttpStatus.BAD_REQUEST, "Cần mốc theo dõi và lý do tối đa 1000 ký tự");
         }
-        if (profiles.stream().allMatch(p -> start.equals(p.getTrackingStartedAt()))) {
+        if (start.equals(profile.getTrackingStartedAt())) {
             throw failure(HttpStatus.CONFLICT, "Mốc mới trùng mốc hiện tại");
         }
-        ensureTrackingChangeAllowed();
-        for (BusinessTaxProfile p : profiles) validateStart(start, p.getTaxYear());
-        synchronizeStart(profiles, start, actor, request.reason().trim());
-        return profiles.stream().filter(p -> !Boolean.TRUE.equals(p.getIsRemoved()))
-                .map(TaxProfileResponse::from).toList();
+        validateStart(start, profile.getTaxYear());
+        ensureTrackingChangeAllowed(profile);
+        String before = snapshot(profile);
+        profile.setTrackingStartedAt(start);
+        invalidateConfirmation(profile);
+        profile.setUpdatedBy(actor);
+        taxProfileRepository.flush();
+        auditLogService.logTaxProfile(actor, profile.getId(), "TAX_TRACKING_START_CHANGE", before,
+                snapshot(profile) + "\nreason=" + request.reason().trim());
+        return List.of(TaxProfileResponse.from(profile));
     }
 
     private StoreConfig lockStore() {
@@ -200,15 +196,6 @@ public class StoreService {
         }
     }
 
-    private Instant commonStart(List<BusinessTaxProfile> profiles) {
-        List<Instant> starts = profiles.stream().map(BusinessTaxProfile::getTrackingStartedAt)
-                .filter(Objects::nonNull).distinct().toList();
-        if (starts.size() > 1) {
-            throw failure(HttpStatus.CONFLICT, "Các hồ sơ có mốc mâu thuẫn; dùng thao tác đổi mốc để thống nhất");
-        }
-        return starts.isEmpty() ? null : starts.getFirst();
-    }
-
     private Instant normalizedStart(Instant start) {
         // Match DATETIME(6), so a round-trip does not create a false mismatch.
         return start == null ? null : start.truncatedTo(ChronoUnit.MICROS);
@@ -221,13 +208,13 @@ public class StoreService {
         }
     }
 
-    private void ensureTrackingChangeAllowed() {
+    private void ensureTrackingChangeAllowed(BusinessTaxProfile profile) {
         if (accountingPeriodRepository.existsByProfileStoreIdAndStatus(STORE_ID, PeriodStatus.CLOSED)) {
             throw failure(HttpStatus.CONFLICT, "Có kỳ đóng; không được đổi mốc theo dõi");
         }
         // Until rebuilding open periods/lines is implemented, never leave existing data out of scope.
-        if (accountingPeriodRepository.existsByProfileStoreId(STORE_ID)
-                || revenueAdjustmentRepository.existsByProfileStoreId(STORE_ID)) {
+        if (accountingPeriodRepository.existsByProfileId(profile.getId())
+                || revenueAdjustmentRepository.existsByProfileId(profile.getId())) {
             throw failure(HttpStatus.CONFLICT, "Đã có kỳ hoặc điều chỉnh; cần quy trình đối chiếu lại trước khi đổi mốc");
         }
     }
@@ -251,16 +238,28 @@ public class StoreService {
         p.setUpdatedAt(Instant.now());
     }
 
+    private void ensureNotDeclared(BusinessTaxProfile profile) {
+        if (taxRecordRepository.findByProfileIdAndPeriodTypeAndIsRemovedFalse(
+                profile.getId(), TaxPeriodType.YEAR)
+                .map(TaxRecord::getDeclarationStatus)
+                .filter(TaxDeclarationStatus.DECLARED::equals)
+                .isPresent()) {
+            throw failure(HttpStatus.CONFLICT, "Năm đã kê khai; không được cập nhật hồ sơ thuế");
+        }
+    }
+
     private void applyInformation(BusinessTaxProfile p, TaxProfileInformation info) {
-        if (info == null || info.declaredMethod() == null || info.invoiceRegistrationStatus() == null) {
+        if (info == null) {
             throw failure(HttpStatus.BAD_REQUEST, "Cần thông tin hồ sơ, dùng UNKNOWN nếu chưa xác định");
         }
         p.setTaxpayerIdentity(trimToNull(info.taxpayerIdentity()));
         p.setTaxpayerName(trimToNull(info.taxpayerName()));
         p.setTaxpayerAddress(trimToNull(info.taxpayerAddress()));
         p.setTaxAuthority(trimToNull(info.taxAuthority()));
-        p.setDeclaredMethod(info.declaredMethod());
-        p.setInvoiceRegistrationStatus(info.invoiceRegistrationStatus());
+        p.setDeclaredMethod(info.declaredMethod() == null
+                ? DeclaredMethod.REVENUE_BASED : info.declaredMethod());
+        p.setInvoiceRegistrationStatus(info.invoiceRegistrationStatus() == null
+                ? InvoiceRegistrationStatus.NOT_REGISTERED : info.invoiceRegistrationStatus());
     }
 
     private boolean blank(String value) { return value == null || value.isBlank(); }

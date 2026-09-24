@@ -15,7 +15,10 @@ import org.springframework.web.server.ResponseStatusException;
 import project.be_sep490_g67.dto.response.AccountingSummaryResponse;
 import project.be_sep490_g67.entity.BusinessTaxProfile;
 import project.be_sep490_g67.enums.TaxPeriodType;
+import project.be_sep490_g67.enums.TaxExportMode;
+import project.be_sep490_g67.enums.TaxRecordStatus;
 import project.be_sep490_g67.repository.BusinessTaxProfileRepository;
+import project.be_sep490_g67.repository.TaxRecordRepository;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -33,9 +36,15 @@ import java.util.stream.Collectors;
 public class TaxTemplateService {
     private final AccountingService accountingService;
     private final BusinessTaxProfileRepository profileRepository;
+    private final TaxRecordRepository taxRecordRepository;
 
     @Transactional(readOnly = true)
     public byte[] exportAnnualRevenueNotice(Integer year, TaxPeriodType periodType) {
+        return exportAnnualRevenueNotice(year, periodType, TaxExportMode.FINAL);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportAnnualRevenueNotice(Integer year, TaxPeriodType periodType, TaxExportMode mode) {
         if (periodType == null) periodType = TaxPeriodType.YEAR;
         if (periodType != TaxPeriodType.YEAR) {
             throw conflict("01/TKN-CNKD hiện chỉ hỗ trợ thông báo theo năm");
@@ -44,16 +53,18 @@ public class TaxTemplateService {
                         StoreService.STORE_ID, year)
                 .orElseThrow(() -> notFound("Không tìm thấy hồ sơ thuế năm"));
         AccountingSummaryResponse summary = accountingService.getYearSummary(year);
-        if (!summary.sourceCompletenessVerified()) {
+        if (mode == TaxExportMode.FINAL && !summary.sourceCompletenessVerified()) {
             throw conflict("Chưa thể lập 01/TKN-CNKD: dữ liệu năm chưa được đối chiếu đầy đủ");
         }
-        if (summary.partialTracking()) {
+        if (mode == TaxExportMode.FINAL && summary.partialTracking()) {
             throw conflict("Chưa thể lập 01/TKN-CNKD: mốc theo dõi bắt đầu giữa năm, cần bổ sung doanh thu trước mốc sử dụng hệ thống");
         }
-        BigDecimal revenue = summary.recordedRevenue();
-        if (revenue.compareTo(new BigDecimal("1000000000.00")) > 0) {
-            throw conflict("Doanh thu vượt ngưỡng của mẫu 01/TKN-CNKD; cần dùng mẫu 01/CNKD");
+        if (mode == TaxExportMode.FINAL) {
+            taxRecordRepository.findByProfileIdAndPeriodTypeAndIsRemovedFalse(profile.getId(), TaxPeriodType.YEAR)
+                    .filter(record -> record.getStatus() == TaxRecordStatus.CONFIRMED)
+                    .orElseThrow(() -> conflict("Chưa có TaxRecord năm được xác nhận để xuất bản chính thức"));
         }
+        BigDecimal revenue = summary.recordedRevenue();
         Map<String, String> values = Map.of(
                 "{{CHECK_BUSINESS}}", "☒",
                 "{{CHECK_FIRST_FILING}}", "☒",

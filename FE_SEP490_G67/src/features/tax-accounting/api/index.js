@@ -66,8 +66,8 @@ export const accountingPeriodsApi = {
     await api.post(periodBase(year), { accountingMonth, profileVersion }),
   ),
 
-  getRevenueLines: async (year, month) => getResult(
-    await api.get(`${periodBase(year)}/${month}/revenue-lines`),
+  getRevenueLines: async (year, month, params = {}) => getResult(
+    await api.get(`${periodBase(year)}/${month}/revenue-lines`, { params }),
   ),
 
   synchronize: async (year, month) => getResult(
@@ -84,7 +84,7 @@ export const accountingPeriodsApi = {
 };
 
 export const adjustmentsApi = {
-  list: async (year) => getResult(await api.get(adjustmentBase(year))),
+  list: async (year, params = {}) => getResult(await api.get(adjustmentBase(year), { params })),
 
   create: async (year, payload) => getResult(await api.post(adjustmentBase(year), payload)),
 
@@ -114,19 +114,52 @@ export const accountingReportsApi = {
 };
 
 export const taxSupportApi = {
-  getS1a: async (year, month) => getResult(
-    await api.get(`${periodBase(year)}/${month}/tax-support/s1a`),
+  getS1a: async (year, month, mode = 'PREVIEW') => getResult(
+    await api.get(`${periodBase(year)}/${month}/tax-support/s1a`, { params: { mode } }),
   ),
 
-  downloadS1a: async (year, month) => getFile(
+  downloadS1a: async (year, month, mode = 'PREVIEW') => getFile(
     `${periodBase(year)}/${month}/tax-support/s1a.xlsx`,
     `S1a-HKD-${year}-${month}.xlsx`,
+    { mode },
   ),
 
-  downloadTaxDeclaration: async (year) => getFile(
+  downloadS1aRange: async (year, periodType, periodNumber) => getFile(
+    `/accounting/tax-profiles/${year}/periods/tax-support/s1a.xlsx`,
+    periodType === 'MONTH'
+      ? `S1a-HKD-${year}-T${String(periodNumber).padStart(2, '0')}.xlsx`
+      : periodType === 'QUARTER'
+        ? `S1a-HKD-${year}-Q${periodNumber}.xlsx`
+        : `S1a-HKD-${year}.xlsx`,
+    {
+      periodType,
+      ...(periodType === 'MONTH' ? { month: periodNumber } : {}),
+      ...(periodType === 'QUARTER' ? { quarter: periodNumber } : {}),
+    },
+  ),
+
+  downloadTaxDeclaration: async (year, mode = 'PREVIEW', periodType = 'YEAR') => getFile(
     `${periodBase(year)}/tax-support/01-tkn-cnkd.docx`,
     `01-TKN-CNKD-${year}.docx`,
-    { periodType: 'YEAR' },
+    { periodType, mode },
+  ),
+};
+
+export const taxRecordApi = {
+  get: async (year) => getResult(
+    await api.get(`/accounting/tax-profiles/${year}/tax-record`),
+  ),
+
+  calculate: async (year) => getResult(
+    await api.post(`/accounting/tax-profiles/${year}/tax-record/calculate`),
+  ),
+
+  confirm: async (year, version) => getResult(
+    await api.post(`/accounting/tax-profiles/${year}/tax-record/confirm`, { version }),
+  ),
+
+  declare: async (year) => getResult(
+    await api.post(`/accounting/tax-profiles/${year}/tax-record/declare`),
   ),
 };
 

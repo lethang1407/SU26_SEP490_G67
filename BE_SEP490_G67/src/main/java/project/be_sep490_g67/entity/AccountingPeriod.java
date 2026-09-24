@@ -5,9 +5,11 @@ import lombok.Getter;
 import lombok.Setter;
 import java.time.Instant;
 import project.be_sep490_g67.enums.PeriodStatus;
+import project.be_sep490_g67.enums.PeriodScope;
 
 /**
- * Kỳ quản lý theo tháng thuộc một hồ sơ năm; mỗi tháng chỉ có một kỳ.
+ * Kỳ quản lý theo tháng thuộc một hồ sơ năm. Một tháng có thể có một kỳ hệ thống
+ * và một kỳ bổ sung lịch sử, được phân biệt bởi periodScope.
  * Khoảng [startAt,endExclusive) theo giờ Việt Nam; kỳ đầu có thể bắt đầu giữa tháng.
  * Báo cáo quý/năm tổng hợp kỳ tháng, không tạo kỳ/dòng trùng để lưu lại.
  * AccountingService tạo kỳ OPEN và kiểm tra phạm vi dưới khóa cửa hàng/hồ sơ/kỳ.
@@ -18,7 +20,7 @@ import project.be_sep490_g67.enums.PeriodStatus;
 @Setter
 @Entity
 @Table(name = "accounting_periods", uniqueConstraints = {
-    @UniqueConstraint(name = "uk_accounting_period_month", columnNames = {"profile_id", "accounting_month"})
+    @UniqueConstraint(name = "uk_accounting_period_scope_month", columnNames = {"profile_id", "accounting_month", "period_scope"})
 })
 public class AccountingPeriod extends BaseEntity {
     @Id
@@ -28,6 +30,11 @@ public class AccountingPeriod extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "profile_id", nullable = false)
     private BusinessTaxProfile profile;
+
+    /** SYSTEM lấy dữ liệu từ trackingStartedAt; HISTORICAL_SUPPLEMENT dùng để bổ sung hồ sơ trước mốc. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "period_scope", nullable = false, length = 30)
+    private PeriodScope periodScope = PeriodScope.SYSTEM;
 
     /** Tháng 1–12 trong taxYear của hồ sơ; AccountingService và V67 kiểm tra phạm vi. */
     @Column(name = "accounting_month", nullable = false)

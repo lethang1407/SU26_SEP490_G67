@@ -8,6 +8,8 @@ import project.be_sep490_g67.enums.SourceType;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 /** Truy vấn dòng doanh thu theo kỳ và nguồn; không tự tổng hợp hay áp dụng quy tắc thuế. */
 @Repository
@@ -28,4 +30,11 @@ public interface AccountingRevenueLineRepository extends JpaRepository<Accountin
             Integer periodId, LocalDate from, LocalDate to);
 
     List<AccountingRevenueLine> findByPeriodIdAndIsRemovedFalseOrderByPostingDateAscIdAsc(Integer periodId);
+
+    Page<AccountingRevenueLine> findByPeriodIdAndIsRemovedFalse(Integer periodId, Pageable pageable);
+
+    Page<AccountingRevenueLine> findByPeriodIdAndPostingDateBetweenAndIsRemovedFalse(
+            Integer periodId, LocalDate from, LocalDate to, Pageable pageable);
+
+    List<AccountingRevenueLine> findByPeriodProfileIdAndIsRemovedFalse(Integer profileId);
 }
