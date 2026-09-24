@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 import project.be_sep490_g67.entity.Notification;
 
 import java.time.Instant;
+import java.util.Optional;
 
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Integer> {
@@ -18,4 +19,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Inte
             """)
     boolean existsByTypeSince(@Param("notificationType") String notificationType,
                               @Param("since") Instant since);
+
+    Optional<Notification> findFirstByNotificationTypeAndIsRemovedFalseOrderByCreatedAtDescIdDesc(
+            String notificationType);
 }

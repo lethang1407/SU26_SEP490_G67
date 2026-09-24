@@ -4,6 +4,7 @@ import { getProductPosInfo } from '../api';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import { formatVnd } from '../utils/money';
 import { formatLocationShort } from '../utils/cartLocation';
+import ProductThumb from './ProductThumb';
 
 /** Ngày dạng ISO (yyyy-MM-dd) từ BE -> dd/MM/yyyy, rỗng thì gạch ngang. */
 const formatVnDate = (isoDate) =>
@@ -65,6 +66,8 @@ export default function ProductInfoModal({ productId, onClose }) {
 
                 {info && !loading && (
                     <div className="product-info-body">
+                        <div className="product-info-top">
+                        <ProductThumb url={info.imageUrl} alt={info.name} size={96} />
                         <dl className="product-info-grid">
                             <dt>Mã vạch</dt>
                             <dd>{info.barcode || 'N/A'}</dd>
@@ -110,6 +113,7 @@ export default function ProductInfoModal({ productId, onClose }) {
                                 </>
                             )}
                         </dl>
+                        </div>
 
                         <div className="product-info-section-title">
                             <MapPin size={14} />

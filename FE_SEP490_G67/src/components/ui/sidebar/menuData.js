@@ -8,6 +8,7 @@ import {
     FileText,
     User,
     ShieldCheck,
+    Truck,
 } from "lucide-react";
 
 export const menus = [
@@ -89,7 +90,7 @@ export const menus = [
     {
         id: "supplier",
         title: "Nhà cung cấp",
-        icon: Users,
+        icon: Truck,
         path: "/admin/warehouse/supplier",
         permission: "SUPPLIER:VIEW"
     },

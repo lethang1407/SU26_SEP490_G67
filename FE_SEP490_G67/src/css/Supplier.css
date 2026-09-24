@@ -1739,7 +1739,7 @@
 .supplier-modal-overlay {
     position: fixed;
     inset: 0;
-    z-index: 1000;
+    z-index: 10000;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1752,7 +1752,7 @@
 }
 
 .supplier-modal-overlay--stacked {
-    z-index: 1200;
+    z-index: 12000 !important;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
 }

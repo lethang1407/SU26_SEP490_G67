@@ -16,6 +16,7 @@ import "../../../css/ExchangeOrder.css";
 import ExchangeOrderPicker from '../components/ExchangeOrderPicker';
 import LocationPicker from '../components/LocationPicker';
 import TransferQrPanel from '../components/TransferQrPanel';
+import ProductThumb from '../components/ProductThumb';
 import { useStorePaymentInfo } from '../hooks/useStorePaymentInfo';
 import { buildPaymentReference } from '../utils/vietqr';
 import { getOrderForExchange, processExchangeOrder, searchProductsByName, getInvoiceData, getProductPosInfo } from "../api";
@@ -951,12 +952,15 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                                         handleAddExchangeProduct(product);
                                     }}
                                 >
-                                    <div className="exchange-dropdown-item-name">{product.name}</div>
-                                    <div className="exchange-dropdown-item-price">
-                                        Giá: {formatVnd(product.sellingPrice)}
-                                        <span className={`psd-stock${stock <= 0 ? ' psd-stock--empty' : ''}`}>
-                                            Tồn kho: {stock.toLocaleString('vi-VN')}
-                                        </span>
+                                    <ProductThumb url={product.imageUrl} alt={product.name} size={40} />
+                                    <div className="exchange-dropdown-item-body">
+                                        <div className="exchange-dropdown-item-name">{product.name}</div>
+                                        <div className="exchange-dropdown-item-price">
+                                            Giá: {formatVnd(product.sellingPrice)}
+                                            <span className={`psd-stock${stock <= 0 ? ' psd-stock--empty' : ''}`}>
+                                                Tồn kho: {stock.toLocaleString('vi-VN')}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             );

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, Spinner } from 'react-bootstrap';
 import { Plus } from 'lucide-react';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import StaffFilters from '../components/StaffFilters';
 import StaffTable from '../components/StaffTable';
+import StaffDetailModal from '../components/StaffDetailModal';
 import { getStaffList } from '../api';
 import { ALL_ROLE_TEMPLATES, STAFF_ROUTES } from '../constants';
 import { getStaffRoleTemplate } from '../../permission/constants/permissionDictionary';
@@ -14,11 +15,28 @@ import '../../../css/StaffManagement.css';
 
 export default function StaffManagementPage() {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const detailIdParam = searchParams.get('detailId');
+
     const [searchKeyword, setSearchKeyword] = useState('');
     const [roleTemplateFilter, setRoleTemplateFilter] = useState(ALL_ROLE_TEMPLATES);
     const [staffList, setStaffList] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [urlStaffId, setUrlStaffId] = useState(detailIdParam);
+
+    useEffect(() => {
+        setUrlStaffId(detailIdParam);
+    }, [detailIdParam]);
+
+    const handleCloseUrlModal = () => {
+        setUrlStaffId(null);
+        if (searchParams.has('detailId')) {
+            const nextParams = new URLSearchParams(searchParams);
+            nextParams.delete('detailId');
+            setSearchParams(nextParams, { replace: true });
+        }
+    };
 
     const fetchStaff = useCallback(async (keyword, showLoading = true) => {
         if (showLoading) setIsLoading(true);
@@ -107,6 +125,15 @@ export default function StaffManagementPage() {
                     ) : (
                         <StaffTable
                             staffList={filteredStaffList}
+                            onRefresh={handleRefresh}
+                        />
+                    )}
+
+                    {urlStaffId && (
+                        <StaffDetailModal
+                            show={!!urlStaffId}
+                            staffId={urlStaffId}
+                            onHide={handleCloseUrlModal}
                             onRefresh={handleRefresh}
                         />
                     )}

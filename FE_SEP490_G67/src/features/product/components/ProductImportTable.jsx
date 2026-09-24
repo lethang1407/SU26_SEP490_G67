@@ -124,14 +124,37 @@ function renderFacetBadge(product) {
 }
 
 function renderOpenPoBadge(product, onOpenDraftPo) {
-  const code = product?.openPoCode;
-  const qty = product?.openPoQty;
-  const poId = product?.openPoId;
+  let code = product?.openPoCode;
+  let qty = product?.openPoQty;
+  let poId = product?.openPoId;
+
+  // Nếu là sản phẩm nhóm (parent group), tìm mã đơn tạm từ các biến thể con
+  if (!poId && product?.isGroup && Array.isArray(product?.variantGroups)) {
+    for (const vg of product.variantGroups) {
+      for (const sz of vg.sizes || []) {
+        if (sz.openPoId) {
+          poId = sz.openPoId;
+          code = code || sz.openPoCode;
+          qty = (qty || 0) + (Number(sz.openPoQty) || 0);
+        }
+      }
+    }
+  }
+  if (!poId && Array.isArray(product?.children)) {
+    for (const c of product.children) {
+      if (c.openPoId) {
+        poId = c.openPoId;
+        code = code || c.openPoCode;
+        qty = (qty || 0) + (Number(c.openPoQty) || 0);
+      }
+    }
+  }
+
   const hasOpen = Boolean(product?.hasOpenPo || code || poId);
   if (!hasOpen) return null;
 
   const unit = product?.unitName || '';
-  const tooltipText = `Đang có đơn tạm: ${code || 'DRAFT'}${qty ? ` (${qty} ${unit})` : ''} • Bấm để xem`;
+  const tooltipText = `Đang có đơn tạm: ${code || 'DRAFT'}${qty ? ` (${qty} ${unit})` : ''} • Bấm để xem chi tiết`;
 
   return (
     <button

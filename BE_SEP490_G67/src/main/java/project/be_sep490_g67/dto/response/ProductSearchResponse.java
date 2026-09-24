@@ -16,6 +16,8 @@ public class ProductSearchResponse {
     String name;
     String sku;
     String barcode;
+    /** Ảnh chính (is_main) trong product_images; không có thì lấy ảnh đầu, rồi ảnh của SP cha. */
+    String imageUrl;
     BigDecimal sellingPrice;
     /** Giá vốn tham chiếu trên master SP (fallback khi chưa có lô). Đã theo ĐVT cơ bản. */
     BigDecimal costPrice;

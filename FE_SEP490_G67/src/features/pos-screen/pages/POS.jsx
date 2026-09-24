@@ -31,6 +31,7 @@ import {
 } from '../utils/debtStatus';
 import { formatVnd } from '../utils/money';
 import LocationPicker from '../components/LocationPicker';
+import ProductThumb from '../components/ProductThumb';
 import CustomerSearchDropdown from '../components/CustomerSearchDropdown';
 import QuickAddCustomerModal from '../components/QuickAddCustomerModal';
 import SalesOrderHistoryModal from '../components/SalesOrderHistoryModal';
@@ -242,15 +243,14 @@ const POSScreen = () => {
         const locations = (posInfo?.locations ?? []).filter((loc) => Number(loc.quantity ?? 0) > 0);
 
         const newItem = withFifoPicks({
-            // Một sản phẩm là một dòng giỏ
             id: String(product.id),
             productId: product.id,
             code: product.barcode ?? product.id,
+            imageUrl: posInfo?.imageUrl ?? product.imageUrl ?? null,
             name: product.name,
             units,
             productUnitId: defaultUnit?.id ?? null,
             unit: defaultUnit?.name ?? 'N/A',
-            // Gồm cả lô hết hạn (expired) — LocationPicker hiện dấu đỏ, không cho lấy.
             locations,
             stockTotal: posInfo?.availableQuantity ?? null,
             stockSales: posInfo?.salesZoneQuantity ?? null,
@@ -376,6 +376,7 @@ const POSScreen = () => {
             id: String(it.productId || idx),
             productId: it.productId,
             code: it.code || it.productId,
+            imageUrl: it.imageUrl ?? null,
             name: it.productName || it.name,
             units: [],
             unit: it.unitName || it.unit || 'Cái',
@@ -720,7 +721,7 @@ const POSScreen = () => {
                             <thead>
                                 <tr>
                                     <th className="col-stt">STT</th>
-                                    <th>MÃ SẢN PHẨM</th>
+                                    <th>ẢNH SẢN PHẨM</th>
                                     <th>TÊN SẢN PHẨM</th>
                                     <th>ĐVT</th>
                                     <th>VỊ TRÍ</th>
@@ -751,7 +752,9 @@ const POSScreen = () => {
                                                     </button>
                                                 </div>
                                             </td>
-                                            <td className="font-bold">{item.code}</td>
+                                            <td>
+                                                <ProductThumb url={item.imageUrl} alt={item.name} size={44} />
+                                            </td>
                                             <td>
                                                 <div>{item.name}</div>
                                                 {item.stockTotal != null && (

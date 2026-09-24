@@ -554,10 +554,6 @@ public class SalesOrderService {
         List<Integer> orderIds = pg.getContent().stream()
                 .map(SalesOrder::getId)
                 .toList();
-
-        // Chứng từ đổi/trả của từng hóa đơn trong trang. Đơn đổi không còn là
-        // dòng riêng trong lịch sử (findHistory đã lọc originalSalesOrderId),
-        // nên toàn bộ vết đổi/trả phải quy về dòng hóa đơn gốc.
         Map<Integer, List<SalesOrderListResponse.RelatedDocument>> relatedByOrderId = orderIds.isEmpty()
                 ? Map.of()
                 : collectRelatedDocuments(orderIds);

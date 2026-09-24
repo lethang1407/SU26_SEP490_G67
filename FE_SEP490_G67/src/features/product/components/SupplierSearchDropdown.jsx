@@ -1,6 +1,8 @@
 import { useState, useRef, useLayoutEffect, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, ChevronDown, Check, X, Building2, Sparkles, Phone, Tag } from 'lucide-react';
+import { Search, ChevronDown, Check, X, Building2, Sparkles, Phone, Tag, Plus } from 'lucide-react';
+import SupplierAddNewModal from '../../supplier/components/SupplierAddNewModal';
+import { suppliersApi } from '../../supplier/api';
 
 /**
  * Chuẩn hóa chuỗi tiếng Việt:
@@ -59,33 +61,57 @@ export default function SupplierSearchDropdown({
   value,
   options = [],
   onChange,
+  onSupplierCreated,
   placeholder = '-- Chọn nhà cung cấp --',
   disabled = false,
   className = '',
   unitBase = 1,
   unitName = '',
+  categoryId,
+  categoryName,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [menuStyle, setMenuStyle] = useState(null);
 
+  // Quick Supplier Create Modal States
+  const [isAddSupplierModalOpen, setIsAddSupplierModalOpen] = useState(false);
+  const [initialSupplierName, setInitialSupplierName] = useState('');
+  const [addSubmitting, setAddSubmitting] = useState(false);
+  const [addError, setAddError] = useState('');
+  const [extraSuppliers, setExtraSuppliers] = useState([]);
+
   const triggerRef = useRef(null);
   const menuRef = useRef(null);
   const searchInputRef = useRef(null);
   const listRef = useRef(null);
 
+  // Gộp danh sách options nhận được với các NCC vừa tạo mới trên giao diện
+  const mergedOptions = useMemo(() => {
+    const map = new Map();
+    (options || []).forEach((opt) => {
+      if (opt && opt.id != null) map.set(String(opt.id), opt);
+    });
+    extraSuppliers.forEach((opt) => {
+      if (opt && opt.id != null && !map.has(String(opt.id))) {
+        map.set(String(opt.id), opt);
+      }
+    });
+    return Array.from(map.values());
+  }, [options, extraSuppliers]);
+
   // Tìm nhà cung cấp đang được chọn
   const selectedSupplier = useMemo(() => {
     if (value === '' || value == null) return null;
-    return options.find((opt) => String(opt.id) === String(value)) || null;
-  }, [options, value]);
+    return mergedOptions.find((opt) => String(opt.id) === String(value)) || null;
+  }, [mergedOptions, value]);
 
   // Lọc danh sách theo từ khóa tìm kiếm tiếng Việt
   const filteredOptions = useMemo(() => {
-    if (!searchTerm.trim()) return options;
+    if (!searchTerm.trim()) return mergedOptions;
 
-    return options.filter((s) => {
+    return mergedOptions.filter((s) => {
       const name = s.name || '';
       const code = s.code || '';
       const phone = s.phoneNumber || s.phone || '';
@@ -94,7 +120,7 @@ export default function SupplierSearchDropdown({
 
       return matchVietnameseSearch(combined, searchTerm);
     });
-  }, [options, searchTerm]);
+  }, [mergedOptions, searchTerm]);
 
   // Cập nhật tọa độ hiển thị Dropdown Portal
   const updateMenuPosition = useCallback(() => {
@@ -107,7 +133,7 @@ export default function SupplierSearchDropdown({
     const openUp = spaceBelow < 200 && spaceAbove > spaceBelow;
     const maxHeight = Math.min(preferredHeight, Math.max(160, openUp ? spaceAbove - 6 : spaceBelow - 6));
 
-    const dropdownWidth = Math.max(rect.width, 320);
+    const dropdownWidth = Math.max(rect.width, 340);
     let left = rect.left;
     if (left + dropdownWidth > window.innerWidth - viewportPad) {
       left = Math.max(viewportPad, window.innerWidth - dropdownWidth - viewportPad);
@@ -225,6 +251,53 @@ export default function SupplierSearchDropdown({
     onChange?.(null);
   };
 
+  const handleOpenAddSupplierModal = (name = '') => {
+    setInitialSupplierName(name.trim());
+    setAddError('');
+    setIsAddSupplierModalOpen(true);
+    setIsOpen(false);
+  };
+
+  const handleAddSupplier = async (supplierData) => {
+    setAddSubmitting(true);
+    setAddError('');
+    try {
+      const response = await suppliersApi.addSupplier(supplierData);
+      const res = response?.result || response?.data || response;
+
+      const pageRes = await suppliersApi.getSuppliers({ page: 0, size: 1000 });
+      const freshList = pageRes?.content || pageRes?.items || [];
+
+      const trimmedName = (supplierData.name || '').trim().toLowerCase();
+      const newSupplier = freshList.find(
+        (s) => (s.name || '').trim().toLowerCase() === trimmedName
+      ) || {
+        id: res?.id || Date.now(),
+        name: supplierData.name,
+        code: res?.supplierCode || supplierData.supplierCode || '',
+        phoneNumber: supplierData.phoneNumber || '',
+        contactPerson: supplierData.contactPerson || '',
+        leadTimeDays: 3,
+        costPerUnit: null,
+        cheapest: false,
+      };
+
+      setExtraSuppliers((prev) => [newSupplier, ...prev]);
+      onSupplierCreated?.(newSupplier);
+      onChange?.(newSupplier);
+
+      setIsAddSupplierModalOpen(false);
+      setSearchTerm('');
+    } catch (err) {
+      console.error(err);
+      setAddError(
+        err?.response?.data?.message || err?.message || 'Thêm nhà cung cấp thất bại. Vui lòng thử lại.'
+      );
+    } finally {
+      setAddSubmitting(false);
+    }
+  };
+
   return (
     <div className={`pi-supplier-search-dropdown-wrap ${className}`}>
       {/* Trigger Button */}
@@ -327,9 +400,18 @@ export default function SupplierSearchDropdown({
                 )}
               </div>
 
-              <div className="pi-supplier-search-count">
-                {filteredOptions.length} NCC
-              </div>
+              <button
+                type="button"
+                className="pi-supplier-quick-add-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenAddSupplierModal(searchTerm);
+                }}
+                title="Thêm mới nhà cung cấp"
+              >
+                <Plus size={13} />
+                <span>Tạo mới</span>
+              </button>
             </div>
 
             {/* Danh sách Nhà cung cấp */}
@@ -399,13 +481,25 @@ export default function SupplierSearchDropdown({
                   <p style={{ margin: 0, fontWeight: 600, color: '#475569' }}>
                     Không tìm thấy nhà cung cấp nào
                   </p>
-                  <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#94A3B8' }}>
-                    Thử tìm với từ khóa khác (tên, mã hoặc SĐT)
+                  <p style={{ margin: '4px 0 10px 0', fontSize: 12, color: '#94A3B8' }}>
+                    {searchTerm ? `Không có NCC nào khớp với "${searchTerm}"` : 'Danh sách nhà cung cấp đang trống'}
                   </p>
+                  <button
+                    type="button"
+                    className="pi-supplier-search-add-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenAddSupplierModal(searchTerm);
+                    }}
+                  >
+                    <Plus size={14} />
+                    Thêm mới nhà cung cấp {searchTerm ? `"${searchTerm}"` : ''}
+                  </button>
                   {searchTerm && (
                     <button
                       type="button"
                       className="pi-supplier-search-reset-btn"
+                      style={{ marginTop: 8 }}
                       onClick={() => {
                         setSearchTerm('');
                         searchInputRef.current?.focus();
@@ -420,6 +514,23 @@ export default function SupplierSearchDropdown({
           </div>,
           document.body,
         )}
+
+      {/* Modal Thêm mới Nhà cung cấp */}
+      <SupplierAddNewModal
+        open={isAddSupplierModalOpen}
+        onClose={() => {
+          setIsAddSupplierModalOpen(false);
+          setAddError('');
+        }}
+        onSubmit={handleAddSupplier}
+        initialSupplier={{
+          name: initialSupplierName || '',
+          categoryId: categoryId || undefined,
+          categoryName: categoryName || undefined,
+        }}
+        submitting={addSubmitting}
+        submitError={addError}
+      />
     </div>
   );
 }

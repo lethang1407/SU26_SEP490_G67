@@ -17,6 +17,8 @@ public class ImportSuggestionResponse {
     String productName;
     Integer parentId;
     String parentName;
+    Integer categoryId;
+    String categoryName;
     String sku;
     String barcode;
     String productImg;
