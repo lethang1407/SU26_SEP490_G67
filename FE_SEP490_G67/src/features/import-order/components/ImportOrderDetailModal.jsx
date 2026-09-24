@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import ImportOrderExpandPanel from './ImportOrderExpandPanel';
@@ -11,6 +11,8 @@ export default function ImportOrderDetailModal({
     onClose,
     onDraftCancelled,
 }) {
+    const overlayRef = useRef(null);
+
     useEffect(() => {
         if (!open) return undefined;
 
@@ -20,6 +22,8 @@ export default function ImportOrderDetailModal({
         const handleEscape = (event) => {
             if (event.key !== 'Escape') return;
             if (document.querySelector('.supplier-modal--confirm')) return;
+            const overlays = document.querySelectorAll('.supplier-modal-overlay');
+            if (overlays[overlays.length - 1] !== overlayRef.current) return;
             onClose?.();
         };
 
@@ -34,6 +38,7 @@ export default function ImportOrderDetailModal({
 
     return createPortal(
         <div
+            ref={overlayRef}
             className="supplier-modal-overlay supplier-modal-overlay--stacked import-order-detail-modal-overlay"
             onClick={onClose}
             role="presentation"
