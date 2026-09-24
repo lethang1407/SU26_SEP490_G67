@@ -24,10 +24,10 @@ public class CreateStorageLocationRequest {
     String shelf;
 
     /**
-     * Số ô (tuỳ chọn). Đi kèm tầng khi dùng mô hình kệ.
+     * Số ô (tuỳ chọn). Đi kèm tầng khi dùng mô hình kệ. Giá trị 1–10.
      */
-    @Pattern(regexp = "^$|^[1-9]\\d*$", message = "Số ô phải là số nguyên dương")
-    @Size(max = 20, message = "Số ô tối đa 20 ký tự")
+    @Pattern(regexp = "^$|^([1-9]|10)$", message = "Số ô phải từ 1 đến 10")
+    @Size(max = 2, message = "Số ô tối đa là 10")
     String bin;
 
     /** SM | MD | LG — tuỳ chọn, mặc định MD. */
