@@ -61,10 +61,20 @@ public class NotificationService {
         publish(type, title, message, referenceType, referenceId);
     }
 
+    /**
+     * Cảnh báo quét định kỳ: tối đa một lần mỗi ngày.
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean notifyAdminsOnceToday(NotificationType type, String title, String message) {
         Instant startOfToday = LocalDate.now(STORE_ZONE).atStartOfDay(STORE_ZONE).toInstant();
         if (notificationRepository.existsByTypeSince(type.name(), startOfToday)) {
+            return false;
+        }
+        boolean unchanged = notificationRepository
+                .findFirstByNotificationTypeAndIsRemovedFalseOrderByCreatedAtDescIdDesc(type.name())
+                .map(latest -> message.equals(latest.getMessage()))
+                .orElse(false);
+        if (unchanged) {
             return false;
         }
         return publish(type, title, message, null, null);
@@ -220,11 +230,6 @@ public class NotificationService {
         afterCommit(() -> streamHub.pushRead(userId, recipientId));
     }
 
-    /**
-     * Không đẩy SSE ở đây: câu lệnh là một update hàng loạt nên không biết id của những
-     * dòng vừa đổi, mà đẩy đúng thì phải truy vấn thêm chỉ để làm mượt giao diện. Tab bấm
-     * nút đã tự cập nhật; các tab khác khớp lại ở vòng polling kế tiếp.
-     */
     @Transactional
     public void markAllAsRead(Integer userId) {
         notificationRecipientRepository.markAllReadByUserId(userId);

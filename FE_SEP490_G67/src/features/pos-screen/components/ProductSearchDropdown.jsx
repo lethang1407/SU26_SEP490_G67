@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Ban, Loader2, PackageSearch } from 'lucide-react';
+import ProductThumb from './ProductThumb';
 import { displayStock, isUnsellable, UNSELLABLE_HINT } from '../utils/productStock';
 
 export default function ProductSearchDropdown({ results, loading, error, onSelect, onClose }) {
@@ -61,6 +62,8 @@ export default function ProductSearchDropdown({ results, loading, error, onSelec
                                     onSelect(product);
                                 }}
                             >
+                                <ProductThumb url={product.imageUrl} alt={product.name} size={40} />
+                                <div className="psd-item-body">
                                 <div className="psd-item-name">
                                     {product.name}
                                     {blocked && <Ban size={13} className="psd-blocked-icon" />}
@@ -76,6 +79,7 @@ export default function ProductSearchDropdown({ results, loading, error, onSelec
                                     {blocked && (
                                         <span className="psd-debt-summary">Chưa xếp vị trí kho</span>
                                     )}
+                                </div>
                                 </div>
                             </li>
                         );

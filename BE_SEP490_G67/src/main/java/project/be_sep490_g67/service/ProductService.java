@@ -47,6 +47,7 @@ public class ProductService {
     BatchLocationRepository batchLocationRepository;
     ProductMapper productMapper;
     ImportOrderDetailRepository importOrderDetailRepository;
+    ProductImageRepository productImageRepository;
 
     @Transactional(readOnly = true)
     public PageResponse<ProductListResponse> getProductList(
@@ -567,6 +568,7 @@ public class ProductService {
                 .id(product.getId())
                 .name(product.getName())
                 .barcode(product.getBarcode())
+                .imageUrl(loadMainImageUrls(List.of(product)).get(product.getId()))
                 .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
                 .description(product.getDescription())
                 .sellingPrice(product.getSellingPrice())
@@ -642,13 +644,15 @@ public class ProductService {
         // không dùng lại loadStock() (lượng nhập) vì hai con số lệch nhau.
         Map<Integer, Integer> sellableMap = productMapper.toStockMap(
                 batchLocationRepository.sumSellableByProductIds(productIds));
+        Map<Integer, String> imageUrlMap = loadMainImageUrls(productList);
 
         return productList.stream()
                 .map(product -> toSearchResponse(
                         product,
                         attributesByProduct.getOrDefault(product.getId(), List.of()),
                         alreadyInStoreIds.contains(product.getId()),
-                        sellableMap.getOrDefault(product.getId(), 0)))
+                        sellableMap.getOrDefault(product.getId(), 0),
+                        imageUrlMap.get(product.getId())))
                 .toList();
     }
 
@@ -662,9 +666,41 @@ public class ProductService {
         return ids;
     }
 
+    private Map<Integer, String> loadMainImageUrls(List<Product> products) {
+        Set<Integer> lookupIds = new HashSet<>();
+        for (Product product : products) {
+            lookupIds.add(product.getId());
+            if (product.getParent() != null) {
+                lookupIds.add(product.getParent().getId());
+            }
+        }
+        Map<Integer, String> urlByProduct = new HashMap<>();
+        // Danh sách đã sắp sort_order ASC, nên putIfAbsent giữ ảnh đầu; ảnh is_main ghi đè.
+        for (ProductImage image : productImageRepository
+                .findByProductIdInAndIsRemovedFalseOrderBySortOrderAscIdAsc(lookupIds)) {
+            Integer ownerId = image.getProduct().getId();
+            if (Boolean.TRUE.equals(image.getIsMain())) {
+                urlByProduct.put(ownerId, image.getUrl());
+            } else {
+                urlByProduct.putIfAbsent(ownerId, image.getUrl());
+            }
+        }
+        Map<Integer, String> result = new HashMap<>();
+        for (Product product : products) {
+            String url = urlByProduct.get(product.getId());
+            if (url == null && product.getParent() != null) {
+                url = urlByProduct.get(product.getParent().getId());
+            }
+            if (url != null) {
+                result.put(product.getId(), url);
+            }
+        }
+        return result;
+    }
+
     private ProductSearchResponse toSearchResponse(
             Product product, List<ProductAttribute> attributes, boolean alreadyInStore,
-            int sellableQuantity) {
+            int sellableQuantity, String imageUrl) {
         BigDecimal costPrice = product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO;
         BigDecimal lastCostPerBase = stockBatchRepository
                 .findFirstByProduct_IdAndIsRemovedFalseOrderByReceivedDateDescIdDesc(product.getId())
@@ -690,6 +726,7 @@ public class ProductService {
                 .name(product.getName())
                 .sku(product.getSku())
                 .barcode(product.getBarcode())
+                .imageUrl(imageUrl)
                 .sellingPrice(product.getSellingPrice())
                 .costPrice(costPrice)
                 .lastCostPerBase(lastCostPerBase)
