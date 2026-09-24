@@ -186,7 +186,14 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
         if (name === 'label') {
             setLabelTouched(true);
         }
-        setFormData((prev) => ({ ...prev, [name]: value }));
+        let nextValue = value;
+        if (name === 'bin' && nextValue !== '') {
+            const num = Number(nextValue);
+            if (Number.isFinite(num) && num > 10) {
+                nextValue = '10';
+            }
+        }
+        setFormData((prev) => ({ ...prev, [name]: nextValue }));
     };
 
     const handleZoneChange = (value) => {
@@ -235,6 +242,11 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
         }
         if (bin && !/^[1-9]\d*$/.test(bin)) {
             setError('Số ô phải là số nguyên dương, bắt đầu từ 1 trên mỗi tầng.');
+            setIsSubmitting(false);
+            return;
+        }
+        if (bin && Number(bin) > 10) {
+            setError('Số ô tối đa là 10.');
             setIsSubmitting(false);
             return;
         }
@@ -298,11 +310,12 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
                             <Form.Control
                                 type="number"
                                 min={1}
+                                max={10}
                                 step={1}
                                 name="bin"
                                 value={formData.bin}
                                 onChange={handleChange}
-                                placeholder="Tuỳ chọn"
+                                placeholder="Tuỳ chọn (tối đa 10)"
                             />
                         </Form.Group>
 
