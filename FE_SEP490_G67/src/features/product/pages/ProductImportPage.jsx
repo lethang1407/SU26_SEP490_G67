@@ -473,14 +473,32 @@ export default function ProductImportPage() {
           const selected = selectedIdsRef.current;
           (suggestions || []).forEach((s) => {
             if (selected.has(s.productId) && !byId.has(s.productId)) {
-              byId.set(s.productId, s);
+              const prod = products.find(p => p.id === s.productId) ||
+                           products.flatMap(p => p.children || []).find(c => c.id === s.productId);
+              const categoryId = s.categoryId ?? prod?.categoryId ?? null;
+              const categoryName = s.categoryName ?? prod?.categoryName ?? prod?.category ?? null;
+              byId.set(s.productId, {
+                ...s,
+                categoryId,
+                categoryName,
+              });
             }
           });
           const kept = prev.filter((p) => selected.has(p.productId));
           const keptIds = new Set(kept.map((p) => p.productId));
           const added = (suggestions || []).filter(
             (s) => selected.has(s.productId) && !keptIds.has(s.productId),
-          );
+          ).map((s) => {
+            const prod = products.find(p => p.id === s.productId) ||
+                         products.flatMap(p => p.children || []).find(c => c.id === s.productId);
+            const categoryId = s.categoryId ?? prod?.categoryId ?? null;
+            const categoryName = s.categoryName ?? prod?.categoryName ?? prod?.category ?? null;
+            return {
+              ...s,
+              categoryId,
+              categoryName,
+            };
+          });
           return [...kept, ...added];
         });
         setOverrides((prev) => {
@@ -590,9 +608,36 @@ export default function ProductImportPage() {
     }
   };
 
-  const handleOpenDraftPo = () => {
-    navigate('/admin/warehouse/import');
+  const handleOpenDraftPo = (orderId) => {
+    if (orderId) {
+      navigate(`/admin/warehouse/import?orderId=${orderId}`, {
+        state: { selectedOrderId: Number(orderId) || orderId },
+      });
+    } else {
+      navigate('/admin/warehouse/import');
+    }
   };
+
+  const handleSupplierCreated = useCallback((newSupplier) => {
+    if (!newSupplier?.id) return;
+    setSupplierFallback((prev) => {
+      if (prev.some((s) => Number(s.id) === Number(newSupplier.id))) return prev;
+      return [
+        {
+          id: newSupplier.id,
+          name: newSupplier.name,
+          code: newSupplier.code || newSupplier.supplierCode || '',
+          phoneNumber: newSupplier.phoneNumber || newSupplier.phone || '',
+          contactPerson: newSupplier.contactPerson || '',
+          leadTimeDays: newSupplier.leadTimeDays ?? 3,
+          costPerUnit: null,
+          cheapest: false,
+        },
+        ...prev,
+      ];
+    });
+    setSuccessMsg(`Đã tạo mới nhà cung cấp "${newSupplier.name}" thành công.`);
+  }, []);
 
   const clearAllSelection = () => {
     selectedIdsRef.current = new Set();
@@ -764,11 +809,11 @@ export default function ProductImportPage() {
                   onChange={(e) => handleFacetChange(e.target.value)}
                   title="Lọc theo tình trạng hàng hóa"
                 >
-                  <option value="all">-- Tình trạng (Tất cả) --</option>
-                  <option value="new">Mới tạo (cần nhập lần đầu)</option>
-                  <option value="hot">Hết hàng – Bán chạy (cần nhập ngay)</option>
+                  <option value="all">-- Tình trạng --</option>
+                  <option value="new">Mới tạo</option>
+                  <option value="hot">Hết hàng – Bán chạy</option>
                   <option value="warn">Cảnh báo sắp hết hàng</option>
-                  <option value="ok">Đang kinh doanh (tồn an toàn)</option>
+                  <option value="ok">Đang kinh doanh</option>
                   <option value="slow">Hết hàng – Ít bán</option>
                   <option value="stop">Ngừng kinh doanh</option>
                 </select>
@@ -876,6 +921,7 @@ export default function ProductImportPage() {
             setOverrides((prev) => ({ ...prev, [id]: { ...prev[id], ...unitPatch } }))
           }
           onRemove={(id) => removeFromPanel(id)}
+          onSupplierCreated={handleSupplierCreated}
           onCreate={handleCreate}
           onClose={() => setIsOrderPanelOpen(false)}
           creating={creating}

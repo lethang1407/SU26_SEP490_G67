@@ -206,11 +206,17 @@ public class ImportSuggestionService {
                 suggestedQty
         );
 
+        Category cat = p.getCategory() != null ? p.getCategory() : (p.getParent() != null ? p.getParent().getCategory() : null);
+        Integer catId = cat != null ? cat.getId() : null;
+        String catName = cat != null ? cat.getName() : null;
+
         return ImportSuggestionResponse.builder()
                 .productId(p.getId())
                 .productName(p.getName())
                 .parentId(p.getParent() != null ? p.getParent().getId() : null)
                 .parentName(p.getParent() != null ? p.getParent().getName() : null)
+                .categoryId(catId)
+                .categoryName(catName)
                 .sku(p.getSku())
                 .barcode(p.getBarcode())
                 .productImg(resolveImg(p))

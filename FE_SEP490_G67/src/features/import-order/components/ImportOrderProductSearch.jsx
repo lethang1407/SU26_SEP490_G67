@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Plus, Search } from 'lucide-react';
 import { importOrdersApi } from '../api';
-import ProductCreateModal from '../../product/components/ProductCreateModal';
+import ProductEditModal from '../../product/components/ProductEditModal';
 
 const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
@@ -211,10 +211,11 @@ export default function ImportOrderProductSearch({ onSelect, onSelectMany }) {
                 <Plus size={20} />
             </button>
 
-            <ProductCreateModal
+            <ProductEditModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
-                onProductCreated={handleProductCreated}
+                product={null}
+                onProductUpdated={handleProductCreated}
             />
         </div>
     );

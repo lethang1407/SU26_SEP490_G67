@@ -37,11 +37,25 @@ export default function ImportOrderListPage() {
     const [page, setPage] = useState(1);
     const [data, setData] = useState(EMPTY_PAGE);
     const [loading, setLoading] = useState(false);
-    const [selectedOrderId, setSelectedOrderId] = useState(null);
+    // Read orderId from URL query param (?orderId=...) or navigation state
+    const [selectedOrderId, setSelectedOrderId] = useState(() => {
+        const params = new URLSearchParams(window.location.search);
+        const queryId = params.get('orderId') || params.get('detailId');
+        if (queryId) return Number(queryId) || queryId;
+        return location.state?.selectedOrderId ?? location.state?.openDetailId ?? null;
+    });
     const [successMessage, setSuccessMessage] = useState(null);
 
-    const trimmedKeyword = debouncedKeyword.trim();
-    const appliedOrderStatus = orderStatusFilter ?? ORDER_STATUS_FILTER.ALL;
+    // Sync selectedOrderId when URL query params or location.state change
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const queryId = params.get('orderId') || params.get('detailId');
+        if (queryId) {
+            setSelectedOrderId(Number(queryId) || queryId);
+        } else if (location.state?.selectedOrderId || location.state?.openDetailId) {
+            setSelectedOrderId(location.state.selectedOrderId || location.state.openDetailId);
+        }
+    }, [location.search, location.state]);
 
     useEffect(() => {
         if (location.state?.successMessage) {
@@ -54,11 +68,14 @@ export default function ImportOrderListPage() {
         const timer = setTimeout(() => {
             setDebouncedKeyword(keyword);
             setPage(1);
-            setSelectedOrderId(null);
         }, SEARCH_DEBOUNCE_MS);
 
         return () => clearTimeout(timer);
     }, [keyword]);
+
+    const trimmedKeyword = debouncedKeyword.trim() || undefined;
+    const appliedOrderStatus =
+        orderStatusFilter === ORDER_STATUS_FILTER.ALL ? undefined : orderStatusFilter;
 
     const fetchImportOrders = useCallback(() => {
         setLoading(true);
@@ -99,10 +116,25 @@ export default function ImportOrderListPage() {
 
     const handleCloseDetail = () => {
         setSelectedOrderId(null);
+        // Clear orderId from URL query param if present
+        const params = new URLSearchParams(location.search);
+        if (params.has('orderId') || params.has('detailId')) {
+            params.delete('orderId');
+            params.delete('detailId');
+            const searchStr = params.toString();
+            navigate(`${location.pathname}${searchStr ? `?${searchStr}` : ''}`, { replace: true });
+        }
     };
 
     const handleDraftCancelled = () => {
         setSelectedOrderId(null);
+        const params = new URLSearchParams(location.search);
+        if (params.has('orderId') || params.has('detailId')) {
+            params.delete('orderId');
+            params.delete('detailId');
+            const searchStr = params.toString();
+            navigate(`${location.pathname}${searchStr ? `?${searchStr}` : ''}`, { replace: true });
+        }
         fetchImportOrders();
     };
 
