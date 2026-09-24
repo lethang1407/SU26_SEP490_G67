@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+﻿import { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, CalendarDays, CheckCircle2, ChevronDown, Edit3, FileText, Plus, RefreshCw, Search } from 'lucide-react';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import { getStoreInfor } from '../../store/api';
-import { accountingPeriodsApi, accountingReportsApi, adjustmentsApi, taxProfilesApi, taxSupportApi } from '../api';
+import { accountingPeriodsApi, accountingReportsApi, adjustmentsApi, taxProfilesApi, taxRecordApi, taxSupportApi } from '../api';
 import '../../../css/AdminDashboard.css';
 import '../../../css/TaxAccounting.css';
 
@@ -17,6 +17,8 @@ const STATUS_LABELS = {
   MISSING: 'Chưa tạo',
   APPROVED: 'Đã duyệt',
   REJECTED: 'Từ chối',
+  UPDATING: 'Đang cập nhật',
+  DECLARED: 'Đã kê khai',
 };
 
 const REVENUE_CLASSIFICATION_LABELS = {
@@ -92,9 +94,6 @@ function emptyProfileForm(year) {
     taxpayerIdentity: '',
     taxpayerName: '',
     taxpayerAddress: '',
-    taxAuthority: '',
-    declaredMethod: 'UNKNOWN',
-    invoiceRegistrationStatus: 'NOT_REGISTERED',
   };
 }
 
@@ -137,6 +136,9 @@ export default function TaxAccountingOverviewPage() {
   const [year, setYear] = useState(CURRENT_YEAR);
   const [profile, setProfile] = useState(null);
   const [summary, setSummary] = useState(null);
+  const [taxRecord, setTaxRecord] = useState(null);
+  const [taxRecordLoading, setTaxRecordLoading] = useState(false);
+  const [taxRecordError, setTaxRecordError] = useState('');
   const [periods, setPeriods] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -166,6 +168,7 @@ export default function TaxAccountingOverviewPage() {
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState('');
   const [downloadLoading, setDownloadLoading] = useState('');
+  const [exportMode, setExportMode] = useState('PREVIEW');
 
   const loadOverview = useCallback(async () => {
     setLoading(true);
@@ -206,15 +209,48 @@ export default function TaxAccountingOverviewPage() {
       setSummary(summaryResult);
       setPeriods(asList(periodsResult));
       setAdjustments(asList(adjustmentsResult));
+      setTaxRecordError('');
+      try {
+        setTaxRecord(await taxRecordApi.get(year));
+      } catch (recordError) {
+        if (recordError.response?.status === 404) setTaxRecord(null);
+        else setTaxRecordError(recordError.response?.data?.message || 'Không thể tải nghĩa vụ thuế.');
+      }
     } catch (requestError) {
       setSummary(null);
       setPeriods([]);
       setAdjustments([]);
+      setTaxRecord(null);
       setError(requestError.response?.data?.message || 'Không thể tải tổng quan thuế và kế toán.');
     } finally {
       setLoading(false);
     }
   }, [year]);
+
+  const calculateTaxRecord = async () => {
+    setTaxRecordLoading(true);
+    setTaxRecordError('');
+    try {
+      setTaxRecord(await taxRecordApi.calculate(year));
+    } catch (requestError) {
+      setTaxRecordError(requestError.response?.data?.message || 'Không thể tính nghĩa vụ thuế.');
+    } finally {
+      setTaxRecordLoading(false);
+    }
+  };
+
+  const declareTaxRecord = async () => {
+    if (!taxRecord || !window.confirm('Xác nhận đã hoàn tất kê khai nghĩa vụ thuế năm?')) return;
+    setTaxRecordLoading(true);
+    setTaxRecordError('');
+    try {
+      setTaxRecord(await taxRecordApi.declare(year));
+    } catch (requestError) {
+      setTaxRecordError(requestError.response?.data?.message || 'Không thể cập nhật trạng thái kê khai.');
+    } finally {
+      setTaxRecordLoading(false);
+    }
+  };
 
   const openProfileForm = async () => {
     setForm({
@@ -222,9 +258,6 @@ export default function TaxAccountingOverviewPage() {
       ...(profile ? {
         trackingStartedAt: toDateTimeLocal(profile.trackingStartedAt),
         ...information,
-        invoiceRegistrationStatus: profile.invoiceRegistrationStatus === 'UNKNOWN'
-          ? 'NOT_REGISTERED'
-          : profile.invoiceRegistrationStatus,
       } : {}),
     });
     setError('');
@@ -256,9 +289,6 @@ export default function TaxAccountingOverviewPage() {
       taxpayerIdentity: form.taxpayerIdentity.trim(),
       taxpayerName: form.taxpayerName.trim(),
       taxpayerAddress: form.taxpayerAddress.trim(),
-      taxAuthority: form.taxpayerAddress.trim(),
-      declaredMethod: 'REVENUE_BASED',
-      invoiceRegistrationStatus: form.invoiceRegistrationStatus || 'NOT_REGISTERED',
     };
     try {
       if (profile) {
@@ -497,13 +527,18 @@ export default function TaxAccountingOverviewPage() {
     }
   };
 
-  const handleDownload = async (type) => {
-    setDownloadLoading(type);
+  const handleDownload = async (type, mode = exportMode) => {
+    const loadingKey = `${type}-${mode}`;
+    setDownloadLoading(loadingKey);
     setReportError('');
     try {
       const file = type === 's1a'
-        ? await taxSupportApi.downloadS1a(year, selectedMonth)
-        : await taxSupportApi.downloadTaxDeclaration(year);
+        ? await taxSupportApi.downloadS1aRange(
+          year,
+          reportType,
+          reportType === 'MONTH' ? reportMonth : reportQuarter,
+        )
+        : await taxSupportApi.downloadTaxDeclaration(year, mode);
       downloadBlobFile(file);
     } catch (requestError) {
       setReportError(requestError.response?.data?.message || 'Không thể tải tệp.');
@@ -528,6 +563,9 @@ export default function TaxAccountingOverviewPage() {
   const periodByMonth = new Map(periods.map((period) => [Number(periodMonth(period)), period]));
   const selectedPeriodRevenue = reconciliation?.recordedRevenue ?? periodDetail?.recordedRevenue;
   const yearOptions = YEARS.filter((optionYear) => !trackingStartYear || optionYear >= trackingStartYear);
+  const finalExportReady = Boolean(profile?.status === 'CONFIRMED'
+    && summary?.sourceCompletenessVerified
+    && taxRecord?.status === 'CONFIRMED');
 
   return (
     <div className="admin-content">
@@ -575,8 +613,8 @@ export default function TaxAccountingOverviewPage() {
                   {reportType === 'QUARTER' && <label>Quý<select value={reportQuarter} onChange={(event) => setReportQuarter(Number(event.target.value))}>{[1, 2, 3, 4].map((quarter) => <option key={quarter} value={quarter}>{quarter}</option>)}</select></label>}
                   {reportType === 'MONTH' && <label>Tháng<select value={reportMonth} onChange={(event) => setReportMonth(Number(event.target.value))}>{Array.from({ length: 12 }, (_, index) => index + 1).map((month) => <option key={month} value={month}>{month}</option>)}</select></label>}
                   <button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={loadReport} disabled={reportLoading}><RefreshCw size={15} /> Xem báo cáo</button>
-                  <button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={() => handleDownload('declaration')} disabled={downloadLoading === 'declaration' || !profile}>{downloadLoading === 'declaration' ? 'Đang tải...' : 'Tải mẫu 01/TKN-CNKD'}</button>
-                  <button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={() => handleDownload('s1a')} disabled={!selectedMonth || downloadLoading === 's1a'}>{downloadLoading === 's1a' ? 'Đang tải...' : 'Tải S1a Excel'}</button>
+                  <button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={() => handleDownload('declaration')} disabled={downloadLoading === 'declaration-PREVIEW' || !profile}>{downloadLoading === 'declaration-PREVIEW' ? 'Đang tải...' : 'Xem trước 01/TKN-CNKD'}</button>
+                  <button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={() => handleDownload('s1a', 'PREVIEW')} disabled={downloadLoading === 's1a-PREVIEW' || !profile}>{downloadLoading === 's1a-PREVIEW' ? 'Đang tải...' : 'Xem trước S1a Excel'}</button>
                 </div>
                 {reportError && <div className="tax-accounting-alert tax-accounting-alert--danger tax-accounting-alert--inline"><AlertCircle size={18} /> <span>{reportError}</span></div>}
                 {reportLoading ? <div className="tax-accounting-loading">Đang tải báo cáo...</div> : report ? <div className="tax-accounting-report-result"><div><span>Kỳ báo cáo</span><strong>{reportPeriodLabel(report.periodType || reportType)} {report.periodNumber || year}</strong></div><div><span>Doanh thu ghi nhận</span><strong>{formatMoney(report.recordedRevenue)}</strong></div><div><span>Đối chiếu nguồn</span><strong>{report.sourceCompletenessVerified ? 'Đạt' : 'Chưa đạt'}</strong></div>{report.partialTracking && <p className="tax-accounting-report-warning">Doanh thu chỉ được tính từ mốc bắt đầu theo dõi.</p>}</div> : <p className="tax-accounting-muted">Chọn kỳ và bấm “Xem báo cáo” để tải dữ liệu.</p>}
@@ -596,7 +634,7 @@ export default function TaxAccountingOverviewPage() {
                     <div className="tax-accounting-panel__actions">
                       <button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={openProfileForm} disabled={submitting}><Edit3 size={15} /> Chỉnh sửa hồ sơ</button>
                       {!confirmed && <button type="button" className="tax-accounting-button tax-accounting-button--primary" onClick={handleConfirm} disabled={submitting}><CheckCircle2 size={15} /> Xác nhận hồ sơ</button>}
-                      <button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={openTrackingForm} disabled={submitting}><CalendarDays size={15} /> Đổi mốc theo dõi</button>
+                      {!confirmed && <button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={openTrackingForm} disabled={submitting}><CalendarDays size={15} /> Đổi mốc theo dõi</button>}
                     </div>
                     </>
                   ) : <p className="tax-accounting-empty">Chưa có hồ sơ thuế cho năm này.</p>}
@@ -609,6 +647,20 @@ export default function TaxAccountingOverviewPage() {
                     <strong>{summary?.sourceCompletenessVerified ? 'Đã đối chiếu đầy đủ' : 'Chưa đối chiếu đầy đủ'}</strong>
                     <span>{summary?.months?.length || 0} tháng có dữ liệu tổng hợp</span>
                   </div>
+                  {taxRecordError && <div className="tax-accounting-alert tax-accounting-alert--danger tax-accounting-alert--inline"><AlertCircle size={18} /> <span>{taxRecordError}</span></div>}
+                  {!taxRecord ? <div className="tax-accounting-empty"><p>Chưa có kết quả tính thuế cho năm {year}.</p><button type="button" className="tax-accounting-button tax-accounting-button--primary" onClick={calculateTaxRecord} disabled={!confirmed || taxRecordLoading}>{taxRecordLoading ? 'Đang tính...' : 'Tính nghĩa vụ thuế'}</button></div> : <>
+                    <div className="tax-accounting-report-result">
+                      <div><span>Doanh thu tính thuế</span><strong>{formatMoney(taxRecord.revenueBase)}</strong></div>
+                      <div><span>Thuế GTGT</span><strong>{formatMoney(taxRecord.vatAmount)}</strong></div>
+                      <div><span>Thuế TNCN</span><strong>{formatMoney(taxRecord.pitAmount)}</strong></div>
+                      <div><span>Tổng thuế</span><strong>{formatMoney(taxRecord.totalTaxAmount)}</strong></div>
+                    </div>
+                    <dl className="tax-accounting-details">
+                      <div><dt>Trạng thái</dt><dd><span className={`tax-accounting-status tax-accounting-status--${String(taxRecord.declarationStatus || 'UPDATING').toLowerCase()}`}>{statusLabel(taxRecord.declarationStatus || 'UPDATING')}</span></dd></div>
+                      <div><dt>Hạn kê khai</dt><dd>{formatDate(taxRecord.dueDate)}</dd></div>
+                    </dl>
+                    <div className="tax-accounting-panel__actions"><button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={calculateTaxRecord} disabled={!confirmed || taxRecordLoading || taxRecord.declarationStatus === 'DECLARED'}>Tính lại thuế</button>{taxRecord.declarationStatus !== 'DECLARED' && <button type="button" className="tax-accounting-button tax-accounting-button--primary" onClick={declareTaxRecord} disabled={taxRecordLoading}>{taxRecordLoading ? 'Đang cập nhật...' : 'Đánh dấu đã kê khai'}</button>}</div>
+                  </>}
                 </article>
               </section>
 
@@ -727,3 +779,6 @@ export default function TaxAccountingOverviewPage() {
     </div>
   );
 }
+
+
+
