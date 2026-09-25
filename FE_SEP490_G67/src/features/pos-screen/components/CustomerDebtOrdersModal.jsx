@@ -280,7 +280,18 @@ export default function CustomerDebtOrdersModal({ customer, onClose }) {
                                                 <tr key={payment.id}>
                                                     <td>{formatDate(payment.paymentDate, true)}</td>
                                                     <td>{payment.paymentCode || '-'}</td>
-                                                    <td>{payment.orderCode || '-'}</td>
+                                                    <td>
+                                                        {payment.orderId ? (
+                                                            <button
+                                                                type="button"
+                                                                className="hist-order-code customer-debt-order-code"
+                                                                title="Xem chi tiết hóa đơn"
+                                                                onClick={() => setDetailOrderId(payment.orderId)}
+                                                            >
+                                                                {payment.orderCode || `#${payment.orderId}`}
+                                                            </button>
+                                                        ) : payment.orderCode || '-'}
+                                                    </td>
                                                     <td className="text-right customer-debt-payment-amount">{formatVnd(payment.amountPaid)}</td>
                                                     <td>{getPaymentMethodLabel(payment.paymentMethod)}</td>
                                                     <td>{payment.staffName || '-'}</td>

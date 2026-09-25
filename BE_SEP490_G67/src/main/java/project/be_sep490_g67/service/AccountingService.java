@@ -19,6 +19,9 @@ import project.be_sep490_g67.repository.*;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.util.List;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Page;
+import project.be_sep490_g67.dto.response.PageResponse;
 import java.util.Objects;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -102,6 +105,22 @@ public class AccountingService {
                 .findByProfileIdAndAccountingMonthAndIsRemovedFalse(profile.getId(), month)
                 .orElseThrow(() -> error(HttpStatus.NOT_FOUND, "Không tìm thấy kỳ kế toán"));
         return revenueResponse(period);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<AccountingRevenueLineResponse> getRevenuePage(Integer year, Integer month, int page, int size) {
+        page = Math.max(page, 0);
+        size = Math.max(1, Math.min(size, 100));
+        BusinessTaxProfile profile = readableProfile(year);
+        AccountingPeriod period = periodRepository
+                .findByProfileIdAndAccountingMonthAndIsRemovedFalse(profile.getId(), month)
+                .orElseThrow(() -> error(HttpStatus.NOT_FOUND, "Không tìm thấy kỳ kế toán"));
+        Page<AccountingRevenueLine> result = revenueLineRepository
+                .findByPeriodIdAndIsRemovedFalse(period.getId(), PageRequest.of(page, size));
+        return PageResponse.<AccountingRevenueLineResponse>builder()
+                .content(result.getContent().stream().map(AccountingRevenueLineResponse::from).toList())
+                .page(result.getNumber()).size(result.getSize())
+                .totalElements(result.getTotalElements()).totalPages(result.getTotalPages()).build();
     }
 
     /** Chuẩn bị dữ liệu S1a-HKD từ một kỳ đã đối chiếu; không tự sinh tờ khai hoặc xác định thuế phải nộp. */
@@ -689,7 +708,7 @@ public class AccountingService {
             }
             return RevenueAdjustmentResponse.from(prior);
         }
-        AccountingPeriod period = requiredOpenPeriod(profile, info.postingDate().getMonthValue());
+        AccountingPeriod period = requiredOpenPeriod(profile, info.date().getMonthValue());
         RevenueAdjustment adjustment = new RevenueAdjustment();
         adjustment.setProfile(profile);
         adjustment.setIdempotencyKey(key);
@@ -711,7 +730,7 @@ public class AccountingService {
         requiredOpenPeriod(profile, adjustment.getPostingDate().getMonthValue());
         checkDraft(adjustment, request.version());
         RevenueAdjustmentInformation info = normalizedInformation(request.information(), profile);
-        AccountingPeriod period = requiredOpenPeriod(profile, info.postingDate().getMonthValue());
+        AccountingPeriod period = requiredOpenPeriod(profile, info.date().getMonthValue());
         String before = RevenueAdjustmentResponse.from(adjustment).toString();
         applyAdjustment(adjustment, info);
         validateAdjustmentReference(adjustment, period, false);
@@ -793,6 +812,7 @@ public class AccountingService {
     public AccountingPeriodResponse closePeriod(Integer year, Integer month, AccountingDecisionRequest request) {
         validateMonth(month);
         BusinessTaxProfile profile = lockedProfile(year);
+        ensureNotDeclared(profile);
         AccountingPeriod period = requiredOpenPeriod(profile, month);
         if (!Objects.equals(period.getVersion(), request.version())) {
             throw error(HttpStatus.CONFLICT, "Kỳ đã thay đổi; hãy tải lại version");
@@ -928,16 +948,16 @@ public class AccountingService {
     }
 
     private RevenueAdjustmentInformation normalizedInformation(RevenueAdjustmentInformation info, BusinessTaxProfile profile) {
-        if (info == null || info.sourceType() == null || info.postingDate() == null
+        if (info == null || info.sourceType() == null || info.date() == null
                 || info.signedAmount() == null || info.classification() == null) {
             throw error(HttpStatus.BAD_REQUEST, "Thiếu thông tin điều chỉnh");
         }
-        Instant occurred = eventTime(info.occurredAt());
+        Instant occurred = info.occurredAt();
+        LocalDate trackingDate = profile.getTrackingStartedAt().atZone(StoreService.TAX_ZONE).toLocalDate();
         LocalDate today = LocalDate.now(StoreService.TAX_ZONE);
-        if (occurred.isBefore(profile.getTrackingStartedAt()) || info.postingDate().getYear() != profile.getTaxYear()
-                || info.postingDate().isAfter(today)
-                || info.postingDate().isBefore(occurred.atZone(StoreService.TAX_ZONE).toLocalDate())) {
-            throw error(HttpStatus.BAD_REQUEST, "Ngày phát sinh/ghi sổ nằm ngoài phạm vi hoặc sai thứ tự");
+        if (info.date().isBefore(trackingDate) || info.date().getYear() != profile.getTaxYear()
+                || info.date().isAfter(today)) {
+            throw error(HttpStatus.BAD_REQUEST, "Ngày điều chỉnh nằm ngoài phạm vi hoặc không hợp lệ");
         }
         BigDecimal amount;
         try { amount = info.signedAmount().setScale(2, RoundingMode.UNNECESSARY); }
@@ -961,7 +981,7 @@ public class AccountingService {
             throw error(HttpStatus.BAD_REQUEST, "Khoản gốc phải trùng nguồn REVENUE_ADJUSTMENT được tham chiếu");
         }
         return new RevenueAdjustmentInformation(info.sourceType(), info.sourceId(), info.relatedPeriodId(),
-                info.originalAdjustmentId(), occurred, info.postingDate(), amount, info.classification(),
+                info.originalAdjustmentId(), info.date(), amount, info.classification(),
                 requiredText(info.inclusionReason(), 1000), requiredText(info.evidence(), 10000));
     }
 
@@ -969,7 +989,7 @@ public class AccountingService {
         a.setSourceType(info.sourceType());
         a.setSourceId(info.sourceId());
         a.setOccurredAt(info.occurredAt());
-        a.setPostingDate(info.postingDate());
+        a.setPostingDate(info.date());
         a.setSignedAmount(info.signedAmount());
         a.setClassification(info.classification());
         a.setInclusionReason(info.inclusionReason());
@@ -1035,7 +1055,7 @@ public class AccountingService {
         RevenueAdjustmentInformation info = normalizedInformation(RevenueAdjustmentResponse.informationOf(a), a.getProfile());
         return new RevenueSource(SourceType.REVENUE_ADJUSTMENT, a.getId(), null, info.occurredAt(),
                 info.signedAmount(), info.classification(), info.inclusionReason(),
-                "Điều chỉnh doanh thu: " + occurredDateLabel(info.occurredAt()), info.postingDate());
+                "Điều chỉnh doanh thu: " + occurredDateLabel(info.occurredAt()), info.date());
     }
 
     private void ensureNotDeclared(BusinessTaxProfile profile) {

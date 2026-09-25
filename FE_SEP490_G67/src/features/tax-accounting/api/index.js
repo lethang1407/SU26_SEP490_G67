@@ -67,7 +67,7 @@ export const accountingPeriodsApi = {
   ),
 
   getRevenueLines: async (year, month, params = {}) => getResult(
-    await api.get(`${periodBase(year)}/${month}/revenue-lines`, { params }),
+    await api.get(`${periodBase(year)}/${month}/revenue-lines/page`, { params }),
   ),
 
   synchronize: async (year, month) => getResult(

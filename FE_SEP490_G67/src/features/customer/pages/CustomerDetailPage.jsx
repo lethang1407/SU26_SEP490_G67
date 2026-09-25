@@ -424,7 +424,11 @@ export default function CustomerDetailPage() {
                 )}
                 {activeTab === 'history' && (
                   <div className="p-4">
-                    <CustomerPaymentHistory customerId={customerId} refreshKey={refreshKey} />
+                    <CustomerPaymentHistory
+                      customerId={customerId}
+                      refreshKey={refreshKey}
+                      onShowDetail={handleShowOrderDetail}
+                    />
                   </div>
                 )}
               </div>

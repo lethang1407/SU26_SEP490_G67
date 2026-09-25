@@ -36,13 +36,14 @@ export default function ProductPagination({
     endIndex,
     totalItems,
     onPageChange,
+    itemLabel = 'sản phẩm',
 }) {
     const pageNumbers = buildPageNumbers(page, totalPages);
 
     return (
         <div className="product-pagination">
             <p className="product-pagination__info">
-                Hiển thị {startIndex} - {endIndex} trong số {totalItems} sản phẩm
+                Hiển thị {startIndex} - {endIndex} trong số {totalItems} {itemLabel}
             </p>
 
             <div className="product-pagination__controls">
