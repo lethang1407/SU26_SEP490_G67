@@ -45,6 +45,7 @@ public enum ErrorCode {
     PRODUCT_NOT_FOUND(1046, "Không tìm thấy sản phẩm", HttpStatus.NOT_FOUND),
     BARCODE_EXISTED(1047, "Mã vạch đã được sử dụng", HttpStatus.CONFLICT),
     INVALID_PRODUCT_PRICE(1048, "Giá sản phẩm không hợp lệ", HttpStatus.BAD_REQUEST),
+    PRODUCT_DISCONTINUED(1077, "Sản phẩm đã ngừng kinh doanh, không thể bán", HttpStatus.BAD_REQUEST),
     PARENT_PRODUCT_NOT_SELLABLE(1060,
             "Đây là nhóm hàng có nhiều biến thể, vui lòng chọn từng biến thể để nhập hoặc bán",
             HttpStatus.BAD_REQUEST),

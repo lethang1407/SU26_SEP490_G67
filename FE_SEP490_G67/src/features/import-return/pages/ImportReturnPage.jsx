@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
 import { Alert } from 'react-bootstrap';
 import { History, FileText, ChevronDown, X } from 'lucide-react';
 import AdminHeader from '../../../components/ui/header-footer/Header';
@@ -81,11 +80,7 @@ export default function ImportReturnPage() {
     const [editingDraftId, setEditingDraftId] = useState(null);
     const [checkDrafts, setCheckDrafts] = useState([]);
     const [bannerCollapsed, setBannerCollapsed] = useState(false);
-    // Dashboard (thẻ "Kho hàng" → lằn "Chờ xử lý") mở thẳng danh sách phiếu đổi trả.
-    const location = useLocation();
-    const [modalMode, setModalMode] = useState(
-        location.state?.openAwaitingProcessing ? 'history' : null,
-    );
+    const [modalMode, setModalMode] = useState(null);
     const [modalDetailId, setModalDetailId] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);

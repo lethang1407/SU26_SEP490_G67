@@ -6,6 +6,7 @@ import {
     getLineValue,
 } from '../utils/storageLocationUtils';
 import ReturnHoldActionModal from './ReturnHoldActionModal';
+import { RETURN_HOLD_ANCHOR } from '../constants';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
@@ -84,7 +85,7 @@ export default function ReturnHoldPanel({
     };
 
     return (
-        <section className="storage-return-hold-panel">
+        <section id={RETURN_HOLD_ANCHOR} className="storage-return-hold-panel">
             <div className="storage-return-hold-panel__header">
                 <div>
                     <h2 className="storage-return-hold-panel__title">

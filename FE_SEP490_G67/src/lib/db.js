@@ -89,6 +89,20 @@ export async function saveOfflineProducts(productsList) {
 }
 
 /**
+ * Thay toàn bộ catalog offline bằng danh sách mới từ server (dùng khi đồng bộ cả catalog).
+ * bulkPut chỉ upsert, nên SP vừa bị ngừng kinh doanh sẽ nằm lại trong cache và vẫn bán được
+ * khi mất mạng — phải xoá sạch rồi ghi lại trong cùng một transaction.
+ */
+export async function replaceOfflineProducts(productsList) {
+    let count = 0;
+    await db.transaction('rw', db.products, async () => {
+        await db.products.clear();
+        count = await saveOfflineProducts(productsList);
+    });
+    return count;
+}
+
+/**
  * Search products offline by name (accented & unaccented), barcode, SKU, or units
  */
 export async function searchOfflineProducts(keyword, limit = 50) {
@@ -605,13 +619,17 @@ export async function getOfflineSalesOrders({
         });
     }
 
-    // Filter by search keyword (orderCode, customerName, customerPhone)
+    // Filter by search keyword (orderCode, customer, phone, product name / barcode của các dòng
+    // hàng nếu đơn có lưu kèm items — đơn tạo từ máy này thì có).
     if (search?.trim()) {
         const q = search.trim().toLowerCase();
         all = all.filter(o =>
             (o.orderCode && o.orderCode.toLowerCase().includes(q)) ||
             (o.customerName && o.customerName.toLowerCase().includes(q)) ||
-            (o.customerPhone && o.customerPhone.includes(q))
+            (o.customerPhone && o.customerPhone.includes(q)) ||
+            (Array.isArray(o.items) && o.items.some(item =>
+                (item.productName || item.name || '').toLowerCase().includes(q) ||
+                (item.barcode && item.barcode.toLowerCase().includes(q))))
         );
     }
 
@@ -662,10 +680,10 @@ export async function forceReloadOfflineCatalog(apiClient) {
 
     // 1. Fetch all products
     try {
-        const prodRes = await apiClient.get('/products/search', { params: { q: '' } });
+        const prodRes = await apiClient.get('/products/search', { params: { q: '', sellableOnly: true } });
         const products = prodRes?.result || [];
-        if (Array.isArray(products) && products.length > 0) {
-            productCount = await saveOfflineProducts(products);
+        if (Array.isArray(products)) {
+            productCount = await replaceOfflineProducts(products);
             await db.meta.put({ key: 'last_product_sync', value: Date.now() });
         }
     } catch (err) {
