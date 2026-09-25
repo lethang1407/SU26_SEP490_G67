@@ -24,6 +24,7 @@ import project.be_sep490_g67.entity.ImportOrder;
 import project.be_sep490_g67.entity.ImportOrderDetail;
 import project.be_sep490_g67.entity.ImportReturnDetail;
 import project.be_sep490_g67.entity.Product;
+import project.be_sep490_g67.entity.ProductImage;
 import project.be_sep490_g67.entity.ProductUnit;
 import project.be_sep490_g67.entity.StockBatch;
 import project.be_sep490_g67.entity.StockMovement;
@@ -37,6 +38,7 @@ import project.be_sep490_g67.exception.ErrorCode;
 import project.be_sep490_g67.repository.ImportOrderDetailRepository;
 import project.be_sep490_g67.repository.ImportOrderRepository;
 import project.be_sep490_g67.utils.UnitPriceResolver;
+import project.be_sep490_g67.repository.ProductImageRepository;
 import project.be_sep490_g67.repository.ProductRepository;
 import project.be_sep490_g67.repository.ProductUnitRepository;
 import project.be_sep490_g67.repository.ProductAttributeRepository;
@@ -55,10 +57,13 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -70,6 +75,7 @@ public class ImportOrderService {
     ImportOrderRepository importOrderRepository;
     ImportOrderDetailRepository importOrderDetailRepository;
     ProductRepository productRepository;
+    ProductImageRepository productImageRepository;
     SupplierRepository supplierRepository;
     SupplierPaymentRepository supplierPaymentRepository;
     ProductUnitRepository productUnitRepository;
@@ -90,7 +96,7 @@ public class ImportOrderService {
         boolean isImported = ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(orderStatus);
         List<CreateImportOrderRequest.LineItem> requestLines =
                 request.getLines() == null ? List.of() : request.getLines();
-        validateTrialLines(requestLines, null);
+        validateTrialLines(requestLines, null, isImported);
         Supplier supplier = resolveSupplier(request.getSupplierId(), isImported);
 
         Map<Integer, String> returnMethodOverrides = collectReturnMethodOverrides(request);
@@ -103,7 +109,7 @@ public class ImportOrderService {
         List<ImportOrderDetail> details = new ArrayList<>();
 
         for (CreateImportOrderRequest.LineItem line : requestLines) {
-            ImportOrderDetail detail = buildDetailFromLine(line);
+            ImportOrderDetail detail = buildDetailFromLine(line, isImported);
             details.add(detail);
             goodsTotal = goodsTotal.add(detail.getLineTotal() != null ? detail.getLineTotal() : BigDecimal.ZERO);
         }
@@ -187,7 +193,7 @@ public class ImportOrderService {
         boolean isImported = ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(orderStatus);
         List<CreateImportOrderRequest.LineItem> requestLines =
                 request.getLines() == null ? List.of() : request.getLines();
-        validateTrialLines(requestLines, order.getId());
+        validateTrialLines(requestLines, order.getId(), isImported);
         Supplier supplier = resolveSupplier(request.getSupplierId(), isImported);
 
         Map<Integer, String> returnMethodOverrides = collectReturnMethodOverrides(request);
@@ -200,7 +206,7 @@ public class ImportOrderService {
         List<ImportOrderDetail> details = new ArrayList<>();
 
         for (CreateImportOrderRequest.LineItem line : requestLines) {
-            ImportOrderDetail detail = buildDetailFromLine(line);
+            ImportOrderDetail detail = buildDetailFromLine(line, isImported);
             details.add(detail);
             goodsTotal = goodsTotal.add(detail.getLineTotal() != null ? detail.getLineTotal() : BigDecimal.ZERO);
         }
@@ -422,6 +428,7 @@ public class ImportOrderService {
         Map<Integer, List<ProductAttributeResponse>> attributesByProduct =
                 loadAttributesByProductIds(productIds);
         java.util.Set<Integer> alreadyInStoreIds = loadAlreadyInStoreProductIds(productIds);
+        Map<Integer, String> imageUrlByProduct = loadMainImageUrls(details);
 
         List<ImportOrderItemResponse> items = details.stream()
                 .map(detail -> {
@@ -445,6 +452,7 @@ public class ImportOrderService {
                             .productId(productId)
                             .productCode(product != null ? product.getBarcode() : null)
                             .productName(product != null ? product.getName() : null)
+                            .imageUrl(productId != null ? imageUrlByProduct.get(productId) : null)
                             .parentId(parent != null ? parent.getId() : null)
                             .parentName(parent != null ? parent.getName() : null)
                             .attributes(productId != null
@@ -1054,7 +1062,7 @@ public class ImportOrderService {
      * Map dòng request → detail.
      * KM: lineTotal = 0. Bán thử: lineTotal = qty × giá, ghi vào công nợ lúc nhập.
      */
-    private ImportOrderDetail buildDetailFromLine(CreateImportOrderRequest.LineItem line) {
+    private ImportOrderDetail buildDetailFromLine(CreateImportOrderRequest.LineItem line, boolean requireCost) {
         Product product = productRepository.findById(line.getProductId())
                 .filter(p -> !Boolean.TRUE.equals(p.getIsRemoved()))
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
@@ -1065,7 +1073,7 @@ public class ImportOrderService {
         boolean isPromotion = lineType == ImportLineType.PROMOTION;
         boolean isTrial = lineType == ImportLineType.TRIAL;
         BigDecimal cost = line.getCostPerUnit() != null ? line.getCostPerUnit() : BigDecimal.ZERO;
-        if (!isPromotion && cost.compareTo(BigDecimal.ZERO) <= 0) {
+        if (requireCost && !isPromotion && cost.compareTo(BigDecimal.ZERO) <= 0) {
             throw new AppException(isTrial ? ErrorCode.TRIAL_COST_REQUIRED : ErrorCode.INVALID_IMPORT_COST);
         }
         BigDecimal lineTotal = lineType.isPayableAtImport()
@@ -1090,7 +1098,10 @@ public class ImportOrderService {
         return detail;
     }
 
-    private void validateTrialLines(List<CreateImportOrderRequest.LineItem> requestLines, Integer excludeOrderId) {
+    private void validateTrialLines(
+            List<CreateImportOrderRequest.LineItem> requestLines,
+            Integer excludeOrderId,
+            boolean requireCost) {
         java.util.Set<Integer> trialProductIds = new java.util.HashSet<>();
         java.util.Set<Integer> otherProductIds = new java.util.HashSet<>();
         for (CreateImportOrderRequest.LineItem line : requestLines) {
@@ -1100,7 +1111,7 @@ public class ImportOrderService {
             ImportLineType lineType = ImportLineType.from(line.getLineType(), line.getIsPromotion(), line.getIsTrial());
             if (lineType == ImportLineType.TRIAL) {
                 BigDecimal cost = line.getCostPerUnit() != null ? line.getCostPerUnit() : BigDecimal.ZERO;
-                if (cost.compareTo(BigDecimal.ZERO) <= 0) {
+                if (requireCost && cost.compareTo(BigDecimal.ZERO) <= 0) {
                     throw new AppException(ErrorCode.TRIAL_COST_REQUIRED);
                 }
                 trialProductIds.add(line.getProductId());
@@ -1191,6 +1202,46 @@ public class ImportOrderService {
                         && unit.getUnitBase().compareTo(BigDecimal.ONE) == 0)
                 .findFirst()
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_UNIT_NOT_FOUND));
+    }
+
+    private Map<Integer, String> loadMainImageUrls(List<ImportOrderDetail> details) {
+        Set<Integer> lookupIds = new HashSet<>();
+        List<Product> products = new ArrayList<>();
+        for (ImportOrderDetail detail : details) {
+            Product product = detail.getProduct();
+            if (product == null || product.getId() == null) {
+                continue;
+            }
+            products.add(product);
+            lookupIds.add(product.getId());
+            if (product.getParent() != null && product.getParent().getId() != null) {
+                lookupIds.add(product.getParent().getId());
+            }
+        }
+        if (lookupIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Integer, String> urlByProduct = new HashMap<>();
+        for (ProductImage image : productImageRepository
+                .findByProductIdInAndIsRemovedFalseOrderBySortOrderAscIdAsc(lookupIds)) {
+            Integer ownerId = image.getProduct().getId();
+            if (Boolean.TRUE.equals(image.getIsMain())) {
+                urlByProduct.put(ownerId, image.getUrl());
+            } else {
+                urlByProduct.putIfAbsent(ownerId, image.getUrl());
+            }
+        }
+        Map<Integer, String> result = new HashMap<>();
+        for (Product product : products) {
+            String url = urlByProduct.get(product.getId());
+            if (url == null && product.getParent() != null) {
+                url = urlByProduct.get(product.getParent().getId());
+            }
+            if (url != null) {
+                result.put(product.getId(), url);
+            }
+        }
+        return result;
     }
 
     private List<ImportOrderItemResponse.ProductUnitOption> loadProductUnitOptions(Integer productId) {

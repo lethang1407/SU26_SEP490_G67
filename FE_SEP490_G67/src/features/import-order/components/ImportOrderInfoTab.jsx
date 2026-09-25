@@ -1,5 +1,7 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import { ExternalLink, ImageIcon } from 'lucide-react';
+import SupplierDetailModal from '../../supplier/components/SupplierDetailModal';
+import ProductThumb from '../../pos-screen/components/ProductThumb';
 import { IMPORT_ORDER_STATUS_LABEL, ORDER_STATUS, ORDER_STATUS_LABEL } from '../constants';
 import {
     computeDisplayLineTotal,
@@ -59,6 +61,7 @@ export default function ImportOrderInfoTab({
     const statusClass = String(order.orderStatus || '').toLowerCase();
     const showPaymentBadge = isImported && Boolean(order.status);
     const receivedLabel = order.receivedDate ? formatDate(order.receivedDate) : '—';
+    const [supplierOpen, setSupplierOpen] = useState(false);
 
     return (
         <div className="import-order-info-tab">
@@ -93,17 +96,14 @@ export default function ImportOrderInfoTab({
                 <div className="import-order-expand__info-item">
                     <span className="import-order-expand__label">Tên NCC</span>
                     {order.supplierId && !hideSupplierLink ? (
-                        <Link
-                            to="/admin/warehouse/supplier"
-                            state={{
-                                expandSupplierId: order.supplierId,
-                                expandSupplierName: order.supplierName || '',
-                            }}
+                        <button
+                            type="button"
                             className="import-order-expand__value import-order-expand__value--link"
-                            title={order.supplierCode || undefined}
+                            title={order.supplierCode || 'Xem chi tiết nhà cung cấp'}
+                            onClick={() => setSupplierOpen(true)}
                         >
                             {order.supplierName || '—'}
-                        </Link>
+                        </button>
                     ) : (
                         <span className="import-order-expand__value">{order.supplierName || '—'}</span>
                     )}
@@ -170,6 +170,14 @@ export default function ImportOrderInfoTab({
                                     >
                                         <td className="import-order-expand__col-stt">{index + 1}</td>
                                         <td>
+                                            <div className="import-order-expand__product">
+                                                <ProductThumb
+                                                    url={item.imageUrl}
+                                                    alt={item.productName || item.parentName || ''}
+                                                    size={36}
+                                                    preview
+                                                />
+                                                <div className="import-order-expand__product-body">
                                             <div className="import-order-expand__product-name">
                                                 {item.productName || item.parentName || '—'}
                                             </div>
@@ -220,6 +228,8 @@ export default function ImportOrderInfoTab({
                                                     </span>
                                                 </div>
                                             ) : null}
+                                                </div>
+                                            </div>
                                         </td>
                                         <td className="import-order-expand__col-num">
                                             {item.quantity != null ? (
@@ -340,6 +350,14 @@ export default function ImportOrderInfoTab({
                     ) : null}
                 </div>
             </div>
+
+            <SupplierDetailModal
+                open={supplierOpen}
+                supplierId={order.supplierId}
+                supplierName={order.supplierName}
+                stacked
+                onClose={() => setSupplierOpen(false)}
+            />
         </div>
     );
 }

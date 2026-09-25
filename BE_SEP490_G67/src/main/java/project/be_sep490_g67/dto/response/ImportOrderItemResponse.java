@@ -21,6 +21,8 @@ public class ImportOrderItemResponse {
     Integer productId;
     String productCode;
     String productName;
+    /** Ảnh đại diện; biến thể không có ảnh thì lấy ảnh sản phẩm cha. */
+    String imageUrl;
     Integer parentId;
     String parentName;
     List<ProductAttributeResponse> attributes;

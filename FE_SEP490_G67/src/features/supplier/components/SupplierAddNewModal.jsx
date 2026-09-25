@@ -374,7 +374,7 @@ export default function SupplierAddNewModal({
 
     return createPortal(
         <div
-            className="supplier-modal-overlay supplier-modal-overlay--stacked"
+            className="supplier-modal-overlay supplier-modal-overlay--stacked supplier-modal-overlay--front"
             role="presentation"
         >
             <div
@@ -698,7 +698,7 @@ export default function SupplierAddNewModal({
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        zIndex: 13000,
+                        zIndex: 15000,
                         backdropFilter: 'blur(2px)',
                     }}
                     role="presentation"

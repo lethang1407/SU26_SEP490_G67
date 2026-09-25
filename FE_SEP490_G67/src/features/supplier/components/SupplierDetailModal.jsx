@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import SupplierExpandPanel from './SupplierExpandPanel';
 
@@ -7,10 +8,13 @@ export default function SupplierDetailModal({
     supplierId,
     supplierName,
     listDebt,
+    stacked = false,
     onClose,
     onPaymentSuccess,
     onSupplierUpdated,
 }) {
+    const overlayRef = useRef(null);
+
     useEffect(() => {
         if (!open) return undefined;
 
@@ -19,7 +23,8 @@ export default function SupplierDetailModal({
 
         const handleEscape = (event) => {
             if (event.key !== 'Escape') return;
-            if (document.querySelectorAll('.supplier-modal-overlay').length > 1) return;
+            const overlays = document.querySelectorAll('.supplier-modal-overlay');
+            if (overlays[overlays.length - 1] !== overlayRef.current) return;
             onClose?.();
         };
 
@@ -32,8 +37,13 @@ export default function SupplierDetailModal({
 
     if (!open || !supplierId) return null;
 
-    return (
-        <div className="supplier-modal-overlay" onClick={onClose} role="presentation">
+    return createPortal(
+        <div
+            ref={overlayRef}
+            className={`supplier-modal-overlay${stacked ? ' supplier-modal-overlay--raised' : ''}`}
+            onClick={onClose}
+            role="presentation"
+        >
             <div
                 className="supplier-modal supplier-detail-modal"
                 onClick={(event) => event.stopPropagation()}
@@ -64,6 +74,7 @@ export default function SupplierDetailModal({
                     />
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }
