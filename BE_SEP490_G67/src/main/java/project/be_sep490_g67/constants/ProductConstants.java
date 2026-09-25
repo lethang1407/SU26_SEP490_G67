@@ -7,6 +7,11 @@ public final class ProductConstants {
     public static final String DEFAULT_BASE_UNIT_NAME = "Cái";
     public static final String BUSINESS_STATUS_ACTIVE = "active";
     public static final String BUSINESS_STATUS_INACTIVE = "inactive";
+
+    /** Ngừng kinh doanh = không được bán ở module bán hàng (POS, đổi hàng, thanh toán). */
+    public static boolean isDiscontinued(String status) {
+        return BUSINESS_STATUS_INACTIVE.equalsIgnoreCase(status);
+    }
     public static final String STATUS_FILTER_IN_STOCK = "in_stock";
     public static final String STATUS_FILTER_OUT_OF_STOCK = "out_of_stock";
 

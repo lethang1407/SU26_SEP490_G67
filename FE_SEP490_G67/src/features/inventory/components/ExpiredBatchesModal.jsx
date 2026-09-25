@@ -60,7 +60,7 @@ export default function ExpiredBatchesModal({ open, onClose }) {
                                 <th>Sản phẩm</th>
                                 <th>Mã lô</th>
                                 <th>Ngày hết hạn</th>
-                                <th className="text-end">lâu</th>
+                                <th className="text-end">Quá hạn</th>
                                 <th className="text-end">SL hết hạn</th>
                                 <th className="text-end">Tổng tồn</th>
                             </tr>

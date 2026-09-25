@@ -376,7 +376,7 @@ public class AccountingService {
         BusinessTaxProfile profile = profiles.stream()
                 .filter(p -> p.getTaxYear().equals(year) && !Boolean.TRUE.equals(p.getIsRemoved()))
                 .findFirst().orElseThrow(() -> error(HttpStatus.NOT_FOUND, "Không tìm thấy hồ sơ năm"));
-        requireReadyProfile(profile, profiles);
+//        requireReadyProfile(profile, profiles);
         AccountingPeriod period = requiredOpenPeriod(profile, month);
         Integer actor = actor();
         // Do not silently strand an existing line if someone changed/deleted a source outside this workflow.
@@ -411,30 +411,31 @@ public class AccountingService {
     private AccountingPeriod sourcePeriod(Instant occurred) {
         if (occurred == null) throw error(HttpStatus.CONFLICT, "Chứng từ thiếu thời điểm phát sinh");
         List<BusinessTaxProfile> profiles = profileRepository.findAllForUpdate(StoreService.STORE_ID);
-        List<Instant> starts = profiles.stream().map(BusinessTaxProfile::getTrackingStartedAt)
-                .filter(Objects::nonNull).distinct().toList();
-        // POS keeps working before accounting is configured. Period sync later fills these sources.
-        if (starts.isEmpty()) return null;
-        if (starts.size() != 1) throw error(HttpStatus.CONFLICT, "Các hồ sơ chưa thống nhất mốc theo dõi");
-        Instant start = starts.getFirst();
-        if (occurred.isBefore(start)) return null;
         int year = occurred.atZone(StoreService.TAX_ZONE).getYear();
         int month = occurred.atZone(StoreService.TAX_ZONE).getMonthValue();
         BusinessTaxProfile profile = profiles.stream()
                 .filter(p -> p.getTaxYear().equals(year) && !Boolean.TRUE.equals(p.getIsRemoved()))
-                .findFirst().orElseThrow(() -> error(HttpStatus.CONFLICT, "Cần tạo và xác nhận hồ sơ thuế năm phát sinh"));
-        requireReadyProfile(profile, profiles);
+                .findFirst().orElse(null);
+//        if (profile == null || !isReadyProfile(profile)) return null;
+//        if (occurred.isBefore(profile.getTrackingStartedAt())) return null;
+//        boolean periodExists = periodRepository.findAllForUpdate(profile.getId()).stream()
+//                .anyMatch(p -> p.getAccountingMonth().equals(month) && !Boolean.TRUE.equals(p.getIsRemoved()));
+//        if (!periodExists) return null;
         return requiredOpenPeriod(profile, month);
     }
 
-    private void requireReadyProfile(BusinessTaxProfile profile, List<BusinessTaxProfile> profiles) {
-        Instant start = profile.getTrackingStartedAt();
-        if (profile.getStatus() != ProfileStatus.CONFIRMED || start == null
-                || profile.getConfirmedBy() == null || profile.getConfirmedAt() == null
-                || start.isAfter(Instant.now())) {
-            throw error(HttpStatus.CONFLICT, "Cần hồ sơ đã xác nhận và mốc theo dõi nhất quán");
-        }
-    }
+//    private boolean isReadyProfile(BusinessTaxProfile profile) {
+//        Instant start = profile.getTrackingStartedAt();
+//        return profile.getStatus() == ProfileStatus.CONFIRMED && start != null
+//                && profile.getConfirmedBy() != null && profile.getConfirmedAt() != null
+//                && !start.isAfter(Instant.now());
+//    }
+
+//    private void requireReadyProfile(BusinessTaxProfile profile, List<BusinessTaxProfile> profiles) {
+//        if (!isReadyProfile(profile)) {
+//            throw error(HttpStatus.CONFLICT, "Cần hồ sơ đã xác nhận và mốc theo dõi nhất quán");
+//        }
+//    }
 
     private AccountingPeriod requiredOpenPeriod(BusinessTaxProfile profile, int month) {
         return requiredPeriod(profile, month, true);
@@ -796,7 +797,7 @@ public class AccountingService {
         BusinessTaxProfile profile = profiles.stream()
                 .filter(p -> p.getTaxYear().equals(year) && !Boolean.TRUE.equals(p.getIsRemoved())).findFirst()
                 .orElseThrow(() -> error(HttpStatus.NOT_FOUND, "Không tìm thấy hồ sơ năm"));
-        requireReadyProfile(profile, profiles);
+//        requireReadyProfile(profile, profiles);
         return profile;
     }
 

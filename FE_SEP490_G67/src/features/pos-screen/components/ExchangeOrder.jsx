@@ -471,7 +471,8 @@ export default function ExchangeOrder({ orderId: orderIdProp, embedded = false, 
                         availableQuantity: product.stockQuantity ?? 0
                     };
                 } else {
-                    setPosInfoError(`Không tải được vị trí để hàng của "${product.name}". Vui lòng thử lại.`);
+                    setPosInfoError(getApiErrorMessage(
+                        error, `Không tải được vị trí để hàng của "${product.name}". Vui lòng thử lại.`));
                     return;
                 }
             }

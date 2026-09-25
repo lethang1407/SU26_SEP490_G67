@@ -202,7 +202,7 @@ export default function SalesOrderDetailModal({ orderId, onClose }) {
                                         {data.isDebt && (
                                             <>
                                                 <TotalRow label="Đã thanh toán" value={formatVnd(data.paidAmount)} />
-                                                <TotalRow label="Còn nợ" value={formatVnd(data.remainingDebt)} />
+                                                {/* <TotalRow label="Còn nợ" value={formatVnd(data.remainingDebt)} /> */}
                                                 {data.dueDate && (
                                                     <TotalRow
                                                         label="Hạn trả nợ"

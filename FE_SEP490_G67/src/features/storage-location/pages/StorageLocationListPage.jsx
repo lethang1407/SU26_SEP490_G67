@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Spinner } from 'react-bootstrap';
 import { Plus, Settings2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import AdminHeader from '../../../components/ui/header-footer/Header';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 import AdjustStorageLocationModal from '../components/AdjustStorageLocationModal';
@@ -18,7 +18,7 @@ import StorageLocationGrid from '../components/StorageLocationGrid';
 import StorageLocationToolbar from '../components/StorageLocationToolbar';
 import ReturnHoldPanel from '../components/ReturnHoldPanel';
 import ZoneDetailModal from '../components/ZoneDetailModal';
-import { LOCATION_STATUS } from '../constants';
+import { LOCATION_STATUS, RETURN_HOLD_ANCHOR } from '../constants';
 import { IMPORT_RETURN_ROUTES } from '../../import-return/constants';
 import {
     filterStorageLocations,
@@ -71,6 +71,15 @@ export default function StorageLocationListPage() {
     const navigate = useNavigate();
     const [allLocations, setAllLocations] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    // Dashboard dẫn sang bằng #return-hold: đợi tải xong (khu đổi trả mới được vẽ) rồi cuộn
+    // xuống đúng một lần — các lần tải lại sau thao tác không được giật trang nữa.
+    const { hash } = useLocation();
+    const scrolledToAnchorRef = useRef(false);
+    useEffect(() => {
+        if (isLoading || scrolledToAnchorRef.current || hash !== `#${RETURN_HOLD_ANCHOR}`) return;
+        scrolledToAnchorRef.current = true;
+        document.getElementById(RETURN_HOLD_ANCHOR)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, [isLoading, hash]);
     const [error, setError] = useState(null);
     const [togglingFull, setTogglingFull] = useState(false);
 
