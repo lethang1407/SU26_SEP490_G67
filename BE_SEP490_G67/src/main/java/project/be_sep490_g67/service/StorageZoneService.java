@@ -43,15 +43,32 @@ public class StorageZoneService {
     public StorageZone ensureZoneExists(String rawCode) {
         String code = normalizeCode(rawCode);
         return storageZoneRepository.findByCodeIgnoreCaseAndIsRemovedFalse(code)
-                .orElseGet(() -> {
-                    StorageZone created = new StorageZone();
-                    created.setCode(code);
-                    created.setTitle(StorageZoneConstants.resolveZoneTitle(code));
-                    created.setZoneType(StorageZoneType.WAREHOUSE);
-                    created.setSortOrder(0);
-                    created.setIsRemoved(false);
-                    return storageZoneRepository.save(created);
-                });
+                .orElseGet(() -> createWarehouseZone(code, null));
+    }
+
+    /**
+     * Tạo khu WAREHOUSE mới. Ném lỗi nếu mã đã tồn tại.
+     */
+    @Transactional
+    public StorageZone createNewWarehouseZone(String rawCode, String title) {
+        String code = normalizeCode(rawCode);
+        if (storageZoneRepository.existsByCodeIgnoreCaseAndIsRemovedFalse(code)) {
+            throw new AppException(ErrorCode.STORAGE_ZONE_EXISTED);
+        }
+        return createWarehouseZone(code, title);
+    }
+
+    private StorageZone createWarehouseZone(String code, String title) {
+        StorageZone created = new StorageZone();
+        created.setCode(code);
+        String resolvedTitle = title == null || title.isBlank()
+                ? StorageZoneConstants.resolveZoneTitle(code)
+                : title.trim();
+        created.setTitle(resolvedTitle);
+        created.setZoneType(StorageZoneType.WAREHOUSE);
+        created.setSortOrder(0);
+        created.setIsRemoved(false);
+        return storageZoneRepository.save(created);
     }
 
     @Transactional(readOnly = true)

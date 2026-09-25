@@ -8,9 +8,12 @@ import org.springframework.transaction.annotation.Transactional;
 import project.be_sep490_g67.constants.StorageLocationConstants;
 import project.be_sep490_g67.constants.StorageZoneConstants;
 import project.be_sep490_g67.constants.StorageZoneType;
+import project.be_sep490_g67.dto.request.AppendStorageBinRequest;
+import project.be_sep490_g67.dto.request.AppendStorageFloorRequest;
 import project.be_sep490_g67.dto.request.AssignBatchRequest;
 import project.be_sep490_g67.dto.request.CancelReturnHoldRequest;
 import project.be_sep490_g67.dto.request.CreateStorageLocationRequest;
+import project.be_sep490_g67.dto.request.CreateStorageRackRequest;
 import project.be_sep490_g67.dto.request.MoveAllBatchesRequest;
 import project.be_sep490_g67.dto.request.MoveBatchRequest;
 import project.be_sep490_g67.dto.request.ReleaseReturnHoldRequest;
@@ -38,6 +41,7 @@ import project.be_sep490_g67.repository.StorageLocationRepository;
 import project.be_sep490_g67.utils.StockBatchUtils;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -145,6 +149,199 @@ public class StorageLocationService {
         location.setIsRemoved(false);
 
         return toResponse(storageLocationRepository.save(location));
+    }
+
+    @Transactional
+    public List<StorageLocationResponse> createRack(CreateStorageRackRequest request) {
+        String zoneCode = request.getZone().trim().toUpperCase();
+        assertZoneCodeAllowed(zoneCode);
+
+        String size = StorageLocationConstants.normalizeSize(request.getSize());
+        if (!StorageLocationConstants.isValidSize(size)) {
+            throw new AppException(ErrorCode.INVALID_STORAGE_LOCATION_SIZE);
+        }
+
+        int floorCount = request.getFloorCount();
+        int binCount = request.getBinCount();
+        String description = trimToNull(request.getDescription());
+
+        StorageZone zoneEntity = storageZoneService.createNewWarehouseZone(zoneCode, request.getTitle());
+
+        List<StorageLocation> created = new ArrayList<>(floorCount * binCount);
+        for (int floor = 1; floor <= floorCount; floor++) {
+            for (int bin = 1; bin <= binCount; bin++) {
+                created.add(buildSlotLocation(
+                        zoneEntity,
+                        String.valueOf(floor),
+                        String.valueOf(bin),
+                        size,
+                        description));
+            }
+        }
+        return storageLocationRepository.saveAll(created).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional
+    public List<StorageLocationResponse> appendFloor(AppendStorageFloorRequest request) {
+        String zoneCode = request.getZone().trim().toUpperCase();
+        StorageZone zoneEntity = requireExtendableZone(zoneCode);
+
+        List<StorageLocation> existing =
+                storageLocationRepository.findByStorageZone_CodeIgnoreCaseAndIsRemovedFalse(zoneCode);
+        int nextFloor = maxNumericShelf(existing) + 1;
+        if (nextFloor > StorageLocationConstants.MAX_FLOOR) {
+            throw new AppException(ErrorCode.STORAGE_FLOOR_LIMIT_REACHED);
+        }
+
+        String size = resolveSizeOrFallback(request.getSize(), lastSizeOnZone(existing));
+        StorageLocation created = buildSlotLocation(
+                zoneEntity,
+                String.valueOf(nextFloor),
+                "1",
+                size,
+                trimToNull(request.getDescription()));
+        return List.of(toResponse(storageLocationRepository.save(created)));
+    }
+
+    @Transactional
+    public StorageLocationResponse appendBin(AppendStorageBinRequest request) {
+        String zoneCode = request.getZone().trim().toUpperCase();
+        String shelf = request.getShelf().trim();
+        StorageZone zoneEntity = requireExtendableZone(zoneCode);
+
+        List<StorageLocation> onFloor = storageLocationRepository
+                .findByStorageZone_CodeIgnoreCaseAndIsRemovedFalse(zoneCode)
+                .stream()
+                .filter(loc -> shelf.equals(trimToNull(loc.getShelf())))
+                .toList();
+        if (onFloor.isEmpty()) {
+            throw new AppException(ErrorCode.STORAGE_FLOOR_NOT_FOUND);
+        }
+
+        int nextBin = maxNumericBin(onFloor) + 1;
+        if (nextBin > StorageLocationConstants.MAX_BIN) {
+            throw new AppException(ErrorCode.STORAGE_BIN_LIMIT_REACHED);
+        }
+
+        String size = resolveSizeOrFallback(request.getSize(), lastSizeOnFloor(onFloor));
+        StorageLocation created = buildSlotLocation(
+                zoneEntity,
+                shelf,
+                String.valueOf(nextBin),
+                size,
+                trimToNull(request.getDescription()));
+        return toResponse(storageLocationRepository.save(created));
+    }
+
+    private StorageZone requireExtendableZone(String zoneCode) {
+        assertZoneCodeAllowed(zoneCode);
+        StorageZone zoneEntity = storageZoneService.getRequiredByCode(zoneCode);
+        if (storageZoneService.isReturnHoldZone(zoneEntity)) {
+            throw new AppException(ErrorCode.STORAGE_RETURN_HOLD_LOCKED);
+        }
+        return zoneEntity;
+    }
+
+    private void assertZoneCodeAllowed(String zoneCode) {
+        if (StorageZoneType.RECEIVING_ZONE_CODE.equalsIgnoreCase(zoneCode)
+                || StorageZoneType.RETURN_HOLD_ZONE_CODE.equalsIgnoreCase(zoneCode)) {
+            throw new AppException(ErrorCode.STORAGE_RETURN_HOLD_LOCKED);
+        }
+    }
+
+    private StorageLocation buildSlotLocation(
+            StorageZone zoneEntity,
+            String shelf,
+            String bin,
+            String size,
+            String description) {
+        String label = StorageLocationConstants.buildLabel(zoneEntity.getCode(), shelf, bin);
+        if (storageLocationRepository.existsByLabelIgnoreCaseAndIsRemovedFalse(label)
+                || storageLocationRepository.existsByStorageZone_CodeIgnoreCaseAndShelfAndBinAndIsRemovedFalse(
+                        zoneEntity.getCode(), shelf, bin)) {
+            throw new AppException(ErrorCode.STORAGE_LOCATION_SLOT_EXISTED);
+        }
+
+        StorageLocation location = new StorageLocation();
+        location.setStorageZone(zoneEntity);
+        location.setLabel(label);
+        location.setAisle(null);
+        location.setShelf(shelf);
+        location.setBin(bin);
+        location.setSize(size);
+        location.setDescription(description);
+        location.setIsFull(false);
+        location.setIsActive(true);
+        location.setIsRemoved(false);
+        return location;
+    }
+
+    private String resolveSizeOrFallback(String requestedSize, String fallback) {
+        if (requestedSize != null && !requestedSize.isBlank()) {
+            String size = StorageLocationConstants.normalizeSize(requestedSize);
+            if (!StorageLocationConstants.isValidSize(size)) {
+                throw new AppException(ErrorCode.INVALID_STORAGE_LOCATION_SIZE);
+            }
+            return size;
+        }
+        if (fallback != null && StorageLocationConstants.isValidSize(fallback)) {
+            return StorageLocationConstants.normalizeSize(fallback);
+        }
+        return StorageLocationConstants.SIZE_MD;
+    }
+
+    private int maxNumericShelf(List<StorageLocation> locations) {
+        return locations.stream()
+                .map(StorageLocation::getShelf)
+                .map(this::parsePositiveInt)
+                .filter(Objects::nonNull)
+                .max(Integer::compareTo)
+                .orElse(0);
+    }
+
+    private int maxNumericBin(List<StorageLocation> locations) {
+        return locations.stream()
+                .map(StorageLocation::getBin)
+                .map(this::parsePositiveInt)
+                .filter(Objects::nonNull)
+                .max(Integer::compareTo)
+                .orElse(0);
+    }
+
+    private String lastSizeOnZone(List<StorageLocation> locations) {
+        return locations.stream()
+                .sorted(Comparator
+                        .comparing((StorageLocation loc) -> parsePositiveInt(loc.getShelf()),
+                                Comparator.nullsLast(Integer::compareTo))
+                        .thenComparing(loc -> parsePositiveInt(loc.getBin()),
+                                Comparator.nullsLast(Integer::compareTo)))
+                .reduce((a, b) -> b)
+                .map(StorageLocation::getSize)
+                .orElse(null);
+    }
+
+    private String lastSizeOnFloor(List<StorageLocation> onFloor) {
+        return onFloor.stream()
+                .sorted(Comparator.comparing(
+                        loc -> parsePositiveInt(loc.getBin()),
+                        Comparator.nullsLast(Integer::compareTo)))
+                .reduce((a, b) -> b)
+                .map(StorageLocation::getSize)
+                .orElse(null);
+    }
+
+    private Integer parsePositiveInt(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            int value = Integer.parseInt(raw.trim());
+            return value > 0 ? value : null;
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     @Transactional

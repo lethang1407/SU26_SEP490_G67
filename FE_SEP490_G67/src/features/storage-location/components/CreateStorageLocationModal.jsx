@@ -1,152 +1,26 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Form, Modal, Spinner } from 'react-bootstrap';
-import { ChevronDown } from 'lucide-react';
-import { createStorageLocation, fetchStorageZones } from '../api';
-import { RECEIVING_ZONE_CODE, SHELF_SIZE_OPTIONS, ZONE_TYPE, normalizeZoneType } from '../constants';
-import { buildLocationLabel } from '../utils/storageLocationUtils';
+import { createStorageRack, fetchStorageZones } from '../api';
+import { RECEIVING_ZONE_CODE, RETURN_HOLD_ZONE_CODE, SHELF_SIZE_OPTIONS, ZONE_TYPE, normalizeZoneType } from '../constants';
 import { getApiErrorMessage } from '../../../utils/api-utils';
 
 const EMPTY_FORM = {
     zone: '',
-    shelf: '',
-    bin: '',
+    title: '',
+    floorCount: '1',
+    binCount: '1',
     size: 'MD',
-    label: '',
     description: '',
 };
 
-function ZoneCombobox({ value, onChange, options, disabled }) {
-    const [open, setOpen] = useState(false);
-    const wrapRef = useRef(null);
-    const inputRef = useRef(null);
-
-    const filtered = useMemo(() => {
-        const q = String(value ?? '').trim().toUpperCase();
-        if (!q) return options;
-        return options.filter((zone) => zone.includes(q));
-    }, [options, value]);
-
-    useEffect(() => {
-        if (!open) return undefined;
-        const onDocMouseDown = (event) => {
-            if (wrapRef.current && !wrapRef.current.contains(event.target)) {
-                setOpen(false);
-            }
-        };
-        const onKeyDown = (event) => {
-            if (event.key === 'Escape') setOpen(false);
-        };
-        document.addEventListener('mousedown', onDocMouseDown);
-        document.addEventListener('keydown', onKeyDown);
-        return () => {
-            document.removeEventListener('mousedown', onDocMouseDown);
-            document.removeEventListener('keydown', onKeyDown);
-        };
-    }, [open]);
-
-    const selectZone = (zone) => {
-        onChange(zone);
-        setOpen(false);
-        inputRef.current?.focus();
-    };
-
-    return (
-        <div className="storage-zone-combobox" ref={wrapRef}>
-            <div className="storage-zone-combobox__control">
-                <Form.Control
-                    ref={inputRef}
-                    type="text"
-                    name="zone"
-                    value={value}
-                    disabled={disabled}
-                    onChange={(event) => {
-                        onChange(event.target.value);
-                        setOpen(true);
-                    }}
-                    onFocus={() => setOpen(true)}
-                    placeholder=""
-                    maxLength={50}
-                    autoComplete="off"
-                    aria-autocomplete="list"
-                    aria-expanded={open}
-                    role="combobox"
-                />
-                <button
-                    type="button"
-                    className="storage-zone-combobox__toggle"
-                    disabled={disabled || options.length === 0}
-                    aria-label="Hiện danh sách khu"
-                    tabIndex={-1}
-                    onClick={() => {
-                        setOpen((prev) => !prev);
-                        inputRef.current?.focus();
-                    }}
-                >
-                    <ChevronDown size={16} />
-                </button>
-            </div>
-
-            {open && (
-                <div className="storage-zone-combobox__panel" role="listbox">
-                    {filtered.length === 0 ? (
-                        <div className="storage-zone-combobox__empty">
-                            {options.length === 0
-                                ? 'Chưa có khu nào — nhập mã khu mới'
-                                : `Không khớp “${value}” — vẫn có thể dùng mã này`}
-                        </div>
-                    ) : (
-                        filtered.map((zone) => (
-                            <button
-                                key={zone}
-                                type="button"
-                                role="option"
-                                className={[
-                                    'storage-zone-combobox__option',
-                                    String(value).trim().toUpperCase() === zone
-                                        ? 'storage-zone-combobox__option--active'
-                                        : '',
-                                ]
-                                    .filter(Boolean)
-                                    .join(' ')}
-                                onMouseDown={(event) => event.preventDefault()}
-                                onClick={() => selectZone(zone)}
-                            >
-                                Khu {zone}
-                            </button>
-                        ))
-                    )}
-                </div>
-            )}
-        </div>
-    );
-}
+const MAX_FLOOR = 10;
+const MAX_BIN = 10;
 
 export default function CreateStorageLocationModal({ show, onHide, onSuccess, existingZones = [] }) {
     const [formData, setFormData] = useState(EMPTY_FORM);
-    const [labelTouched, setLabelTouched] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState(null);
     const [apiZones, setApiZones] = useState([]);
-
-    const suggestedLabel = useMemo(() => {
-        if (!formData.shelf.trim() || !formData.bin.trim()) {
-            return '';
-        }
-        return buildLocationLabel({
-            zone: formData.zone,
-            shelf: formData.shelf,
-            bin: formData.bin,
-        });
-    }, [formData.zone, formData.shelf, formData.bin]);
-
-    useEffect(() => {
-        if (!labelTouched && suggestedLabel) {
-            setFormData((prev) => ({
-                ...prev,
-                label: suggestedLabel,
-            }));
-        }
-    }, [suggestedLabel, labelTouched]);
 
     useEffect(() => {
         if (!show) return undefined;
@@ -168,41 +42,48 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
         };
     }, [show]);
 
-    const zoneOptions = useMemo(() => {
+    const takenZones = useMemo(() => {
         const zones = new Set();
         existingZones.forEach((zone) => {
             const code = String(zone ?? '').trim().toUpperCase();
-            if (code && code !== RECEIVING_ZONE_CODE) zones.add(code);
+            if (code) zones.add(code);
         });
         apiZones.forEach((zone) => {
             const code = String(zone ?? '').trim().toUpperCase();
-            if (code && code !== RECEIVING_ZONE_CODE) zones.add(code);
+            if (code) zones.add(code);
         });
-        return [...zones].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        zones.add(RECEIVING_ZONE_CODE);
+        zones.add(RETURN_HOLD_ZONE_CODE);
+        return zones;
     }, [existingZones, apiZones]);
+
+    const previewCount = useMemo(() => {
+        const floors = Number(formData.floorCount);
+        const bins = Number(formData.binCount);
+        if (!Number.isFinite(floors) || !Number.isFinite(bins) || floors < 1 || bins < 1) {
+            return 0;
+        }
+        return floors * bins;
+    }, [formData.floorCount, formData.binCount]);
 
     const handleChange = (event) => {
         const { name, value } = event.target;
-        if (name === 'label') {
-            setLabelTouched(true);
-        }
         let nextValue = value;
-        if (name === 'bin' && nextValue !== '') {
+        if (name === 'zone') {
+            nextValue = value.toUpperCase();
+        }
+        if ((name === 'floorCount' || name === 'binCount') && nextValue !== '') {
             const num = Number(nextValue);
-            if (Number.isFinite(num) && num > 10) {
-                nextValue = '10';
+            const max = name === 'floorCount' ? MAX_FLOOR : MAX_BIN;
+            if (Number.isFinite(num) && num > max) {
+                nextValue = String(max);
             }
         }
         setFormData((prev) => ({ ...prev, [name]: nextValue }));
     };
 
-    const handleZoneChange = (value) => {
-        setFormData((prev) => ({ ...prev, zone: value }));
-    };
-
     const handleHide = () => {
         setFormData(EMPTY_FORM);
-        setLabelTouched(false);
         setError(null);
         onHide();
     };
@@ -212,57 +93,47 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
         setError(null);
         setIsSubmitting(true);
 
-        const shelf = formData.shelf.trim();
-        const bin = formData.bin.trim();
-        const label = (formData.label || suggestedLabel).trim();
+        const zone = formData.zone.trim().toUpperCase();
+        const floorCount = Number(formData.floorCount);
+        const binCount = Number(formData.binCount);
+
+        if (!zone) {
+            setError('Vui lòng nhập mã khu.');
+            setIsSubmitting(false);
+            return;
+        }
+        if (takenZones.has(zone)) {
+            setError('Mã khu đã tồn tại. Hãy dùng mã khác hoặc mở rộng trong chi tiết khu.');
+            setIsSubmitting(false);
+            return;
+        }
+        if (!Number.isInteger(floorCount) || floorCount < 1 || floorCount > MAX_FLOOR) {
+            setError(`Số tầng phải từ 1 đến ${MAX_FLOOR}.`);
+            setIsSubmitting(false);
+            return;
+        }
+        if (!Number.isInteger(binCount) || binCount < 1 || binCount > MAX_BIN) {
+            setError(`Số ô mỗi tầng phải từ 1 đến ${MAX_BIN}.`);
+            setIsSubmitting(false);
+            return;
+        }
 
         const payload = {
-            zone: formData.zone.trim().toUpperCase(),
-            shelf: shelf || undefined,
-            bin: bin || undefined,
+            zone,
+            title: formData.title.trim() || undefined,
+            floorCount,
+            binCount,
             size: formData.size || 'MD',
-            label: label || undefined,
             description: formData.description.trim() || undefined,
         };
 
-        if (!payload.zone) {
-            setError('Vui lòng nhập khu vực.');
-            setIsSubmitting(false);
-            return;
-        }
-        if (Boolean(shelf) !== Boolean(bin)) {
-            setError('Tầng và số ô phải nhập cùng nhau hoặc để trống cả hai.');
-            setIsSubmitting(false);
-            return;
-        }
-        if (shelf && !/^[1-9]\d*$/.test(shelf)) {
-            setError('Tầng phải là số nguyên dương (1, 2, 3...).');
-            setIsSubmitting(false);
-            return;
-        }
-        if (bin && !/^[1-9]\d*$/.test(bin)) {
-            setError('Số ô phải là số nguyên dương, bắt đầu từ 1 trên mỗi tầng.');
-            setIsSubmitting(false);
-            return;
-        }
-        if (bin && Number(bin) > 10) {
-            setError('Số ô tối đa là 10.');
-            setIsSubmitting(false);
-            return;
-        }
-        if (!payload.label) {
-            setError('Vui lòng nhập mã vị trí (ví dụ: QUAY-1, BAN-NUOC).');
-            setIsSubmitting(false);
-            return;
-        }
-
         try {
-            const created = await createStorageLocation(payload);
+            const created = await createStorageRack(payload);
             onSuccess?.(created);
             handleHide();
         } catch (submitError) {
             setError(
-                getApiErrorMessage(submitError, 'Không thể tạo vị trí kho. Vui lòng thử lại.'),
+                getApiErrorMessage(submitError, 'Không thể tạo khu kệ. Vui lòng thử lại.'),
             );
         } finally {
             setIsSubmitting(false);
@@ -272,7 +143,7 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
     return (
         <Modal show={show} onHide={handleHide} centered className="storage-location-modal">
             <Modal.Header closeButton>
-                <Modal.Title>Thêm vị trí kho</Modal.Title>
+                <Modal.Title>Thêm khu kệ</Modal.Title>
             </Modal.Header>
 
             <Form onSubmit={handleSubmit}>
@@ -280,90 +151,106 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
                     {error && <Alert variant="danger">{error}</Alert>}
 
                     <div className="storage-location-modal__row">
-                        <Form.Group className="storage-location-modal__field" controlId="locationZone">
-                            <Form.Label>Khu vực</Form.Label>
-                            <ZoneCombobox
+                        <Form.Group className="storage-location-modal__field" controlId="rackZone">
+                            <Form.Label>Mã khu</Form.Label>
+                            <Form.Control
+                                type="text"
+                                name="zone"
                                 value={formData.zone}
-                                onChange={handleZoneChange}
-                                options={zoneOptions}
+                                onChange={handleChange}
+                                placeholder="Ví dụ: NM, A, B"
+                                maxLength={50}
                                 disabled={isSubmitting}
+                                autoComplete="off"
                             />
                         </Form.Group>
 
-                        <Form.Group className="storage-location-modal__field" controlId="locationShelf">
-                            <Form.Label>Tầng</Form.Label>
+                        <Form.Group className="storage-location-modal__field" controlId="rackTitle">
+                            <Form.Label>Tên khu</Form.Label>
                             <Form.Control
-                                type="number"
-                                min={1}
-                                step={1}
-                                name="shelf"
-                                value={formData.shelf}
+                                type="text"
+                                name="title"
+                                value={formData.title}
                                 onChange={handleChange}
-                                placeholder="Tuỳ chọn"
+                                placeholder="Ví dụ: Nước mắm"
+                                maxLength={200}
+                                disabled={isSubmitting}
                             />
                         </Form.Group>
                     </div>
 
                     <div className="storage-location-modal__row">
-                        <Form.Group className="storage-location-modal__field" controlId="locationBin">
-                            <Form.Label>Số ô</Form.Label>
+                        <Form.Group className="storage-location-modal__field" controlId="rackFloorCount">
+                            <Form.Label>Số tầng</Form.Label>
                             <Form.Control
                                 type="number"
                                 min={1}
-                                max={10}
+                                max={MAX_FLOOR}
                                 step={1}
-                                name="bin"
-                                value={formData.bin}
+                                name="floorCount"
+                                value={formData.floorCount}
                                 onChange={handleChange}
-                                placeholder="Tuỳ chọn (tối đa 10)"
+                                disabled={isSubmitting}
                             />
+                            <Form.Text className="text-muted">Tối đa {MAX_FLOOR} tầng</Form.Text>
                         </Form.Group>
 
-                        <Form.Group className="storage-location-modal__field" controlId="locationSize">
-                            <Form.Label>Kích thước</Form.Label>
-                            <Form.Select
-                                name="size"
-                                value={formData.size}
+                        <Form.Group className="storage-location-modal__field" controlId="rackBinCount">
+                            <Form.Label>Số ô mỗi tầng</Form.Label>
+                            <Form.Control
+                                type="number"
+                                min={1}
+                                max={MAX_BIN}
+                                step={1}
+                                name="binCount"
+                                value={formData.binCount}
                                 onChange={handleChange}
-                            >
-                                {SHELF_SIZE_OPTIONS.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                        {option.label}
-                                    </option>
-                                ))}
-                            </Form.Select>
+                                disabled={isSubmitting}
+                            />
+                            <Form.Text className="text-muted">Tối đa {MAX_BIN} ô/tầng</Form.Text>
                         </Form.Group>
                     </div>
 
-                    <Form.Group className="mb-3" controlId="locationLabel">
-                        <Form.Label>Mã vị trí</Form.Label>
-                        <Form.Control
-                            type="text"
-                            name="label"
-                            value={formData.label}
+                    <Form.Group className="mb-3" controlId="rackSize">
+                        <Form.Label>Kích thước ô</Form.Label>
+                        <Form.Select
+                            name="size"
+                            value={formData.size}
                             onChange={handleChange}
-                            placeholder="Ví dụ: QUAY-1, BAN-NUOC"
-                            maxLength={50}
-                        />
-                        {!labelTouched && suggestedLabel && (
-                            <Form.Text className="text-muted">
-                                Tự động gợi ý: {suggestedLabel}
-                            </Form.Text>
-                        )}
+                            disabled={isSubmitting}
+                        >
+                            {SHELF_SIZE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
+                        </Form.Select>
                     </Form.Group>
 
-                    <Form.Group controlId="locationDescription">
+                    <Form.Group className="mb-3" controlId="rackDescription">
                         <Form.Label>Mô tả</Form.Label>
                         <Form.Control
                             as="textarea"
-                            rows={3}
+                            rows={2}
                             name="description"
                             value={formData.description}
                             onChange={handleChange}
-                            placeholder="Ví dụ: Quầy nước ngọt gần lối vào"
+                            placeholder="Tuỳ chọn"
                             maxLength={255}
+                            disabled={isSubmitting}
                         />
                     </Form.Group>
+
+                    {previewCount > 0 && (
+                        <Alert variant="light" className="mb-0">
+                            Sẽ tạo {formData.floorCount} tầng × {formData.binCount} ô ={' '}
+                            <strong>{previewCount}</strong> vị trí
+                            {formData.zone.trim()
+                                ? ` (${formData.zone.trim().toUpperCase()}-T1-O1 …)`
+                                : ''}
+                            .
+                        </Alert>
+                    )}
                 </Modal.Body>
 
                 <Modal.Footer>
@@ -383,7 +270,7 @@ export default function CreateStorageLocationModal({ show, onHide, onSuccess, ex
                                 Đang lưu...
                             </>
                         ) : (
-                            'Thêm vị trí'
+                            'Thêm khu kệ'
                         )}
                     </Button>
                 </Modal.Footer>
