@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ImagePlus, Plus, Search, X } from 'lucide-react';
+import { ImagePlus, Phone, Plus, Search, X } from 'lucide-react';
 import { suppliersApi } from '../../supplier/api';
 import { formatCurrency, formatMoneyInput, parseMoneyInput } from '../utils/importOrderUtils';
 
@@ -14,6 +14,20 @@ function mapSupplierOption(item) {
         phoneNumber: item.phoneNumber || '',
         notes: item.notes || '',
     };
+}
+
+function SupplierOptionLabel({ item }) {
+    return (
+        <>
+            <strong>{item.name}</strong>
+            {item.phoneNumber ? (
+                <span className="ioc-sidebar__option-phone">
+                    <Phone size={12} />
+                    {item.phoneNumber}
+                </span>
+            ) : null}
+        </>
+    );
 }
 
 export default function ImportOrderCreateSidebar({
@@ -160,7 +174,7 @@ export default function ImportOrderCreateSidebar({
                                                         handleSelectSupplier(item);
                                                     }}
                                                 >
-                                                    <strong>{item.name}</strong>
+                                                    <SupplierOptionLabel item={item} />
                                                 </button>
                                             ))
                                         )
@@ -179,7 +193,7 @@ export default function ImportOrderCreateSidebar({
                                                     handleSelectSupplier(item);
                                                 }}
                                             >
-                                                <strong>{item.name}</strong>
+                                                <SupplierOptionLabel item={item} />
                                             </button>
                                         ))
                                     )}
