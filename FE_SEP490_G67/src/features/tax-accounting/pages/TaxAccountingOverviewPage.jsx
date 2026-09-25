@@ -609,7 +609,8 @@ export default function TaxAccountingOverviewPage() {
   const information = getProfileInformation(profile);
   const confirmed = profile?.status === 'CONFIRMED';
   const declared = taxRecord?.declarationStatus === 'DECLARED';
-  const trackedRevenue = Number(taxRecord?.revenueBase ?? summary?.recordedRevenue ?? 0);
+  // Tổng doanh thu đối chiếu là nguồn quyết định phạm vi hỗ trợ; không dùng TaxRecord cũ để bỏ sót việc vượt ngưỡng.
+  const trackedRevenue = Number(summary?.recordedRevenue ?? taxRecord?.revenueBase ?? 0);
   const outOfScope = trackedRevenue > 1000000000;
   const declarationPreviewLocked = outOfScope;
   const summaryMonths = Array.isArray(summary?.months) ? summary.months : [];
@@ -649,7 +650,7 @@ export default function TaxAccountingOverviewPage() {
 
           {error && <div className="tax-accounting-alert tax-accounting-alert--danger"><AlertCircle size={18} /> <span>{error}</span></div>}
           {trackingIsPartial && <div className="tax-accounting-alert tax-accounting-alert--warning"><AlertCircle size={18} /> Doanh thu chỉ được tính từ mốc bắt đầu theo dõi.</div>}
-          {outOfScope && <div className="tax-accounting-alert tax-accounting-alert--warning tax-accounting-alert--scope"><AlertCircle size={18} /><div><strong>Doanh thu đã vượt 1 tỷ đồng</strong><p>Hệ thống hiện chưa hỗ trợ kê khai thuế cho trường hợp này. Các thao tác thuế đã được khóa; bạn vẫn có thể xem báo cáo và xuất sổ S1a để xử lý bên ngoài hệ thống.</p></div></div>}
+          {outOfScope && <div className="tax-accounting-alert tax-accounting-alert--warning tax-accounting-alert--scope"><AlertCircle size={18} /><div><strong>Vượt mức kê khai của hộ kinh doanh dưới 1 tỷ đồng</strong><p>Doanh thu năm đã vượt 1 tỷ đồng nên hệ thống không tính thuế và không hỗ trợ kê khai 01/TKN-CNKD cho năm này.</p></div></div>}
 
           {loading ? (
             <div className="tax-accounting-loading">Đang tải dữ liệu năm {year}...</div>
@@ -702,7 +703,7 @@ export default function TaxAccountingOverviewPage() {
                 <article className="tax-accounting-panel">
                   <div className="tax-accounting-panel__heading"><CheckCircle2 size={18} /><h2>Kê khai thuế</h2></div>
                     {taxRecordError && <div className="tax-accounting-alert tax-accounting-alert--danger tax-accounting-alert--inline"><AlertCircle size={18} /> <span>{taxRecordError}</span></div>}
-                  {outOfScope ? <div className="tax-accounting-empty"><p>Không hiển thị số thuế tự tính vì năm này đã vượt phạm vi hỗ trợ 1 tỷ đồng.</p></div> : !taxRecord ? <div className="tax-accounting-empty"><p>Chưa có kết quả tính thuế cho năm {year}.</p></div> : <>
+                  {outOfScope ? <div className="tax-accounting-empty"><p>Vượt mức kê khai cho hộ kinh doanh dưới 1 tỷ đồng. Hệ thống không tính và không hiển thị nghĩa vụ thuế năm.</p></div> : !taxRecord ? <div className="tax-accounting-empty"><p>Chưa có kết quả tính thuế cho năm {year}.</p></div> : <>
                     <div className="tax-accounting-report-result">
                       <div><span>Doanh thu tính thuế</span><strong>{formatMoney(taxRecord.revenueBase)}</strong></div>
                       <div><span>Tổng thuế</span><strong>{formatMoney(taxRecord.totalTaxAmount)}</strong></div>
