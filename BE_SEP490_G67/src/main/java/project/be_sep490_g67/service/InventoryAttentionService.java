@@ -48,9 +48,8 @@ public class InventoryAttentionService {
     static final String SEVERITY_ORANGE = "ORANGE";
     static final String SEVERITY_YELLOW = "YELLOW";
 
-    /** Mọi tình trạng không bán lại được đều nằm chờ trong khu đổi trả. */
-    static final List<String> NON_SELLABLE_CONDITIONS = Arrays.stream(ItemCondition.values())
-            .filter(condition -> !condition.isSellable())
+    /** Mọi tình trạng hàng khách trả đều chờ xử lý ở khu đổi trả (kể cả nguyên vẹn). */
+    static final List<String> AWAITING_RETURN_CONDITIONS = Arrays.stream(ItemCondition.values())
             .map(Enum::name)
             .toList();
 
@@ -198,7 +197,7 @@ public class InventoryAttentionService {
      */
     private InventoryAttentionGroupResponse buildReturnHoldGroup(AlertThresholdConfig config) {
         List<ReturnOrderDetail> waiting =
-                returnOrderDetailRepository.findAwaitingProcessing(NON_SELLABLE_CONDITIONS);
+                returnOrderDetailRepository.findAwaitingProcessing(AWAITING_RETURN_CONDITIONS);
 
         if (waiting.isEmpty()) {
             return InventoryAttentionGroupResponse.builder()
@@ -243,7 +242,7 @@ public class InventoryAttentionService {
 
     @Transactional(readOnly = true)
     public List<ReturnHoldLineResponse> getReturnHoldLines() {
-        return returnOrderDetailRepository.findAwaitingProcessing(NON_SELLABLE_CONDITIONS).stream()
+        return returnOrderDetailRepository.findAwaitingProcessing(AWAITING_RETURN_CONDITIONS).stream()
                 .map(line -> {
                     Product product = line.getProduct();
                     return ReturnHoldLineResponse.builder()
@@ -281,6 +280,7 @@ public class InventoryAttentionService {
             return "Không rõ";
         }
         return switch (itemCondition) {
+            case "RESELLABLE" -> "Nguyên vẹn";
             case "DAMAGED" -> "Hỏng";
             case "EXPIRED" -> "Hết hạn";
             case "OPENED" -> "Đã mở";

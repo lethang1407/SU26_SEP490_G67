@@ -123,7 +123,7 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, In
 
     /**
      * Giá vốn của hàng khách trả trong kỳ, cộng lại vào kho: Σ(quantityDelta × costPerUnit).
-     * Tính cả RETURN (hàng bán lại được) lẫn RETURN_HOLD_IN (hàng lỗi vào khu đổi trả),
+     * Tính RETURN (luồng cũ: nguyên vẹn về thẳng kệ) và RETURN_HOLD_IN (vào khu đổi trả),
      * vì doanh thu đã trừ toàn bộ refund của cả hai loại.
      */
     @Query("""

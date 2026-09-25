@@ -178,8 +178,7 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
     Long sumOnHandByProductId(@Param("productId") Integer productId);
 
     /**
-     * Ô đang giữ nhiều hàng nhất của lô - dùng khi nhập hàng trả bán lại được về kho.
-     * Loại khu RT để hàng RESELLABLE không bị nhập ngược vào chỗ chứa hàng hỏng.
+     * Ô đang giữ nhiều hàng nhất của lô (ngoài khu đổi trả).
      */
     @Query("""
             SELECT bl FROM BatchLocation bl

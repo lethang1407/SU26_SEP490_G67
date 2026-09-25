@@ -485,13 +485,24 @@
 }
 .import-return-main-panel {
     padding: 0;
-    overflow: hidden;
+    /* Không dùng overflow:hidden — sẽ cắt dropdown tìm sản phẩm */
+    overflow: visible;
 }
 .import-return-main-panel__search {
     padding: 16px;
+    position: relative;
+    z-index: 30;
+}
+.import-return-main-panel__search .ioc-search__dropdown {
+    z-index: 40;
+    max-height: min(320px, 50vh);
 }
 .import-return-main-panel__table {
     border-top: 1px solid #e2e8f0;
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+    border-radius: 0 0 6px 6px;
 }
 .import-return-main-panel__table .import-return-table-wrap {
     border: none;
