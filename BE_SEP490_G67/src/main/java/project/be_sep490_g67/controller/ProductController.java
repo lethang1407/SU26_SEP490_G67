@@ -73,8 +73,11 @@ public class ProductController {
      * GET /api/products/search?q={query}
      */
     @GetMapping("/search")
-    ApiResponse<List<ProductSearchResponse>> searchByName(@RequestParam("q") String query) {
-        List<ProductSearchResponse> results = productService.searchByNameAndBarcode(query);
+    ApiResponse<List<ProductSearchResponse>> searchByName(
+            @RequestParam("q") String query,
+            // POS gửi true để ẩn hàng ngừng kinh doanh; kiểm kho / nhập hàng vẫn cần thấy chúng.
+            @RequestParam(value = "sellableOnly", defaultValue = "false") boolean sellableOnly) {
+        List<ProductSearchResponse> results = productService.searchByNameAndBarcode(query, sellableOnly);
         return ApiResponse.<List<ProductSearchResponse>>builder()
                 .result(results)
                 .build();

@@ -25,6 +25,7 @@ export default function SalesOrderHistoryModal({ onClose, onExchange, mode = 'ex
         orders, total, totalPages, page, setPage,
         search, setSearch,
         dateFilter, setDateFilter,
+        searchAllDates,
         customFrom, setCustomFrom,
         customTo, setCustomTo,
         resetFilters,
@@ -128,20 +129,23 @@ export default function SalesOrderHistoryModal({ onClose, onExchange, mode = 'ex
                             {DATE_FILTERS.map(({ key, label }) => (
                                 <button
                                     key={key}
-                                    className={`hist-pill ${dateFilter === key ? 'active' : ''}`}
+                                    className={`hist-pill ${dateFilter === key && !searchAllDates ? 'active' : ''}`}
                                     onClick={() => setDateFilter(key)}
                                 >
                                     {label}
                                 </button>
                             ))}
                         </div>
+                        {searchAllDates && (
+                            <span className="hist-search-hint">Đang tìm trên tất cả các ngày</span>
+                        )}
                         {/* 
                         <button className="hist-reset-btn" onClick={handleResetFilters} title="Xóa bộ lọc">
                             <RotateCcw size={14} />
                             Xóa bộ lọc
                         </button> */}
 
-                        {dateFilter === 'custom' && (
+                        {dateFilter === 'custom' && !searchAllDates && (
                             <div className="hist-custom-dates">
                                 <input
                                     type="date"

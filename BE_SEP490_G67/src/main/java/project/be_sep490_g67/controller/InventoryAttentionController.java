@@ -9,6 +9,7 @@ import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.ExpiredBatchResponse;
 import project.be_sep490_g67.dto.response.InventoryAttentionResponse;
 import project.be_sep490_g67.dto.response.RestockAdviceResponse;
+import project.be_sep490_g67.dto.response.ReturnHoldLineResponse;
 import project.be_sep490_g67.service.InventoryAttentionService;
 import project.be_sep490_g67.service.RestockAdviceService;
 
@@ -42,6 +43,14 @@ public class InventoryAttentionController {
         return ApiResponse.<List<ExpiredBatchResponse>>builder()
                 .result(inventoryAttentionService.getExpiredBatches())
                 .message("Lấy danh sách lô hàng hết hạn thành công")
+                .build();
+    }
+
+    @GetMapping("/return-hold-lines")
+    public ApiResponse<List<ReturnHoldLineResponse>> getReturnHoldLines() {
+        return ApiResponse.<List<ReturnHoldLineResponse>>builder()
+                .result(inventoryAttentionService.getReturnHoldLines())
+                .message("Lấy danh sách hàng đổi trả chờ xử lý thành công")
                 .build();
     }
 

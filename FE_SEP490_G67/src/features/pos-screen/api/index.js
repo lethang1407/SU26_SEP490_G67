@@ -6,7 +6,8 @@ export async function getProductByBarcode(barcode) {
 }
 
 export async function searchProductsByName(query) {
-    const response = await api.get(`/products/search`, { params: { q: query } });
+    // sellableOnly: POS không được thấy hàng ngừng kinh doanh (kiểm kho / nhập hàng thì vẫn thấy).
+    const response = await api.get(`/products/search`, { params: { q: query, sellableOnly: true } });
     return response.result ?? [];
 }
 

@@ -2,6 +2,9 @@ export const STORAGE_LOCATION_ROUTES = {
     list: '/admin/warehouse/locations',
 };
 
+/** Neo (#hash) để dashboard dẫn thẳng xuống khu đổi trả trên màn Vị trí kho. */
+export const RETURN_HOLD_ANCHOR = 'return-hold';
+
 export const LOCATION_STATUS = {
     ALL: 'all',
     EMPTY: 'empty',

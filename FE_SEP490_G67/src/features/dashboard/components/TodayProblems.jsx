@@ -7,8 +7,9 @@ import { importOrdersApi } from '@/features/import-order/api';
 import { IMPORT_ORDER_ROUTES, ORDER_STATUS_FILTER } from '@/features/import-order/constants';
 import { getInventoryAttention } from '@/features/inventory/api/inventoryAttentionApi';
 import { PRODUCT_ROUTES } from '@/features/product/constants';
-import { IMPORT_RETURN_ROUTES } from '@/features/import-return/constants';
 import ExpiredBatchesModal from '@/features/inventory/components/ExpiredBatchesModal';
+import ReturnHoldLinesModal from '@/features/inventory/components/ReturnHoldLinesModal';
+import { STORAGE_LOCATION_ROUTES, RETURN_HOLD_ANCHOR } from '@/features/storage-location/constants';
 
 const DRAFT_PREVIEW_LIMIT = 2;
 
@@ -224,6 +225,7 @@ export default function TodayProblems() {
     const [draftImportOrders, setDraftImportOrders] = useState(null);
     const [inventoryAttention, setInventoryAttention] = useState(null);
     const [expiredModalOpen, setExpiredModalOpen] = useState(false);
+    const [returnHoldModalOpen, setReturnHoldModalOpen] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -292,8 +294,8 @@ export default function TodayProblems() {
     const inventoryActions = {
         openExpired: () => setExpiredModalOpen(true),
         openProducts: () => navigate(PRODUCT_ROUTES.list),
-        openReturnHold: () =>
-            navigate(IMPORT_RETURN_ROUTES.page, { state: { openAwaitingProcessing: true } }),
+        // Mở popup ngay trên dashboard, đóng là ở lại dashboard — không chuyển trang.
+        openReturnHold: () => setReturnHoldModalOpen(true),
     };
 
     const visibleGroups = attentionGroups
@@ -412,6 +414,14 @@ export default function TodayProblems() {
             <ExpiredBatchesModal
                 open={expiredModalOpen}
                 onClose={() => setExpiredModalOpen(false)}
+            />
+            <ReturnHoldLinesModal
+                open={returnHoldModalOpen}
+                onClose={() => setReturnHoldModalOpen(false)}
+                onGoToProcess={() => {
+                    setReturnHoldModalOpen(false);
+                    navigate(`${STORAGE_LOCATION_ROUTES.list}#${RETURN_HOLD_ANCHOR}`);
+                }}
             />
         </section>
     );

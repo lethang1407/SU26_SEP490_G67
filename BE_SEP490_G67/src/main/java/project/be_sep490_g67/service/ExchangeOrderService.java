@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import project.be_sep490_g67.constants.ProductConstants;
 import project.be_sep490_g67.dto.request.CreateExchangeOrderRequest;
 import project.be_sep490_g67.dto.response.ExchangeOrderDetailResponse;
 import project.be_sep490_g67.dto.response.ExchangeOrderResponse;
@@ -226,6 +227,9 @@ public class ExchangeOrderService {
                 Product product = productRepository.findById(exchangeItem.getProductId())
                         .orElseThrow(() -> new AppException(
                                 ErrorCode.RETURN_PRODUCT_NOT_FOUND));
+                if (ProductConstants.isDiscontinued(product.getStatus())) {
+                    throw new AppException(ErrorCode.PRODUCT_DISCONTINUED);
+                }
                 ProductUnit resolvedUnit = null;
                 String resolvedUnitName;
 
