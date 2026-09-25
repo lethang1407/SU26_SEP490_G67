@@ -180,12 +180,8 @@ public class ExchangeOrderService {
             detail.setResolutionType(line.resolution().name());
             detail.setItemCondition(line.condition().name());
             detail.setNote(line.itemNote());
-            // Hàng bán lại được đã về thẳng kho bán nên coi như xử lý xong ngay. Hàng
-            // lỗi đưa về khu đổi trả, admin sẽ đánh dấu để có hướng xử lý.
-            if (line.condition().isSellable()) {
-                detail.setProcessedAt(Instant.now());
-                detail.setProcessedBy(staffId);
-            }
+            // Mọi hàng khách trả (kể cả nguyên vẹn) đều vào khu đổi trả; chỉ đánh dấu
+            // đã xử lý khi admin đẩy kho / hủy / trả NCC.
             detail.setCreatedBy(staffId);
             detail.setUpdatedBy(staffId);
             detail.setCreatedAt(Instant.now());
@@ -210,7 +206,6 @@ public class ExchangeOrderService {
                     line.soldLine(),
                     UnitQuantityConverter.toBaseUnits(line.soldLine().getProductUnit(),
                             line.quantity()),
-                    line.condition(),
                     savedReturnOrder.getId(),
                     staffId);
         }
@@ -753,7 +748,7 @@ public class ExchangeOrderService {
         return candidates.get(0);
     }
 
-    private void addStockBack(SalesOrderDetail soldLine, int quantity, ItemCondition condition,
+    private void addStockBack(SalesOrderDetail soldLine, int quantity,
                               Integer returnOrderId, Integer staffId) {
 
         StockBatch batch = soldLine.getStockBatch() != null
@@ -764,59 +759,38 @@ public class ExchangeOrderService {
 
         int currentStock = stockMovementRepository.sumQuantityDeltaByBatchId(batch.getId());
 
+        // Mọi tình trạng (kể cả nguyên vẹn) vào khu đổi trả; về kệ bán chỉ qua Đẩy vào kho.
+        StorageLocation holdLocation = storageLocationRepository
+                .findReturnHoldLocation()
+                .orElseThrow(() -> new AppException(ErrorCode.RETURN_HOLD_LOCATION_NOT_FOUND));
+
+        BatchLocation holdLine = batchLocationRepository
+                .findActiveByBatchIdAndLocationId(batch.getId(), holdLocation.getId())
+                .orElseGet(() -> {
+                    BatchLocation created = new BatchLocation();
+                    created.setBatch(batch);
+                    created.setLocation(holdLocation);
+                    created.setQuantity(0);
+                    created.setCreatedBy(staffId);
+                    created.setCreatedAt(Instant.now());
+                    return created;
+                });
+
+        holdLine.setQuantity((holdLine.getQuantity() == null ? 0 : holdLine.getQuantity()) + quantity);
+        holdLine.setUpdatedAt(Instant.now());
+        holdLine.setUpdatedBy(staffId);
+        batchLocationRepository.save(holdLine);
+
         StockMovement movement = new StockMovement();
         movement.setStockBatch(batch);
         movement.setReferenceType("RETURN_ORDER");
         movement.setReferenceId(returnOrderId);
         movement.setCreatedBy(staffId);
         movement.setCreatedAt(Instant.now());
-
-        if (condition.isSellable()) {
-            BatchLocation location = batchLocationRepository
-                    .findFirstByBatchId(batch.getId())
-                    .orElse(null);
-
-            movement.setMovementType("RETURN");
-            movement.setBatchLocation(location);
-            movement.setQuantityDelta(quantity);
-            movement.setStockAfter(currentStock + quantity);
-
-            if (location != null) {
-                location.setQuantity(location.getQuantity() + quantity);
-                location.setUpdatedAt(Instant.now());
-                location.setUpdatedBy(staffId);
-                batchLocationRepository.save(location);
-            }
-        } else {
-            // Hàng không bán lại được (DAMAGED / EXPIRED / OPENED) đi thẳng vào khu chứa
-            // hàng đổi trả để admin xử lý sau (trả NCC hoặc tiêu huỷ). 
-            StorageLocation holdLocation = storageLocationRepository
-                    .findReturnHoldLocation()
-                    .orElseThrow(() -> new AppException(ErrorCode.RETURN_HOLD_LOCATION_NOT_FOUND));
-
-            BatchLocation holdLine = batchLocationRepository
-                    .findActiveByBatchIdAndLocationId(batch.getId(), holdLocation.getId())
-                    .orElseGet(() -> {
-                        BatchLocation created = new BatchLocation();
-                        created.setBatch(batch);
-                        created.setLocation(holdLocation);
-                        created.setQuantity(0);
-                        created.setCreatedBy(staffId);
-                        created.setCreatedAt(Instant.now());
-                        return created;
-                    });
-
-            holdLine.setQuantity((holdLine.getQuantity() == null ? 0 : holdLine.getQuantity()) + quantity);
-            holdLine.setUpdatedAt(Instant.now());
-            holdLine.setUpdatedBy(staffId);
-            batchLocationRepository.save(holdLine);
-
-            movement.setMovementType("RETURN_HOLD_IN");
-            movement.setBatchLocation(holdLine);
-            movement.setQuantityDelta(quantity);
-            movement.setStockAfter(currentStock + quantity);
-        }
-
+        movement.setMovementType("RETURN_HOLD_IN");
+        movement.setBatchLocation(holdLine);
+        movement.setQuantityDelta(quantity);
+        movement.setStockAfter(currentStock + quantity);
         stockMovementRepository.save(movement);
     }
 

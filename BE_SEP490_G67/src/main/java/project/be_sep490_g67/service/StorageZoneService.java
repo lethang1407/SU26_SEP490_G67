@@ -142,9 +142,7 @@ public class StorageZoneService {
         return StorageZoneResponse.builder()
                 .id(zone.getId())
                 .code(zone.getCode())
-                .title(zone.getTitle() != null && !zone.getTitle().isBlank()
-                        ? zone.getTitle()
-                        : StorageZoneConstants.resolveZoneTitle(zone.getCode()))
+                .title(StorageZoneConstants.normalizeDisplayTitle(zone.getTitle(), zone.getCode()))
                 .zoneType(zone.getZoneType())
                 .sortOrder(zone.getSortOrder() != null ? zone.getSortOrder() : 0)
                 .build();

@@ -129,14 +129,19 @@ export function getLocationDisplayLabel(location) {
     return location.displayLabel || location.label || '—';
 }
 
-/** Tiêu đề khu trên lưới / modal. */
+/** Tiêu đề khu trên lưới / modal (không thêm tiền tố "Kệ "). */
 export function getZoneDisplayTitle(groupOrZone) {
     const zone = String(groupOrZone?.zone ?? groupOrZone ?? '').trim().toUpperCase();
     if (zone === RECEIVING_ZONE_CODE) {
         return RECEIVING_DISPLAY_NAME;
     }
-    if (groupOrZone?.zoneTitle) {
-        return groupOrZone.zoneTitle;
+    const rawTitle = groupOrZone?.zoneTitle
+        ? String(groupOrZone.zoneTitle).trim()
+        : '';
+    // Dữ liệu cũ có thể đã lưu "Kệ XXX" — bỏ tiền tố khi hiển thị.
+    const title = rawTitle.replace(/^Kệ\s+/i, '').trim();
+    if (title) {
+        return title;
     }
-    return zone ? `Kệ ${zone}` : '—';
+    return zone || '—';
 }

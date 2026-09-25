@@ -632,6 +632,7 @@ public class StorageLocationService {
             return;
         }
         List<String> conditions = List.of(
+                ItemCondition.RESELLABLE.name(),
                 ItemCondition.DAMAGED.name(),
                 ItemCondition.EXPIRED.name(),
                 ItemCondition.OPENED.name());
@@ -725,9 +726,9 @@ public class StorageLocationService {
         String zoneType = zone != null && zone.getZoneType() != null
                 ? zone.getZoneType()
                 : StorageZoneType.WAREHOUSE;
-        String zoneTitle = zone != null && zone.getTitle() != null && !zone.getTitle().isBlank()
-                ? zone.getTitle()
-                : StorageZoneConstants.resolveZoneTitle(zoneCode);
+        String zoneTitle = StorageZoneConstants.normalizeDisplayTitle(
+                zone != null ? zone.getTitle() : null,
+                zoneCode);
 
         boolean receiving = isReceivingLocation(location);
         return StorageLocationResponse.builder()

@@ -74,6 +74,10 @@
     max-height: 240px;
 }
 
+.styled-select__menu--portal {
+    z-index: 20000;
+}
+
 .styled-select__option {
     display: block;
     width: 100%;

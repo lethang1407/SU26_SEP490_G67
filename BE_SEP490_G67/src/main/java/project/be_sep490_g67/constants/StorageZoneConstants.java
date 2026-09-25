@@ -20,6 +20,17 @@ public final class StorageZoneConstants {
             return "";
         }
         String normalized = zone.trim().toUpperCase();
-        return ZONE_TITLES.getOrDefault(normalized, "Kệ " + normalized);
+        return ZONE_TITLES.getOrDefault(normalized, normalized);
+    }
+
+    /** Bỏ tiền tố "Kệ " của dữ liệu cũ khi trả về UI. */
+    public static String normalizeDisplayTitle(String title, String zoneCode) {
+        if (title != null && !title.isBlank()) {
+            String cleaned = title.trim().replaceFirst("(?i)^Kệ\\s+", "").trim();
+            if (!cleaned.isEmpty()) {
+                return cleaned;
+            }
+        }
+        return resolveZoneTitle(zoneCode);
     }
 }
