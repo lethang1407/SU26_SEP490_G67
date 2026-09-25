@@ -19,6 +19,9 @@ import project.be_sep490_g67.repository.*;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.util.List;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Page;
+import project.be_sep490_g67.dto.response.PageResponse;
 import java.util.Objects;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -68,6 +71,7 @@ public class AccountingService {
     private final SalesOrderRepository salesOrderRepository;
     private final ReturnOrderRepository returnOrderRepository;
     private final RevenueAdjustmentRepository adjustmentRepository;
+    private final TaxRecordRepository taxRecordRepository;
 
     /** Called BEFORE order/stock/code writes. It participates in the caller's transaction. */
     @Transactional(propagation = Propagation.MANDATORY)
@@ -103,9 +107,30 @@ public class AccountingService {
         return revenueResponse(period);
     }
 
+    @Transactional(readOnly = true)
+    public PageResponse<AccountingRevenueLineResponse> getRevenuePage(Integer year, Integer month, int page, int size) {
+        page = Math.max(page, 0);
+        size = Math.max(1, Math.min(size, 100));
+        BusinessTaxProfile profile = readableProfile(year);
+        AccountingPeriod period = periodRepository
+                .findByProfileIdAndAccountingMonthAndIsRemovedFalse(profile.getId(), month)
+                .orElseThrow(() -> error(HttpStatus.NOT_FOUND, "Không tìm thấy kỳ kế toán"));
+        Page<AccountingRevenueLine> result = revenueLineRepository
+                .findByPeriodIdAndIsRemovedFalse(period.getId(), PageRequest.of(page, size));
+        return PageResponse.<AccountingRevenueLineResponse>builder()
+                .content(result.getContent().stream().map(AccountingRevenueLineResponse::from).toList())
+                .page(result.getNumber()).size(result.getSize())
+                .totalElements(result.getTotalElements()).totalPages(result.getTotalPages()).build();
+    }
+
     /** Chuẩn bị dữ liệu S1a-HKD từ một kỳ đã đối chiếu; không tự sinh tờ khai hoặc xác định thuế phải nộp. */
     @Transactional(readOnly = true)
     public S1aRevenueBookResponse getS1aRevenueBook(Integer year, Integer month) {
+        return getS1aRevenueBook(year, month, TaxExportMode.FINAL);
+    }
+
+    @Transactional(readOnly = true)
+    public S1aRevenueBookResponse getS1aRevenueBook(Integer year, Integer month, TaxExportMode mode) {
         validateYear(year);
         validateMonth(month);
         BusinessTaxProfile profile = readableProfile(year);
@@ -113,27 +138,34 @@ public class AccountingService {
                 .findByProfileIdAndAccountingMonthAndIsRemovedFalse(profile.getId(), month)
                 .orElseThrow(() -> error(HttpStatus.NOT_FOUND, "Không tìm thấy kỳ kế toán"));
         AccountingReconciliationResponse reconciliation = inspectPeriod(period);
-        if (!reconciliation.sourceCompletenessVerified()) {
+        if (mode == TaxExportMode.FINAL && !reconciliation.sourceCompletenessVerified()) {
             throw error(HttpStatus.CONFLICT, "Kỳ chưa đủ điều kiện lập dữ liệu S1a: "
                     + reconciliation.issues().getFirst().message());
         }
+        if (mode == TaxExportMode.FINAL) requireFinalTaxRecord(profile.getId());
         List<S1aRevenueBookResponse.Row> rows = revenueLineRepository
                 .findByPeriodIdAndIsRemovedFalseOrderByPostingDateAscIdAsc(period.getId()).stream()
                 .filter(line -> line.getClassification() != RevenueClassification.EXCLUDED)
                 .map(S1aRevenueBookResponse.Row::from).toList();
         BigDecimal total = rows.stream().map(S1aRevenueBookResponse.Row::amount)
                 .reduce(new BigDecimal("0.00"), BigDecimal::add);
+        boolean verified = reconciliation.sourceCompletenessVerified();
         return new S1aRevenueBookResponse(year, month, profile.getTaxpayerIdentity(),
                 profile.getTaxpayerName(), profile.getTaxpayerAddress(),
                 period.getStartAt().atZone(StoreService.TAX_ZONE).toLocalDate(),
-                period.getEndExclusive().minus(1, ChronoUnit.DAYS).atZone(StoreService.TAX_ZONE).toLocalDate(), true,
-                "READY_FOR_REVIEW", total, rows);
+                period.getEndExclusive().minus(1, ChronoUnit.DAYS).atZone(StoreService.TAX_ZONE).toLocalDate(), verified,
+                mode == TaxExportMode.PREVIEW ? "PREVIEW" : "FINAL", total, rows);
     }
 
     /** Điền template S1a-HKD được đóng gói trong resources; chỉ xuất kỳ đã đối chiếu đầy đủ. */
     @Transactional(readOnly = true)
     public byte[] exportS1aRevenueBook(Integer year, Integer month) {
-        S1aRevenueBookResponse book = getS1aRevenueBook(year, month);
+        return exportS1aRevenueBook(year, month, TaxExportMode.FINAL);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportS1aRevenueBook(Integer year, Integer month, TaxExportMode mode) {
+        S1aRevenueBookResponse book = getS1aRevenueBook(year, month, mode);
         try (InputStream input = AccountingService.class.getResourceAsStream("/templates_tax/S1a-HKD.xlsx")) {
             if (input == null) throw error(HttpStatus.INTERNAL_SERVER_ERROR, "Thiếu template S1a-HKD.xlsx");
             try (Workbook workbook = new XSSFWorkbook(input); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
@@ -146,6 +178,55 @@ public class AccountingService {
         } catch (IOException ex) {
             throw error(HttpStatus.INTERNAL_SERVER_ERROR, "Không thể tạo file S1a-HKD");
         }
+    }
+
+    /** Xuất một workbook S1a xem trước với một sheet cho mỗi tháng trong phạm vi. */
+    @Transactional(readOnly = true)
+    public byte[] exportS1aRevenueBook(Integer year, S1aPeriodType periodType, Integer periodNumber) {
+        List<Integer> months = switch (periodType) {
+            case MONTH -> List.of(periodNumber);
+            case QUARTER -> {
+                if (periodNumber == null || periodNumber < 1 || periodNumber > 4) {
+                    throw error(HttpStatus.BAD_REQUEST, "Quý phải nằm trong khoảng 1 đến 4");
+                }
+                int first = (periodNumber - 1) * 3 + 1;
+                yield List.of(first, first + 1, first + 2);
+            }
+            case YEAR -> java.util.stream.IntStream.rangeClosed(1, 12).boxed().toList();
+        };
+        if (periodType == S1aPeriodType.MONTH) validateMonth(periodNumber);
+        try (InputStream input = AccountingService.class.getResourceAsStream("/templates_tax/S1a-HKD.xlsx")) {
+            if (input == null) throw error(HttpStatus.INTERNAL_SERVER_ERROR, "Thiếu template S1a-HKD.xlsx");
+            try (Workbook workbook = new XSSFWorkbook(input); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                Sheet original = workbook.getSheetAt(0);
+                for (Integer month : months) {
+                    Sheet sheet = workbook.cloneSheet(0);
+                    workbook.setSheetName(workbook.getSheetIndex(sheet), String.format("T%02d-%d", month, year));
+                    try {
+                        S1aRevenueBookResponse book = getS1aRevenueBook(year, month, TaxExportMode.PREVIEW);
+                        writeHeader(sheet, book);
+                        writeRows(sheet, book.rows(), book.totalAmount());
+                    } catch (ResponseStatusException ex) {
+                        if (ex.getStatusCode() != HttpStatus.NOT_FOUND) throw ex;
+                        cell(sheet.getRow(0) == null ? sheet.createRow(0) : sheet.getRow(0), 0)
+                                .setCellValue("Chưa tạo kỳ kế toán tháng " + month + "/" + year);
+                    }
+                }
+                workbook.removeSheetAt(workbook.getSheetIndex(original));
+                if (workbook.getNumberOfSheets() == 0) workbook.createSheet(String.format("%d", year));
+                workbook.write(output);
+                return output.toByteArray();
+            }
+        } catch (IOException ex) {
+            throw error(HttpStatus.INTERNAL_SERVER_ERROR, "Không thể tạo file S1a-HKD");
+        }
+    }
+
+    private void requireFinalTaxRecord(Integer profileId) {
+        taxRecordRepository.findByProfileIdAndPeriodTypeAndIsRemovedFalse(profileId, TaxPeriodType.YEAR)
+                .filter(record -> record.getStatus() == TaxRecordStatus.CONFIRMED)
+                .orElseThrow(() -> error(HttpStatus.CONFLICT,
+                        "Chưa có TaxRecord năm được xác nhận để xuất bản chính thức"));
     }
 
     private void writeHeader(Sheet sheet, S1aRevenueBookResponse book) {
@@ -196,6 +277,9 @@ public class AccountingService {
     }
 
     private void copyRowStyle(Row source, Row target) {
+        // Một số bản template chỉ có dòng Tổng cộng mà không có dòng mẫu rỗng.
+        // Khi đó vẫn phải tạo dòng dữ liệu, chỉ bỏ qua việc sao chép style.
+        if (source == null) return;
         target.setHeight(source.getHeight());
         for (int c = 0; c < source.getLastCellNum(); c++) {
             Cell from = source.getCell(c);
@@ -292,7 +376,7 @@ public class AccountingService {
         BusinessTaxProfile profile = profiles.stream()
                 .filter(p -> p.getTaxYear().equals(year) && !Boolean.TRUE.equals(p.getIsRemoved()))
                 .findFirst().orElseThrow(() -> error(HttpStatus.NOT_FOUND, "Không tìm thấy hồ sơ năm"));
-        requireReadyProfile(profile, profiles);
+//        requireReadyProfile(profile, profiles);
         AccountingPeriod period = requiredOpenPeriod(profile, month);
         Integer actor = actor();
         // Do not silently strand an existing line if someone changed/deleted a source outside this workflow.
@@ -327,31 +411,31 @@ public class AccountingService {
     private AccountingPeriod sourcePeriod(Instant occurred) {
         if (occurred == null) throw error(HttpStatus.CONFLICT, "Chứng từ thiếu thời điểm phát sinh");
         List<BusinessTaxProfile> profiles = profileRepository.findAllForUpdate(StoreService.STORE_ID);
-        List<Instant> starts = profiles.stream().map(BusinessTaxProfile::getTrackingStartedAt)
-                .filter(Objects::nonNull).distinct().toList();
-        // POS keeps working before accounting is configured. Period sync later fills these sources.
-        if (starts.isEmpty()) return null;
-        if (starts.size() != 1) throw error(HttpStatus.CONFLICT, "Các hồ sơ chưa thống nhất mốc theo dõi");
-        Instant start = starts.getFirst();
-        if (occurred.isBefore(start)) return null;
         int year = occurred.atZone(StoreService.TAX_ZONE).getYear();
         int month = occurred.atZone(StoreService.TAX_ZONE).getMonthValue();
         BusinessTaxProfile profile = profiles.stream()
                 .filter(p -> p.getTaxYear().equals(year) && !Boolean.TRUE.equals(p.getIsRemoved()))
-                .findFirst().orElseThrow(() -> error(HttpStatus.CONFLICT, "Cần tạo và xác nhận hồ sơ thuế năm phát sinh"));
-        requireReadyProfile(profile, profiles);
+                .findFirst().orElse(null);
+//        if (profile == null || !isReadyProfile(profile)) return null;
+//        if (occurred.isBefore(profile.getTrackingStartedAt())) return null;
+//        boolean periodExists = periodRepository.findAllForUpdate(profile.getId()).stream()
+//                .anyMatch(p -> p.getAccountingMonth().equals(month) && !Boolean.TRUE.equals(p.getIsRemoved()));
+//        if (!periodExists) return null;
         return requiredOpenPeriod(profile, month);
     }
 
-    private void requireReadyProfile(BusinessTaxProfile profile, List<BusinessTaxProfile> profiles) {
-        Instant start = profile.getTrackingStartedAt();
-        if (profile.getStatus() != ProfileStatus.CONFIRMED || start == null
-                || profile.getConfirmedBy() == null || profile.getConfirmedAt() == null
-                || start.isAfter(Instant.now())
-                || profiles.stream().anyMatch(p -> !Objects.equals(start, p.getTrackingStartedAt()))) {
-            throw error(HttpStatus.CONFLICT, "Cần hồ sơ đã xác nhận và mốc theo dõi nhất quán");
-        }
-    }
+//    private boolean isReadyProfile(BusinessTaxProfile profile) {
+//        Instant start = profile.getTrackingStartedAt();
+//        return profile.getStatus() == ProfileStatus.CONFIRMED && start != null
+//                && profile.getConfirmedBy() != null && profile.getConfirmedAt() != null
+//                && !start.isAfter(Instant.now());
+//    }
+
+//    private void requireReadyProfile(BusinessTaxProfile profile, List<BusinessTaxProfile> profiles) {
+//        if (!isReadyProfile(profile)) {
+//            throw error(HttpStatus.CONFLICT, "Cần hồ sơ đã xác nhận và mốc theo dõi nhất quán");
+//        }
+//    }
 
     private AccountingPeriod requiredOpenPeriod(BusinessTaxProfile profile, int month) {
         return requiredPeriod(profile, month, true);
@@ -382,7 +466,7 @@ public class AccountingService {
                 eventTime(order.getCreatedAt()), money(order.getTotalAmount()),
                 excluded ? RevenueClassification.EXCLUDED : RevenueClassification.SALE,
                 excluded ? "Đơn bán bị hủy hoặc xóa; không cộng doanh thu" : "Giá trị bán sau giảm giá; không phụ thuộc thu tiền",
-                "Bán hàng");
+                "Bán hàng: " + displayDocumentCode(order.getOrderCode(), order.getId()));
     }
 
     private RevenueSource returnSource(ReturnOrder order, Instant trackingStart) {
@@ -400,7 +484,7 @@ public class AccountingService {
                 oldSale ? "Đơn gốc trước mốc theo dõi; loại khỏi tổng phạm vi hệ thống, cần đối chiếu riêng"
                         : excluded ? "Phiếu trả hoặc đơn gốc bị hủy/xóa; không cộng doanh thu"
                         : "Giảm doanh thu theo giá trị phiếu trả, gồm cả cấn trừ nợ/đổi hàng",
-                "Trả hàng cho đơn #" + original.getId());
+                "Trả hàng cho hóa đơn: " + displayDocumentCode(original.getOrderCode(), original.getId()));
     }
 
     private void writeSource(AccountingPeriod period, RevenueSource source, Integer actor) {
@@ -563,9 +647,8 @@ public class AccountingService {
             throw error(HttpStatus.CONFLICT, "Cần xác nhận hồ sơ thuế trước khi tạo kỳ");
         }
         Instant tracking = profile.getTrackingStartedAt();
-        if (tracking.isAfter(Instant.now()) || tracking.atZone(StoreService.TAX_ZONE).getYear() > year
-                || profiles.stream().anyMatch(p -> !Objects.equals(tracking, p.getTrackingStartedAt()))) {
-            throw error(HttpStatus.CONFLICT, "Mốc theo dõi không hợp lệ hoặc không thống nhất giữa các hồ sơ");
+        if (tracking.isAfter(Instant.now()) || tracking.atZone(StoreService.TAX_ZONE).getYear() > year) {
+            throw error(HttpStatus.CONFLICT, "Mốc theo dõi không hợp lệ với hồ sơ năm");
         }
         YearMonth target = YearMonth.of(year, request.accountingMonth());
         Instant monthStart = target.atDay(1).atStartOfDay(StoreService.TAX_ZONE).toInstant();
@@ -626,7 +709,7 @@ public class AccountingService {
             }
             return RevenueAdjustmentResponse.from(prior);
         }
-        AccountingPeriod period = requiredOpenPeriod(profile, info.postingDate().getMonthValue());
+        AccountingPeriod period = requiredOpenPeriod(profile, info.date().getMonthValue());
         RevenueAdjustment adjustment = new RevenueAdjustment();
         adjustment.setProfile(profile);
         adjustment.setIdempotencyKey(key);
@@ -648,7 +731,7 @@ public class AccountingService {
         requiredOpenPeriod(profile, adjustment.getPostingDate().getMonthValue());
         checkDraft(adjustment, request.version());
         RevenueAdjustmentInformation info = normalizedInformation(request.information(), profile);
-        AccountingPeriod period = requiredOpenPeriod(profile, info.postingDate().getMonthValue());
+        AccountingPeriod period = requiredOpenPeriod(profile, info.date().getMonthValue());
         String before = RevenueAdjustmentResponse.from(adjustment).toString();
         applyAdjustment(adjustment, info);
         validateAdjustmentReference(adjustment, period, false);
@@ -714,7 +797,7 @@ public class AccountingService {
         BusinessTaxProfile profile = profiles.stream()
                 .filter(p -> p.getTaxYear().equals(year) && !Boolean.TRUE.equals(p.getIsRemoved())).findFirst()
                 .orElseThrow(() -> error(HttpStatus.NOT_FOUND, "Không tìm thấy hồ sơ năm"));
-        requireReadyProfile(profile, profiles);
+//        requireReadyProfile(profile, profiles);
         return profile;
     }
 
@@ -730,6 +813,7 @@ public class AccountingService {
     public AccountingPeriodResponse closePeriod(Integer year, Integer month, AccountingDecisionRequest request) {
         validateMonth(month);
         BusinessTaxProfile profile = lockedProfile(year);
+        ensureNotDeclared(profile);
         AccountingPeriod period = requiredOpenPeriod(profile, month);
         if (!Objects.equals(period.getVersion(), request.version())) {
             throw error(HttpStatus.CONFLICT, "Kỳ đã thay đổi; hãy tải lại version");
@@ -865,16 +949,16 @@ public class AccountingService {
     }
 
     private RevenueAdjustmentInformation normalizedInformation(RevenueAdjustmentInformation info, BusinessTaxProfile profile) {
-        if (info == null || info.sourceType() == null || info.postingDate() == null
+        if (info == null || info.sourceType() == null || info.date() == null
                 || info.signedAmount() == null || info.classification() == null) {
             throw error(HttpStatus.BAD_REQUEST, "Thiếu thông tin điều chỉnh");
         }
-        Instant occurred = eventTime(info.occurredAt());
+        Instant occurred = info.occurredAt();
+        LocalDate trackingDate = profile.getTrackingStartedAt().atZone(StoreService.TAX_ZONE).toLocalDate();
         LocalDate today = LocalDate.now(StoreService.TAX_ZONE);
-        if (occurred.isBefore(profile.getTrackingStartedAt()) || info.postingDate().getYear() != profile.getTaxYear()
-                || info.postingDate().isAfter(today)
-                || info.postingDate().isBefore(occurred.atZone(StoreService.TAX_ZONE).toLocalDate())) {
-            throw error(HttpStatus.BAD_REQUEST, "Ngày phát sinh/ghi sổ nằm ngoài phạm vi hoặc sai thứ tự");
+        if (info.date().isBefore(trackingDate) || info.date().getYear() != profile.getTaxYear()
+                || info.date().isAfter(today)) {
+            throw error(HttpStatus.BAD_REQUEST, "Ngày điều chỉnh nằm ngoài phạm vi hoặc không hợp lệ");
         }
         BigDecimal amount;
         try { amount = info.signedAmount().setScale(2, RoundingMode.UNNECESSARY); }
@@ -898,7 +982,7 @@ public class AccountingService {
             throw error(HttpStatus.BAD_REQUEST, "Khoản gốc phải trùng nguồn REVENUE_ADJUSTMENT được tham chiếu");
         }
         return new RevenueAdjustmentInformation(info.sourceType(), info.sourceId(), info.relatedPeriodId(),
-                info.originalAdjustmentId(), occurred, info.postingDate(), amount, info.classification(),
+                info.originalAdjustmentId(), info.date(), amount, info.classification(),
                 requiredText(info.inclusionReason(), 1000), requiredText(info.evidence(), 10000));
     }
 
@@ -906,7 +990,7 @@ public class AccountingService {
         a.setSourceType(info.sourceType());
         a.setSourceId(info.sourceId());
         a.setOccurredAt(info.occurredAt());
-        a.setPostingDate(info.postingDate());
+        a.setPostingDate(info.date());
         a.setSignedAmount(info.signedAmount());
         a.setClassification(info.classification());
         a.setInclusionReason(info.inclusionReason());
@@ -971,7 +1055,24 @@ public class AccountingService {
         }
         RevenueAdjustmentInformation info = normalizedInformation(RevenueAdjustmentResponse.informationOf(a), a.getProfile());
         return new RevenueSource(SourceType.REVENUE_ADJUSTMENT, a.getId(), null, info.occurredAt(),
-                info.signedAmount(), info.classification(), info.inclusionReason(), "Điều chỉnh #" + a.getId(), info.postingDate());
+                info.signedAmount(), info.classification(), info.inclusionReason(),
+                "Điều chỉnh doanh thu: " + occurredDateLabel(info.occurredAt()), info.date());
+    }
+
+    private void ensureNotDeclared(BusinessTaxProfile profile) {
+        taxRecordRepository.findByProfileIdAndPeriodTypeAndIsRemovedFalse(profile.getId(), TaxPeriodType.YEAR)
+                .map(TaxRecord::getDeclarationStatus)
+                .filter(TaxDeclarationStatus.DECLARED::equals)
+                .ifPresent(status -> { throw error(HttpStatus.CONFLICT, "Năm đã kê khai; không được cập nhật sổ kế toán"); });
+    }
+
+    private String displayDocumentCode(String code, Integer id) {
+        return code == null || code.isBlank() ? "#" + id : code;
+    }
+
+    private String occurredDateLabel(Instant occurredAt) {
+        return DateTimeFormatter.ofPattern("dd/MM/yyyy")
+                .format(occurredAt.atZone(StoreService.TAX_ZONE).toLocalDate());
     }
 
     private List<RevenueAdjustment> adjustmentsInPeriod(AccountingPeriod period) {
@@ -996,3 +1097,4 @@ public class AccountingService {
         return new ResponseStatusException(status, message);
     }
 }
+

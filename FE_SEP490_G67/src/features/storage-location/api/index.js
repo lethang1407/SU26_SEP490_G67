@@ -15,6 +15,21 @@ export async function createStorageLocation(payload) {
     return response.result;
 }
 
+export async function createStorageRack(payload) {
+    const response = await api.post('/storage-locations/rack', payload);
+    return response.result ?? [];
+}
+
+export async function appendStorageFloor(payload) {
+    const response = await api.post('/storage-locations/rack/floors', payload);
+    return response.result ?? [];
+}
+
+export async function appendStorageBin(payload) {
+    const response = await api.post('/storage-locations/rack/bins', payload);
+    return response.result;
+}
+
 export async function fetchUnplacedBatches() {
     const response = await api.get('/storage-locations/unplaced-batches');
     return response.result ?? [];

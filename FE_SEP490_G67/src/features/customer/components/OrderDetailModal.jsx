@@ -1,210 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, Button, Spinner, Alert, Table, Badge, Row, Col } from 'react-bootstrap';
+import { useEffect, useState } from 'react';
 import { getSalesOrderDetail } from '../api';
-import { FiDollarSign, FiCalendar, FiUser, FiPhone, FiTag, FiPackage, FiRefreshCcw } from 'react-icons/fi';
+import { X, FileText } from 'lucide-react';
+import '../../../css/SalesOrderDetailModal.css';
 
-const formatCurrency = (value) => {
-    if (value === null || value === undefined) return '0 đ';
-    return new Intl.NumberFormat('vi-VN', {
-        style: 'currency',
-        currency: 'VND',
-    }).format(value);
-};
+const formatCurrency = (value) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Number(value || 0));
+const formatDateTime = (value) => value ? new Date(value).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : 'N/A';
+const PAYMENT_LABELS = { CASH: 'Tiền mặt', TRANSFER: 'Chuyển khoản', DEBT: 'Ghi nợ' };
 
-const formatDateTime = (isoString) => {
-    if (!isoString) return 'N/A';
-    return new Date(isoString).toLocaleString('vi-VN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
-};
+function ItemTable({ items = [], returnItems = false }) {
+    return <table className="sod-items"><thead><tr><th className="sod-col-idx">#</th><th>Sản phẩm</th><th>ĐVT</th><th className="sod-num">{returnItems ? 'SL trả' : 'SL mua'}</th>{!returnItems && <th className="sod-num">SL đã trả</th>}<th className="sod-num">Đơn giá</th><th className="sod-num">Thành tiền</th></tr></thead><tbody>
+        {items.length === 0 && <tr><td colSpan={returnItems ? 6 : 7} className="sod-empty">Không có dòng hàng nào</td></tr>}
+        {items.map((item, index) => <tr key={item.salesOrderDetailId || item.returnOrderDetailId || `${item.productName}-${index}`}><td className="sod-col-idx">{index + 1}</td><td>{item.productName ?? ''}{item.productCode ? ` (${item.productCode})` : ''}</td><td>{item.unitName ?? 'N/A'}</td><td className="sod-num">{returnItems ? item.quantity : item.quantityPurchased ?? item.quantity ?? 0}</td>{!returnItems && <td className="sod-num">{item.quantityReturned ?? 0}</td>}<td className="sod-num">{formatCurrency(item.unitPrice)}</td><td className="sod-num sod-strong">{formatCurrency(item.lineTotal ?? item.lineRefund)}</td></tr>)}
+    </tbody></table>;
+}
 
-const getOrderStatusBadge = (status) => {
-    switch (status) {
-        case 'COMPLETED': return <Badge bg="success">Hoàn thành</Badge>;
-        case 'PENDING': return <Badge bg="warning">Chờ xử lý</Badge>;
-        case 'CANCELLED': return <Badge bg="danger">Đã hủy</Badge>;
-        case 'PARTIALLY_RETURNED': return <Badge bg="info">Trả hàng một phần</Badge>;
-        case 'RETURNED': return <Badge bg="secondary">Đã trả hàng</Badge>;
-        default: return <Badge bg="secondary">{status}</Badge>;
-    }
-};
-
-const getPaymentMethodLabel = (method) => {
-    switch (method) {
-        case 'CASH': return 'Tiền mặt';
-        case 'TRANSFER': return 'Chuyển khoản';
-        case 'DEBT': return 'Ghi nợ';
-        default: return method;
-    }
-};
-
-const getItemConditionBadge = (condition) => {
-    switch (condition) {
-        case 'RESELLABLE': return <Badge bg="success">Nguyên vẹn</Badge>;
-        case 'DAMAGED': return <Badge bg="danger">Hỏng</Badge>;
-        case 'EXPIRED': return <Badge bg="warning">Hết hạn</Badge>;
-        case 'OPENED': return <Badge bg="info">Đã mở</Badge>;
-        default: return <Badge bg="secondary">{condition}</Badge>;
-    }
-};
+const TotalRow = ({ label, value, grand = false }) => <div className={`sod-total-row${grand ? ' sod-total-row--grand' : ''}`}><span>{label}</span><span>{value}</span></div>;
 
 export default function OrderDetailModal({ show, onHide, orderId }) {
-    const [orderDetail, setOrderDetail] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
     useEffect(() => {
-        // Nếu modal không hiển thị, không làm gì cả.
-        if (!show) {
-            return;
-        }
-
-        // Chỉ fetch dữ liệu khi có orderId và nó khác với orderId của dữ liệu đang có.
-        // Điều này giúp cache lại kết quả, tránh gọi API lại khi mở cùng 1 hóa đơn.
-        if (orderId && orderDetail?.id !== orderId) {
-            const fetchOrderDetail = async () => {
-                setIsLoading(true);
-                setError(null);
-                try {
-                    const data = await getSalesOrderDetail(orderId);
-                    setOrderDetail(data);
-                } catch (err) {
-                    console.error("Failed to fetch order detail:", err);
-                    setError("Không thể tải chi tiết đơn hàng. Vui lòng thử lại.");
-                } finally {
-                    setIsLoading(false);
-                }
-            };
-
-            fetchOrderDetail();
-        }
+        if (!show || !orderId) return undefined;
+        let alive = true;
+        setLoading(true); setError('');
+        getSalesOrderDetail(orderId).then((result) => { if (alive) setData(result); }).catch(() => { if (alive) setError('Không thể tải chi tiết đơn hàng.'); }).finally(() => { if (alive) setLoading(false); });
+        return () => { alive = false; };
     }, [show, orderId]);
 
-    return (
-        <Modal show={show} onHide={onHide} size="lg" centered scrollable>
-            <Modal.Header closeButton>
-                <Modal.Title>Chi tiết đơn hàng: {orderDetail?.orderCode || orderId}</Modal.Title>
-            </Modal.Header>
-            <Modal.Body>
-                {isLoading && (
-                    <div className="text-center py-5">
-                        <Spinner animation="border" role="status">
-                            <span className="visually-hidden">Đang tải...</span>
-                        </Spinner>
-                    </div>
-                )}
-                {error && <Alert variant="danger">{error}</Alert>}
-                {orderDetail && (
-                    <>
-                        <Row className="mb-3">
-                            <Col md={6}>
-                                <h5>Thông tin chung</h5>
-                                <p><FiTag className="me-2" />Mã đơn: <strong>{orderDetail.orderCode}</strong></p>
-                                <p><FiCalendar className="me-2" />Ngày tạo: {formatDateTime(orderDetail.createdAt)}</p>
-                                <p><FiDollarSign className="me-2" />Tổng tiền: <strong>{formatCurrency(orderDetail.totalAmount)}</strong></p>
-                                {orderDetail.isDebt && (
-                                    <>
-                                        <p className="text-success"><FiDollarSign className="me-2" />Đã trả: <strong>{formatCurrency(orderDetail.paidAmount)}</strong></p>
-                                    </>
-                                )}
-                                <p><FiPackage className="me-2" />Trạng thái đơn: {getOrderStatusBadge(orderDetail.orderStatus)}</p>
-                                <p><FiRefreshCcw className="me-2" />Thanh toán: {orderDetail.isDebt && <Badge bg="danger">Đơn nợ</Badge>}</p>
-                            </Col>
-                            <Col md={6}>
-                                <h5>Thông tin khách hàng</h5>
-                                {orderDetail.customer ? (
-                                    <>
-                                        <p><FiUser className="me-2" />Tên: {orderDetail.customer.fullName}</p>
-                                        <p><FiPhone className="me-2" />SĐT: {orderDetail.customer.phoneNumber}</p>
-                                    </>
-                                ) : (
-                                    <p>Khách lẻ</p>
-                                )}
-                                {orderDetail.note && <p>Ghi chú: {orderDetail.note}</p>}
-                            </Col>
-                        </Row>
-
-                        <h5 className="mt-4">Sản phẩm đã mua</h5>
-                        <Table striped bordered hover responsive size="sm" className="mb-4">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Sản phẩm</th>
-                                    <th>ĐVT</th>
-                                    <th className="text-end">SL mua</th>
-                                    <th className="text-end">SL trả</th>
-                                    <th className="text-end">Đơn giá</th>
-                                    <th className="text-end">Thành tiền</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {orderDetail.items.map((item, index) => (
-                                    <tr key={item.salesOrderDetailId}>
-                                        <td>{index + 1}</td>
-                                        <td>{item.productName} ({item.productCode})</td>
-                                        <td>{item.unitName}</td>
-                                        <td className="text-end">{item.quantityPurchased}</td>
-                                        <td className="text-end">{item.quantityReturned}</td>
-                                        <td className="text-end">{formatCurrency(item.unitPrice)}</td>
-                                        <td className="text-end">{formatCurrency(item.lineTotal)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </Table>
-
-                        {orderDetail.returnOrders && orderDetail.returnOrders.length > 0 && (
-                            <>
-                                <h5 className="mt-4">Phiếu đổi/trả liên quan</h5>
-                                {orderDetail.returnOrders.map((returnOrder, rIndex) => (
-                                    <div key={returnOrder.returnOrderId} className="mb-4 p-3 border rounded">
-                                        <h6>Phiếu #{rIndex + 1}: {returnOrder.returnCode}</h6>
-                                        <p>Lý do: {returnOrder.returnReason}</p>
-                                        <p>Ngày tạo: {formatDateTime(returnOrder.createdAt)}</p>
-                                        <p>Tổng hoàn tiền: {formatCurrency(returnOrder.refundAmount)}</p>
-                                        {returnOrder.note && <p>Ghi chú phiếu: {returnOrder.note}</p>}
-
-                                        <Table striped bordered hover responsive size="sm" className="mt-3">
-                                            <thead>
-                                                <tr>
-                                                    <th>#</th>
-                                                    <th>Sản phẩm</th>
-                                                    <th>SL</th>
-                                                    <th>Đơn giá</th>
-                                                    <th>Hoàn tiền</th>
-                                                    <th>Tình trạng</th>
-                                                    <th>Ghi chú</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {returnOrder.items.map((returnItem, riIndex) => (
-                                                    <tr key={returnItem.returnOrderDetailId}>
-                                                        <td>{riIndex + 1}</td>
-                                                        <td>{returnItem.productName}</td>
-                                                        <td>{returnItem.quantity}</td>
-                                                        <td>{formatCurrency(returnItem.unitPrice)}</td>
-                                                        <td>{formatCurrency(returnItem.lineRefund)}</td>
-                                                        <td>{getItemConditionBadge(returnItem.itemCondition)}</td>
-                                                        <td>{returnItem.note || '-'}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </Table>
-                                    </div>
-                                ))}
-                            </>
-                        )}
-                    </>
-                )}
-            </Modal.Body>
-            <Modal.Footer>
-                <Button variant="secondary" onClick={onHide}>
-                    Đóng
-                </Button>
-            </Modal.Footer>
-        </Modal>
-    );
+    if (!show) return null;
+    const returnOrders = data?.returnOrders ?? [];
+    return <div className="sod-overlay" onClick={onHide}><div className="sod-modal" onClick={(event) => event.stopPropagation()}>
+        <div className="sod-header"><div className="sod-header-title"><span className="sod-header-icon"><FileText size={20} /></span><div><div className="sod-title">Chi tiết đơn hàng <span className="sod-code">{data?.orderCode ?? `#${orderId}`}</span></div><div className="sod-subtitle">{formatDateTime(data?.createdAt)}</div></div></div><button className="sod-close-btn" onClick={onHide} title="Đóng"><X size={20} /></button></div>
+        <div className="sod-body">
+            {loading && <div className="sod-state">Đang tải...</div>}
+            {!loading && error && <div className="sod-state sod-state--error">{error}</div>}
+            {!loading && !error && data && <><dl className="sod-meta"><div><dt>Khách hàng</dt><dd>{data.customer?.fullName ?? 'Khách lẻ'}</dd></div><div><dt>Số điện thoại</dt><dd>{data.customer?.phoneNumber ?? 'N/A'}</dd></div><div><dt>Thanh toán</dt><dd>{data.isDebt ? PAYMENT_LABELS.DEBT : PAYMENT_LABELS[data.paymentMethod] ?? data.paymentMethod ?? 'N/A'}</dd></div><div></div></dl><div className="sod-group-title">Sản phẩm đã mua</div><ItemTable items={data.items} />{returnOrders.length > 0 && <div className="sod-related"><div className="sod-group-title">Chứng từ đổi/trả ({returnOrders.length})</div>{returnOrders.map((returnOrder, index) => <div key={returnOrder.returnOrderId || index} className="sod-related-doc"><div className="sod-related-head"><span className="sod-related-kind">Phiếu trả</span><span className="sod-code">{returnOrder.returnCode ?? `#${returnOrder.returnOrderId}`}</span><span className="sod-related-time">{formatDateTime(returnOrder.createdAt)}</span><span className="sod-related-amount">{formatCurrency(returnOrder.refundAmount)}</span></div><ItemTable items={returnOrder.items} returnItems /></div>)}</div>}<div className="sod-totals"><TotalRow label="Tổng tiền" value={formatCurrency(data.totalAmount)} grand /></div></>}
+        </div>
+        <div className="sod-footer"><button className="sod-btn" onClick={onHide}>Đóng</button></div>
+    </div></div>;
 }

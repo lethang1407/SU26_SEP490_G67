@@ -1,5 +1,6 @@
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import DatePickerInput from '../../../components/ui/DatePickerInput';
+import ProductThumb from '../../pos-screen/components/ProductThumb';
 import {
     formatCurrency,
     formatMoneyInput,
@@ -31,7 +32,7 @@ export default function ImportOrderLineTable({
     const canEdit = !readOnly && typeof onChangeLine === 'function';
     const canRemove = !readOnly && typeof onRemoveLine === 'function';
     const isPromoSection = section === 'promo';
-    const colSpan = 8;
+    const colSpan = 9;
     const settleByDetailId = settlementLineByDetailId(trialSettlements);
 
     const handleToggleLineType = (line, nextType) => {
@@ -50,6 +51,7 @@ export default function ImportOrderLineTable({
                 <table className="ioc-lines-table">
                     <colgroup>
                         <col className="ioc-lines-table__col--stt" />
+                        <col className="ioc-lines-table__col--image" />
                         <col className="ioc-lines-table__col--name" />
                         <col className="ioc-lines-table__col--unit" />
                         <col className="ioc-lines-table__col--qty" />
@@ -61,6 +63,7 @@ export default function ImportOrderLineTable({
                     <thead>
                         <tr>
                             <th className="ioc-lines-table__stt">STT</th>
+                            <th className="ioc-lines-table__col--image">Ảnh</th>
                             <th className="ioc-lines-table__col--name">Tên hàng</th>
                             <th className="ioc-lines-table__col--unit">ĐVT</th>
                             <th className="ioc-lines-table__col--qty">Số lượng</th>
@@ -116,6 +119,14 @@ export default function ImportOrderLineTable({
                                                 <Trash2 size={16} />
                                             </button>
                                         ) : null}
+                                    </td>
+                                    <td className="ioc-lines-table__image">
+                                        <ProductThumb
+                                            url={line.imageUrl}
+                                            alt={line.productName}
+                                            size={36}
+                                            preview
+                                        />
                                     </td>
                                     <td className="ioc-lines-table__col--name">
                                         <div className="ioc-lines-table__name">{line.productName}</div>

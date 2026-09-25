@@ -23,6 +23,7 @@ import project.be_sep490_g67.entity.ImportReturn;
 import project.be_sep490_g67.entity.ImportReturnDetail;
 import project.be_sep490_g67.entity.InventoryCheck;
 import project.be_sep490_g67.entity.Product;
+import project.be_sep490_g67.entity.ProductImage;
 import project.be_sep490_g67.entity.ProductUnit;
 import project.be_sep490_g67.entity.ReturnOrderDetail;
 import project.be_sep490_g67.entity.StockBatch;
@@ -35,6 +36,7 @@ import project.be_sep490_g67.repository.BatchLocationRepository;
 import project.be_sep490_g67.repository.ImportReturnDetailRepository;
 import project.be_sep490_g67.repository.ImportReturnRepository;
 import project.be_sep490_g67.repository.InventoryCheckRepository;
+import project.be_sep490_g67.repository.ProductImageRepository;
 import project.be_sep490_g67.repository.ReturnOrderDetailRepository;
 import project.be_sep490_g67.repository.StockBatchRepository;
 import project.be_sep490_g67.repository.StockMovementRepository;
@@ -47,6 +49,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -67,6 +70,7 @@ public class ImportReturnService {
     StockMovementRepository stockMovementRepository;
     InventoryCheckRepository inventoryCheckRepository;
     ReturnOrderDetailRepository returnOrderDetailRepository;
+    ProductImageRepository productImageRepository;
     UserRepository userRepository;
 
     @Transactional(readOnly = true)
@@ -311,6 +315,7 @@ public class ImportReturnService {
             return;
         }
         List<String> conditions = List.of(
+                ItemCondition.RESELLABLE.name(),
                 ItemCondition.DAMAGED.name(),
                 ItemCondition.EXPIRED.name(),
                 ItemCondition.OPENED.name());
@@ -334,13 +339,14 @@ public class ImportReturnService {
         if (supplierId == null || supplierId <= 0) {
             return List.of();
         }
-        return importReturnDetailRepository.findPendingBySupplier(
-                        supplierId,
-                        currentOrderId,
-                        ImportReturnConstants.LINE_WAITING,
-                        ImportReturnConstants.STATUS_IN_PROGRESS)
-                .stream()
-                .map(detail -> toImportOrderReturnLine(detail, currentOrderId))
+        List<ImportReturnDetail> details = importReturnDetailRepository.findPendingBySupplier(
+                supplierId,
+                currentOrderId,
+                ImportReturnConstants.LINE_WAITING,
+                ImportReturnConstants.STATUS_IN_PROGRESS);
+        Map<Integer, String> imageUrlByProduct = loadReturnLineImageUrls(details);
+        return details.stream()
+                .map(detail -> toImportOrderReturnLine(detail, currentOrderId, imageUrlByProduct))
                 .toList();
     }
 
@@ -349,8 +355,10 @@ public class ImportReturnService {
         if (importOrderId == null) {
             return List.of();
         }
-        return importReturnDetailRepository.findBySettledImportOrderId(importOrderId).stream()
-                .map(detail -> toImportOrderReturnLine(detail, importOrderId))
+        List<ImportReturnDetail> details = importReturnDetailRepository.findBySettledImportOrderId(importOrderId);
+        Map<Integer, String> imageUrlByProduct = loadReturnLineImageUrls(details);
+        return details.stream()
+                .map(detail -> toImportOrderReturnLine(detail, importOrderId, imageUrlByProduct))
                 .toList();
     }
 
@@ -1048,7 +1056,50 @@ public class ImportReturnService {
                 .build();
     }
 
-    private ImportOrderReturnLineResponse toImportOrderReturnLine(ImportReturnDetail detail, Integer currentOrderId) {
+    private Map<Integer, String> loadReturnLineImageUrls(List<ImportReturnDetail> details) {
+        Set<Integer> lookupIds = new HashSet<>();
+        List<Product> products = new ArrayList<>();
+        for (ImportReturnDetail detail : details) {
+            Product product = detail.getProduct();
+            if (product == null || product.getId() == null) {
+                continue;
+            }
+            products.add(product);
+            lookupIds.add(product.getId());
+            if (product.getParent() != null && product.getParent().getId() != null) {
+                lookupIds.add(product.getParent().getId());
+            }
+        }
+        if (lookupIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Integer, String> urlByOwner = new HashMap<>();
+        for (ProductImage image : productImageRepository
+                .findByProductIdInAndIsRemovedFalseOrderBySortOrderAscIdAsc(lookupIds)) {
+            Integer ownerId = image.getProduct().getId();
+            if (Boolean.TRUE.equals(image.getIsMain())) {
+                urlByOwner.put(ownerId, image.getUrl());
+            } else {
+                urlByOwner.putIfAbsent(ownerId, image.getUrl());
+            }
+        }
+        Map<Integer, String> result = new HashMap<>();
+        for (Product product : products) {
+            String url = urlByOwner.get(product.getId());
+            if (url == null && product.getParent() != null) {
+                url = urlByOwner.get(product.getParent().getId());
+            }
+            if (url != null) {
+                result.put(product.getId(), url);
+            }
+        }
+        return result;
+    }
+
+    private ImportOrderReturnLineResponse toImportOrderReturnLine(
+            ImportReturnDetail detail,
+            Integer currentOrderId,
+            Map<Integer, String> imageUrlByProduct) {
         Product product = detail.getProduct();
         StockBatch batch = detail.getStockBatch();
         ImportReturn header = detail.getImportReturn();
@@ -1063,6 +1114,9 @@ public class ImportReturnService {
                 .returnCode(header != null ? header.getReturnCode() : null)
                 .productId(product != null ? product.getId() : null)
                 .productName(product != null ? product.getName() : null)
+                .imageUrl(product != null && product.getId() != null
+                        ? imageUrlByProduct.get(product.getId())
+                        : null)
                 .method(ImportReturnConstants.normalizeMethod(detail.getMethod()))
                 .quantity(qty)
                 .returnPrice(price)

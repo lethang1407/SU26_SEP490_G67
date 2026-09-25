@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import project.be_sep490_g67.constants.ProductConstants;
 import project.be_sep490_g67.constants.StaffConstants;
 import project.be_sep490_g67.dto.request.CreateSalesOrderRequest;
 import project.be_sep490_g67.dto.response.SalesOrderDetailResponse;
@@ -116,6 +117,13 @@ public class SalesOrderService {
                     .orElseThrow(() -> new ResponseStatusException(
                             HttpStatus.NOT_FOUND,
                             "Không tìm thấy sản phẩm với mã: " + item.getProductId()));
+            // Chốt chặn cuối: giỏ lưu từ trước hoặc đơn offline vẫn có thể còn món đã ngừng bán.
+            if (ProductConstants.isDiscontinued(product.getStatus())) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Sản phẩm \"" + product.getName()
+                                + "\" đã ngừng kinh doanh, vui lòng xoá khỏi giỏ hàng");
+            }
 
             // Resolve unit BEFORE deducting stock: stock is tracked in base units
             ProductUnit resolvedUnit;

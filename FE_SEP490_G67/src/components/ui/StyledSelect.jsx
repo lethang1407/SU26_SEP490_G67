@@ -34,11 +34,12 @@ export default function StyledSelect({
         setMenuStyle({
             position: 'fixed',
             left: rect.left,
-            width: Math.max(rect.width, 120),
+            width: Math.max(rect.width, 160),
             top: openUp ? undefined : rect.bottom + 6,
             bottom: openUp ? window.innerHeight - rect.top + 6 : undefined,
             maxHeight: Math.max(120, maxHeight),
-            zIndex: 2000,
+            // Trên supplier-modal-overlay (10000–14000) và các modal xếp chồng.
+            zIndex: 20000,
         });
     };
 

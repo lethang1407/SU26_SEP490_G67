@@ -139,7 +139,7 @@ export default function SupplierPaymentModal({ open, supplier, onClose, onSubmit
 
     return createPortal(
         <div
-            className="supplier-modal-overlay supplier-modal-overlay--stacked"
+            className="supplier-modal-overlay supplier-modal-overlay--stacked supplier-modal-overlay--front"
             onClick={onClose}
             role="presentation"
         >

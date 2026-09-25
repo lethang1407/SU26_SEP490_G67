@@ -1757,6 +1757,15 @@
     -webkit-backdrop-filter: none;
 }
 
+/* NCC mở từ phiếu nhập: trên phiếu nhập (12000), dưới thanh toán / sửa / quyết toán */
+.supplier-modal-overlay--raised {
+    z-index: 13000;
+}
+
+.supplier-modal-overlay.supplier-modal-overlay--front {
+    z-index: 14000 !important;
+}
+
 @keyframes supplier-modal-overlay-in {
     from {
         opacity: 0;

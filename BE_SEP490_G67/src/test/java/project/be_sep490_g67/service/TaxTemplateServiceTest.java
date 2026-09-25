@@ -5,10 +5,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.server.ResponseStatusException;
 import project.be_sep490_g67.dto.response.AccountingSummaryResponse;
 import project.be_sep490_g67.entity.BusinessTaxProfile;
 import project.be_sep490_g67.enums.TaxPeriodType;
+import project.be_sep490_g67.enums.TaxExportMode;
 import project.be_sep490_g67.repository.BusinessTaxProfileRepository;
+import project.be_sep490_g67.repository.TaxRecordRepository;
 
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
@@ -22,6 +25,7 @@ import static org.mockito.Mockito.when;
 class TaxTemplateServiceTest {
     @Mock AccountingService accountingService;
     @Mock BusinessTaxProfileRepository profileRepository;
+    @Mock TaxRecordRepository taxRecordRepository;
 
     @Test
     void annualNoticeReplacesAllTemplatePlaceholders() throws Exception {
@@ -33,8 +37,8 @@ class TaxTemplateServiceTest {
         when(accountingService.getYearSummary(2026)).thenReturn(new AccountingSummaryResponse(
                 2026, "YEAR", 2026, new BigDecimal("125000000.00"), true, false, List.of()));
 
-        byte[] bytes = new TaxTemplateService(accountingService, profileRepository)
-                .exportAnnualRevenueNotice(2026, TaxPeriodType.YEAR);
+        byte[] bytes = new TaxTemplateService(accountingService, profileRepository, taxRecordRepository)
+                .exportAnnualRevenueNotice(2026, TaxPeriodType.YEAR, TaxExportMode.PREVIEW);
 
         assertTrue(bytes.length > 0);
         try (XWPFDocument document = new XWPFDocument(new ByteArrayInputStream(bytes))) {
@@ -57,5 +61,24 @@ class TaxTemplateServiceTest {
             assertTrue(text.contains("125"));
             assertFalse(text.contains("{{"));
         }
+    }
+
+    @Test
+    void finalAnnualNoticeRequiresConfirmedTaxRecord() {
+        BusinessTaxProfile profile = new BusinessTaxProfile();
+        profile.setId(10);
+        profile.setTaxpayerName("Minh Anh");
+        when(profileRepository.findByStoreIdAndTaxYearAndIsRemovedFalse(1, 2026))
+                .thenReturn(Optional.of(profile));
+        when(accountingService.getYearSummary(2026)).thenReturn(new AccountingSummaryResponse(
+                2026, "YEAR", 2026, new BigDecimal("125000000.00"), true, false, List.of()));
+        when(taxRecordRepository.findByProfileIdAndPeriodTypeAndIsRemovedFalse(10, TaxPeriodType.YEAR))
+                .thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> new TaxTemplateService(accountingService, profileRepository, taxRecordRepository)
+                        .exportAnnualRevenueNotice(2026, TaxPeriodType.YEAR, TaxExportMode.FINAL));
+
+        assertEquals(409, exception.getStatusCode().value());
     }
 }

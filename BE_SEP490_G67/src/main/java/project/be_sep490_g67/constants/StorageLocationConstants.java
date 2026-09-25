@@ -13,6 +13,11 @@ public final class StorageLocationConstants {
 
     public static final Set<String> ALLOWED_SIZES = Set.of(SIZE_SM, SIZE_MD, SIZE_LG);
 
+    /** Số tầng tối đa trên một khu kệ. */
+    public static final int MAX_FLOOR = 10;
+    /** Số ô tối đa trên một tầng. */
+    public static final int MAX_BIN = 10;
+
     public static String normalizeSize(String size) {
         if (size == null || size.isBlank()) {
             return SIZE_MD;

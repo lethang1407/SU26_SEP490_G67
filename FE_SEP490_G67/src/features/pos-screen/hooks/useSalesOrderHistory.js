@@ -4,9 +4,14 @@ import { getOfflineSalesOrders, saveOfflineSalesOrders } from '@/lib/db';
 
 const PAGE_SIZE = 10;
 
+/** YYYY-MM-DD theo giờ máy. toISOString() là giờ UTC nên trước 7h sáng sẽ lùi về hôm qua. */
+const toLocalDate = (d) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
 function buildDateParams(dateFilter, customFrom, customTo) {
     const now = new Date();
-    const toLocalDate = (d) => d.toISOString().slice(0, 10); // YYYY-MM-DD
 
     switch (dateFilter) {
         case 'today': {
@@ -46,7 +51,9 @@ export function useSalesOrderHistory() {
     const fetchHistory = useCallback(async (currentPage) => {
         setLoading(true);
         setError(null);
-        const dateParams = buildDateParams(dateFilter, customFrom, customTo);
+        // Đang gõ tìm kiếm thì tìm trên MỌI ngày: khách mang hoá đơn hôm trước ra đổi trả
+        // thì thu ngân không phải đoán ngày rồi bấm đúng nút lọc mới thấy.
+        const dateParams = search.trim() ? {} : buildDateParams(dateFilter, customFrom, customTo);
         const isOffline = typeof window !== 'undefined' && !window.navigator.onLine;
 
         if (isOffline) {
@@ -128,6 +135,8 @@ export function useSalesOrderHistory() {
     return {
         orders, total, totalPages, page, setPage,
         search, setSearch: changeSearch,
+        /** true khi đang tìm kiếm — bộ lọc ngày tạm không áp dụng. */
+        searchAllDates: search.trim().length > 0,
         dateFilter, setDateFilter: changeDateFilter,
         resetFilters,
         customFrom, setCustomFrom,

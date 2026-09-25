@@ -537,6 +537,11 @@ public class ProductService {
         Product product = productRepository.findById(productId)
                 .filter(p -> Boolean.FALSE.equals(p.getIsRemoved()))
                 .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
+        // pos-info chỉ phục vụ bán hàng (thêm vào giỏ, quét mã, đổi hàng) — chặn từ đây
+        // để quét mã vạch hàng ngừng kinh doanh cũng báo lỗi rõ ràng.
+        if (ProductConstants.isDiscontinued(product.getStatus())) {
+            throw new AppException(ErrorCode.PRODUCT_DISCONTINUED);
+        }
 
         List<ProductPosInfoResponse.UnitInfo> unitInfos = product.getProductUnits().stream()
                 .filter(u -> Boolean.FALSE.equals(u.getIsRemoved()))
@@ -621,12 +626,22 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public List<ProductSearchResponse> searchByNameAndBarcode(String query) {
+        return searchByNameAndBarcode(query, false);
+    }
+
+    /**
+     * @param sellableOnly true khi gọi từ POS: bỏ hàng ngừng kinh doanh. Kiểm kho, nhập hàng,
+     *                     báo cáo kho dùng chung endpoint nên mặc định vẫn trả đủ.
+     */
+    @Transactional(readOnly = true)
+    public List<ProductSearchResponse> searchByNameAndBarcode(String query, boolean sellableOnly) {
         String cleanQuery = query == null ? "" : query.trim();
         int maxLimit = cleanQuery.isBlank() ? 500 : 50;
 
         List<Product> productList = productRepository.searchSellableByNameAndBarcode(cleanQuery)
                 .stream()
                 .filter(p -> !Boolean.TRUE.equals(p.getIsRemoved()))
+                .filter(p -> !sellableOnly || !ProductConstants.isDiscontinued(p.getStatus()))
                 .limit(maxLimit)
                 .toList();
 

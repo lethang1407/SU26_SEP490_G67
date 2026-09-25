@@ -9,6 +9,7 @@ import project.be_sep490_g67.dto.response.ExpiredBatchResponse;
 import project.be_sep490_g67.dto.response.InventoryAttentionResponse;
 import project.be_sep490_g67.dto.response.InventoryAttentionResponse.InventoryAttentionGroupResponse;
 import project.be_sep490_g67.dto.response.InventoryAttentionResponse.InventoryAttentionItemResponse;
+import project.be_sep490_g67.dto.response.ReturnHoldLineResponse;
 import project.be_sep490_g67.entity.AlertThresholdConfig;
 import project.be_sep490_g67.entity.Product;
 import project.be_sep490_g67.entity.ReturnOrderDetail;
@@ -47,9 +48,8 @@ public class InventoryAttentionService {
     static final String SEVERITY_ORANGE = "ORANGE";
     static final String SEVERITY_YELLOW = "YELLOW";
 
-    /** Mọi tình trạng không bán lại được đều nằm chờ trong khu đổi trả. */
-    static final List<String> NON_SELLABLE_CONDITIONS = Arrays.stream(ItemCondition.values())
-            .filter(condition -> !condition.isSellable())
+    /** Mọi tình trạng hàng khách trả đều chờ xử lý ở khu đổi trả (kể cả nguyên vẹn). */
+    static final List<String> AWAITING_RETURN_CONDITIONS = Arrays.stream(ItemCondition.values())
             .map(Enum::name)
             .toList();
 
@@ -140,7 +140,7 @@ public class InventoryAttentionService {
     }
 
     private InventoryAttentionGroupResponse buildOutOfStockGroup(AlertThresholdConfig config) {
-        List<Object[]> rows = productRepository.findOutOfStockOrBelowMinimum();
+        List<Object[]> rows = productRepository.findOutOfStock();
 
         if (rows.isEmpty()) {
             return InventoryAttentionGroupResponse.builder()
@@ -151,10 +151,6 @@ public class InventoryAttentionService {
         }
 
         List<Product> products = rows.stream().map(row -> (Product) row[0]).toList();
-        Map<Integer, Integer> onHandByProduct = rows.stream().collect(Collectors.toMap(
-                row -> ((Product) row[0]).getId(),
-                row -> toInt(row[1]),
-                (first, second) -> first));
 
         int highVolumeUnits = intOrDefault(config == null ? null : config.getHighVolumeSoldUnits(), 30);
         int windowDays = intOrDefault(config == null ? null : config.getHighVolumeWindowDays(), 30);
@@ -179,15 +175,11 @@ public class InventoryAttentionService {
 
         List<InventoryAttentionItemResponse> items = products.stream()
                 .limit(PREVIEW_LIMIT)
-                .map(product -> {
-                    int onHand = onHandByProduct.getOrDefault(product.getId(), 0);
-                    int minStock = intOrDefault(product.getMinStock(), 0);
-                    return InventoryAttentionItemResponse.builder()
-                            .productId(product.getId())
-                            .productName(product.getName())
-                            .detail(onHand <= 0 ? "Hết hàng" : "Tồn %d/%d".formatted(onHand, minStock))
-                            .build();
-                })
+                .map(product -> InventoryAttentionItemResponse.builder()
+                        .productId(product.getId())
+                        .productName(product.getName())
+                        .detail("Hết hàng")
+                        .build())
                 .toList();
 
         return InventoryAttentionGroupResponse.builder()
@@ -205,7 +197,7 @@ public class InventoryAttentionService {
      */
     private InventoryAttentionGroupResponse buildReturnHoldGroup(AlertThresholdConfig config) {
         List<ReturnOrderDetail> waiting =
-                returnOrderDetailRepository.findAwaitingProcessing(NON_SELLABLE_CONDITIONS);
+                returnOrderDetailRepository.findAwaitingProcessing(AWAITING_RETURN_CONDITIONS);
 
         if (waiting.isEmpty()) {
             return InventoryAttentionGroupResponse.builder()
@@ -248,6 +240,31 @@ public class InventoryAttentionService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
+    public List<ReturnHoldLineResponse> getReturnHoldLines() {
+        return returnOrderDetailRepository.findAwaitingProcessing(AWAITING_RETURN_CONDITIONS).stream()
+                .map(line -> {
+                    Product product = line.getProduct();
+                    return ReturnHoldLineResponse.builder()
+                            .returnDetailId(line.getId())
+                            .returnCode(line.getReturnOrder() != null
+                                    ? line.getReturnOrder().getReturnCode()
+                                    : null)
+                            .productId(product.getId())
+                            .productName(product.getName())
+                            .productSku(product.getSku())
+                            .itemCondition(line.getItemCondition())
+                            .conditionLabel(conditionLabel(line.getItemCondition()))
+                            .quantity(intOrDefault(line.getQuantity(), 0))
+                            .unitName(line.getUnitName())
+                            .note(line.getNote())
+                            .returnedAt(line.getCreatedAt())
+                            .daysWaiting(daysWaiting(line))
+                            .build();
+                })
+                .toList();
+    }
+
     /** "Hỏng · SL 2 · bao bì móp" — ghi chú của dòng trả được nối vào nếu có. */
     private String describeWaitingLine(ReturnOrderDetail line) {
         String base = "%s · SL %d".formatted(
@@ -263,6 +280,7 @@ public class InventoryAttentionService {
             return "Không rõ";
         }
         return switch (itemCondition) {
+            case "RESELLABLE" -> "Nguyên vẹn";
             case "DAMAGED" -> "Hỏng";
             case "EXPIRED" -> "Hết hạn";
             case "OPENED" -> "Đã mở";

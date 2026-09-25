@@ -11,9 +11,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import project.be_sep490_g67.constants.ApiPath;
+import project.be_sep490_g67.dto.request.AppendStorageBinRequest;
+import project.be_sep490_g67.dto.request.AppendStorageFloorRequest;
 import project.be_sep490_g67.dto.request.AssignBatchRequest;
 import project.be_sep490_g67.dto.request.CancelReturnHoldRequest;
 import project.be_sep490_g67.dto.request.CreateStorageLocationRequest;
+import project.be_sep490_g67.dto.request.CreateStorageRackRequest;
 import project.be_sep490_g67.dto.request.MoveAllBatchesRequest;
 import project.be_sep490_g67.dto.request.MoveBatchRequest;
 import project.be_sep490_g67.dto.request.ReleaseReturnHoldRequest;
@@ -77,6 +80,38 @@ public class StorageLocationController {
         return ApiResponse.<StorageLocationResponse>builder()
                 .result(storageLocationService.createLocation(request))
                 .message("Tạo vị trí kho thành công")
+                .build();
+    }
+
+   // @PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
+    @PostMapping("/rack")
+    public ApiResponse<List<StorageLocationResponse>> createRack(
+            @Valid @RequestBody CreateStorageRackRequest request) {
+        List<StorageLocationResponse> created = storageLocationService.createRack(request);
+        return ApiResponse.<List<StorageLocationResponse>>builder()
+                .result(created)
+                .message("Tạo khu kệ thành công (" + created.size() + " ô)")
+                .build();
+    }
+
+   // @PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
+    @PostMapping("/rack/floors")
+    public ApiResponse<List<StorageLocationResponse>> appendFloor(
+            @Valid @RequestBody AppendStorageFloorRequest request) {
+        List<StorageLocationResponse> created = storageLocationService.appendFloor(request);
+        return ApiResponse.<List<StorageLocationResponse>>builder()
+                .result(created)
+                .message("Đã thêm tầng mới")
+                .build();
+    }
+
+   // @PreAuthorize("hasAuthority('WAREHOUSE:LOCATION_MANAGE')")
+    @PostMapping("/rack/bins")
+    public ApiResponse<StorageLocationResponse> appendBin(
+            @Valid @RequestBody AppendStorageBinRequest request) {
+        return ApiResponse.<StorageLocationResponse>builder()
+                .result(storageLocationService.appendBin(request))
+                .message("Đã thêm ô mới")
                 .build();
     }
 
