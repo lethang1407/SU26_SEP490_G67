@@ -656,9 +656,9 @@ export default function TaxAccountingOverviewPage() {
           ) : (
             <>
               <section className="tax-accounting-kpis" aria-label="Tóm tắt năm">
-                <article className="tax-accounting-kpi"><span>Trạng thái hồ sơ</span><strong>{statusLabel(profile?.status)}</strong><small>{confirmed ? 'Có thể quản lý kỳ kế toán' : 'Cần xác nhận hồ sơ trước khi tạo kỳ'}</small></article>
-                <article className="tax-accounting-kpi"><span>Doanh thu năm</span><strong>{formatMoney(summary?.recordedRevenue)}</strong><small>{summary?.sourceCompletenessVerified ? 'Đã đối chiếu nguồn' : 'Chưa đối chiếu đầy đủ'}</small></article>
-                <article className="tax-accounting-kpi"><span>Kỳ đã khóa</span><strong>{closedPeriods} / 12</strong><small>{periods.length} kỳ đã được tạo</small></article>
+                <article className="tax-accounting-kpi"><span>Trạng thái hồ sơ</span><strong>{statusLabel(profile?.status)}</strong></article>
+                <article className="tax-accounting-kpi"><span>Doanh thu năm</span><strong>{formatMoney(summary?.recordedRevenue)}</strong></article>
+                <article className="tax-accounting-kpi"><span>Kỳ đã khóa</span><strong>{closedPeriods} / 12</strong></article>
               </section>
 
               <section className="tax-accounting-panel tax-accounting-reports">
