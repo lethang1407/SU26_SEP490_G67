@@ -16,7 +16,7 @@ public record RevenueAdjustmentResponse(Integer id, Integer profileId, Integer t
         return new RevenueAdjustmentInformation(a.getSourceType(), a.getSourceId(),
                 a.getRelatedPeriod() == null ? null : a.getRelatedPeriod().getId(),
                 a.getOriginalAdjustment() == null ? null : a.getOriginalAdjustment().getId(),
-                a.getOccurredAt(), a.getPostingDate(), a.getSignedAmount(), a.getClassification(),
+                a.getPostingDate(), a.getSignedAmount(), a.getClassification(),
                 a.getInclusionReason(), a.getEvidence());
     }
 }

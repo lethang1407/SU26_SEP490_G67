@@ -22,6 +22,8 @@ import project.be_sep490_g67.service.TaxTemplateService;
 import project.be_sep490_g67.service.AccountingService;
 
 import java.util.List;
+import project.be_sep490_g67.dto.response.PageResponse;
+import project.be_sep490_g67.dto.response.AccountingRevenueLineResponse;
 
 @RestController
 @RequiredArgsConstructor
@@ -119,6 +121,14 @@ public class AccountingController {
     @GetMapping("/{month}/revenue-lines")
     public ApiResponse<AccountingRevenueResponse> getRevenue(@PathVariable Integer year, @PathVariable Integer month) {
         return ApiResponse.success(accountingService.getRevenue(year, month));
+    }
+
+    @GetMapping("/{month}/revenue-lines/page")
+    public ApiResponse<PageResponse<AccountingRevenueLineResponse>> getRevenuePage(
+            @PathVariable Integer year, @PathVariable Integer month,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ApiResponse.success(accountingService.getRevenuePage(year, month, page, size));
     }
 
     @PostMapping("/{month}/revenue-lines/synchronize")

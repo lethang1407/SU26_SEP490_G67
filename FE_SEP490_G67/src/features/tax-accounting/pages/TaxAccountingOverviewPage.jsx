@@ -5,6 +5,8 @@ import { getStoreInfor } from '../../store/api';
 import { accountingPeriodsApi, accountingReportsApi, adjustmentsApi, taxProfilesApi, taxRecordApi, taxSupportApi } from '../api';
 import '../../../css/AdminDashboard.css';
 import '../../../css/TaxAccounting.css';
+import '../../../css/Product.css';
+import ProductPagination from '../../product/components/ProductPagination';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, index) => CURRENT_YEAR - index);
@@ -43,6 +45,25 @@ function formatMoney(value) {
     currency: 'VND',
     maximumFractionDigits: 0,
   }).format(Number(value || 0));
+}
+
+function formatAmountInput(value) {
+  const raw = String(value ?? '').replace(/\./g, '').replace(/[^\d,-]/g, '');
+  if (!raw) return '';
+  const sign = raw.startsWith('-') ? '-' : '';
+  const unsigned = raw.replace(/-/g, '');
+  const [integer = '', fraction] = unsigned.split(',');
+  const grouped = (integer || '0').replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${sign}${grouped}${fraction !== undefined ? `,${fraction.slice(0, 2)}` : ''}`;
+}
+
+function formatAmountFromValue(value) {
+  if (value === null || value === undefined || value === '') return '';
+  return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(Number(value));
+}
+
+function amountForApi(value) {
+  return String(value ?? '').replace(/\./g, '').replace(',', '.');
 }
 
 function formatDate(value) {
@@ -111,13 +132,17 @@ function emptyAdjustmentForm() {
     sourceType: 'REVENUE_ADJUSTMENT',
     sourceId: '',
     relatedPeriodId: '',
-    occurredAt: '',
-    postingDate: '',
+    date: '',
     signedAmount: '',
     classification: 'CORRECTION',
     inclusionReason: '',
     evidence: 'Điều chỉnh doanh thu',
   };
+}
+
+function adjustmentDateValue(information) {
+  const value = information?.date || information?.postingDate || information?.occurredAt;
+  return value ? String(value).slice(0, 10) : '';
 }
 
 function downloadBlobFile(file) {
@@ -149,6 +174,7 @@ export default function TaxAccountingOverviewPage() {
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [periodDetail, setPeriodDetail] = useState(null);
   const [revenueLines, setRevenueLines] = useState([]);
+  const [revenuePage, setRevenuePage] = useState({ page: 0, size: 20, totalPages: 0, totalElements: 0 });
   const [reconciliation, setReconciliation] = useState(null);
   const [periodLoading, setPeriodLoading] = useState(false);
   const [periodError, setPeriodError] = useState('');
@@ -210,12 +236,25 @@ export default function TaxAccountingOverviewPage() {
       setPeriods(asList(periodsResult));
       setAdjustments(asList(adjustmentsResult));
       setTaxRecordError('');
+      let currentTaxRecord = null;
       try {
-        setTaxRecord(await taxRecordApi.get(year));
+        currentTaxRecord = await taxRecordApi.get(year);
       } catch (recordError) {
-        if (recordError.response?.status === 404) setTaxRecord(null);
-        else setTaxRecordError(recordError.response?.data?.message || 'Không thể tải nghĩa vụ thuế.');
+        if (recordError.response?.status !== 404) {
+          setTaxRecordError(recordError.response?.data?.message || 'Không thể tải nghĩa vụ thuế.');
+        }
       }
+      const revenue = Number(summaryResult?.recordedRevenue ?? 0);
+      if (profileResult.status === 'CONFIRMED' && revenue <= 1000000000
+          && currentTaxRecord?.declarationStatus !== 'DECLARED') {
+        try {
+          currentTaxRecord = await taxRecordApi.calculate(year);
+          setTaxRecordError('');
+        } catch (calculateError) {
+          setTaxRecordError(calculateError.response?.data?.message || 'Không thể tự động cập nhật nghĩa vụ thuế.');
+        }
+      }
+      setTaxRecord(currentTaxRecord);
     } catch (requestError) {
       setSummary(null);
       setPeriods([]);
@@ -226,18 +265,6 @@ export default function TaxAccountingOverviewPage() {
       setLoading(false);
     }
   }, [year]);
-
-  const calculateTaxRecord = async () => {
-    setTaxRecordLoading(true);
-    setTaxRecordError('');
-    try {
-      setTaxRecord(await taxRecordApi.calculate(year));
-    } catch (requestError) {
-      setTaxRecordError(requestError.response?.data?.message || 'Không thể tính nghĩa vụ thuế.');
-    } finally {
-      setTaxRecordLoading(false);
-    }
-  };
 
   const declareTaxRecord = async () => {
     if (!taxRecord || !window.confirm('Xác nhận đã hoàn tất kê khai nghĩa vụ thuế năm?')) return;
@@ -352,18 +379,24 @@ export default function TaxAccountingOverviewPage() {
     }
   };
 
-  const loadPeriodDetail = useCallback(async (month) => {
+  const loadPeriodDetail = useCallback(async (month, page = 0) => {
     setSelectedMonth(month);
     setPeriodLoading(true);
     setPeriodError('');
     try {
       const [detailResult, linesResult, reconciliationResult] = await Promise.all([
         accountingPeriodsApi.getByMonth(year, month),
-        accountingPeriodsApi.getRevenueLines(year, month),
+        accountingPeriodsApi.getRevenueLines(year, month, { page, size: 10 }),
         accountingPeriodsApi.getReconciliation(year, month),
       ]);
       setPeriodDetail(detailResult);
       setRevenueLines(revenueLinesFrom(linesResult));
+      setRevenuePage({
+        page: linesResult?.page ?? page,
+        size: linesResult?.size ?? 10,
+        totalPages: linesResult?.totalPages ?? 0,
+        totalElements: linesResult?.totalElements ?? 0,
+      });
       setReconciliation(reconciliationResult);
     } catch (requestError) {
       setPeriodDetail(null);
@@ -374,6 +407,20 @@ export default function TaxAccountingOverviewPage() {
       setPeriodLoading(false);
     }
   }, [year]);
+
+  const loadRevenuePage = async (page) => {
+    if (!selectedMonth || page < 0 || page >= revenuePage.totalPages) return;
+    setPeriodLoading(true);
+    try {
+      const result = await accountingPeriodsApi.getRevenueLines(year, selectedMonth, { page, size: revenuePage.size });
+      setRevenueLines(revenueLinesFrom(result));
+      setRevenuePage((previous) => ({ ...previous, page: result?.page ?? page, totalPages: result?.totalPages ?? previous.totalPages, totalElements: result?.totalElements ?? previous.totalElements }));
+    } catch (requestError) {
+      setPeriodError(requestError.response?.data?.message || 'Không thể tải trang doanh thu.');
+    } finally {
+      setPeriodLoading(false);
+    }
+  };
 
   const handleCreatePeriod = async (event) => {
     event.preventDefault();
@@ -434,10 +481,10 @@ export default function TaxAccountingOverviewPage() {
     setAdjustmentForm({
       ...emptyAdjustmentForm(),
       ...information,
-      occurredAt: toDateTimeLocal(information.occurredAt),
+      date: adjustmentDateValue(information),
       sourceId: information.sourceId ?? '',
       relatedPeriodId: information.relatedPeriodId ?? selectedPeriodId ?? '',
-      signedAmount: information.signedAmount ?? '',
+      signedAmount: formatAmountFromValue(information.signedAmount),
     });
     setAdjustmentError('');
     setAdjustmentModal(adjustment ? { type: 'edit', adjustment } : { type: 'create' });
@@ -452,9 +499,8 @@ export default function TaxAccountingOverviewPage() {
       sourceId: adjustmentForm.sourceId ? Number(adjustmentForm.sourceId) : null,
       relatedPeriodId: adjustmentForm.relatedPeriodId ? Number(adjustmentForm.relatedPeriodId) : null,
       originalAdjustmentId: null,
-      occurredAt: new Date(adjustmentForm.occurredAt).toISOString(),
-      postingDate: adjustmentForm.postingDate,
-      signedAmount: String(adjustmentForm.signedAmount),
+      date: adjustmentForm.date,
+      signedAmount: amountForApi(adjustmentForm.signedAmount),
       classification: adjustmentForm.classification || 'CORRECTION',
       inclusionReason: adjustmentForm.inclusionReason.trim(),
       evidence: adjustmentForm.evidence?.trim() || 'Điều chỉnh doanh thu',
@@ -509,7 +555,7 @@ export default function TaxAccountingOverviewPage() {
     setAdjustmentModal({ type: decision, adjustment });
   };
 
-  const loadReport = async () => {
+  const loadReport = useCallback(async () => {
     setReportLoading(true);
     setReportError('');
     try {
@@ -525,7 +571,13 @@ export default function TaxAccountingOverviewPage() {
     } finally {
       setReportLoading(false);
     }
-  };
+  }, [year, reportType, reportQuarter, reportMonth]);
+
+  useEffect(() => {
+    if (!profile) return undefined;
+    const reportTimer = window.setTimeout(() => loadReport(), 0);
+    return () => window.clearTimeout(reportTimer);
+  }, [profile, loadReport]);
 
   const handleDownload = async (type, mode = exportMode) => {
     const loadingKey = `${type}-${mode}`;
@@ -556,6 +608,10 @@ export default function TaxAccountingOverviewPage() {
 
   const information = getProfileInformation(profile);
   const confirmed = profile?.status === 'CONFIRMED';
+  const declared = taxRecord?.declarationStatus === 'DECLARED';
+  const trackedRevenue = Number(taxRecord?.revenueBase ?? summary?.recordedRevenue ?? 0);
+  const outOfScope = trackedRevenue > 1000000000;
+  const declarationPreviewLocked = outOfScope;
   const summaryMonths = Array.isArray(summary?.months) ? summary.months : [];
   const summaryByMonth = new Map(summaryMonths.map((month) => [Number(month.month), month]));
   const closedPeriods = summaryMonths.filter((month) => month.status === 'CLOSED').length;
@@ -593,6 +649,7 @@ export default function TaxAccountingOverviewPage() {
 
           {error && <div className="tax-accounting-alert tax-accounting-alert--danger"><AlertCircle size={18} /> <span>{error}</span></div>}
           {trackingIsPartial && <div className="tax-accounting-alert tax-accounting-alert--warning"><AlertCircle size={18} /> Doanh thu chỉ được tính từ mốc bắt đầu theo dõi.</div>}
+          {outOfScope && <div className="tax-accounting-alert tax-accounting-alert--warning tax-accounting-alert--scope"><AlertCircle size={18} /><div><strong>Doanh thu đã vượt 1 tỷ đồng</strong><p>Hệ thống hiện chưa hỗ trợ kê khai thuế cho trường hợp này. Các thao tác thuế đã được khóa; bạn vẫn có thể xem báo cáo và xuất sổ S1a để xử lý bên ngoài hệ thống.</p></div></div>}
 
           {loading ? (
             <div className="tax-accounting-loading">Đang tải dữ liệu năm {year}...</div>
@@ -612,12 +669,13 @@ export default function TaxAccountingOverviewPage() {
                   </div>
                   {reportType === 'QUARTER' && <label>Quý<select value={reportQuarter} onChange={(event) => setReportQuarter(Number(event.target.value))}>{[1, 2, 3, 4].map((quarter) => <option key={quarter} value={quarter}>{quarter}</option>)}</select></label>}
                   {reportType === 'MONTH' && <label>Tháng<select value={reportMonth} onChange={(event) => setReportMonth(Number(event.target.value))}>{Array.from({ length: 12 }, (_, index) => index + 1).map((month) => <option key={month} value={month}>{month}</option>)}</select></label>}
-                  <button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={loadReport} disabled={reportLoading}><RefreshCw size={15} /> Xem báo cáo</button>
-                  <button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={() => handleDownload('declaration')} disabled={downloadLoading === 'declaration-PREVIEW' || !profile}>{downloadLoading === 'declaration-PREVIEW' ? 'Đang tải...' : 'Xem trước 01/TKN-CNKD'}</button>
-                  <button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={() => handleDownload('s1a', 'PREVIEW')} disabled={downloadLoading === 's1a-PREVIEW' || !profile}>{downloadLoading === 's1a-PREVIEW' ? 'Đang tải...' : 'Xem trước S1a Excel'}</button>
+                  <span className={declarationPreviewLocked ? 'tax-accounting-disabled-action' : undefined} title={declarationPreviewLocked ? 'Doanh thu vượt ngưỡng 1 tỷ; hệ thống chưa hỗ trợ kê khai trường hợp này.' : undefined}>
+                    <button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={() => handleDownload('declaration')} disabled={downloadLoading === 'declaration-PREVIEW' || !profile || declarationPreviewLocked}>{downloadLoading === 'declaration-PREVIEW' ? 'Đang tải...' : 'Xem 01/TKN-CNKD'}</button>
+                  </span>
+                  <button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={() => handleDownload('s1a', 'PREVIEW')} disabled={downloadLoading === 's1a-PREVIEW' || !profile}>{downloadLoading === 's1a-PREVIEW' ? 'Đang tải...' : 'Xem S1a Excel'}</button>
                 </div>
                 {reportError && <div className="tax-accounting-alert tax-accounting-alert--danger tax-accounting-alert--inline"><AlertCircle size={18} /> <span>{reportError}</span></div>}
-                {reportLoading ? <div className="tax-accounting-loading">Đang tải báo cáo...</div> : report ? <div className="tax-accounting-report-result"><div><span>Kỳ báo cáo</span><strong>{reportPeriodLabel(report.periodType || reportType)} {report.periodNumber || year}</strong></div><div><span>Doanh thu ghi nhận</span><strong>{formatMoney(report.recordedRevenue)}</strong></div><div><span>Đối chiếu nguồn</span><strong>{report.sourceCompletenessVerified ? 'Đạt' : 'Chưa đạt'}</strong></div>{report.partialTracking && <p className="tax-accounting-report-warning">Doanh thu chỉ được tính từ mốc bắt đầu theo dõi.</p>}</div> : <p className="tax-accounting-muted">Chọn kỳ và bấm “Xem báo cáo” để tải dữ liệu.</p>}
+                {reportLoading ? <div className="tax-accounting-loading">Đang tải báo cáo...</div> : report ? <div className="tax-accounting-report-result"><div><span>Kỳ báo cáo</span><strong>{reportPeriodLabel(report.periodType || reportType)} {report.periodNumber || year}</strong></div><div><span>Doanh thu ghi nhận</span><strong>{formatMoney(report.recordedRevenue)}</strong></div><div><span>Đối chiếu nguồn</span><strong>{report.sourceCompletenessVerified ? 'Đạt' : 'Chưa đạt'}</strong></div>{report.partialTracking && <p className="tax-accounting-report-warning">Doanh thu chỉ được tính từ mốc bắt đầu theo dõi.</p>}</div> : <p className="tax-accounting-muted">Chọn loại báo cáo và kỳ để tải dữ liệu.</p>}
               </section>
 
               <section className="tax-accounting-grid">
@@ -632,7 +690,7 @@ export default function TaxAccountingOverviewPage() {
                       <div><dt>Mốc bắt đầu theo dõi</dt><dd>{formatDate(profile.trackingStartedAt)}</dd></div>
                     </dl>
                     <div className="tax-accounting-panel__actions">
-                      <button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={openProfileForm} disabled={submitting}><Edit3 size={15} /> Chỉnh sửa hồ sơ</button>
+                      {!declared && <button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={openProfileForm} disabled={submitting}><Edit3 size={15} /> Chỉnh sửa hồ sơ</button>}
                       {!confirmed && <button type="button" className="tax-accounting-button tax-accounting-button--primary" onClick={handleConfirm} disabled={submitting}><CheckCircle2 size={15} /> Xác nhận hồ sơ</button>}
                       {!confirmed && <button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={openTrackingForm} disabled={submitting}><CalendarDays size={15} /> Đổi mốc theo dõi</button>}
                     </div>
@@ -642,24 +700,18 @@ export default function TaxAccountingOverviewPage() {
                 </article>
 
                 <article className="tax-accounting-panel">
-                  <div className="tax-accounting-panel__heading"><CheckCircle2 size={18} /><h2>Đối chiếu năm</h2></div>
-                  <div className={`tax-accounting-reconciliation${summary?.sourceCompletenessVerified ? ' is-complete' : ''}`}>
-                    <strong>{summary?.sourceCompletenessVerified ? 'Đã đối chiếu đầy đủ' : 'Chưa đối chiếu đầy đủ'}</strong>
-                    <span>{summary?.months?.length || 0} tháng có dữ liệu tổng hợp</span>
-                  </div>
-                  {taxRecordError && <div className="tax-accounting-alert tax-accounting-alert--danger tax-accounting-alert--inline"><AlertCircle size={18} /> <span>{taxRecordError}</span></div>}
-                  {!taxRecord ? <div className="tax-accounting-empty"><p>Chưa có kết quả tính thuế cho năm {year}.</p><button type="button" className="tax-accounting-button tax-accounting-button--primary" onClick={calculateTaxRecord} disabled={!confirmed || taxRecordLoading}>{taxRecordLoading ? 'Đang tính...' : 'Tính nghĩa vụ thuế'}</button></div> : <>
+                  <div className="tax-accounting-panel__heading"><CheckCircle2 size={18} /><h2>Kê khai thuế</h2></div>
+                    {taxRecordError && <div className="tax-accounting-alert tax-accounting-alert--danger tax-accounting-alert--inline"><AlertCircle size={18} /> <span>{taxRecordError}</span></div>}
+                  {outOfScope ? <div className="tax-accounting-empty"><p>Không hiển thị số thuế tự tính vì năm này đã vượt phạm vi hỗ trợ 1 tỷ đồng.</p></div> : !taxRecord ? <div className="tax-accounting-empty"><p>Chưa có kết quả tính thuế cho năm {year}.</p></div> : <>
                     <div className="tax-accounting-report-result">
                       <div><span>Doanh thu tính thuế</span><strong>{formatMoney(taxRecord.revenueBase)}</strong></div>
-                      <div><span>Thuế GTGT</span><strong>{formatMoney(taxRecord.vatAmount)}</strong></div>
-                      <div><span>Thuế TNCN</span><strong>{formatMoney(taxRecord.pitAmount)}</strong></div>
                       <div><span>Tổng thuế</span><strong>{formatMoney(taxRecord.totalTaxAmount)}</strong></div>
                     </div>
                     <dl className="tax-accounting-details">
                       <div><dt>Trạng thái</dt><dd><span className={`tax-accounting-status tax-accounting-status--${String(taxRecord.declarationStatus || 'UPDATING').toLowerCase()}`}>{statusLabel(taxRecord.declarationStatus || 'UPDATING')}</span></dd></div>
                       <div><dt>Hạn kê khai</dt><dd>{formatDate(taxRecord.dueDate)}</dd></div>
                     </dl>
-                    <div className="tax-accounting-panel__actions"><button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={calculateTaxRecord} disabled={!confirmed || taxRecordLoading || taxRecord.declarationStatus === 'DECLARED'}>Tính lại thuế</button>{taxRecord.declarationStatus !== 'DECLARED' && <button type="button" className="tax-accounting-button tax-accounting-button--primary" onClick={declareTaxRecord} disabled={taxRecordLoading}>{taxRecordLoading ? 'Đang cập nhật...' : 'Đánh dấu đã kê khai'}</button>}</div>
+                    {!declared && <div className="tax-accounting-panel__actions"><button type="button" className="tax-accounting-button tax-accounting-button--primary" onClick={declareTaxRecord} disabled={taxRecordLoading}>{taxRecordLoading ? 'Đang cập nhật...' : 'Đánh dấu đã kê khai'}</button></div>}
                   </>}
                 </article>
               </section>
@@ -668,7 +720,7 @@ export default function TaxAccountingOverviewPage() {
                 <div className="tax-accounting-panel__heading"><CalendarDays size={18} /><h2>Kỳ kế toán theo tháng</h2></div>
                 <div className="tax-accounting-table-wrap">
                   <table>
-                    <thead><tr><th>Tháng</th><th>Khoảng thời gian</th><th>Trạng thái</th><th>Doanh thu</th><th>Đối chiếu</th><th>Thao tác</th></tr></thead>
+                    <thead><tr><th>Tháng</th><th>Khoảng thời gian</th><th>Trạng thái</th><th>Doanh thu</th><th>Thao tác</th></tr></thead>
                     <tbody>
                       {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => {
                         const period = periodByMonth.get(month);
@@ -680,8 +732,7 @@ export default function TaxAccountingOverviewPage() {
                             <td>{period ? `${formatDate(period.startAt || period.periodStart || period.startDate)} - ${formatDate(period.endExclusive || period.periodEnd || period.endDate)}` : monthSummary?.trackingStart ? `Từ ${formatDate(monthSummary.trackingStart)}` : 'Chưa tạo'}</td>
                             <td>{monthStatus ? <span className={`tax-accounting-status tax-accounting-status--${String(monthStatus).toLowerCase()}`}>{statusLabel(monthStatus)}</span> : <span className="tax-accounting-status tax-accounting-status--missing">Chưa tạo</span>}</td>
                             <td>{monthSummary ? formatMoney(monthSummary.recordedRevenue) : period?.recordedRevenue != null ? formatMoney(period.recordedRevenue) : '—'}</td>
-                            <td>{monthSummary ? (monthSummary.sourceCompletenessVerified ? 'Đạt' : 'Chưa đạt') : period ? (period.sourceCompletenessVerified ? 'Đạt' : 'Chưa đạt') : '—'}</td>
-                            <td><button type="button" className="tax-accounting-table-action" onClick={() => period ? loadPeriodDetail(month) : (setSelectedMonth(month), setPeriodModal('create'))} disabled={!confirmed || submitting}><Search size={14} /> {period ? 'Chi tiết' : 'Tạo kỳ'}</button></td>
+                            <td><button type="button" className="tax-accounting-table-action" onClick={() => period ? loadPeriodDetail(month) : (setSelectedMonth(month), setPeriodModal('create'))} disabled={!confirmed || (!period && declared) || submitting}><Search size={14} /> {period ? 'Chi tiết' : 'Tạo kỳ'}</button></td>
                           </tr>
                         );
                       })}
@@ -701,29 +752,38 @@ export default function TaxAccountingOverviewPage() {
                         <div><span>Doanh thu ghi nhận</span><strong>{formatMoney(selectedPeriodRevenue)}</strong></div>
                         <div><span>Đối chiếu</span><strong>{reconciliation?.sourceCompletenessVerified ? 'Đạt' : 'Chưa đạt'}</strong></div>
                         <div className="tax-accounting-period-toolbar__actions">
-                          <button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={handleSynchronizeAndReconcile} disabled={periodLoading}><RefreshCw size={15} /> {periodDetail.status === 'OPEN' ? 'Đồng bộ và đối chiếu' : 'Đối chiếu'}</button>
-                          {periodDetail.status === 'OPEN' && <button type="button" className="tax-accounting-button tax-accounting-button--primary" onClick={() => { setPeriodReason(''); setPeriodModal('close'); }} disabled={!reconciliation?.canClose || periodLoading}><CheckCircle2 size={15} /> Khóa kỳ</button>}
+                          {!declared && <button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={handleSynchronizeAndReconcile} disabled={periodLoading}><RefreshCw size={15} /> {periodDetail.status === 'OPEN' ? 'Đồng bộ và đối chiếu' : 'Đối chiếu'}</button>}
+                          {periodDetail.status === 'OPEN' && <button type="button" className="tax-accounting-button tax-accounting-button--primary" onClick={() => { setPeriodReason(''); setPeriodModal('close'); }} disabled={declared || !reconciliation?.canClose || periodLoading}><CheckCircle2 size={15} /> Khóa kỳ</button>}
                         </div>
                       </div>
                       {reconciliation?.issues?.length > 0 && <div className="tax-accounting-issues"><strong>Lỗi đối chiếu</strong><ul>{reconciliation.issues.map((issue, index) => <li key={`${issue}-${index}`}>{typeof issue === 'string' ? issue : issue.message || JSON.stringify(issue)}</li>)}</ul></div>}
                       <div className="tax-accounting-table-wrap">
                         <table>
-                          <thead><tr><th>Ngày hạch toán</th><th>Nội dung giao dịch</th><th>Số tiền</th><th>Phân loại</th></tr></thead>
+                          <thead><tr><th>Ngày tháng</th><th>Nội dung giao dịch</th><th>Số tiền</th><th>Phân loại</th></tr></thead>
                           <tbody>{revenueLines.length === 0 ? <tr><td colSpan="4" className="tax-accounting-empty">Chưa có dòng doanh thu.</td></tr> : revenueLines.map((line, index) => <tr key={line.id || line.sourceId || index}><td>{formatDate(line.postingDate || line.accountingDate || line.date)}</td><td>{line.description || line.content || '—'}</td><td>{formatMoney(line.amount ?? line.signedAmount)}</td><td>{revenueClassificationLabel(line.classification || line.sourceType)}</td></tr>)}</tbody>
                         </table>
                       </div>
+                      {revenuePage.totalPages > 0 && <ProductPagination
+                        page={revenuePage.page + 1}
+                        totalPages={revenuePage.totalPages}
+                        startIndex={revenuePage.totalElements === 0 ? 0 : revenuePage.page * revenuePage.size + 1}
+                        endIndex={Math.min((revenuePage.page + 1) * revenuePage.size, revenuePage.totalElements)}
+                        totalItems={revenuePage.totalElements}
+                        itemLabel="bản ghi"
+                        onPageChange={(nextPage) => loadRevenuePage(nextPage - 1)}
+                      />}
                     </>
                   ) : <div className="tax-accounting-empty">Chưa có chi tiết kỳ được chọn.</div>}
                 </section>
               )}
 
               <section className="tax-accounting-panel tax-accounting-adjustments">
-                <div className="tax-accounting-panel__heading"><Edit3 size={18} /><h2>Điều chỉnh doanh thu</h2><button type="button" className="tax-accounting-heading-action" onClick={() => openAdjustmentForm()} disabled={!confirmed || submitting}><Plus size={15} /> Tạo điều chỉnh</button></div>
+                  <div className="tax-accounting-panel__heading"><Edit3 size={18} /><h2>Điều chỉnh doanh thu</h2><button type="button" className="tax-accounting-heading-action" onClick={() => openAdjustmentForm()} disabled={!confirmed || declared || submitting}><Plus size={15} /> Tạo điều chỉnh</button></div>
                 {adjustmentError && <div className="tax-accounting-alert tax-accounting-alert--danger tax-accounting-alert--inline"><AlertCircle size={18} /> <span>{adjustmentError}</span></div>}
                 <div className="tax-accounting-table-wrap">
                   <table>
-                    <thead><tr><th>Mã</th><th>Ngày phát sinh</th><th>Ngày hạch toán</th><th>Số tiền</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
-                    <tbody>{adjustments.length === 0 ? <tr><td colSpan="6" className="tax-accounting-empty">Chưa có điều chỉnh doanh thu.</td></tr> : adjustments.map((adjustment) => { const information = adjustment.information ?? adjustment; const status = adjustment.status; return <tr key={adjustment.id}><td>{adjustment.id ?? '—'}</td><td>{formatDate(information.occurredAt)}</td><td>{formatDate(information.postingDate)}</td><td>{formatMoney(information.signedAmount)}</td><td><span className={`tax-accounting-status tax-accounting-status--${String(status || '').toLowerCase()}`}>{statusLabel(status)}</span></td><td><div className="tax-accounting-row-actions">{status === 'DRAFT' && <><button type="button" className="tax-accounting-table-action" onClick={() => openAdjustmentForm(adjustment)}><Edit3 size={14} /> Sửa</button><button type="button" className="tax-accounting-table-action" onClick={() => openAdjustmentDecision(adjustment, 'approve')}>Duyệt</button><button type="button" className="tax-accounting-table-action tax-accounting-table-action--danger" onClick={() => openAdjustmentDecision(adjustment, 'reject')}>Từ chối</button></>}</div></td></tr>; })}</tbody>
+                    <thead><tr><th>STT</th><th>Ngày tháng</th><th>Số tiền</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+                    <tbody>{adjustments.length === 0 ? <tr><td colSpan="5" className="tax-accounting-empty">Chưa có điều chỉnh doanh thu.</td></tr> : adjustments.map((adjustment) => { const information = adjustment.information ?? adjustment; const status = adjustment.status; return <tr key={adjustment.id}><td>{adjustment.id ?? '—'}</td><td>{formatDate(adjustmentDateValue(information))}</td><td>{formatMoney(information.signedAmount)}</td><td><span className={`tax-accounting-status tax-accounting-status--${String(status || '').toLowerCase()}`}>{statusLabel(status)}</span></td><td><div className="tax-accounting-row-actions">{status === 'DRAFT' && !declared && <><button type="button" className="tax-accounting-table-action" onClick={() => openAdjustmentForm(adjustment)}><Edit3 size={14} /> Sửa</button><button type="button" className="tax-accounting-table-action" onClick={() => openAdjustmentDecision(adjustment, 'approve')}>Duyệt</button><button type="button" className="tax-accounting-table-action tax-accounting-table-action--danger" onClick={() => openAdjustmentDecision(adjustment, 'reject')}>Từ chối</button></>}</div></td></tr>; })}</tbody>
                   </table>
                 </div>
               </section>
@@ -764,7 +824,7 @@ export default function TaxAccountingOverviewPage() {
         <div className="tax-accounting-modal-overlay" role="presentation" onClick={() => !submitting && setPeriodModal(null)}>
           <div className="tax-accounting-modal tax-accounting-modal--small" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
             <div className="tax-accounting-modal__header"><div><h2>{periodModal === 'create' ? `Tạo kỳ tháng ${selectedMonth}/${year}` : `Khóa kỳ tháng ${selectedMonth}/${year}`}</h2><p>{periodModal === 'create' ? 'Chỉ hồ sơ đã xác nhận mới được tạo kỳ.' : 'Chỉ khóa kỳ khi đối chiếu đạt và không còn lỗi nguồn dữ liệu.'}</p></div><button type="button" className="tax-accounting-modal__close" onClick={() => setPeriodModal(null)} aria-label="Đóng">×</button></div>
-            {periodModal === 'create' ? <form onSubmit={handleCreatePeriod}><div className="tax-accounting-modal__footer"><button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={() => setPeriodModal(null)}>Hủy</button><button type="submit" className="tax-accounting-button tax-accounting-button--primary" disabled={submitting}>Tạo kỳ</button></div></form> : <form onSubmit={handleClosePeriod}><label>Lý do khóa kỳ<textarea value={periodReason} onChange={(event) => setPeriodReason(event.target.value)} minLength={3} required /></label><div className="tax-accounting-modal__footer"><button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={() => setPeriodModal(null)}>Hủy</button><button type="submit" className="tax-accounting-button tax-accounting-button--primary" disabled={submitting}>Xác nhận khóa kỳ</button></div></form>}
+            {periodModal === 'create' ? <form onSubmit={handleCreatePeriod}><div className="tax-accounting-modal__footer"><button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={() => setPeriodModal(null)}>Hủy</button><button type="submit" className="tax-accounting-button tax-accounting-button--primary" disabled={submitting || declared}>Tạo kỳ</button></div></form> : <form onSubmit={handleClosePeriod}><label>Lý do khóa kỳ<textarea value={periodReason} onChange={(event) => setPeriodReason(event.target.value)} minLength={3} required /></label><div className="tax-accounting-modal__footer"><button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={() => setPeriodModal(null)}>Hủy</button><button type="submit" className="tax-accounting-button tax-accounting-button--primary" disabled={submitting}>Xác nhận khóa kỳ</button></div></form>}
           </div>
         </div>
       )}
@@ -772,7 +832,7 @@ export default function TaxAccountingOverviewPage() {
         <div className="tax-accounting-modal-overlay" role="presentation" onClick={() => !submitting && setAdjustmentModal(null)}>
           <div className="tax-accounting-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
             <div className="tax-accounting-modal__header"><div><h2>{adjustmentModal.type === 'create' ? 'Tạo điều chỉnh doanh thu' : adjustmentModal.type === 'edit' ? 'Sửa điều chỉnh doanh thu' : adjustmentModal.type === 'approve' ? 'Duyệt điều chỉnh doanh thu' : 'Từ chối điều chỉnh doanh thu'}</h2><p>{adjustmentModal.type === 'approve' || adjustmentModal.type === 'reject' ? 'Nhập lý do xử lý để lưu dấu vết nghiệp vụ.' : 'Điều chỉnh chỉ được cộng vào doanh thu sau khi được duyệt.'}</p></div><button type="button" className="tax-accounting-modal__close" onClick={() => setAdjustmentModal(null)} aria-label="Đóng">×</button></div>
-            {adjustmentModal.type === 'approve' || adjustmentModal.type === 'reject' ? <form onSubmit={(event) => { event.preventDefault(); handleAdjustmentDecision(adjustmentModal.adjustment, adjustmentModal.type); }}><label>Lý do xử lý<textarea value={adjustmentReason} onChange={(event) => setAdjustmentReason(event.target.value)} minLength={3} required /></label>{adjustmentError && <div className="tax-accounting-alert tax-accounting-alert--danger">{adjustmentError}</div>}<div className="tax-accounting-modal__footer"><button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={() => setAdjustmentModal(null)}>Hủy</button><button type="submit" className="tax-accounting-button tax-accounting-button--primary" disabled={submitting}>{adjustmentModal.type === 'approve' ? 'Duyệt điều chỉnh' : 'Từ chối điều chỉnh'}</button></div></form> : <form onSubmit={handleAdjustmentSubmit}><div className="tax-accounting-form-grid"><label>Ngày phát sinh<input type="datetime-local" value={adjustmentForm.occurredAt} onChange={(event) => setAdjustmentForm({ ...adjustmentForm, occurredAt: event.target.value })} required /></label><label>Ngày hạch toán<input type="date" value={adjustmentForm.postingDate} onChange={(event) => setAdjustmentForm({ ...adjustmentForm, postingDate: event.target.value })} required /></label></div><label>Số tiền có dấu<input type="number" step="0.01" value={adjustmentForm.signedAmount} onChange={(event) => setAdjustmentForm({ ...adjustmentForm, signedAmount: event.target.value })} required /></label><label>Lý do đưa vào sổ<textarea value={adjustmentForm.inclusionReason} onChange={(event) => setAdjustmentForm({ ...adjustmentForm, inclusionReason: event.target.value })} minLength={3} required /></label><div className="tax-accounting-modal__footer"><button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={() => setAdjustmentModal(null)}>Hủy</button><button type="submit" className="tax-accounting-button tax-accounting-button--primary" disabled={submitting}>Lưu bản nháp</button></div></form>}
+            {adjustmentModal.type === 'approve' || adjustmentModal.type === 'reject' ? <form onSubmit={(event) => { event.preventDefault(); handleAdjustmentDecision(adjustmentModal.adjustment, adjustmentModal.type); }}><label>Lý do xử lý<textarea value={adjustmentReason} onChange={(event) => setAdjustmentReason(event.target.value)} minLength={3} required /></label>{adjustmentError && <div className="tax-accounting-alert tax-accounting-alert--danger">{adjustmentError}</div>}<div className="tax-accounting-modal__footer"><button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={() => setAdjustmentModal(null)}>Hủy</button><button type="submit" className="tax-accounting-button tax-accounting-button--primary" disabled={submitting}>{adjustmentModal.type === 'approve' ? 'Duyệt điều chỉnh' : 'Từ chối điều chỉnh'}</button></div></form> : <form onSubmit={handleAdjustmentSubmit}><div className="tax-accounting-form-grid"><label>Ngày điều chỉnh<input type="date" value={adjustmentForm.date} onChange={(event) => setAdjustmentForm({ ...adjustmentForm, date: event.target.value })} required /></label></div><label>Số tiền có dấu<input type="text" inputMode="decimal" placeholder="Ví dụ: 1.000.000" value={adjustmentForm.signedAmount} onChange={(event) => setAdjustmentForm({ ...adjustmentForm, signedAmount: formatAmountInput(event.target.value) })} required /></label><label>Lý do đưa vào sổ<textarea value={adjustmentForm.inclusionReason} onChange={(event) => setAdjustmentForm({ ...adjustmentForm, inclusionReason: event.target.value })} minLength={3} required /></label><div className="tax-accounting-modal__footer"><button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={() => setAdjustmentModal(null)}>Hủy</button><button type="submit" className="tax-accounting-button tax-accounting-button--primary" disabled={submitting}>Lưu bản nháp</button></div></form>}
           </div>
         </div>
       )}

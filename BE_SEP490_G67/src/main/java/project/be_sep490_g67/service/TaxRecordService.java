@@ -17,6 +17,8 @@ import project.be_sep490_g67.enums.TaxDeclarationStatus;
 import project.be_sep490_g67.repository.AccountingRevenueLineRepository;
 import project.be_sep490_g67.repository.BusinessTaxProfileRepository;
 import project.be_sep490_g67.repository.TaxRecordRepository;
+import project.be_sep490_g67.repository.AccountingPeriodRepository;
+import project.be_sep490_g67.enums.PeriodStatus;
 import project.be_sep490_g67.dto.request.ConfirmTaxRecordRequest;
 
 import java.math.BigDecimal;
@@ -39,6 +41,8 @@ public class TaxRecordService {
     private final BusinessTaxProfileRepository profileRepository;
     private final AccountingRevenueLineRepository revenueLineRepository;
     private final TaxRecordRepository taxRecordRepository;
+    private final AccountingPeriodRepository accountingPeriodRepository;
+    private final AccountingService accountingService;
 
     /** Tính lại bản ghi YEAR và trả về bản ghi mới nhất. */
     @Transactional
@@ -127,6 +131,25 @@ public class TaxRecordService {
 
     @Transactional
     public TaxRecord declareAnnual(Integer year) {
+        BusinessTaxProfile profile = profileRepository
+                .findByStoreIdAndTaxYearAndIsRemovedFalse(StoreService.STORE_ID, year)
+                .orElseThrow(() -> error(HttpStatus.NOT_FOUND, "Không tìm thấy hồ sơ năm"));
+        var periods = accountingPeriodRepository
+                .findByProfileIdAndIsRemovedFalseOrderByAccountingMonthAsc(profile.getId());
+        if (periods.isEmpty()) {
+            throw error(HttpStatus.CONFLICT, "Cần tạo ít nhất một kỳ kế toán trước khi chốt kê khai");
+        }
+        for (var period : periods) {
+            if (period.getStatus() != PeriodStatus.CLOSED) {
+                throw error(HttpStatus.CONFLICT,
+                        "Còn kỳ tháng " + period.getAccountingMonth() + " chưa được khóa");
+            }
+            var reconciliation = accountingService.reconcilePeriod(year, period.getAccountingMonth());
+            if (!reconciliation.sourceCompletenessVerified()) {
+                throw error(HttpStatus.CONFLICT,
+                        "Kỳ tháng " + period.getAccountingMonth() + " chưa đối soát doanh thu đạt");
+            }
+        }
         TaxRecord record = getAnnual(year);
         if (record.getStatus() != TaxRecordStatus.CALCULATED
                 && record.getStatus() != TaxRecordStatus.NO_TAX_PAYABLE) {

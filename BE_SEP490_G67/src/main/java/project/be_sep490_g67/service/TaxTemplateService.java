@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -34,6 +35,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('MANAGER')")
 public class TaxTemplateService {
+    private static final BigDecimal TAX_THRESHOLD = new BigDecimal("1000000000.00");
+    private static final BigDecimal VAT_RATE = new BigDecimal("0.0050");
+    private static final BigDecimal PIT_RATE = new BigDecimal("0.0100");
     private final AccountingService accountingService;
     private final BusinessTaxProfileRepository profileRepository;
     private final TaxRecordRepository taxRecordRepository;
@@ -65,16 +69,32 @@ public class TaxTemplateService {
                     .orElseThrow(() -> conflict("Chưa có TaxRecord năm được xác nhận để xuất bản chính thức"));
         }
         BigDecimal revenue = summary.recordedRevenue();
-        Map<String, String> values = Map.of(
-                "{{CHECK_BUSINESS}}", "☒",
-                "{{CHECK_FIRST_FILING}}", "☒",
-                "{{TAX_PERIOD_OPTION}}", "[01a] Năm " + year,
-                "{{TAX_SUPPLEMENT_NUMBER}}", "",
-                "{{TAX_USERNAME}}", safe(profile.getTaxpayerName()),
-                "{{TAX_CODE}}", safe(profile.getTaxpayerIdentity()),
-                "{{TAX_YEAR}}", String.valueOf(year),
-                "{{TAX_REVENUE}}", money(revenue),
-                "{{TAX_TOTAL_REVENUE}}", money(revenue));
+        if (mode == TaxExportMode.PREVIEW && revenue != null && revenue.compareTo(TAX_THRESHOLD) > 0) {
+            throw conflict("Doanh thu vượt ngưỡng 1 tỷ; không thể xem trước 01/TKN-CNKD");
+        }
+        BigDecimal vatAmount = BigDecimal.ZERO;
+        BigDecimal pitAmount = BigDecimal.ZERO;
+        if (revenue != null && revenue.compareTo(TAX_THRESHOLD) > 0) {
+            vatAmount = revenue.multiply(VAT_RATE).setScale(2, java.math.RoundingMode.HALF_UP);
+            pitAmount = revenue.multiply(PIT_RATE).setScale(2, java.math.RoundingMode.HALF_UP);
+        }
+        BigDecimal totalTax = vatAmount.add(pitAmount).setScale(2, java.math.RoundingMode.HALF_UP);
+        LocalDate dueDate = LocalDate.of(year + 1, 1, 31);
+        Map<String, String> values = Map.ofEntries(
+                Map.entry("{{CHECK_BUSINESS}}", "\u2612"),
+                Map.entry("{{CHECK_FIRST_FILING}}", "\u2612"),
+                Map.entry("{{TAX_PERIOD_OPTION}}", "[01a] Nam " + year),
+                Map.entry("{{TAX_SUPPLEMENT_NUMBER}}", ""),
+                Map.entry("{{TAX_USERNAME}}", safe(profile.getTaxpayerName())),
+                Map.entry("{{TAX_CODE}}", safe(profile.getTaxpayerIdentity())),
+                Map.entry("{{TAX_ADDRESS}}", safe(profile.getTaxpayerAddress())),
+                Map.entry("{{TAX_YEAR}}", String.valueOf(year)),
+                Map.entry("{{TAX_REVENUE}}", moneyOrZero(revenue)),
+                Map.entry("{{TAX_TOTAL_REVENUE}}", moneyOrZero(revenue)),
+                Map.entry("{{TAX_VAT_AMOUNT}}", moneyOrZero(vatAmount)),
+                Map.entry("{{TAX_PIT_AMOUNT}}", moneyOrZero(pitAmount)),
+                Map.entry("{{TAX_TOTAL_TAX}}", moneyOrZero(totalTax)),
+                Map.entry("{{TAX_DUE_DATE}}", dueDate.toString()));
         return render("/templates_tax/01-TKN-CNKD.docx", values);
     }
 
@@ -127,6 +147,10 @@ public class TaxTemplateService {
 
     private String money(BigDecimal value) {
         return new DecimalFormat("#,##0.##").format(value);
+    }
+
+    private String moneyOrZero(BigDecimal value) {
+        return money(value == null ? BigDecimal.ZERO : value);
     }
 
     private String safe(String value) { return value == null ? "" : value; }

@@ -34,7 +34,7 @@ const translatePaymentMethod = (method) => {
   }
 };
 
-export default function CustomerPaymentHistory({ customerId, refreshKey }) {
+export default function CustomerPaymentHistory({ customerId, refreshKey, onShowDetail }) {
   const [historyData, setHistoryData] = useState({
     content: [],
     totalPages: 1,
@@ -106,7 +106,16 @@ export default function CustomerPaymentHistory({ customerId, refreshKey }) {
                 <td>{formatDateTime(item.paymentDate)}</td>
                 <td>{item.paymentCode}</td>
                 <td>
-                  {item.orderCode}
+                  {item.orderId && onShowDetail ? (
+                    <button
+                      type="button"
+                      className="customer-debt-order-code"
+                      title="Xem chi tiết hóa đơn"
+                      onClick={() => onShowDetail(item.orderId)}
+                    >
+                      {item.orderCode || `#${item.orderId}`}
+                    </button>
+                  ) : item.orderCode || "-"}
                 </td>
                 <td className="text-success fw-bold">
                   {formatCurrency(item.amountPaid)}

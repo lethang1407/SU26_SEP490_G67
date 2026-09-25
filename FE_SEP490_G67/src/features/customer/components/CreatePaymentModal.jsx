@@ -21,8 +21,6 @@ function formatAmountInput(rawValue) {
     return new Intl.NumberFormat('en-US').format(Number(digitsOnly));
 }
 
-const suggestionAmounts = [5000, 10000, 20000, 50000, 100000, 200000, 500000];
-
 export default function CreatePaymentModal({ show, onHide, onSuccess, customer }) {
     const [orders, setOrders] = useState([]);
     const [loadingOrders, setLoadingOrders] = useState(false);
@@ -280,20 +278,6 @@ export default function CreatePaymentModal({ show, onHide, onSuccess, customer }
                                 >
                                     Trả hết nợ
                                 </Button>
-                                {suggestionAmounts.map((suggAmount) => (
-                                    <Button
-                                        key={suggAmount}
-                                        variant="outline-secondary"
-                                        size="sm"
-                                        disabled={selectedOrderIds.length === 0 || isSubmitting}
-                                        onClick={() => {
-                                            const newAmount = parsedAmount + suggAmount;
-                                            setAmount(formatAmountInput(String(newAmount)));
-                                        }}
-                                    >
-                                        + {new Intl.NumberFormat('vi-VN').format(suggAmount)}
-                                    </Button>
-                                ))}
                             </div>
                         </Col>
                     </Form.Group>
