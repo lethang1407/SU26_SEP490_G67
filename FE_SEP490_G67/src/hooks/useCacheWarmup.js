@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { api } from '@/lib/api-clien';
 import {
     db,
-    saveOfflineProducts,
+    replaceOfflineProducts,
     saveOfflineCustomers,
     saveOfflineDebtOrders,
     saveOfflineSalesOrders,
@@ -47,10 +47,10 @@ export function useCacheWarmup(authenticated) {
 
                 // 2. Warmup entire product catalog (1 single request for all 150-200 items)
                 try {
-                    const productsRes = await api.get('/products/search', { params: { q: '' } });
+                    const productsRes = await api.get('/products/search', { params: { q: '', sellableOnly: true } });
                     const products = productsRes?.result || [];
-                    if (Array.isArray(products) && products.length > 0) {
-                        const count = await saveOfflineProducts(products);
+                    if (Array.isArray(products)) {
+                        const count = await replaceOfflineProducts(products);
                         await db.meta.put({ key: 'last_product_sync', value: Date.now() });
                         console.info(`[CacheWarmup] Synced ${count} products to offline DB`);
                     }

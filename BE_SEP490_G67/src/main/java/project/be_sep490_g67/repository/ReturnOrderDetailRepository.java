@@ -42,6 +42,7 @@ public interface ReturnOrderDetailRepository extends JpaRepository<ReturnOrderDe
     @Query("""
             SELECT rd FROM ReturnOrderDetail rd
             JOIN FETCH rd.product p
+            JOIN FETCH rd.returnOrder ro
             WHERE rd.isRemoved = false
               AND rd.returnOrder.isRemoved = false
               AND rd.processedAt IS NULL

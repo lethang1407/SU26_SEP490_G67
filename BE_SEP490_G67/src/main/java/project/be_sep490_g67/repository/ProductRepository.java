@@ -161,4 +161,21 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
             """)
     List<Object[]> findOutOfStockOrBelowMinimum();
 
+    @Query("""
+            SELECT p, COALESCE(SUM(CASE WHEN sz.zoneType <> 'RETURN_HOLD'
+                                        THEN bl.quantity ELSE 0 END), 0)
+            FROM Product p
+            LEFT JOIN StockBatch sb ON sb.product = p AND sb.isRemoved = false
+            LEFT JOIN BatchLocation bl ON bl.batch = sb AND bl.isRemoved = false
+            LEFT JOIN bl.location loc
+            LEFT JOIN loc.storageZone sz
+            WHERE p.isRemoved = false
+              AND p.status = 'active'
+            GROUP BY p
+            HAVING COALESCE(SUM(CASE WHEN sz.zoneType <> 'RETURN_HOLD'
+                                     THEN bl.quantity ELSE 0 END), 0) <= 0
+            ORDER BY p.id ASC
+            """)
+    List<Object[]> findOutOfStock();
+
 }

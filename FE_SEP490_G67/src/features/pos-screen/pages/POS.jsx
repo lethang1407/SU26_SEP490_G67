@@ -45,6 +45,7 @@ import { buildPaymentReference } from '../utils/vietqr';
 import { saveActiveCart, loadActiveCart } from '../utils/cartStorage';
 import { printInvoice } from '../utils/printInvoice';
 import { createQuickCustomer, getProductPosInfo, getInvoiceData } from '../api';
+import { getApiErrorMessage } from '../../../utils/api-utils';
 
 const MAX_TABS = 10;
 
@@ -294,7 +295,9 @@ const POSScreen = () => {
                 setPosInfoError(null);
                 addProductToCart(product, fallbackPosInfo);
             } else {
-                setPosInfoError(`Không tải được vị trí để hàng của "${product.name}". Vui lòng thử lại.`);
+                // Ưu tiên lời báo của server (vd "Sản phẩm đã ngừng kinh doanh, không thể bán").
+                setPosInfoError(getApiErrorMessage(
+                    error, `Không tải được vị trí để hàng của "${product.name}". Vui lòng thử lại.`));
             }
         }
     }, [addProductToCart]);

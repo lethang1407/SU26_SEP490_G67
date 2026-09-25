@@ -28,6 +28,7 @@ export default function ExchangeOrderPicker() {
         orders, total, totalPages, page, setPage,
         search, setSearch,
         dateFilter, setDateFilter,
+        searchAllDates,
         customFrom, setCustomFrom,
         customTo, setCustomTo,
         loading, error,
@@ -77,7 +78,7 @@ export default function ExchangeOrderPicker() {
                             <input
                                 ref={searchRef}
                                 className="hist-search-input"
-                                placeholder="Tìm theo mã hóa đơn, tên khách hàng..."
+                                placeholder="Tìm mã hóa đơn, khách hàng, số điện thoại, mã hoặc tên sản phẩm"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                             />
@@ -87,15 +88,18 @@ export default function ExchangeOrderPicker() {
                             {DATE_FILTERS.map(({ key, label }) => (
                                 <button
                                     key={key}
-                                    className={`hist-pill ${dateFilter === key ? 'active' : ''}`}
+                                    className={`hist-pill ${dateFilter === key && !searchAllDates ? 'active' : ''}`}
                                     onClick={() => setDateFilter(key)}
                                 >
                                     {label}
                                 </button>
                             ))}
                         </div>
+                        {searchAllDates && (
+                            <span className="hist-search-hint">Đang tìm trên tất cả các ngày</span>
+                        )}
 
-                        {dateFilter === 'custom' && (
+                        {dateFilter === 'custom' && !searchAllDates && (
                             <div className="hist-custom-dates">
                                 <input
                                     type="date"
