@@ -25,11 +25,14 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -42,7 +45,6 @@ public class ProductListService {
     static final int SAFETY_DAYS = 1;
     static final int DEFAULT_LEAD_DAYS = 3;
     static final int STORE_COVER_DEFAULT = 7;
-    static final int NEW_PRODUCT_DAYS = 30;
 
     ProductRepository productRepository;
     SalesOrderDetailRepository salesOrderDetailRepository;
@@ -65,7 +67,6 @@ public class ProductListService {
 
         Instant to = Instant.now();
         Instant from = to.minus(SALES_WINDOW_DAYS, ChronoUnit.DAYS);
-        Instant newThreshold = to.minus(NEW_PRODUCT_DAYS, ChronoUnit.DAYS);
 
         List<Integer> categoryIds = all.stream()
                 .map(Product::getCategory)
@@ -85,15 +86,32 @@ public class ProductListService {
             }
         }
 
+        // Collect all parent and child product IDs to batch query imported products
+        List<Integer> allProductIds = new ArrayList<>();
+        Map<Integer, List<Product>> childrenByParentId = new HashMap<>();
+        for (Product p : all) {
+            allProductIds.add(p.getId());
+            List<Product> children = productRepository.findByParent_IdAndIsRemovedFalse(p.getId());
+            childrenByParentId.put(p.getId(), children);
+            for (Product c : children) {
+                allProductIds.add(c.getId());
+            }
+        }
+
+        Set<Integer> importedProductIds = allProductIds.isEmpty()
+                ? Collections.emptySet()
+                : new HashSet<>(importOrderDetailRepository.findImportedProductIds(allProductIds));
+
         List<ProductListItemResponse> mapped = new ArrayList<>();
         for (Product p : all) {
-            ProductListItemResponse dto = toListItem(p, from, to, newThreshold, fallbackSupplierByCategory);
-            if (matchesFacet(dto, facetKey, newThreshold)) {
+            List<Product> children = childrenByParentId.getOrDefault(p.getId(), Collections.emptyList());
+            ProductListItemResponse dto = toListItem(p, children, from, to, fallbackSupplierByCategory, importedProductIds);
+            if (matchesFacet(dto, facetKey)) {
                 mapped.add(dto);
             }
         }
 
-        mapped.sort(buildComparator(facetKey, newThreshold));
+        mapped.sort(buildComparator(facetKey));
 
         int total = mapped.size();
         int fromIdx = Math.min(page * size, total);
@@ -141,7 +159,8 @@ public class ProductListService {
             byProduct.put(productId, new OpenPoInfo(
                     (Integer) row[1],
                     (String) row[2],
-                    row[3] == null ? 0 : ((Number) row[3]).intValue()
+                    row[3] == null ? 0 : ((Number) row[3]).intValue(),
+                    (String) row[4]
             ));
         }
         for (ProductListItemResponse dto : content) {
@@ -150,6 +169,7 @@ public class ProductListService {
                 dto.setOpenPoId(info.orderId());
                 dto.setOpenPoCode(info.orderCode());
                 dto.setOpenPoQty(info.qty());
+                dto.setOpenPoUnitName(info.unitName());
             }
             if (dto.getChildren() != null) {
                 for (ProductListItemResponse c : dto.getChildren()) {
@@ -158,6 +178,7 @@ public class ProductListService {
                         c.setOpenPoId(cInfo.orderId());
                         c.setOpenPoCode(cInfo.orderCode());
                         c.setOpenPoQty(cInfo.qty());
+                        c.setOpenPoUnitName(cInfo.unitName());
                     }
                 }
                 // If parent has no open PO of its own, check if any child has one
@@ -167,6 +188,7 @@ public class ProductListService {
                             dto.setOpenPoId(c.getOpenPoId());
                             dto.setOpenPoCode(c.getOpenPoCode());
                             dto.setOpenPoQty(c.getOpenPoQty());
+                            dto.setOpenPoUnitName(c.getOpenPoUnitName());
                             break;
                         }
                     }
@@ -175,18 +197,17 @@ public class ProductListService {
         }
     }
 
-    record OpenPoInfo(Integer orderId, String orderCode, int qty) {}
+    record OpenPoInfo(Integer orderId, String orderCode, int qty, String unitName) {}
 
     ProductListItemResponse toListItem(
             Product p,
+            List<Product> children,
             Instant from,
             Instant to,
-            Instant newThreshold,
-            Map<Integer, String> fallbackSupplierByCategory
+            Map<Integer, String> fallbackSupplierByCategory,
+            Set<Integer> importedProductIds
     ) {
-        // Determine if product is a group (has children)
-        List<Product> children = productRepository.findByParent_IdAndIsRemovedFalse(p.getId());
-        boolean isGroup = !children.isEmpty();
+        boolean isGroup = children != null && !children.isEmpty();
 
         List<Integer> targetProductIds = new ArrayList<>();
         targetProductIds.add(p.getId());
@@ -229,20 +250,21 @@ public class ProductListService {
             coverDaysLeft = 0.0;
         }
 
-        // Determine if product is "new" (created within NEW_PRODUCT_DAYS)
         boolean isInactive = "inactive".equalsIgnoreCase(p.getStatus());
-        boolean isNew = "new".equalsIgnoreCase(p.getStatus())
-                || (!isInactive && p.getCreatedAt() != null && p.getCreatedAt().isAfter(newThreshold));
+        boolean hasEverImported = onHand > 0 || soldQty > 0 || targetProductIds.stream().anyMatch(importedProductIds::contains);
+        boolean isNew = !isInactive && !hasEverImported;
 
         String unit = resolveUnit(p);
         String facetStatus;
         if (isInactive) {
             facetStatus = "stop";
-        } else if (isNew && onHand <= 0 && avgDaily.doubleValue() <= SLOW_THRESHOLD) {
+        } else if (isNew) {
             facetStatus = "new";
         } else {
             facetStatus = resolveFacet(p, onHand, avgDaily.doubleValue(), coverDaysLeft);
         }
+
+        String resolvedStatus = isInactive ? "inactive" : (isNew ? "new" : "active");
 
         Category category = p.getCategory();
         String supplierName = resolveSupplierName(category, fallbackSupplierByCategory);
@@ -275,7 +297,7 @@ public class ProductListService {
         if (isGroup) {
             childDtos = new ArrayList<>();
             for (Product c : children) {
-                childDtos.add(toChildListItem(c, from, to, newThreshold, fallbackSupplierByCategory));
+                childDtos.add(toChildListItem(c, from, to, fallbackSupplierByCategory, importedProductIds));
             }
         }
 
@@ -306,7 +328,7 @@ public class ProductListService {
                 .minStock(p.getMinStock() != null ? p.getMinStock() : 0)
                 .coverDaysLeft(coverDaysLeft)
                 .facetStatus(facetStatus)
-                .status(p.getStatus() == null ? "active" : p.getStatus())
+                .status(resolvedStatus)
                 .createdAt(p.getCreatedAt())
                 .isGroup(isGroup)
                 .childCount(isGroup ? children.size() : null)
@@ -318,8 +340,8 @@ public class ProductListService {
             Product c,
             Instant from,
             Instant to,
-            Instant newThreshold,
-            Map<Integer, String> fallbackSupplierByCategory
+            Map<Integer, String> fallbackSupplierByCategory,
+            Set<Integer> importedProductIds
     ) {
         Long sold = salesOrderDetailRepository.sumQtyByProductAndDateRange(c.getId(), from, to);
         long soldQty = sold == null ? 0L : sold;
@@ -350,18 +372,20 @@ public class ProductListService {
         }
 
         boolean isInactive = "inactive".equalsIgnoreCase(c.getStatus());
-        boolean isNew = "new".equalsIgnoreCase(c.getStatus())
-                || (!isInactive && c.getCreatedAt() != null && c.getCreatedAt().isAfter(newThreshold));
+        boolean hasEverImported = onHand > 0 || soldQty > 0 || importedProductIds.contains(c.getId());
+        boolean isNew = !isInactive && !hasEverImported;
 
         String unit = resolveUnit(c);
         String facetStatus;
         if (isInactive) {
             facetStatus = "stop";
-        } else if (isNew && onHand <= 0 && avgDaily.doubleValue() <= SLOW_THRESHOLD) {
+        } else if (isNew) {
             facetStatus = "new";
         } else {
             facetStatus = resolveFacet(c, onHand, avgDaily.doubleValue(), coverDaysLeft);
         }
+
+        String resolvedStatus = isInactive ? "inactive" : (isNew ? "new" : "active");
 
         Category category = c.getCategory();
         String supplierName = resolveSupplierName(category, fallbackSupplierByCategory);
@@ -398,7 +422,7 @@ public class ProductListService {
                 .minStock(c.getMinStock() != null ? c.getMinStock() : (parent != null && parent.getMinStock() != null ? parent.getMinStock() : 0))
                 .coverDaysLeft(coverDaysLeft)
                 .facetStatus(facetStatus)
-                .status(c.getStatus() == null ? "active" : c.getStatus())
+                .status(resolvedStatus)
                 .createdAt(c.getCreatedAt())
                 .isGroup(false)
                 .build();
@@ -415,13 +439,30 @@ public class ProductListService {
     }
 
     String resolveUnit(Product p) {
-        if (p.getProductUnits() == null || p.getProductUnits().isEmpty()) {
-            return "sp";
+        if (p == null) return "sp";
+        if (p.getProductUnits() != null && !p.getProductUnits().isEmpty()) {
+            String base = p.getProductUnits().stream()
+                    .filter(u -> !Boolean.TRUE.equals(u.getIsRemoved()))
+                    .filter(u -> u.getUnitBase() != null && u.getUnitBase().compareTo(BigDecimal.ONE) == 0)
+                    .map(ProductUnit::getName)
+                    .findFirst()
+                    .orElse(null);
+            if (base != null && !base.isBlank()) {
+                return base;
+            }
+            String minUnit = p.getProductUnits().stream()
+                    .filter(u -> !Boolean.TRUE.equals(u.getIsRemoved()))
+                    .min(Comparator.comparing(u -> u.getUnitBase() != null ? u.getUnitBase() : BigDecimal.valueOf(999999)))
+                    .map(ProductUnit::getName)
+                    .orElse(null);
+            if (minUnit != null && !minUnit.isBlank()) {
+                return minUnit;
+            }
         }
-        return p.getProductUnits().stream()
-                .findFirst()
-                .map(ProductUnit::getName)
-                .orElse("sp");
+        if (p.getParent() != null) {
+            return resolveUnit(p.getParent());
+        }
+        return "sp";
     }
 
     String resolveFacet(Product p, int onHand, double avgDaily, Double coverDaysLeft) {
@@ -458,18 +499,12 @@ public class ProductListService {
         return DEFAULT_LEAD_DAYS;
     }
 
-    boolean matchesFacet(ProductListItemResponse dto, String facet, Instant newThreshold) {
+    boolean matchesFacet(ProductListItemResponse dto, String facet) {
         if ("all".equals(facet)) return true;
-        if ("new".equals(facet)) {
-            return "new".equals(dto.getFacetStatus())
-                    || "new".equalsIgnoreCase(dto.getStatus())
-                    || (dto.getCreatedAt() != null && dto.getCreatedAt().isAfter(newThreshold)
-                            && !"inactive".equalsIgnoreCase(dto.getStatus()));
-        }
         return facet.equals(dto.getFacetStatus());
     }
 
-    Comparator<ProductListItemResponse> buildComparator(String facet, Instant newThreshold) {
+    Comparator<ProductListItemResponse> buildComparator(String facet) {
         Comparator<ProductListItemResponse> newestFirst = Comparator.comparing(
                 ProductListItemResponse::getCreatedAt,
                 Comparator.nullsLast(Comparator.reverseOrder()))
@@ -478,9 +513,9 @@ public class ProductListService {
         Comparator<ProductListItemResponse> secondary = Comparator.comparing(
                 ProductListItemResponse::getName, Comparator.nullsLast(String::compareToIgnoreCase));
 
-        // Ưu tiên các sản phẩm mới tạo (chưa có tồn kho/chưa bán) luôn được đưa lên trên cùng
+        // Ưu tiên các sản phẩm mới tạo (chưa từng nhập hàng) luôn được đưa lên trên cùng khi xem danh sách tất cả
         Comparator<ProductListItemResponse> newProductsFirst = Comparator.comparing(
-                (ProductListItemResponse item) -> isNewlyCreated(item, newThreshold) ? 0 : 1
+                (ProductListItemResponse item) -> isNewlyCreated(item) ? 0 : 1
         ).thenComparing(newestFirst);
 
         return switch (facet) {
@@ -505,17 +540,12 @@ public class ProductListService {
         };
     }
 
-    private boolean isNewlyCreated(ProductListItemResponse item, Instant newThreshold) {
+    private boolean isNewlyCreated(ProductListItemResponse item) {
         if (item == null) return false;
         if ("inactive".equalsIgnoreCase(item.getStatus()) || "stop".equalsIgnoreCase(item.getFacetStatus())) {
             return false;
         }
-        int onHand = item.getOnHand() != null ? item.getOnHand() : 0;
-        int sold = item.getSold30Days() != null ? item.getSold30Days() : (item.getSold14Days() != null ? item.getSold14Days() : 0);
-        boolean withinNewPeriod = item.getCreatedAt() != null && item.getCreatedAt().isAfter(newThreshold);
-        return "new".equalsIgnoreCase(item.getFacetStatus())
-                || "new".equalsIgnoreCase(item.getStatus())
-                || (withinNewPeriod && onHand <= 0 && sold == 0);
+        return "new".equalsIgnoreCase(item.getFacetStatus());
     }
 }
 

@@ -39,6 +39,7 @@ public class GroupedSuggestionResponse {
     Integer openPoId;
     String openPoCode;
     Integer openPoQty;
+    String openPoUnitName;
 
     List<VariantGroupResponse> variantGroups;
 
@@ -93,6 +94,7 @@ public class GroupedSuggestionResponse {
         Integer openPoId;
         String openPoCode;
         Integer openPoQty;
+        String openPoUnitName;
 
         String status;
         Instant createdAt;

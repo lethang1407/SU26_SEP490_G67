@@ -767,7 +767,8 @@ public class ImportSuggestionService {
             byProduct.put(productId, new OpenPoInfo(
                     (Integer) row[1],
                     (String) row[2],
-                    row[3] == null ? 0 : ((Number) row[3]).intValue()
+                    row[3] == null ? 0 : ((Number) row[3]).intValue(),
+                    (String) row[4]
             ));
         }
 
@@ -777,10 +778,12 @@ public class ImportSuggestionService {
                 g.setOpenPoId(selfInfo.orderId());
                 g.setOpenPoCode(selfInfo.orderCode());
                 g.setOpenPoQty(selfInfo.qty());
+                g.setOpenPoUnitName(selfInfo.unitName());
             }
             if (Boolean.TRUE.equals(g.getIsGroup()) && g.getVariantGroups() != null) {
                 String groupFirstOpenPoCode = null;
                 Integer groupFirstOpenPoId = null;
+                String groupFirstOpenPoUnit = null;
                 int groupTotalOpenPoQty = 0;
                 for (GroupedSuggestionResponse.VariantGroupResponse vg : g.getVariantGroups()) {
                     if (vg.getSizes() != null) {
@@ -790,9 +793,11 @@ public class ImportSuggestionService {
                                 sz.setOpenPoId(szInfo.orderId());
                                 sz.setOpenPoCode(szInfo.orderCode());
                                 sz.setOpenPoQty(szInfo.qty());
+                                sz.setOpenPoUnitName(szInfo.unitName());
                                 if (groupFirstOpenPoCode == null) {
                                     groupFirstOpenPoCode = szInfo.orderCode();
                                     groupFirstOpenPoId = szInfo.orderId();
+                                    groupFirstOpenPoUnit = szInfo.unitName();
                                 }
                                 groupTotalOpenPoQty += szInfo.qty();
                             }
@@ -803,12 +808,13 @@ public class ImportSuggestionService {
                     g.setOpenPoId(groupFirstOpenPoId);
                     g.setOpenPoCode(groupFirstOpenPoCode);
                     g.setOpenPoQty(groupTotalOpenPoQty);
+                    g.setOpenPoUnitName(groupFirstOpenPoUnit);
                 }
             }
         }
     }
 
-    record OpenPoInfo(Integer orderId, String orderCode, int qty) {}
+    record OpenPoInfo(Integer orderId, String orderCode, int qty, String unitName) {}
 
     private int safeSize(int size) {
         return size <= 0 ? 10 : size;

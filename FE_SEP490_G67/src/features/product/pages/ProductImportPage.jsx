@@ -223,7 +223,7 @@ export default function ProductImportPage() {
               code: p.openPoCode,
               qty: p.openPoQty,
               name: p.name,
-              unitName: p.unitName,
+              unitName: p.openPoUnitName || p.unitName,
             };
           } else {
             delete next[p.id];
@@ -237,7 +237,7 @@ export default function ProductImportPage() {
                   code: c.openPoCode,
                   qty: c.openPoQty,
                   name: c.name,
-                  unitName: c.unitName || p.unitName,
+                  unitName: c.openPoUnitName || c.unitName || p.unitName,
                 };
               } else if (c.id) {
                 delete next[c.id];
@@ -254,7 +254,7 @@ export default function ProductImportPage() {
                     code: sz.openPoCode,
                     qty: sz.openPoQty,
                     name: sz.name,
-                    unitName: sz.unitName || p.unitName,
+                    unitName: sz.openPoUnitName || sz.unitName || p.unitName,
                   };
                 } else if (sz.id) {
                   delete next[sz.id];
@@ -685,17 +685,18 @@ export default function ProductImportPage() {
 
     const lines = panelItems.map((item) => {
       const ov = overrides[item.productId] || {};
-      const cost = ov.costPerUnit ?? item.costPerUnit;
+      const baseCost = ov.costPerUnit ?? item.costPerUnit;
       const unitBase = Number(ov.unitBase ?? 1) || 1;
       const packQty = Number(ov.quantity ?? item.suggestedQty) || 0;
-      const baseQty = Math.max(1, Math.round(packQty * unitBase));
+      const unitCost = baseCost != null ? Number(baseCost) * unitBase : null;
       return {
         productId: item.productId,
+        productUnitId: ov.productUnitId ?? null,
         supplierId: Number(ov.supplierId ?? item.supplierId),
-        quantity: baseQty,
+        quantity: Math.max(1, Math.round(packQty)),
         coverDays: Number(ov.coverDays ?? item.coverDays ?? 7),
         orderDate: resolveOrderDate(item, ov),
-        ...(cost != null ? { costPerUnit: Number(cost) } : {}),
+        ...(unitCost != null ? { costPerUnit: Number(unitCost) } : {}),
       };
     });
 
@@ -813,7 +814,7 @@ export default function ProductImportPage() {
                   <option value="new">Mới tạo</option>
                   <option value="hot">Hết hàng – Bán chạy</option>
                   <option value="warn">Cảnh báo sắp hết hàng</option>
-                  <option value="ok">Đang kinh doanh</option>
+                  <option value="ok">Đang còn hàng</option>
                   <option value="slow">Hết hàng – Ít bán</option>
                   <option value="stop">Ngừng kinh doanh</option>
                 </select>

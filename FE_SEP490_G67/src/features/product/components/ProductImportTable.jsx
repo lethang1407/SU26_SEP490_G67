@@ -97,7 +97,7 @@ const FACET_CONFIG = {
     style: { background: '#FFF7ED', color: '#C2410C', border: '1px solid #FED7AA' },
   },
   ok: {
-    label: 'Đủ hàng',
+    label: 'Đang còn hàng',
     icon: '🟢',
     style: { background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0' },
   },
@@ -127,6 +127,7 @@ function renderOpenPoBadge(product, onOpenDraftPo) {
   let code = product?.openPoCode;
   let qty = product?.openPoQty;
   let poId = product?.openPoId;
+  let unit = product?.openPoUnitName || product?.unitName || '';
 
   // Nếu là sản phẩm nhóm (parent group), tìm mã đơn tạm từ các biến thể con
   if (!poId && product?.isGroup && Array.isArray(product?.variantGroups)) {
@@ -136,6 +137,7 @@ function renderOpenPoBadge(product, onOpenDraftPo) {
           poId = sz.openPoId;
           code = code || sz.openPoCode;
           qty = (qty || 0) + (Number(sz.openPoQty) || 0);
+          unit = unit || sz.openPoUnitName || sz.unitName || product?.unitName || '';
         }
       }
     }
@@ -146,6 +148,7 @@ function renderOpenPoBadge(product, onOpenDraftPo) {
         poId = c.openPoId;
         code = code || c.openPoCode;
         qty = (qty || 0) + (Number(c.openPoQty) || 0);
+        unit = unit || c.openPoUnitName || c.unitName || product?.unitName || '';
       }
     }
   }
@@ -153,7 +156,6 @@ function renderOpenPoBadge(product, onOpenDraftPo) {
   const hasOpen = Boolean(product?.hasOpenPo || code || poId);
   if (!hasOpen) return null;
 
-  const unit = product?.unitName || '';
   const tooltipText = `Đang có đơn tạm: ${code || 'DRAFT'}${qty ? ` (${qty} ${unit})` : ''} • Bấm để xem chi tiết`;
 
   return (
@@ -466,7 +468,7 @@ export default function ProductImportTable({
                     allChildIds.push(sz.id);
                     const primaryVal = sz.primaryAttrValue || vg.primaryAttrValue;
                     const sizeVal = sz.sizeValue;
-                    const unitStr = sz.unitName || p.unitName || 'đôi';
+                    const unitStr = sz.unitName || p.unitName || p.baseUnitName || 'sp';
 
                     let formattedName = sz.name;
                     if (!formattedName) {
@@ -653,7 +655,7 @@ export default function ProductImportTable({
                       const childItem = {
                         ...child,
                         name: childNameFormatted,
-                        unitName: child.unitName || p.unitName || 'Đôi',
+                        unitName: child.unitName || p.unitName || p.baseUnitName || 'sp',
                         supplierName: child.supplierName || p.supplierName,
                         categoryName: p.categoryName || 'Đồ dùng gia đình',
                       };
