@@ -1903,6 +1903,12 @@ a.supplier-btn {
     color: #64748b;
 }
 
+.ioc-sidebar__option-phone {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
 .ioc-sidebar__option-note {
     display: -webkit-box;
     -webkit-line-clamp: 2;
