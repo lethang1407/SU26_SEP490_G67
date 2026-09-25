@@ -28,6 +28,53 @@ function createRowKey() {
     return `row-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function uniqueSuppliers(batches) {
+    const map = new Map();
+    for (const batch of batches ?? []) {
+        if (batch?.supplierId == null) continue;
+        const id = Number(batch.supplierId);
+        if (map.has(id)) continue;
+        map.set(id, {
+            id,
+            name: batch.supplierName || `NCC #${id}`,
+        });
+    }
+    return [...map.values()];
+}
+
+function batchesOfSupplier(batches, supplierId) {
+    if (supplierId == null || supplierId === '') return [];
+    return (batches ?? []).filter(
+        (b) => String(b.supplierId) === String(supplierId),
+    );
+}
+
+function applyBatchFields(row, batch, fallbackPrice = 0) {
+    if (!batch) {
+        return {
+            ...row,
+            stockBatchId: null,
+            batchCode: null,
+            maxQuantity: 0,
+            importOrderId: null,
+            returnPrice: 0,
+            quantity: 1,
+        };
+    }
+    const maxQuantity = batch.quantity ?? 0;
+    return {
+        ...row,
+        stockBatchId: batch.id,
+        batchCode: batch.batchCode,
+        maxQuantity,
+        importOrderId: batch.importOrderId ?? null,
+        returnPrice: Number(batch.costPerUnit ?? fallbackPrice ?? 0),
+        quantity: Math.min(Number(row.quantity) || 1, maxQuantity || 1),
+        supplierId: batch.supplierId ?? row.supplierId ?? null,
+        supplierName: batch.supplierName ?? row.supplierName ?? null,
+    };
+}
+
 export default function ImportReturnPage() {
     const [rows, setRows] = useState([]);
     const [note, setNote] = useState('');
@@ -88,7 +135,7 @@ export default function ImportReturnPage() {
         try {
             const preview = await fetchInventoryCheckProductPreview(product.id);
             const batches = (preview.batches ?? []).filter(
-                (b) => b.importOrderId && !b.isTrial,
+                (b) => b.importOrderId && !b.isTrial && b.supplierId != null,
             );
             if (batches.length === 0) {
                 setWarning(
@@ -96,27 +143,40 @@ export default function ImportReturnPage() {
                 );
                 return;
             }
-            const first = batches[0];
-            setRows((prev) => [
-                ...prev,
-                {
-                    key: createRowKey(),
-                    productId: preview.productId,
-                    productCode: preview.productCode,
-                    productName: preview.productName,
-                    batches,
-                    stockBatchId: first.id,
-                    batchCode: first.batchCode,
-                    quantity: Math.min(1, first.quantity ?? 1),
-                    maxQuantity: first.quantity ?? 0,
-                    supplierId: first.supplierId ?? null,
-                    supplierName: first.supplierName ?? null,
-                    importOrderId: first.importOrderId ?? null,
-                    returnPrice: Number(first.costPerUnit ?? preview.importPrice ?? 0),
-                    note: '',
-                    method: RETURN_METHOD.RETURN,
-                },
-            ]);
+            const suppliers = uniqueSuppliers(batches);
+            if (suppliers.length === 0) {
+                setWarning('Không tìm thấy nhà cung cấp cho các lô của sản phẩm này.');
+                return;
+            }
+            const autoSupplier = suppliers.length === 1 ? suppliers[0] : null;
+            const supplierBatches = autoSupplier
+                ? batchesOfSupplier(batches, autoSupplier.id)
+                : [];
+            const autoBatch =
+                supplierBatches.length === 1 ? supplierBatches[0] : null;
+
+            let row = {
+                key: createRowKey(),
+                productId: preview.productId,
+                productCode: preview.productCode,
+                productName: preview.productName,
+                batches,
+                suppliers,
+                stockBatchId: null,
+                batchCode: null,
+                quantity: 1,
+                maxQuantity: 0,
+                supplierId: autoSupplier?.id ?? null,
+                supplierName: autoSupplier?.name ?? null,
+                importOrderId: null,
+                returnPrice: 0,
+                note: '',
+                method: RETURN_METHOD.RETURN,
+            };
+            if (autoBatch) {
+                row = applyBatchFields(row, autoBatch, preview.importPrice);
+            }
+            setRows((prev) => [...prev, row]);
         } catch (loadError) {
             setError(getApiErrorMessage(loadError, 'Không tải được lô sản phẩm.'));
         } finally {
@@ -128,25 +188,39 @@ export default function ImportReturnPage() {
         setRows((prev) =>
             prev.map((row) => {
                 if (row.key !== key) return row;
-                const next = { ...row, ...patch };
-                if (patch.stockBatchId != null) {
+
+                if (Object.prototype.hasOwnProperty.call(patch, 'supplierId')) {
+                    const supplierId =
+                        patch.supplierId === '' || patch.supplierId == null
+                            ? null
+                            : Number(patch.supplierId);
+                    const supplier = (row.suppliers ?? uniqueSuppliers(row.batches)).find(
+                        (s) => String(s.id) === String(supplierId),
+                    );
+                    const supplierBatches = batchesOfSupplier(row.batches, supplierId);
+                    let next = {
+                        ...row,
+                        supplierId,
+                        supplierName: supplier?.name ?? null,
+                    };
+                    if (supplierBatches.length === 1) {
+                        next = applyBatchFields(next, supplierBatches[0], row.returnPrice);
+                    } else {
+                        next = applyBatchFields(next, null);
+                        next.supplierId = supplierId;
+                        next.supplierName = supplier?.name ?? null;
+                    }
+                    return next;
+                }
+
+                if (Object.prototype.hasOwnProperty.call(patch, 'stockBatchId')) {
                     const batch = (row.batches ?? []).find(
                         (b) => String(b.id) === String(patch.stockBatchId),
                     );
-                    if (batch) {
-                        next.batchCode = batch.batchCode;
-                        next.maxQuantity = batch.quantity ?? 0;
-                        next.supplierId = batch.supplierId ?? null;
-                        next.supplierName = batch.supplierName ?? null;
-                        next.importOrderId = batch.importOrderId ?? null;
-                        next.returnPrice = Number(batch.costPerUnit ?? row.returnPrice ?? 0);
-                        next.quantity = Math.min(
-                            Number(next.quantity) || 1,
-                            next.maxQuantity || 1,
-                        );
-                    }
+                    return applyBatchFields({ ...row, ...patch }, batch, row.returnPrice);
                 }
-                return next;
+
+                return { ...row, ...patch };
             }),
         );
     };
@@ -173,8 +247,16 @@ export default function ImportReturnPage() {
             return false;
         }
         for (const row of rows) {
+            if (!row.supplierId) {
+                setWarning(`Vui lòng chọn nhà cung cấp cho ${row.productName}.`);
+                return false;
+            }
+            if (!row.stockBatchId) {
+                setWarning(`Vui lòng chọn lô cho ${row.productName}.`);
+                return false;
+            }
             const qty = Number(row.quantity);
-            if (!row.stockBatchId || !Number.isFinite(qty) || qty < 1 || qty > row.maxQuantity) {
+            if (!Number.isFinite(qty) || qty < 1 || qty > row.maxQuantity) {
                 setWarning(`Số lượng không hợp lệ cho ${row.productName}.`);
                 return false;
             }
@@ -238,12 +320,8 @@ export default function ImportReturnPage() {
         setEditingDraftId(detail.id);
         setNote(detail.note || '');
         setRows(
-            (detail.lines ?? []).map((line) => ({
-                key: createRowKey(),
-                productId: line.productId,
-                productCode: line.productCode,
-                productName: line.productName,
-                batches: [
+            (detail.lines ?? []).map((line) => {
+                const batches = [
                     {
                         id: line.stockBatchId,
                         batchCode: line.batchCode,
@@ -253,18 +331,26 @@ export default function ImportReturnPage() {
                         importOrderId: line.importOrderId,
                         costPerUnit: line.returnPrice,
                     },
-                ],
-                stockBatchId: line.stockBatchId,
-                batchCode: line.batchCode,
-                quantity: line.quantity,
-                maxQuantity: line.maxQuantity ?? line.quantity,
-                supplierId: line.supplierId,
-                supplierName: line.supplierName,
-                importOrderId: line.importOrderId,
-                returnPrice: Number(line.returnPrice || 0),
-                note: line.note || line.returnReason || '',
-                method: line.method || RETURN_METHOD.RETURN,
-            })),
+                ];
+                return {
+                    key: createRowKey(),
+                    productId: line.productId,
+                    productCode: line.productCode,
+                    productName: line.productName,
+                    batches,
+                    suppliers: uniqueSuppliers(batches),
+                    stockBatchId: line.stockBatchId,
+                    batchCode: line.batchCode,
+                    quantity: line.quantity,
+                    maxQuantity: line.maxQuantity ?? line.quantity,
+                    supplierId: line.supplierId,
+                    supplierName: line.supplierName,
+                    importOrderId: line.importOrderId,
+                    returnPrice: Number(line.returnPrice || 0),
+                    note: line.note || line.returnReason || '',
+                    method: line.method || RETURN_METHOD.RETURN,
+                };
+            }),
         );
     };
 
@@ -389,9 +475,9 @@ export default function ImportReturnPage() {
                                                 <tr>
                                                     <th>STT</th>
                                                     <th>Tên SP</th>
+                                                    <th>Nhà cung cấp</th>
                                                     <th>Số lô</th>
                                                     <th>Số lượng</th>
-                                                    <th>Nhà cung cấp</th>
                                                     <th>Ghi chú</th>
                                                     <th>Hình thức</th>
                                                     <th>Giá trị</th>
@@ -406,18 +492,53 @@ export default function ImportReturnPage() {
                                                         </td>
                                                     </tr>
                                                 ) : (
-                                                    rows.map((row, index) => (
+                                                    rows.map((row, index) => {
+                                                        const suppliers =
+                                                            row.suppliers ??
+                                                            uniqueSuppliers(row.batches);
+                                                        const supplierBatches = batchesOfSupplier(
+                                                            row.batches,
+                                                            row.supplierId,
+                                                        );
+                                                        return (
                                                         <tr key={row.key}>
                                                             <td>{index + 1}</td>
                                                             <td>{row.productName}</td>
                                                             <td>
                                                                 <StyledSelect
                                                                     className="styled-select--compact"
-                                                                    value={row.stockBatchId ?? ''}
-                                                                    options={(row.batches ?? []).map((b) => ({
-                                                                        value: b.id,
-                                                                        label: `${b.batchCode} (${b.quantity})`,
+                                                                    value={row.supplierId ?? ''}
+                                                                    placeholder="Chọn NCC"
+                                                                    options={suppliers.map((s) => ({
+                                                                        value: s.id,
+                                                                        label: s.name,
                                                                     }))}
+                                                                    onChange={(next) =>
+                                                                        updateRow(row.key, {
+                                                                            supplierId:
+                                                                                next === ''
+                                                                                    ? null
+                                                                                    : Number(next),
+                                                                        })
+                                                                    }
+                                                                />
+                                                            </td>
+                                                            <td>
+                                                                <StyledSelect
+                                                                    className="styled-select--compact"
+                                                                    value={row.stockBatchId ?? ''}
+                                                                    placeholder={
+                                                                        row.supplierId
+                                                                            ? 'Chọn lô'
+                                                                            : 'Chọn NCC trước'
+                                                                    }
+                                                                    disabled={!row.supplierId}
+                                                                    options={supplierBatches.map(
+                                                                        (b) => ({
+                                                                            value: b.id,
+                                                                            label: `${b.batchCode} (${b.quantity})`,
+                                                                        }),
+                                                                    )}
                                                                     onChange={(next) =>
                                                                         updateRow(row.key, {
                                                                             stockBatchId: Number(next),
@@ -431,6 +552,7 @@ export default function ImportReturnPage() {
                                                                     min={1}
                                                                     max={row.maxQuantity}
                                                                     value={row.quantity}
+                                                                    disabled={!row.stockBatchId}
                                                                     onChange={(e) =>
                                                                         updateRow(row.key, {
                                                                             quantity: e.target.value,
@@ -438,7 +560,6 @@ export default function ImportReturnPage() {
                                                                     }
                                                                 />
                                                             </td>
-                                                            <td>{row.supplierName || '—'}</td>
                                                             <td>
                                                                 <input
                                                                     type="text"
@@ -488,7 +609,8 @@ export default function ImportReturnPage() {
                                                                 </button>
                                                             </td>
                                                         </tr>
-                                                    ))
+                                                        );
+                                                    })
                                                 )}
                                             </tbody>
                                         </table>
