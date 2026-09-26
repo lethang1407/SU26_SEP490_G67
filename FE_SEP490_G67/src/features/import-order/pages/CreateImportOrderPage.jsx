@@ -808,16 +808,24 @@ export default function CreateImportOrderPage() {
 
         suppliersApi
             .addSupplier(supplierData)
-            .then(async () => {
-                const page = await suppliersApi.getSuppliers({
-                    search: supplierData.name,
-                    size: 10,
-                });
-                const matched = (page?.content || []).find(
-                    (item) =>
-                        item.supplierCode?.toLowerCase() ===
-                        supplierData.supplierCode?.toLowerCase(),
-                );
+            .then(async (response) => {
+                // Mã NCC do BE tự sinh (form thêm mới không gửi supplierCode), nên lấy thẳng
+                // id/mã từ response; chỉ tìm lại theo tên khi response thiếu id.
+                const created = response?.result;
+                let matched = created?.id ? created : null;
+                if (!matched) {
+                    const page = await suppliersApi.getSuppliers({
+                        search: supplierData.name,
+                        size: 10,
+                    });
+                    const wantedName = (supplierData.name || '').trim().toLowerCase();
+                    matched = (page?.content || []).find(
+                        (item) =>
+                            (created?.supplierCode
+                                && item.supplierCode?.toLowerCase() === created.supplierCode.toLowerCase())
+                            || (item.name || '').trim().toLowerCase() === wantedName,
+                    );
+                }
 
                 if (!matched?.id) {
                     throw new Error('Đã tạo NCC nhưng không lấy được mã hệ thống. Vui lòng tìm lại.');
@@ -832,6 +840,7 @@ export default function CreateImportOrderPage() {
                 });
             })
             .catch((error) => {
+                console.error('Failed to add supplier from import order page:', error);
                 const message =
                     error?.response?.data?.message ||
                     error?.message ||
