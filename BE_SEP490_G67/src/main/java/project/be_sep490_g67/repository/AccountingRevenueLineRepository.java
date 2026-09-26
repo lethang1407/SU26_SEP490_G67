@@ -33,6 +33,10 @@ public interface AccountingRevenueLineRepository extends JpaRepository<Accountin
 
     Page<AccountingRevenueLine> findByPeriodIdAndIsRemovedFalse(Integer periodId, Pageable pageable);
 
+    /** Phân trang cùng thứ tự với sổ S1a để ranh giới các trang ổn định. */
+    Page<AccountingRevenueLine> findByPeriodIdAndIsRemovedFalseOrderByPostingDateAscIdAsc(
+            Integer periodId, Pageable pageable);
+
     Page<AccountingRevenueLine> findByPeriodIdAndPostingDateBetweenAndIsRemovedFalse(
             Integer periodId, LocalDate from, LocalDate to, Pageable pageable);
 

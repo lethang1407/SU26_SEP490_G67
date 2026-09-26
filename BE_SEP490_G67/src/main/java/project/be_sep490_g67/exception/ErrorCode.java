@@ -167,6 +167,7 @@ public enum ErrorCode {
     CUSTOMER_NOT_FOUND(4001, "Không tìm thấy khách hàng", HttpStatus.NOT_FOUND),
     ALLOW_DEBT_REQUIRED(4002, "Trạng thái cho phép nợ là bắt buộc", HttpStatus.BAD_REQUEST),
     ORDER_IS_NOT_A_DEBT_ORDER(4003, "Đơn hàng không phải là đơn hàng nợ", HttpStatus.BAD_REQUEST),
+    CUSTOMER_NAME_EXISTED(4005, "Tên khách hàng đã được sử dụng", HttpStatus.CONFLICT),
     PAYMENT_AMOUNT_EXCEEDS_REMAINING_DEBT(4004, "Số tiền thanh toán vượt quá số nợ còn lại", HttpStatus.BAD_REQUEST),
     // PRODUCT_NOT_FOUND đã có ở nhóm 1xxx (1046) từ nhánh dev — dùng lại,
     // không định nghĩa bản 3008 song song (enum không cho trùng tên).

@@ -69,6 +69,11 @@ public class CustomerService {
             CustomerRequest request
     ) {
 
+        String fullName = request.getFullName().trim();
+        if (customerRepository.existsByActiveFullName(fullName)) {
+            throw new AppException(ErrorCode.CUSTOMER_NAME_EXISTED);
+        }
+
         if (StringUtils.hasText(request.getPhoneNumber())
                 && customerRepository
                 .existsByPhoneNumberAndIsRemovedFalse(
@@ -80,7 +85,7 @@ public class CustomerService {
 
         Customer customer = new Customer();
 
-        customer.setFullName(request.getFullName());
+        customer.setFullName(fullName);
         customer.setPhoneNumber(request.getPhoneNumber());
         customer.setAddress(request.getAddress());
         customer.setNote(request.getNote());
@@ -392,6 +397,12 @@ public class CustomerService {
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.CUSTOMER_NOT_FOUND));
 
+        String fullName = request.getFullName().trim();
+        if (!fullName.equalsIgnoreCase(customer.getFullName().trim())
+                && customerRepository.existsByActiveFullNameAndIdNot(fullName, id)) {
+            throw new AppException(ErrorCode.CUSTOMER_NAME_EXISTED);
+        }
+
         if (request.getAllowDebt() == null) {
             throw new AppException(ErrorCode.ALLOW_DEBT_REQUIRED);
         }
@@ -402,7 +413,7 @@ public class CustomerService {
             }
         }
 
-        customer.setFullName(request.getFullName());
+        customer.setFullName(fullName);
         customer.setPhoneNumber(request.getPhoneNumber());
         customer.setAddress(request.getAddress());
         customer.setNote(request.getNote());

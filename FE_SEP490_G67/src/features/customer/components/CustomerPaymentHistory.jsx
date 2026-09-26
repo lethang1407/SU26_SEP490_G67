@@ -34,7 +34,11 @@ const translatePaymentMethod = (method) => {
   }
 };
 
-export default function CustomerPaymentHistory({ customerId, refreshKey, onShowDetail }) {
+export default function CustomerPaymentHistory({
+  customerId,
+  refreshKey,
+  onShowDetail,
+}) {
   const [historyData, setHistoryData] = useState({
     content: [],
     totalPages: 1,
@@ -71,7 +75,7 @@ export default function CustomerPaymentHistory({ customerId, refreshKey, onShowD
 
   return (
     <>
-      <Table hover responsive className="align-middle customer-detail-table">
+      <Table hover responsive className="align-middle customer-detail-table customer-payment-history-table">
         <thead>
           <tr>
             <th>Ngày thu</th>
@@ -113,9 +117,11 @@ export default function CustomerPaymentHistory({ customerId, refreshKey, onShowD
                       title="Xem chi tiết hóa đơn"
                       onClick={() => onShowDetail(item.orderId)}
                     >
-                      {item.orderCode || `#${item.orderId}`}
+                      <a href="#">{item.orderCode || `#${item.orderId}`}</a>
                     </button>
-                  ) : item.orderCode || "-"}
+                  ) : (
+                    item.orderCode || "-"
+                  )}
                 </td>
                 <td className="text-success fw-bold">
                   {formatCurrency(item.amountPaid)}

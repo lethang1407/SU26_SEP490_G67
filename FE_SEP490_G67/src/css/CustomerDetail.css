@@ -174,3 +174,95 @@ body{
 .customer-detail-table td {
     font-size: 16px;
 }
+
+/* Điều chỉnh riêng độ rộng cột của hai bảng trong trang chi tiết khách hàng. */
+.customer-payment-history-table th:nth-child(1),
+.customer-payment-history-table td:nth-child(1) { width: 15%; }
+.customer-payment-history-table th:nth-child(2),
+.customer-payment-history-table td:nth-child(2) { width: 14%; }
+.customer-payment-history-table th:nth-child(3),
+.customer-payment-history-table td:nth-child(3) { width: 20%; }
+.customer-payment-history-table th:nth-child(4),
+.customer-payment-history-table td:nth-child(4) { width: 13%; }
+.customer-payment-history-table th:nth-child(5),
+.customer-payment-history-table td:nth-child(5) { width: 13%; }
+.customer-payment-history-table th:nth-child(6),
+.customer-payment-history-table td:nth-child(6) { width: 12%; }
+.customer-payment-history-table th:nth-child(7),
+.customer-payment-history-table td:nth-child(7) { width: 13%; }
+
+.customer-debt-invoices-table th:nth-child(1),
+.customer-debt-invoices-table td:nth-child(1) { width: 14%; }
+.customer-debt-invoices-table th:nth-child(2),
+.customer-debt-invoices-table td:nth-child(2) { width: 16%; }
+.customer-debt-invoices-table th:nth-child(3),
+.customer-debt-invoices-table td:nth-child(3) { width: 15%; }
+.customer-debt-invoices-table th:nth-child(4),
+.customer-debt-invoices-table td:nth-child(4) { width: 15%; }
+.customer-debt-invoices-table th:nth-child(5),
+.customer-debt-invoices-table td:nth-child(5) { width: 14%; }
+.customer-debt-invoices-table th:nth-child(6),
+.customer-debt-invoices-table td:nth-child(6) { width: 13%; }
+.customer-debt-invoices-table th:nth-child(7),
+.customer-debt-invoices-table td:nth-child(7) { width: 13%; }
+
+/* Hai bảng có nhiều cột nên trên điện thoại giữ độ rộng tối thiểu và cho phép
+ * cuộn ngang trong wrapper .table-responsive của Bootstrap. */
+.customer-payment-history-table,
+.customer-debt-invoices-table {
+    min-width: 760px;
+}
+
+.customer-payment-history-table th,
+.customer-payment-history-table td,
+.customer-debt-invoices-table th,
+.customer-debt-invoices-table td {
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 768px) {
+    .customer-detail-tabs__nav {
+        padding: 0 0.75rem;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    .customer-detail-tabs__btn {
+        flex: 0 0 auto;
+        padding: 0.75rem 0.4rem;
+        margin-right: 1rem;
+        font-size: 0.9rem;
+    }
+
+    .customer-detail-table {
+        font-size: 0.85rem;
+    }
+
+    .customer-detail-table th,
+    .customer-detail-table td {
+        padding: 0.65rem 0.5rem;
+    }
+
+    .customer-payment-history-table,
+    .customer-debt-invoices-table {
+        min-width: 700px;
+    }
+
+    .customer-detail-table .customer-debt-order-code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+}
+
+@media (max-width: 480px) {
+    .customer-payment-history-table,
+    .customer-debt-invoices-table {
+        min-width: 640px;
+    }
+
+    .customer-detail-table th,
+    .customer-detail-table td {
+        padding: 0.55rem 0.4rem;
+        font-size: 0.8rem;
+    }
+}
