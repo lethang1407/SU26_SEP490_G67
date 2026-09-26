@@ -263,6 +263,8 @@ export default function TaxAccountingOverviewPage() {
         if (requestError.response?.status === 404) {
           setProfile(null);
           setSummary(null);
+          setTaxRecord(null);
+          setTaxRecordError('');
           setPeriods([]);
           setAdjustments([]);
           setAdjustmentPage({ page: 0, size: ADJUSTMENT_PAGE_SIZE, totalPages: 0, totalElements: 0 });
@@ -802,7 +804,7 @@ export default function TaxAccountingOverviewPage() {
                     </div>
                     </>
                   ) : <p className="tax-accounting-empty">Chưa có hồ sơ thuế cho năm này.</p>}
-                  {!profile && <div className="tax-accounting-panel__actions"><button type="button" className="tax-accounting-button tax-accounting-button--primary" onClick={openProfileForm}><Plus size={15} /> Tạo hồ sơ năm {year}</button></div>}
+                  {!profile && <div className="tax-accounting-panel__actions tax-accounting-panel__actions--centered"><button type="button" className="tax-accounting-button tax-accounting-button--primary" onClick={openProfileForm}><Plus size={15} /> Tạo hồ sơ năm {year}</button></div>}
                 </article>
 
                 <article className="tax-accounting-panel">

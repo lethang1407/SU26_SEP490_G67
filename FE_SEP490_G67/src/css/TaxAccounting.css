@@ -238,6 +238,10 @@
     padding: 0 18px 18px;
 }
 
+.tax-accounting-panel__actions--centered {
+    justify-content: center;
+}
+
 .tax-accounting-details {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
