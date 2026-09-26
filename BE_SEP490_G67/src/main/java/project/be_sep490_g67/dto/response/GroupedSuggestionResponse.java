@@ -29,6 +29,8 @@ public class GroupedSuggestionResponse {
     // Aggregated or standalone metrics
     Integer onHand;
     Integer minStock;
+    Integer sold14Days;
+    Integer sold30Days;
     BigDecimal avgDailyRate;
     BigDecimal avgWeeklyRate;
     Double coverDaysLeft;
@@ -57,6 +59,8 @@ public class GroupedSuggestionResponse {
         BigDecimal sellingPrice;
         BigDecimal costPrice;
         Integer onHand;
+        Integer sold14Days;
+        Integer sold30Days;
         BigDecimal avgDailyRate;
 
         List<VariantItemResponse> sizes;
@@ -80,6 +84,8 @@ public class GroupedSuggestionResponse {
         String unitName;
         BigDecimal sellingPrice;
         BigDecimal costPrice;
+        Integer sold14Days;
+        Integer sold30Days;
         BigDecimal avgDailyRate;
         BigDecimal avgWeeklyRate;
 

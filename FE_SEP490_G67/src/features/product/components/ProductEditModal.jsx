@@ -386,7 +386,7 @@ const findMatchingCategory = (inputName, list = []) => {
     const cLower = cName.toLowerCase();
     if (!cNorm || !normInput) return false;
     return cLower.includes(lowerInput) || lowerInput.includes(cLower) ||
-           cNorm.includes(normInput) || normInput.includes(cNorm);
+      cNorm.includes(normInput) || normInput.includes(cNorm);
   });
   if (contained) {
     return { type: 'contain', category: contained };

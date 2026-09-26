@@ -6,6 +6,7 @@ import { CUSTOMER_ROUTES } from '@/features/customer/constants';
 import { importOrdersApi } from '@/features/import-order/api';
 import { IMPORT_ORDER_ROUTES, ORDER_STATUS_FILTER } from '@/features/import-order/constants';
 import { getInventoryAttention } from '@/features/inventory/api/inventoryAttentionApi';
+import OutOfStockImportModal from './OutOfStockImportModal';
 import ExpiredBatchesModal from '@/features/inventory/components/ExpiredBatchesModal';
 import ReturnHoldLinesModal from '@/features/inventory/components/ReturnHoldLinesModal';
 import { STORAGE_LOCATION_ROUTES, RETURN_HOLD_ANCHOR } from '@/features/storage-location/constants';
@@ -416,6 +417,12 @@ export default function TodayProblems() {
                 open={expiredModalOpen}
                 onClose={() => setExpiredModalOpen(false)}
             />
+            {outOfStockModalOpen && (
+                <OutOfStockImportModal
+                    open
+                    onClose={() => setOutOfStockModalOpen(false)}
+                />
+            )}
             <ReturnHoldLinesModal
                 open={returnHoldModalOpen}
                 onClose={() => setReturnHoldModalOpen(false)}

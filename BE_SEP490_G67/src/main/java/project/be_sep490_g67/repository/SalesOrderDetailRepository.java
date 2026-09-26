@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import project.be_sep490_g67.entity.SalesOrderDetail;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
@@ -13,17 +14,37 @@ import java.util.List;
 public interface SalesOrderDetailRepository extends JpaRepository<SalesOrderDetail, Integer> {
 
     @Query("""
-            SELECT COALESCE(SUM(d.quantity), 0)
+            SELECT COALESCE(SUM(d.quantity * COALESCE(u.unitBase, 1.0)), 0)
             FROM SalesOrderDetail d
             JOIN d.salesOrder o
+            LEFT JOIN d.productUnit u
             WHERE d.product.id = :productId
               AND (d.isRemoved = false OR d.isRemoved IS NULL)
               AND (o.isRemoved = false OR o.isRemoved IS NULL)
+              AND (o.orderStatus IS NULL OR UPPER(o.orderStatus) <> 'CANCELLED')
               AND o.createdAt >= :from
-              AND o.createdAt < :to
+              AND o.createdAt <= :to
             """)
-    Long sumQtyByProductAndDateRange(
+    BigDecimal sumQtyByProductAndDateRange(
             @Param("productId") Integer productId,
+            @Param("from") Instant from,
+            @Param("to") Instant to);
+
+    @Query("""
+            SELECT d.product.id, COALESCE(SUM(d.quantity * COALESCE(u.unitBase, 1.0)), 0)
+            FROM SalesOrderDetail d
+            JOIN d.salesOrder o
+            LEFT JOIN d.productUnit u
+            WHERE d.product.id IN :productIds
+              AND (d.isRemoved = false OR d.isRemoved IS NULL)
+              AND (o.isRemoved = false OR o.isRemoved IS NULL)
+              AND (o.orderStatus IS NULL OR UPPER(o.orderStatus) <> 'CANCELLED')
+              AND o.createdAt >= :from
+              AND o.createdAt <= :to
+            GROUP BY d.product.id
+            """)
+    List<Object[]> sumQtyByProductIdsAndDateRange(
+            @Param("productIds") List<Integer> productIds,
             @Param("from") Instant from,
             @Param("to") Instant to);
 
@@ -81,13 +102,15 @@ public interface SalesOrderDetailRepository extends JpaRepository<SalesOrderDeta
      */
     @Query("""
             SELECT sod.product.id,
-                   COALESCE(SUM(sod.quantity * COALESCE(sod.productUnit.unitBase, 1)), 0)
+                   COALESCE(SUM(sod.quantity * COALESCE(u.unitBase, 1.0)), 0)
             FROM SalesOrderDetail sod
+            JOIN sod.salesOrder o
+            LEFT JOIN sod.productUnit u
             WHERE sod.product.id IN :productIds
               AND sod.isRemoved = false
-              AND sod.salesOrder.isRemoved = false
-              AND sod.salesOrder.orderStatus <> 'CANCELLED'
-              AND sod.salesOrder.createdAt >= :since
+              AND o.isRemoved = false
+              AND (o.orderStatus IS NULL OR UPPER(o.orderStatus) <> 'CANCELLED')
+              AND o.createdAt >= :since
             GROUP BY sod.product.id
             """)
     List<Object[]> sumSoldBaseQuantityByProductsSince(
