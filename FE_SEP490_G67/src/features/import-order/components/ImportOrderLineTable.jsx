@@ -20,6 +20,13 @@ function bumpQty(current, delta) {
     return Math.min(MAX_IMPORT_QUANTITY, Math.max(1, normalizeQty(current) + delta));
 }
 
+function todayIsoDate() {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${now.getFullYear()}-${month}-${day}`;
+}
+
 export default function ImportOrderLineTable({
     lines,
     onChangeLine,
@@ -30,6 +37,7 @@ export default function ImportOrderLineTable({
     trialSettlements = [],
 }) {
     const canEdit = !readOnly && typeof onChangeLine === 'function';
+    const minExpiryDate = todayIsoDate();
     const canRemove = !readOnly && typeof onRemoveLine === 'function';
     const isPromoSection = section === 'promo';
     const colSpan = 9;
@@ -343,6 +351,7 @@ export default function ImportOrderLineTable({
                                         {canEdit ? (
                                             <DatePickerInput
                                                 value={line.expiryDate || ''}
+                                                min={minExpiryDate}
                                                 className={`ioc-lines-table__input ioc-lines-table__input--date${
                                                     missingExpiry
                                                         ? ' ioc-lines-table__input--date-warn'

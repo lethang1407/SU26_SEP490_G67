@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import ImportOrderInfoTab from '../../import-order/components/ImportOrderInfoTab';
 import { suppliersApi } from '../api';
@@ -28,8 +29,12 @@ export default function SupplierOrderDetailModal({ orderId, onClose }) {
         return null;
     }
 
-    return (
-        <div className="supplier-modal-overlay" onClick={onClose} role="presentation">
+    return createPortal(
+        <div
+            className="supplier-modal-overlay supplier-modal-overlay--stacked supplier-modal-overlay--front"
+            onClick={onClose}
+            role="presentation"
+        >
             <div
                 className="supplier-modal supplier-modal--detail"
                 onClick={(event) => event.stopPropagation()}
@@ -66,6 +71,7 @@ export default function SupplierOrderDetailModal({ orderId, onClose }) {
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }

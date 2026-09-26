@@ -1124,6 +1124,9 @@ public class ImportOrderService {
         detail.setQuantity(line.getQuantity());
         detail.setCostPerUnit(cost);
         detail.setLineTotal(lineTotal);
+        if (line.getExpiryDate() != null && line.getExpiryDate().isBefore(LocalDate.now())) {
+            throw new AppException(ErrorCode.INVALID_IMPORT_EXPIRY);
+        }
         detail.setExpiryDate(line.getExpiryDate());
         detail.setNote(blankToNull(line.getNote()));
         detail.setIsPromotion(isPromotion);
