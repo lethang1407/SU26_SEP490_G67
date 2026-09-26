@@ -199,18 +199,6 @@ export default function SalesOrderDetailModal({ orderId, onClose }) {
                                             <TotalRow label="Giảm giá" value={`- ${formatVnd(data.discountAmount)}`} />
                                         )}
                                         <TotalRow grand label="Tổng cộng" value={formatVnd(data.totalAmount)} />
-                                        {data.isDebt && (
-                                            <>
-                                                <TotalRow label="Đã thanh toán" value={formatVnd(data.paidAmount)} />
-                                                {/* <TotalRow label="Còn nợ" value={formatVnd(data.remainingDebt)} /> */}
-                                                {data.dueDate && (
-                                                    <TotalRow
-                                                        label="Hạn trả nợ"
-                                                        value={new Date(data.dueDate).toLocaleDateString('vi-VN')}
-                                                    />
-                                                )}
-                                            </>
-                                        )}
                                     </>
                                 )}
                             </div>
