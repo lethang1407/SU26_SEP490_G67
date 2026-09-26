@@ -139,16 +139,13 @@ export function getLocationMetrics(location) {
 }
 
 export function getLocationStatus(location) {
-    const { isEmpty, hasNearExpiry } = getLocationMetrics(location);
+    const { isEmpty } = getLocationMetrics(location);
 
     if (isEmpty) {
         return LOCATION_STATUS.EMPTY;
     }
     if (location.isFull) {
         return LOCATION_STATUS.FULL;
-    }
-    if (hasNearExpiry) {
-        return LOCATION_STATUS.NEAR_EXPIRY;
     }
     return LOCATION_STATUS.OCCUPIED;
 }

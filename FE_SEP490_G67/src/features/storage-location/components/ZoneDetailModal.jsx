@@ -27,11 +27,6 @@ function ZoneSummaryPills({ stats }) {
             <span className="storage-location-zone__pill">
                 {stats.occupiedCount}/{stats.totalLocations} có hàng
             </span>
-            {stats.nearExpiryCount > 0 && (
-                <span className="storage-location-zone__pill storage-location-zone__pill--warn">
-                    {stats.nearExpiryCount} sắp hết HSD
-                </span>
-            )}
         </div>
     );
 }

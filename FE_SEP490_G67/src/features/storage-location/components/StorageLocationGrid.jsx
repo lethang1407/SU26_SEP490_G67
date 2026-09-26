@@ -15,11 +15,6 @@ function ZoneSummaryPills({ stats }) {
                     trống: {stats.largeEmpty} to · {stats.mediumEmpty} vừa · {stats.smallEmpty} bé
                 </span>
             )}
-            {stats.nearExpiryCount > 0 && (
-                <span className="storage-location-zone__pill storage-location-zone__pill--warn">
-                    {stats.nearExpiryCount} sắp hết HSD
-                </span>
-            )}
         </div>
     );
 }

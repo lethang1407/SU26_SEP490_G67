@@ -20,14 +20,6 @@ export default function StorageLocationSummaryCards({ summary, onFilterStatus })
             suffix: 'ô',
             filter: 'empty',
         },
-        {
-            id: 'near-expiry',
-            label: 'Có hàng sắp hết HSD',
-            value: summary.nearExpiryCount,
-            suffix: 'ô',
-            valueClass: summary.nearExpiryCount > 0 ? 'inventory-stat-card__value--warning' : '',
-            filter: 'near_expiry',
-        },
     ];
 
     return (
