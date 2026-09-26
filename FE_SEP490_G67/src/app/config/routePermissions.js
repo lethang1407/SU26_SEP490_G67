@@ -8,14 +8,14 @@ export const ROUTE_PERMISSIONS = [
   { path: '/admin/dashboard', role: ['MANAGER'] },
   { path: '/admin', role: ['MANAGER'] },
   { path: '/admin/api-permissions', role: ['MANAGER'] },
-  { path: '/admin/store', permission: 'STORE:VIEW', role: ['MANAGER'] },
-  { path: '/admin/store-info', permission: 'STORE:VIEW', role: ['MANAGER'] },
+  { path: '/admin/store', role: ['MANAGER'] },
+  { path: '/admin/store-info', role: ['MANAGER'] },
 
-  // Staff Management (Chỉ Quản lý hoặc người có quyền STAFF:VIEW / STAFF:CREATE)
-  { path: '/admin/staff/create', role: ['MANAGER'], permission: 'STAFF:CREATE' },
-  { path: '/admin/staff/add', role: ['MANAGER'], permission: 'STAFF:CREATE' },
-  { path: '/admin/staff/:staffId', permission: 'STAFF:VIEW', role: ['MANAGER'] },
-  { path: '/admin/staff', permission: 'STAFF:VIEW', role: ['MANAGER'] },
+  // Staff Management (Chỉ Quản lý)
+  { path: '/admin/staff/create', role: ['MANAGER'] },
+  { path: '/admin/staff/add', role: ['MANAGER'] },
+  { path: '/admin/staff/:staffId', role: ['MANAGER'] },
+  { path: '/admin/staff', role: ['MANAGER'] },
 
   // Products & Categories
   { path: '/admin/products/create', permission: 'PRODUCT:CREATE' },
@@ -58,7 +58,7 @@ export const ROUTE_PERMISSIONS = [
   { path: '/admin/pos', permission: 'POS:SALE' },
   { path: '/admin/exchange-order/:orderId', permission: 'POS:EXCHANGE' },
   { path: '/admin/exchange-order', permission: 'POS:EXCHANGE' },
-  { path: '/admin/orders/reconciliation', permission: 'AUDIT:VIEW' },
+  { path: '/admin/orders/reconciliation', role: ['MANAGER'] },
   { path: '/admin/orders/:orderId', permission: ['SALES_ORDER:VIEW_ALL', 'SALES_ORDER:VIEW_OWN'] },
   { path: '/admin/orders', permission: ['SALES_ORDER:VIEW_ALL', 'SALES_ORDER:VIEW_OWN'] },
 
@@ -66,9 +66,9 @@ export const ROUTE_PERMISSIONS = [
   { path: '/admin/customer/:customerId', permission: 'CUSTOMER:VIEW' },
   { path: '/admin/customer', permission: 'CUSTOMER:VIEW' },
 
-  // Reports & Accounting
-  { path: '/admin/reports/revenue', permission: 'AUDIT:VIEW' },
-  { path: '/admin/reports/warehouse', permission: 'WAREHOUSE:VIEW' },
+  // Reports & Accounting (Chỉ Quản lý)
+  { path: '/admin/reports/revenue', role: ['MANAGER'] },
+  { path: '/admin/reports/warehouse', role: ['MANAGER'] },
   { path: '/admin/accounting', role: ['MANAGER'] },
 
   // User Profile

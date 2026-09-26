@@ -16,12 +16,6 @@ import { importOrderApi } from '../api/importOrderApi';
 import { categoriesApi } from '../../category/api';
 import { suppliersApi } from '../../supplier/api';
 import { PAGE_SIZE } from '../constants';
-import {
-  buildOrderLines,
-  buildSuggestionOverride,
-  toSupplierFallback,
-  validateLines,
-} from '../utils/importPanelUtils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Product.css';
 

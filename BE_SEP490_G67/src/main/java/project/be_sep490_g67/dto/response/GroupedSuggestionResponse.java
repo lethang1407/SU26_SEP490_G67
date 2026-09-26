@@ -28,6 +28,7 @@ public class GroupedSuggestionResponse {
 
     // Aggregated or standalone metrics
     Integer onHand;
+    Integer minStock;
     BigDecimal avgDailyRate;
     BigDecimal avgWeeklyRate;
     Double coverDaysLeft;
@@ -75,6 +76,8 @@ public class GroupedSuggestionResponse {
         String barcode;
         String productImg;
         Integer onHand;
+        Integer minStock;
+        String unitName;
         BigDecimal sellingPrice;
         BigDecimal costPrice;
         BigDecimal avgDailyRate;

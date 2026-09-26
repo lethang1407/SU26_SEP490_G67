@@ -26,6 +26,14 @@ function updateStatus(newStatus) {
     if (currentIsOnline !== newStatus) {
         currentIsOnline = newStatus;
         notifyListeners();
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('app-connection-changed', { detail: { isOnline: newStatus } }));
+            if (newStatus) {
+                window.dispatchEvent(new Event('online'));
+            } else {
+                window.dispatchEvent(new Event('offline'));
+            }
+        }
     }
 }
 
@@ -157,7 +165,7 @@ function startOfflineRecoveryTimer() {
         } else {
             stopOfflineRecoveryTimer();
         }
-    }, 15000);
+    }, 5000);
 }
 
 function stopOfflineRecoveryTimer() {

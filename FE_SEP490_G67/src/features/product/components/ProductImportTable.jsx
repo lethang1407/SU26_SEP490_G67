@@ -35,15 +35,32 @@ function salesPaceStat(product) {
   return `0 ${unit}`;
 }
 
-function renderStockDisplay(onHand) {
+function renderStockDisplay(onHand, minStock) {
   const stock = Number(onHand) || 0;
   if (stock <= 0) {
-    return <span className="pi-stock-tag pi-stock-tag--out">0</span>;
+    return <span className="pi-stock-tag pi-stock-tag--out" title="Hết hàng (tồn kho = 0)">0</span>;
   }
-  if (stock <= 5) {
-    return <span className="pi-stock-tag pi-stock-tag--low">{stock}</span>;
+  const min = Number(minStock);
+  const hasMin = !isNaN(min) && min > 0;
+  const isLow = hasMin ? stock <= min : stock <= 5;
+  if (isLow) {
+    return (
+      <span
+        className="pi-stock-tag pi-stock-tag--low"
+        title={hasMin ? `Cảnh báo: Tồn kho (${stock}) dưới hoặc bằng định mức tối thiểu (${min})` : `Tồn kho thấp (${stock})`}
+      >
+        {stock}
+      </span>
+    );
   }
-  return <span className="pi-stock-tag pi-stock-tag--good">{stock}</span>;
+  return (
+    <span
+      className="pi-stock-tag pi-stock-tag--good"
+      title={hasMin ? `Tồn kho: ${stock} (Định mức tối thiểu: ${min})` : `Tồn kho: ${stock}`}
+    >
+      {stock}
+    </span>
+  );
 }
 
 function renderSalesPaceDisplay(product) {
@@ -458,6 +475,7 @@ export default function ProductImportTable({
                     parentName: p.name,
                     categoryName: p.categoryName,
                     unitName: c.unitName || p.unitName,
+                    minStock: c.minStock ?? p.minStock ?? 0,
                   });
                 }
               });
@@ -486,6 +504,7 @@ export default function ProductImportTable({
                       sellingPrice: sz.sellingPrice || p.sellingPrice,
                       costPrice: sz.costPrice || p.costPrice,
                       onHand: sz.onHand ?? sz.stock ?? 0,
+                      minStock: sz.minStock ?? p.minStock ?? 0,
                       sold14Days: sz.sold14Days ?? (sz.avgDailyRate != null ? Math.round(Number(sz.avgDailyRate) * 30) : undefined),
                       sold30Days: sz.sold30Days ?? sz.sold14Days ?? (sz.avgDailyRate != null ? Math.round(Number(sz.avgDailyRate) * 30) : undefined),
                       hasOpenPo: sz.hasOpenPo || p.hasOpenPo,
@@ -516,6 +535,7 @@ export default function ProductImportTable({
                 parentId: p.id,
                 categoryName: p.categoryName,
                 unitName: allChildren[0].unitName || p.unitName,
+                minStock: allChildren[0].minStock ?? p.minStock ?? 0,
               } : p;
 
               const targetId = singleTarget.id;
@@ -561,7 +581,7 @@ export default function ProductImportTable({
                     </div>
                     <div className="pi-td col-ps">{singleTarget.sellingPrice ? Number(singleTarget.sellingPrice).toLocaleString('vi-VN') : 'N/A'}</div>
                     <div className="pi-td col-pc">{singleTarget.costPrice ? Number(singleTarget.costPrice).toLocaleString('vi-VN') : 'N/A'}</div>
-                    <div className="pi-td col-st">{renderStockDisplay(singleTarget.onHand)}</div>
+                    <div className="pi-td col-st">{renderStockDisplay(singleTarget.onHand, singleTarget.minStock)}</div>
                     <div className="pi-td col-rt">{renderSalesPaceDisplay(singleTarget)}</div>
                     <div className="pi-td col-act" onClick={(e) => e.stopPropagation()}>
                       <div className="pi-row-actions">
@@ -629,7 +649,7 @@ export default function ProductImportTable({
                   <div className="pi-td col-pc">
                     {p.costPrice ? Number(p.costPrice).toLocaleString('vi-VN') : 'N/A'}
                   </div>
-                  <div className="pi-td col-st">{renderStockDisplay(p.onHand)}</div>
+                  <div className="pi-td col-st">{renderStockDisplay(p.onHand, p.minStock)}</div>
                   <div className="pi-td col-rt">{renderSalesPaceDisplay(p)}</div>
                   <div className="pi-td col-act" onClick={(e) => e.stopPropagation()}>
                     <div className="pi-row-actions">
@@ -658,6 +678,7 @@ export default function ProductImportTable({
                         unitName: child.unitName || p.unitName || p.baseUnitName || 'sp',
                         supplierName: child.supplierName || p.supplierName,
                         categoryName: p.categoryName || 'Đồ dùng gia đình',
+                        minStock: child.minStock ?? p.minStock ?? 0,
                       };
 
                       return (
@@ -716,7 +737,7 @@ export default function ProductImportTable({
                             <div className="pi-td col-pc">
                               {child.costPrice ? Number(child.costPrice).toLocaleString('vi-VN') : 'N/A'}
                             </div>
-                            <div className="pi-td col-st">{renderStockDisplay(child.onHand)}</div>
+                            <div className="pi-td col-st">{renderStockDisplay(child.onHand, child.minStock)}</div>
                             <div className="pi-td col-rt">{renderSalesPaceDisplay(child)}</div>
                             <div className="pi-td col-act" onClick={(e) => e.stopPropagation()}>
                               <div className="pi-row-actions">
@@ -782,7 +803,7 @@ export default function ProductImportTable({
                   </div>
                   <div className="pi-td col-ps">{p.sellingPrice ? Number(p.sellingPrice).toLocaleString('vi-VN') : 'N/A'}</div>
                   <div className="pi-td col-pc">{p.costPrice ? Number(p.costPrice).toLocaleString('vi-VN') : 'N/A'}</div>
-                  <div className="pi-td col-st">{renderStockDisplay(p.onHand)}</div>
+                  <div className="pi-td col-st">{renderStockDisplay(p.onHand, p.minStock)}</div>
                   <div className="pi-td col-rt">{renderSalesPaceDisplay(p)}</div>
                   <div className="pi-td col-act" onClick={(e) => e.stopPropagation()}>
                     <div className="pi-row-actions">

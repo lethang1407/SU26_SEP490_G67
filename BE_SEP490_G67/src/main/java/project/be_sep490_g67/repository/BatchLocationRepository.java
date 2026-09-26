@@ -238,6 +238,7 @@ public interface BatchLocationRepository extends JpaRepository<BatchLocation, In
               AND bl.isRemoved = false
               AND sb.isRemoved = false
               AND loc.isRemoved = false
+              AND (sz.isRemoved = false OR sz.isRemoved IS NULL)
               AND sz.zoneType <> 'RETURN_HOLD'
               AND (sb.expiryDate IS NULL OR sb.expiryDate >= CURRENT_DATE)
             ORDER BY CASE WHEN sb.receivedDate IS NULL THEN 1 ELSE 0 END,
