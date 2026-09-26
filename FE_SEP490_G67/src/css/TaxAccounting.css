@@ -2,7 +2,8 @@
     color: #0f172a;
 }
 
-.tax-accounting-period-detail .product-pagination {
+.tax-accounting-period-detail .product-pagination,
+.tax-accounting-adjustments .product-pagination {
     gap: 12px;
     padding-top: 9px;
     padding-bottom: 13px;
@@ -10,16 +11,20 @@
     padding-left: 12px;
 }
 
-.tax-accounting-period-detail .product-pagination__info {
+.tax-accounting-period-detail .product-pagination__info,
+.tax-accounting-adjustments .product-pagination__info {
     font-size: 13px;
 }
 
-.tax-accounting-period-detail .product-pagination__controls {
+.tax-accounting-period-detail .product-pagination__controls,
+.tax-accounting-adjustments .product-pagination__controls {
     gap: 6px;
 }
 
 .tax-accounting-period-detail .product-pagination__nav,
-.tax-accounting-period-detail .product-pagination__page {
+.tax-accounting-period-detail .product-pagination__page,
+.tax-accounting-adjustments .product-pagination__nav,
+.tax-accounting-adjustments .product-pagination__page {
     min-width: 34px;
     height: 34px;
     padding: 0 8px;
@@ -27,7 +32,8 @@
     font-size: 13px;
 }
 
-.tax-accounting-period-detail .product-pagination__ellipsis {
+.tax-accounting-period-detail .product-pagination__ellipsis,
+.tax-accounting-adjustments .product-pagination__ellipsis {
     min-width: 18px;
     font-size: 13px;
 }
@@ -230,6 +236,10 @@
     flex-wrap: wrap;
     gap: 8px;
     padding: 0 18px 18px;
+}
+
+.tax-accounting-panel__actions--centered {
+    justify-content: center;
 }
 
 .tax-accounting-details {

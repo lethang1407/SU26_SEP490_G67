@@ -10,6 +10,7 @@ import ProductPagination from '../../product/components/ProductPagination';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, index) => CURRENT_YEAR - index);
+const ADJUSTMENT_PAGE_SIZE = 10;
 
 const STATUS_LABELS = {
   DRAFT: 'Nháp',
@@ -78,6 +79,15 @@ function getVietnamYear(value) {
     year: 'numeric',
   }).formatToParts(new Date(value));
   return Number(parts.find((part) => part.type === 'year')?.value) || null;
+}
+
+function getVietnamMonth(value) {
+  if (!value) return null;
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    month: 'numeric',
+  }).formatToParts(new Date(value));
+  return Number(parts.find((part) => part.type === 'month')?.value) || null;
 }
 
 function statusLabel(status) {
@@ -199,6 +209,7 @@ export default function TaxAccountingOverviewPage() {
   const [taxRecordError, setTaxRecordError] = useState('');
   const [periods, setPeriods] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState(() => emptyProfileForm(CURRENT_YEAR));
@@ -214,6 +225,8 @@ export default function TaxAccountingOverviewPage() {
   const [periodModal, setPeriodModal] = useState(null);
   const [periodReason, setPeriodReason] = useState('');
   const [adjustments, setAdjustments] = useState([]);
+  const [adjustmentPage, setAdjustmentPage] = useState({ page: 0, size: ADJUSTMENT_PAGE_SIZE, totalPages: 0, totalElements: 0 });
+  const [adjustmentLoading, setAdjustmentLoading] = useState(false);
   const [adjustmentModal, setAdjustmentModal] = useState(null);
   const [adjustmentForm, setAdjustmentForm] = useState(emptyAdjustmentForm);
   const [adjustmentReason, setAdjustmentReason] = useState('');
@@ -229,7 +242,7 @@ export default function TaxAccountingOverviewPage() {
   const [downloadLoading, setDownloadLoading] = useState('');
   const [exportMode, setExportMode] = useState('PREVIEW');
 
-  const loadOverview = useCallback(async () => {
+  const loadOverview = useCallback(async (adjustmentPageNumber = 0) => {
     setLoading(true);
     setError('');
     try {
@@ -250,8 +263,11 @@ export default function TaxAccountingOverviewPage() {
         if (requestError.response?.status === 404) {
           setProfile(null);
           setSummary(null);
+          setTaxRecord(null);
+          setTaxRecordError('');
           setPeriods([]);
           setAdjustments([]);
+          setAdjustmentPage({ page: 0, size: ADJUSTMENT_PAGE_SIZE, totalPages: 0, totalElements: 0 });
           return;
         }
         throw requestError;
@@ -263,11 +279,18 @@ export default function TaxAccountingOverviewPage() {
       const [summaryResult, periodsResult, adjustmentsResult] = await Promise.all([
         accountingReportsApi.getYearSummary(year),
         accountingPeriodsApi.list(year),
-        adjustmentsApi.list(year).catch(() => []),
+        adjustmentsApi.list(year, { page: adjustmentPageNumber, size: ADJUSTMENT_PAGE_SIZE }).catch(() => null),
       ]);
+      const adjustmentItems = asList(adjustmentsResult);
       setSummary(summaryResult);
       setPeriods(asList(periodsResult));
-      setAdjustments(asList(adjustmentsResult));
+      setAdjustments(adjustmentItems);
+      setAdjustmentPage({
+        page: adjustmentsResult?.page ?? adjustmentPageNumber,
+        size: adjustmentsResult?.size ?? ADJUSTMENT_PAGE_SIZE,
+        totalPages: adjustmentsResult?.totalPages ?? (adjustmentItems.length > 0 ? 1 : 0),
+        totalElements: adjustmentsResult?.totalElements ?? adjustmentItems.length,
+      });
       setTaxRecordError('');
       let currentTaxRecord = null;
       try {
@@ -292,6 +315,7 @@ export default function TaxAccountingOverviewPage() {
       setSummary(null);
       setPeriods([]);
       setAdjustments([]);
+      setAdjustmentPage({ page: 0, size: ADJUSTMENT_PAGE_SIZE, totalPages: 0, totalElements: 0 });
       setTaxRecord(null);
       setError(requestError.response?.data?.message || 'Không thể tải tổng quan thuế và kế toán.');
     } finally {
@@ -455,6 +479,27 @@ export default function TaxAccountingOverviewPage() {
     }
   };
 
+  const loadAdjustmentPage = async (page) => {
+    if (adjustmentLoading || page < 0 || page >= adjustmentPage.totalPages) return;
+    setAdjustmentLoading(true);
+    setAdjustmentError('');
+    try {
+      const result = await adjustmentsApi.list(year, { page, size: adjustmentPage.size });
+      setAdjustments(asList(result));
+      setAdjustmentPage((previous) => ({
+        ...previous,
+        page: result?.page ?? page,
+        size: result?.size ?? previous.size,
+        totalPages: result?.totalPages ?? previous.totalPages,
+        totalElements: result?.totalElements ?? previous.totalElements,
+      }));
+    } catch (requestError) {
+      setAdjustmentError(requestError.response?.data?.message || 'Không thể tải trang điều chỉnh doanh thu.');
+    } finally {
+      setAdjustmentLoading(false);
+    }
+  };
+
   const handleCreatePeriod = async (event) => {
     event.preventDefault();
     setSubmitting(true);
@@ -561,8 +606,9 @@ export default function TaxAccountingOverviewPage() {
           information,
         });
       }
+      const targetPage = adjustmentModal.type === 'create' ? 0 : adjustmentPage.page;
       setAdjustmentModal(null);
-      await loadOverview();
+      await loadOverview(targetPage);
     } catch (requestError) {
       setAdjustmentError(requestError.response?.data?.message || 'Không thể lưu điều chỉnh doanh thu.');
     } finally {
@@ -584,7 +630,7 @@ export default function TaxAccountingOverviewPage() {
       else await adjustmentsApi.reject(year, adjustment.id, payload);
       setAdjustmentModal(null);
       setAdjustmentReason('');
-      await loadOverview();
+      await loadOverview(adjustmentPage.page);
       if (selectedMonth) await loadPeriodDetail(selectedMonth);
     } catch (requestError) {
       setAdjustmentError(requestError.response?.data?.message || 'Không thể xử lý điều chỉnh doanh thu.');
@@ -622,6 +668,19 @@ export default function TaxAccountingOverviewPage() {
     const reportTimer = window.setTimeout(() => loadReport(), 0);
     return () => window.clearTimeout(reportTimer);
   }, [profile, loadReport]);
+
+  const handleRefresh = async () => {
+    const refreshTasks = [loadOverview()];
+    if (profile) refreshTasks.push(loadReport());
+    if (selectedMonth) refreshTasks.push(loadPeriodDetail(selectedMonth, revenuePage.page));
+
+    setRefreshing(true);
+    try {
+      await Promise.all(refreshTasks);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleDownload = async (type, mode = exportMode) => {
     const loadingKey = `${type}-${mode}`;
@@ -663,6 +722,8 @@ export default function TaxAccountingOverviewPage() {
   const summaryByMonth = new Map(summaryMonths.map((month) => [Number(month.month), month]));
   const closedPeriods = summaryMonths.filter((month) => month.status === 'CLOSED').length;
   const trackingIsPartial = Boolean(summary?.partialTracking);
+  const trackingStartCalendarYear = getVietnamYear(profile?.trackingStartedAt);
+  const trackingStartCalendarMonth = getVietnamMonth(profile?.trackingStartedAt);
   const periodByMonth = new Map(periods.map((period) => [Number(periodMonth(period)), period]));
   const selectedPeriodRevenue = reconciliation?.recordedRevenue ?? periodDetail?.recordedRevenue;
   const yearOptions = YEARS.filter((optionYear) => !trackingStartYear || optionYear >= trackingStartYear);
@@ -688,7 +749,7 @@ export default function TaxAccountingOverviewPage() {
               <select id="tax-year" value={year} onChange={(event) => setYear(Number(event.target.value))}>
                 {yearOptions.map((optionYear) => <option key={optionYear} value={optionYear}>{optionYear}</option>)}
               </select>
-              <button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={loadOverview} disabled={loading}>
+              <button type="button" className="tax-accounting-button tax-accounting-button--secondary" onClick={handleRefresh} disabled={loading || refreshing}>
                 <RefreshCw size={16} /> Làm mới
               </button>
             </div>
@@ -743,7 +804,7 @@ export default function TaxAccountingOverviewPage() {
                     </div>
                     </>
                   ) : <p className="tax-accounting-empty">Chưa có hồ sơ thuế cho năm này.</p>}
-                  {!profile && <div className="tax-accounting-panel__actions"><button type="button" className="tax-accounting-button tax-accounting-button--primary" onClick={openProfileForm}><Plus size={15} /> Tạo hồ sơ năm {year}</button></div>}
+                  {!profile && <div className="tax-accounting-panel__actions tax-accounting-panel__actions--centered"><button type="button" className="tax-accounting-button tax-accounting-button--primary" onClick={openProfileForm}><Plus size={15} /> Tạo hồ sơ năm {year}</button></div>}
                 </article>
 
                 <article className="tax-accounting-panel">
@@ -774,13 +835,17 @@ export default function TaxAccountingOverviewPage() {
                         const period = periodByMonth.get(month);
                         const monthSummary = summaryByMonth.get(month);
                         const monthStatus = monthSummary?.status || period?.status;
+                        const unknownStatusBeforeTracking = Boolean(monthStatus && !STATUS_LABELS[monthStatus]
+                          && trackingStartCalendarYear && trackingStartCalendarMonth
+                          && (year < trackingStartCalendarYear
+                            || (year === trackingStartCalendarYear && month < trackingStartCalendarMonth)));
                         return (
                           <tr key={month}>
                             <td>Tháng {month}</td>
                             <td>{period ? `${formatDate(period.startAt || period.periodStart || period.startDate)} - ${formatDate(period.endExclusive || period.periodEnd || period.endDate)}` : monthSummary?.trackingStart ? `Từ ${formatDate(monthSummary.trackingStart)}` : 'Chưa tạo'}</td>
                             <td>{monthStatus ? <span className={`tax-accounting-status tax-accounting-status--${String(monthStatus).toLowerCase()}`}>{statusLabel(monthStatus)}</span> : <span className="tax-accounting-status tax-accounting-status--missing">Chưa tạo</span>}</td>
                             <td>{monthSummary ? formatMoney(monthSummary.recordedRevenue) : period?.recordedRevenue != null ? formatMoney(period.recordedRevenue) : '—'}</td>
-                            <td><button type="button" className="tax-accounting-table-action" onClick={() => period ? loadPeriodDetail(month) : (setSelectedMonth(month), setPeriodModal('create'))} disabled={!confirmed || (!period && declared) || submitting}><Search size={14} /> {period ? 'Chi tiết' : 'Tạo kỳ'}</button></td>
+                            <td><button type="button" className="tax-accounting-table-action" onClick={() => period ? loadPeriodDetail(month) : (setSelectedMonth(month), setPeriodModal('create'))} disabled={!confirmed || (!period && declared) || submitting || (!period && unknownStatusBeforeTracking)}><Search size={14} /> {period ? 'Chi tiết' : 'Tạo kỳ'}</button></td>
                           </tr>
                         );
                       })}
@@ -828,12 +893,21 @@ export default function TaxAccountingOverviewPage() {
               <section className="tax-accounting-panel tax-accounting-adjustments">
                   <div className="tax-accounting-panel__heading"><Edit3 size={18} /><h2>Điều chỉnh doanh thu</h2><button type="button" className="tax-accounting-heading-action" onClick={() => openAdjustmentForm()} disabled={!confirmed || declared || submitting}><Plus size={15} /> Tạo điều chỉnh</button></div>
                 {adjustmentError && <div className="tax-accounting-alert tax-accounting-alert--danger tax-accounting-alert--inline"><AlertCircle size={18} /> <span>{adjustmentError}</span></div>}
-                <div className="tax-accounting-table-wrap">
+                <div className="tax-accounting-table-wrap" aria-busy={adjustmentLoading}>
                   <table>
                     <thead><tr><th>STT</th><th>Ngày tháng</th><th>Số tiền</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
-                    <tbody>{adjustments.length === 0 ? <tr><td colSpan="5" className="tax-accounting-empty">Chưa có điều chỉnh doanh thu.</td></tr> : adjustments.map((adjustment) => { const information = adjustment.information ?? adjustment; const status = adjustment.status; return <tr key={adjustment.id}><td>{adjustment.id ?? '—'}</td><td>{formatDate(adjustmentDateValue(information))}</td><td>{formatMoney(information.signedAmount)}</td><td><span className={`tax-accounting-status tax-accounting-status--${String(status || '').toLowerCase()}`}>{statusLabel(status)}</span></td><td><div className="tax-accounting-row-actions">{status === 'DRAFT' && !declared && <><button type="button" className="tax-accounting-table-action" onClick={() => openAdjustmentForm(adjustment)}><Edit3 size={14} /> Sửa</button><button type="button" className="tax-accounting-table-action" onClick={() => openAdjustmentDecision(adjustment, 'approve')}>Duyệt</button><button type="button" className="tax-accounting-table-action tax-accounting-table-action--danger" onClick={() => openAdjustmentDecision(adjustment, 'reject')}>Từ chối</button></>}</div></td></tr>; })}</tbody>
+                    <tbody>{adjustments.length === 0 ? <tr><td colSpan="5" className="tax-accounting-empty">Chưa có điều chỉnh doanh thu.</td></tr> : adjustments.map((adjustment, index) => { const information = adjustment.information ?? adjustment; const status = adjustment.status; return <tr key={adjustment.id}><td>{adjustmentPage.page * adjustmentPage.size + index + 1}</td><td>{formatDate(adjustmentDateValue(information))}</td><td>{formatMoney(information.signedAmount)}</td><td><span className={`tax-accounting-status tax-accounting-status--${String(status || '').toLowerCase()}`}>{statusLabel(status)}</span></td><td><div className="tax-accounting-row-actions">{status === 'DRAFT' && !declared && <><button type="button" className="tax-accounting-table-action" onClick={() => openAdjustmentForm(adjustment)}><Edit3 size={14} /> Sửa</button><button type="button" className="tax-accounting-table-action" onClick={() => openAdjustmentDecision(adjustment, 'approve')}>Duyệt</button><button type="button" className="tax-accounting-table-action tax-accounting-table-action--danger" onClick={() => openAdjustmentDecision(adjustment, 'reject')}>Từ chối</button></>}</div></td></tr>; })}</tbody>
                   </table>
                 </div>
+                {adjustmentPage.totalPages > 0 && <ProductPagination
+                  page={adjustmentPage.page + 1}
+                  totalPages={adjustmentPage.totalPages}
+                  startIndex={adjustmentPage.totalElements === 0 ? 0 : adjustmentPage.page * adjustmentPage.size + 1}
+                  endIndex={Math.min((adjustmentPage.page + 1) * adjustmentPage.size, adjustmentPage.totalElements)}
+                  totalItems={adjustmentPage.totalElements}
+                  itemLabel="phiếu"
+                  onPageChange={(nextPage) => loadAdjustmentPage(nextPage - 1)}
+                />}
               </section>
             </>
           )}

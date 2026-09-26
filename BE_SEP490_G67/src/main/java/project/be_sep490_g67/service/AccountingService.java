@@ -21,6 +21,7 @@ import java.time.YearMonth;
 import java.util.List;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Sort;
 import project.be_sep490_g67.dto.response.PageResponse;
 import java.util.Objects;
 import java.math.BigDecimal;
@@ -688,9 +689,18 @@ public class AccountingService {
     }
 
     @Transactional(readOnly = true)
-    public List<RevenueAdjustmentResponse> getAdjustments(Integer year) {
-        return adjustmentRepository.findByProfileIdAndIsRemovedFalseOrderByIdAsc(readableProfile(year).getId())
-                .stream().map(RevenueAdjustmentResponse::from).toList();
+    public PageResponse<RevenueAdjustmentResponse> getAdjustments(Integer year, int page, int size) {
+        page = Math.max(page, 0);
+        size = Math.max(1, Math.min(size, 100));
+        Page<RevenueAdjustment> result = adjustmentRepository.findByProfileIdAndIsRemovedFalse(
+                readableProfile(year).getId(),
+                PageRequest.of(page, size, Sort.by(
+                        Sort.Order.desc("postingDate"),
+                        Sort.Order.desc("id"))));
+        return PageResponse.<RevenueAdjustmentResponse>builder()
+                .content(result.getContent().stream().map(RevenueAdjustmentResponse::from).toList())
+                .page(result.getNumber()).size(result.getSize())
+                .totalElements(result.getTotalElements()).totalPages(result.getTotalPages()).build();
     }
 
     @Transactional(readOnly = true)
