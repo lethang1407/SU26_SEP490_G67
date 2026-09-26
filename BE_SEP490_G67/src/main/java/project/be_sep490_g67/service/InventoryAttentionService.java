@@ -293,7 +293,7 @@ public class InventoryAttentionService {
     private Map<Integer, Integer> soldInWindow(List<Product> products, int windowDays) {
         Instant since = Instant.now().minus(Duration.ofDays(windowDays));
         return salesOrderDetailRepository
-                .sumSoldQuantityByProductsSince(products.stream().map(Product::getId).toList(), since)
+                .sumSoldBaseQuantityByProductsSince(products.stream().map(Product::getId).toList(), since)
                 .stream()
                 .collect(Collectors.toMap(row -> toInt(row[0]), row -> toInt(row[1]), (a, b) -> a));
     }

@@ -25,6 +25,7 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -32,6 +33,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 @Service
@@ -102,10 +104,35 @@ public class ProductListService {
                 ? Collections.emptySet()
                 : new HashSet<>(importOrderDetailRepository.findImportedProductIds(allProductIds));
 
+        Map<Integer, Long> soldQtyByProductId = new HashMap<>();
+        if (!allProductIds.isEmpty()) {
+            List<Object[]> soldRows = salesOrderDetailRepository.sumQtyByProductIdsAndDateRange(allProductIds, from, to);
+            for (Object[] row : soldRows) {
+                if (row != null && row.length >= 2 && row[0] != null && row[1] != null) {
+                    soldQtyByProductId.put((Integer) row[0], ((Number) row[1]).longValue());
+                }
+            }
+        }
+
+        List<BigDecimal> allDailyRates = new ArrayList<>();
+        for (Product p : all) {
+            List<Product> children = childrenByParentId.getOrDefault(p.getId(), Collections.emptyList());
+            long parentTotalSold = soldQtyByProductId.getOrDefault(p.getId(), 0L);
+            if (children != null && !children.isEmpty()) {
+                for (Product c : children) {
+                    long childSold = soldQtyByProductId.getOrDefault(c.getId(), 0L);
+                    parentTotalSold += childSold;
+                    allDailyRates.add(BigDecimal.valueOf(childSold).divide(BigDecimal.valueOf(SALES_WINDOW_DAYS), 2, RoundingMode.HALF_UP));
+                }
+            }
+            allDailyRates.add(BigDecimal.valueOf(parentTotalSold).divide(BigDecimal.valueOf(SALES_WINDOW_DAYS), 2, RoundingMode.HALF_UP));
+        }
+        double hotThreshold = calculateHotThreshold(allDailyRates);
+
         List<ProductListItemResponse> mapped = new ArrayList<>();
         for (Product p : all) {
             List<Product> children = childrenByParentId.getOrDefault(p.getId(), Collections.emptyList());
-            ProductListItemResponse dto = toListItem(p, children, from, to, fallbackSupplierByCategory, importedProductIds);
+            ProductListItemResponse dto = toListItem(p, children, from, to, fallbackSupplierByCategory, importedProductIds, soldQtyByProductId, hotThreshold);
             if (matchesFacet(dto, facetKey)) {
                 mapped.add(dto);
             }
@@ -205,7 +232,9 @@ public class ProductListService {
             Instant from,
             Instant to,
             Map<Integer, String> fallbackSupplierByCategory,
-            Set<Integer> importedProductIds
+            Set<Integer> importedProductIds,
+            Map<Integer, Long> soldQtyByProductId,
+            double hotThreshold
     ) {
         boolean isGroup = children != null && !children.isEmpty();
 
@@ -219,8 +248,7 @@ public class ProductListService {
 
         long soldQty = 0L;
         for (Integer pid : targetProductIds) {
-            Long s = salesOrderDetailRepository.sumQtyByProductAndDateRange(pid, from, to);
-            if (s != null) soldQty += s;
+            soldQty += soldQtyByProductId.getOrDefault(pid, 0L);
         }
         BigDecimal avgDaily = BigDecimal.valueOf(soldQty)
                 .divide(BigDecimal.valueOf(SALES_WINDOW_DAYS), 2, RoundingMode.HALF_UP);
@@ -261,7 +289,8 @@ public class ProductListService {
         } else if (isNew) {
             facetStatus = "new";
         } else {
-            facetStatus = resolveFacet(p, onHand, avgDaily.doubleValue(), coverDaysLeft);
+            int minStock = p.getMinStock() != null ? p.getMinStock() : 0;
+            facetStatus = resolveFacet(p, onHand, avgDaily.doubleValue(), coverDaysLeft, minStock, hotThreshold);
         }
 
         String resolvedStatus = isInactive ? "inactive" : (isNew ? "new" : "active");
@@ -297,7 +326,7 @@ public class ProductListService {
         if (isGroup) {
             childDtos = new ArrayList<>();
             for (Product c : children) {
-                childDtos.add(toChildListItem(c, from, to, fallbackSupplierByCategory, importedProductIds));
+                childDtos.add(toChildListItem(c, from, to, fallbackSupplierByCategory, importedProductIds, soldQtyByProductId, hotThreshold));
             }
         }
 
@@ -341,10 +370,11 @@ public class ProductListService {
             Instant from,
             Instant to,
             Map<Integer, String> fallbackSupplierByCategory,
-            Set<Integer> importedProductIds
+            Set<Integer> importedProductIds,
+            Map<Integer, Long> soldQtyByProductId,
+            double hotThreshold
     ) {
-        Long sold = salesOrderDetailRepository.sumQtyByProductAndDateRange(c.getId(), from, to);
-        long soldQty = sold == null ? 0L : sold;
+        long soldQty = soldQtyByProductId.getOrDefault(c.getId(), 0L);
         BigDecimal avgDaily = BigDecimal.valueOf(soldQty)
                 .divide(BigDecimal.valueOf(SALES_WINDOW_DAYS), 2, RoundingMode.HALF_UP);
         BigDecimal avgWeekly = avgDaily.multiply(BigDecimal.valueOf(7)).setScale(1, RoundingMode.HALF_UP);
@@ -382,7 +412,8 @@ public class ProductListService {
         } else if (isNew) {
             facetStatus = "new";
         } else {
-            facetStatus = resolveFacet(c, onHand, avgDaily.doubleValue(), coverDaysLeft);
+            int minStock = c.getMinStock() != null ? c.getMinStock() : (c.getParent() != null && c.getParent().getMinStock() != null ? c.getParent().getMinStock() : 0);
+            facetStatus = resolveFacet(c, onHand, avgDaily.doubleValue(), coverDaysLeft, minStock, hotThreshold);
         }
 
         String resolvedStatus = isInactive ? "inactive" : (isNew ? "new" : "active");
@@ -465,23 +496,47 @@ public class ProductListService {
         return "sp";
     }
 
-    String resolveFacet(Product p, int onHand, double avgDaily, Double coverDaysLeft) {
+    String resolveFacet(Product p, int onHand, double avgDaily, Double coverDaysLeft, int minStock, double hotThreshold) {
         String status = p.getStatus() == null ? "active" : p.getStatus();
         if ("inactive".equalsIgnoreCase(status)) {
             return "stop";
         }
         if (onHand <= 0) {
-            return avgDaily > SLOW_THRESHOLD ? "hot" : "slow";
+            return avgDaily >= hotThreshold ? "hot" : "slow";
         }
         if (p.getSeasonTag() != null && !p.getSeasonTag().isBlank()) {
             return "season";
         }
         int lead = resolveLeadDays(p);
         int warnHorizon = lead + SAFETY_DAYS;
-        if (coverDaysLeft != null && coverDaysLeft > 0 && coverDaysLeft <= warnHorizon) {
+        int resolvedMinStock = minStock > 0 ? minStock : 5;
+        if (onHand <= resolvedMinStock || (coverDaysLeft != null && coverDaysLeft > 0 && coverDaysLeft <= warnHorizon)) {
             return "warn";
         }
         return "ok";
+    }
+
+    double calculateHotThreshold(Collection<BigDecimal> avgDailyRates) {
+        if (avgDailyRates == null || avgDailyRates.isEmpty()) {
+            return 0.2;
+        }
+        List<Double> positiveRates = avgDailyRates.stream()
+                .filter(Objects::nonNull)
+                .map(BigDecimal::doubleValue)
+                .filter(rate -> rate > 0.0)
+                .sorted(Comparator.reverseOrder())
+                .toList();
+
+        if (positiveRates.isEmpty()) {
+            return 0.2;
+        }
+
+        // Lấy vị trí ngưỡng Top 25% sản phẩm bán chạy nhất trong số các SP có phát sinh bán
+        int topIndex = (int) Math.ceil(positiveRates.size() * 0.25) - 1;
+        topIndex = Math.max(0, Math.min(topIndex, positiveRates.size() - 1));
+
+        double topRate = positiveRates.get(topIndex);
+        return Math.max(topRate, 0.2);
     }
 
     int resolveLeadDays(Product p) {
