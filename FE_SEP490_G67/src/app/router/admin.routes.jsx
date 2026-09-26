@@ -34,23 +34,23 @@ import ProtectedRoute from './ProtectedRoute';
 const adminRoutes = [
     {
         path: '/admin/dashboard',
-        element: <ProtectedRoute><AdminDashboard /></ProtectedRoute>,
+        element: <ProtectedRoute requiredRole="MANAGER"><AdminDashboard /></ProtectedRoute>,
     },
     {
         path: '/admin/api-permissions',
-        element: <ProtectedRoute><ApiPermissionsPage /></ProtectedRoute>,
+        element: <ProtectedRoute requiredRole="MANAGER"><ApiPermissionsPage /></ProtectedRoute>,
     },
     {
         path: '/admin/staff/create',
-        element: <ProtectedRoute><AddStaffPage /></ProtectedRoute>,
+        element: <ProtectedRoute requiredRole="MANAGER"><AddStaffPage /></ProtectedRoute>,
     },
     {
         path: '/admin/staff/:staffId',
-        element: <ProtectedRoute><StaffInfoPage /></ProtectedRoute>,
+        element: <ProtectedRoute requiredRole="MANAGER"><StaffInfoPage /></ProtectedRoute>,
     },
     {
         path: '/admin/staff',
-        element: <ProtectedRoute><StaffManagementPage /></ProtectedRoute>,
+        element: <ProtectedRoute requiredRole="MANAGER"><StaffManagementPage /></ProtectedRoute>,
     },
     {
         path: '/admin/products/create',
@@ -70,11 +70,11 @@ const adminRoutes = [
     },
     {
         path: '/admin',
-        element: <ProtectedRoute><AdminDashboard /></ProtectedRoute>,
+        element: <ProtectedRoute requiredRole="MANAGER"><AdminDashboard /></ProtectedRoute>,
     },
     {
         path: '/admin/store',
-        element: <ProtectedRoute><StoreInfor /></ProtectedRoute>,
+        element: <ProtectedRoute requiredRole="MANAGER"><StoreInfor /></ProtectedRoute>,
     },
     {
         path: '/admin/warehouse/locations',
@@ -146,11 +146,11 @@ const adminRoutes = [
     },
     {
         path: '/admin/reports/revenue',
-        element: <ProtectedRoute><RevenueReportPage /></ProtectedRoute>,
+        element: <ProtectedRoute requiredRole="MANAGER"><RevenueReportPage /></ProtectedRoute>,
     },
     {
         path: '/admin/reports/warehouse',
-        element: <ProtectedRoute><WarehouseReportPage /></ProtectedRoute>,
+        element: <ProtectedRoute requiredRole="MANAGER"><WarehouseReportPage /></ProtectedRoute>,
     },
     {
         path: '/admin/accounting',

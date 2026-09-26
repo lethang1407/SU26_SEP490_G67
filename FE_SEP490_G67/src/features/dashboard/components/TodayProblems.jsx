@@ -8,7 +8,6 @@ import { IMPORT_ORDER_ROUTES, ORDER_STATUS_FILTER } from '@/features/import-orde
 import { getInventoryAttention } from '@/features/inventory/api/inventoryAttentionApi';
 import ExpiredBatchesModal from '@/features/inventory/components/ExpiredBatchesModal';
 import ReturnHoldLinesModal from '@/features/inventory/components/ReturnHoldLinesModal';
-import OutOfStockImportModal from './OutOfStockImportModal';
 import { STORAGE_LOCATION_ROUTES, RETURN_HOLD_ANCHOR } from '@/features/storage-location/constants';
 
 const DRAFT_PREVIEW_LIMIT = 2;
@@ -417,12 +416,6 @@ export default function TodayProblems() {
                 open={expiredModalOpen}
                 onClose={() => setExpiredModalOpen(false)}
             />
-            {outOfStockModalOpen && (
-                <OutOfStockImportModal
-                    open
-                    onClose={() => setOutOfStockModalOpen(false)}
-                />
-            )}
             <ReturnHoldLinesModal
                 open={returnHoldModalOpen}
                 onClose={() => setReturnHoldModalOpen(false)}

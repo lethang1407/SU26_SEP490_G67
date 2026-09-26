@@ -595,15 +595,23 @@ public class ImportOrderService {
                 Product product = productRepository.findByIdAndIsRemovedFalse(lineReq.getProductId())
                         .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_NOT_FOUND));
 
+                ProductUnit productUnit = resolveProductUnit(product, lineReq.getProductUnitId());
+
                 BigDecimal cost = lineReq.getCostPerUnit() != null
                         ? lineReq.getCostPerUnit()
-                        : (product.getCostPrice() != null ? product.getCostPrice() : BigDecimal.ZERO);
+                        : (product.getCostPrice() != null
+                                ? product.getCostPrice().multiply(resolveUnitBase(productUnit)).setScale(2, RoundingMode.HALF_UP)
+                                : BigDecimal.ZERO);
                 BigDecimal lineTotal = cost.multiply(BigDecimal.valueOf(lineReq.getQuantity()))
                         .setScale(2, RoundingMode.HALF_UP);
 
                 ImportOrderDetail detail = new ImportOrderDetail();
                 detail.setImportOrder(order);
                 detail.setProduct(product);
+                detail.setProductUnit(productUnit);
+                if (productUnit != null) {
+                    detail.setUnitName(productUnit.getName());
+                }
                 detail.setQuantity(lineReq.getQuantity());
                 detail.setCostPerUnit(cost);
                 detail.setLineTotal(lineTotal);
@@ -619,6 +627,8 @@ public class ImportOrderService {
                 responseLines.add(ImportOrderResponse.Line.builder()
                         .productId(product.getId())
                         .productName(product.getName())
+                        .productUnitId(productUnit != null ? productUnit.getId() : null)
+                        .unitName(detail.getUnitName())
                         .quantity(lineReq.getQuantity())
                         .costPerUnit(cost)
                         .lineTotal(lineTotal)
@@ -1218,15 +1228,19 @@ public class ImportOrderService {
 
     private ProductUnit resolveProductUnit(Product product, Integer productUnitId) {
         if (productUnitId != null) {
-            return productUnitRepository.findByIdAndProduct_IdAndIsRemovedFalse(productUnitId, product.getId())
+            return productUnitRepository.findById(productUnitId)
+                    .filter(u -> !Boolean.TRUE.equals(u.getIsRemoved()))
                     .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_UNIT_NOT_FOUND));
         }
-        return productUnitRepository.findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(product.getId())
-                .stream()
+        List<ProductUnit> units = productUnitRepository.findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(product.getId());
+        if (units.isEmpty() && product.getParent() != null) {
+            units = productUnitRepository.findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(product.getParent().getId());
+        }
+        return units.stream()
                 .filter(unit -> unit.getUnitBase() != null
                         && unit.getUnitBase().compareTo(BigDecimal.ONE) == 0)
                 .findFirst()
-                .orElseThrow(() -> new AppException(ErrorCode.PRODUCT_UNIT_NOT_FOUND));
+                .orElse(null);
     }
 
     private Map<Integer, String> loadMainImageUrls(List<ImportOrderDetail> details) {
@@ -1270,8 +1284,14 @@ public class ImportOrderService {
     }
 
     private List<ImportOrderItemResponse.ProductUnitOption> loadProductUnitOptions(Integer productId) {
-        return productUnitRepository.findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(productId)
-                .stream()
+        List<ProductUnit> units = productUnitRepository.findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(productId);
+        if (units.isEmpty() && productId != null) {
+            Product p = productRepository.findById(productId).orElse(null);
+            if (p != null && p.getParent() != null) {
+                units = productUnitRepository.findByProduct_IdAndIsRemovedFalseOrderByUnitBaseAsc(p.getParent().getId());
+            }
+        }
+        return units.stream()
                 .map(unit -> ImportOrderItemResponse.ProductUnitOption.builder()
                         .id(unit.getId())
                         .name(unit.getName())
@@ -1411,10 +1431,15 @@ public class ImportOrderService {
 
             if (product.getParent() != null) {
                 Product parent = product.getParent();
-                if (parent.getCostPrice() == null || parent.getCostPrice().compareTo(BigDecimal.ZERO) == 0) {
-                    parent.setCostPrice(costPerUnit);
-                    productRepository.save(parent);
+                if ("new".equalsIgnoreCase(parent.getStatus())) {
+                    parent.setStatus("active");
                 }
+                if (parent.getCostPrice() == null || parent.getCostPrice().compareTo(BigDecimal.ZERO) == 0) {
+                    if (costPerUnit != null) {
+                        parent.setCostPrice(costPerUnit);
+                    }
+                }
+                productRepository.save(parent);
             }
         }
     }

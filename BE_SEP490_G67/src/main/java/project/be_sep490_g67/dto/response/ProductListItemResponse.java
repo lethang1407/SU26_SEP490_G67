@@ -46,6 +46,7 @@ public class ProductListItemResponse {
     Integer openPoId;
     String openPoCode;
     Integer openPoQty;
+    String openPoUnitName;
     List<ProductListItemResponse> children;
 }
 

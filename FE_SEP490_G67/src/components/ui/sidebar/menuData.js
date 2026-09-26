@@ -23,22 +23,18 @@ export const menus = [
         id: "reports",
         title: "Báo cáo",
         icon: BarChart3,
+        role: ["MANAGER"],
         children: [
             {
                 title: "Báo cáo Doanh thu",
                 path: "/admin/reports/revenue",
-                permission: "AUDIT:VIEW"
+                role: ["MANAGER"]
             },
             {
                 title: "Báo cáo Kho hàng",
                 path: "/admin/reports/warehouse",
-                permission: "WAREHOUSE:VIEW"
+                role: ["MANAGER"]
             },
-            // {
-            //     title: "Báo cáo Bán hàng",
-            //     path: "/admin/reports/sales",
-            //     permission: "SALES_ORDER:VIEW_ALL"
-            // }
         ]
     },
     // {
@@ -120,7 +116,7 @@ export const menus = [
         title: "Nhân viên",
         icon: User,
         path: "/admin/staff",
-        permission: "STAFF:VIEW"
+        role: ["MANAGER"]
     }
     // {
     //     id: "api-permissions",
