@@ -116,7 +116,8 @@ public class AccountingService {
                 .findByProfileIdAndAccountingMonthAndIsRemovedFalse(profile.getId(), month)
                 .orElseThrow(() -> error(HttpStatus.NOT_FOUND, "Không tìm thấy kỳ kế toán"));
         Page<AccountingRevenueLine> result = revenueLineRepository
-                .findByPeriodIdAndIsRemovedFalse(period.getId(), PageRequest.of(page, size));
+                .findByPeriodIdAndIsRemovedFalseOrderByPostingDateAscIdAsc(
+                        period.getId(), PageRequest.of(page, size));
         return PageResponse.<AccountingRevenueLineResponse>builder()
                 .content(result.getContent().stream().map(AccountingRevenueLineResponse::from).toList())
                 .page(result.getNumber()).size(result.getSize())
@@ -376,7 +377,7 @@ public class AccountingService {
         BusinessTaxProfile profile = profiles.stream()
                 .filter(p -> p.getTaxYear().equals(year) && !Boolean.TRUE.equals(p.getIsRemoved()))
                 .findFirst().orElseThrow(() -> error(HttpStatus.NOT_FOUND, "Không tìm thấy hồ sơ năm"));
-//        requireReadyProfile(profile, profiles);
+        requireReadyProfile(profile, profiles);
         AccountingPeriod period = requiredOpenPeriod(profile, month);
         Integer actor = actor();
         // Do not silently strand an existing line if someone changed/deleted a source outside this workflow.
@@ -416,26 +417,28 @@ public class AccountingService {
         BusinessTaxProfile profile = profiles.stream()
                 .filter(p -> p.getTaxYear().equals(year) && !Boolean.TRUE.equals(p.getIsRemoved()))
                 .findFirst().orElse(null);
-//        if (profile == null || !isReadyProfile(profile)) return null;
-//        if (occurred.isBefore(profile.getTrackingStartedAt())) return null;
-//        boolean periodExists = periodRepository.findAllForUpdate(profile.getId()).stream()
-//                .anyMatch(p -> p.getAccountingMonth().equals(month) && !Boolean.TRUE.equals(p.getIsRemoved()));
-//        if (!periodExists) return null;
+        // Bán hàng không phụ thuộc vào hồ sơ thuế. Chỉ ghi sổ khi hồ sơ và kỳ
+        // tương ứng đã được người dùng thiết lập; nếu chưa có thì bỏ qua bước ghi sổ.
+        if (profile == null || profile.getTrackingStartedAt() == null) return null;
+        if (occurred.isBefore(profile.getTrackingStartedAt())) return null;
+        boolean periodExists = periodRepository.findAllForUpdate(profile.getId()).stream()
+                .anyMatch(p -> p.getAccountingMonth().equals(month) && !Boolean.TRUE.equals(p.getIsRemoved()));
+        if (!periodExists) return null;
         return requiredOpenPeriod(profile, month);
     }
 
-//    private boolean isReadyProfile(BusinessTaxProfile profile) {
-//        Instant start = profile.getTrackingStartedAt();
-//        return profile.getStatus() == ProfileStatus.CONFIRMED && start != null
-//                && profile.getConfirmedBy() != null && profile.getConfirmedAt() != null
-//                && !start.isAfter(Instant.now());
-//    }
+    private boolean isReadyProfile(BusinessTaxProfile profile) {
+        Instant start = profile.getTrackingStartedAt();
+        return profile.getStatus() == ProfileStatus.CONFIRMED && start != null
+                && profile.getConfirmedBy() != null && profile.getConfirmedAt() != null
+                && !start.isAfter(Instant.now());
+    }
 
-//    private void requireReadyProfile(BusinessTaxProfile profile, List<BusinessTaxProfile> profiles) {
-//        if (!isReadyProfile(profile)) {
-//            throw error(HttpStatus.CONFLICT, "Cần hồ sơ đã xác nhận và mốc theo dõi nhất quán");
-//        }
-//    }
+    private void requireReadyProfile(BusinessTaxProfile profile, List<BusinessTaxProfile> profiles) {
+        if (!isReadyProfile(profile)) {
+            throw error(HttpStatus.CONFLICT, "Cần hồ sơ đã xác nhận và mốc theo dõi hợp lệ");
+        }
+    }
 
     private AccountingPeriod requiredOpenPeriod(BusinessTaxProfile profile, int month) {
         return requiredPeriod(profile, month, true);
@@ -797,7 +800,7 @@ public class AccountingService {
         BusinessTaxProfile profile = profiles.stream()
                 .filter(p -> p.getTaxYear().equals(year) && !Boolean.TRUE.equals(p.getIsRemoved())).findFirst()
                 .orElseThrow(() -> error(HttpStatus.NOT_FOUND, "Không tìm thấy hồ sơ năm"));
-//        requireReadyProfile(profile, profiles);
+        requireReadyProfile(profile, profiles);
         return profile;
     }
 

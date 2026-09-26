@@ -28,6 +28,7 @@ public class SalesOrderDetailResponse {
     CustomerInfo customer;
     List<OrderItemInfo> items;
     List<ReturnOrderInfo> returnOrders;
+    List<ExchangeOrderInfo> exchangeOrders;
 
     @Data
     @Builder
@@ -94,5 +95,19 @@ public class SalesOrderDetailResponse {
         String resolutionType;
         String itemCondition;
         String note;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ExchangeOrderInfo {
+        Integer exchangeOrderId;
+        String exchangeCode;
+        String paymentMethod;
+        String orderStatus;
+        BigDecimal totalAmount;
+        Instant createdAt;
+        List<OrderItemInfo> items;
     }
 }

@@ -47,6 +47,15 @@ public interface CustomerRepository extends JpaRepository<Customer, Integer> {
 
     boolean existsByPhoneNumberAndIsRemovedFalse(String phoneNumber);
 
+    @Query("SELECT COUNT(c) > 0 FROM Customer c "
+            + "WHERE c.isRemoved = false AND LOWER(TRIM(c.fullName)) = LOWER(TRIM(:fullName))")
+    boolean existsByActiveFullName(@Param("fullName") String fullName);
+
+    @Query("SELECT COUNT(c) > 0 FROM Customer c "
+            + "WHERE c.isRemoved = false AND c.id <> :id "
+            + "AND LOWER(TRIM(c.fullName)) = LOWER(TRIM(:fullName))")
+    boolean existsByActiveFullNameAndIdNot(@Param("fullName") String fullName, @Param("id") Integer id);
+
     /**
      * Khách nợ do nhân viên thêm — nguồn của thẻ "Khách hàng & Công nợ" trên dashboard.
      * Bộ lọc {@code isCheckUnstableDebt = true} chính là "do nhân viên (không phải quản

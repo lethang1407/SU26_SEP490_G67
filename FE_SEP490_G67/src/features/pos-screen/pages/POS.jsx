@@ -465,7 +465,9 @@ const POSScreen = () => {
             setShowQuickAdd(false);
             clearCustomerResults();
         } catch (err) {
-            const msg = err.response?.data?.message ?? 'Không thể thêm khách hàng. Vui lòng thử lại.';
+            const msg = err.response?.data?.code === 4005
+                ? 'Tên khách hàng đã được sử dụng.'
+                : getApiErrorMessage(err, 'Không thể thêm khách hàng. Vui lòng thử lại.');
             setQuickAddError(msg);
         } finally {
             setQuickAddLoading(false);

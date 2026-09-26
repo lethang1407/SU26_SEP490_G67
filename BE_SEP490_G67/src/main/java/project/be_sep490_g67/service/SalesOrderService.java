@@ -335,6 +335,7 @@ public class SalesOrderService {
 
         Map<Integer, Integer> returnedByLine = returnedQuantityByLine(orderId);
         List<ReturnOrder> returnOrders = returnOrderRepository.findAllBySalesOrderIdWithDetails(orderId);
+        List<SalesOrder> exchangeOrders = salesOrderRepository.findByOriginalSalesOrderIdWithDetails(orderId);
 
         SalesOrderDetailResponse.CustomerInfo customerInfo = null;
         if (order.getCustomer() != null) {
@@ -371,6 +372,9 @@ public class SalesOrderService {
         List<SalesOrderDetailResponse.ReturnOrderInfo> returnInfos = returnOrders.stream()
                 .map(this::toReturnOrderInfo)
                 .toList();
+        List<SalesOrderDetailResponse.ExchangeOrderInfo> exchangeInfos = exchangeOrders.stream()
+                .map(this::toExchangeOrderInfo)
+                .toList();
 
         return SalesOrderDetailResponse.builder()
                 .id(order.getId())
@@ -388,6 +392,7 @@ public class SalesOrderService {
                 .customer(customerInfo)
                 .items(items)
                 .returnOrders(returnInfos)
+                .exchangeOrders(exchangeInfos)
                 .build();
     }
 
@@ -488,6 +493,38 @@ public class SalesOrderService {
                 .cashRefundAmount(returnOrder.getCashRefundAmount())
                 .note(returnOrder.getNote())
                 .createdAt(returnOrder.getCreatedAt())
+                .items(items)
+                .build();
+    }
+
+    private SalesOrderDetailResponse.ExchangeOrderInfo toExchangeOrderInfo(SalesOrder exchangeOrder) {
+        List<SalesOrderDetailResponse.OrderItemInfo> items = exchangeOrder.getSalesOrderDetails().stream()
+                .filter(detail -> !Boolean.TRUE.equals(detail.getIsRemoved()))
+                .map(detail -> {
+                    Product product = detail.getProduct();
+                    return SalesOrderDetailResponse.OrderItemInfo.builder()
+                            .salesOrderDetailId(detail.getId())
+                            .productId(product.getId())
+                            .productCode(productCode(product))
+                            .productName(product.getName())
+                            .unitName(detail.getUnitName())
+                            .quantityPurchased(detail.getQuantity())
+                            .quantityReturned(0)
+                            .quantityReturnable(0)
+                            .productReturnable(false)
+                            .unitPrice(detail.getUnitPrice())
+                            .discountAmount(detail.getDiscountAmount())
+                            .lineTotal(detail.getLineTotal())
+                            .build();
+                })
+                .toList();
+        return SalesOrderDetailResponse.ExchangeOrderInfo.builder()
+                .exchangeOrderId(exchangeOrder.getId())
+                .exchangeCode(exchangeOrder.getOrderCode())
+                .paymentMethod(exchangeOrder.getPaymentMethod())
+                .orderStatus(exchangeOrder.getOrderStatus())
+                .totalAmount(exchangeOrder.getTotalAmount())
+                .createdAt(exchangeOrder.getCreatedAt())
                 .items(items)
                 .build();
     }

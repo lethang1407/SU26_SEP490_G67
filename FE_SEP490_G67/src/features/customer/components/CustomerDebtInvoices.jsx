@@ -1,16 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
 import {
-  Row,
-  Col,
-  InputGroup,
-  Form,
   Table,
   Badge,
   Pagination,
   Spinner,
 } from "react-bootstrap";
-import { FiSearch, FiClock } from "react-icons/fi";
 import { getCustomerDebtOrders } from "../api";
 
 const formatCurrency = (value) => {
@@ -53,7 +47,7 @@ const getStatusBadge = (status) => {
     case "UNPAID":
       return <Badge bg="danger">Chưa thanh toán</Badge>;
     case "OVERDUE":
-      return <Badge bg="danger">lâu</Badge>;
+      return <Badge bg="danger">Nợ lâu</Badge>;
     case "IN_DEBT":
       return <Badge bg="warning">Đang nợ</Badge>;
     default:
@@ -117,7 +111,7 @@ export default function CustomerDebtInvoices({
   return (
     <>
       {/* Table */}
-      <Table hover responsive className="align-middle customer-detail-table">
+      <Table hover responsive className="align-middle customer-detail-table customer-debt-invoices-table">
         <thead>
           <tr>
             <th>Ngày mua</th>
