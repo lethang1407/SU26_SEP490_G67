@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Container,
@@ -30,6 +30,7 @@ import CreatePaymentModal from "../components/CreatePaymentModal";
 import ConfirmationModal from "../components/ConfirmationModal";
 import CustomerPaymentHistory from "../components/CustomerPaymentHistory";
 import OrderDetailModal from "../components/OrderDetailModal";
+import { AuthContext } from "../../../app/providers/AuthProvider";
 import "../../../css/CustomerDetail.css";
 
 const formatCurrency = (value) => {
@@ -73,6 +74,8 @@ const getStatusBadge = (status) => {
 export default function CustomerDetailPage() {
   const { customerId } = useParams();
   const navigate = useNavigate();
+  const { hasRole } = useContext(AuthContext);
+  const isManager = hasRole("MANAGER");
   const [searchParams, setSearchParams] = useSearchParams();
   const [customer, setCustomer] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -156,6 +159,8 @@ export default function CustomerDetailPage() {
   }
 
   const handleAllowDebtChange = async (e) => {
+    if (!isManager) return;
+
     const isChecked = e.target.checked;
 
     const message = isChecked ? (
@@ -180,6 +185,8 @@ export default function CustomerDetailPage() {
   };
 
   const performUpdateAllowDebt = async (allow) => {
+    if (!isManager) return;
+
     setIsUpdating(true);
     try {
       const updateData = {
@@ -302,7 +309,8 @@ export default function CustomerDetailPage() {
                       type="switch"
                       checked={customer.allowDebt}
                       onChange={handleAllowDebtChange}
-                      disabled={isUpdating}
+                      disabled={isUpdating || !isManager}
+                      title={isManager ? "Điều chỉnh quyền mua nợ" : "Chỉ quản lý mới có thể điều chỉnh quyền mua nợ"}
                     />
                   </Col>
                 </Row>

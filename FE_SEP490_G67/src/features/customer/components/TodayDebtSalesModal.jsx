@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { Modal, Table, Spinner, Alert, Button } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 import { getTodayDebtSummary, updateCustomerUnstableDebtStatus } from "../api";
+import { AuthContext } from "../../../app/providers/AuthProvider";
 
 const formatCurrency = (value) => {
   if (!value) return "0 đ";
@@ -25,6 +26,8 @@ const formatDate = (dateString) => {
 
 export default function TodayDebtSalesModal({ show, onHide }) {
   const navigate = useNavigate();
+  const { hasRole } = useContext(AuthContext);
+  const isManager = hasRole("MANAGER");
   const [data, setData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -72,6 +75,8 @@ export default function TodayDebtSalesModal({ show, onHide }) {
   }
 
   const handleProcessUnstableDebt = async (customerId) => {
+    if (!isManager) return;
+
     try {
       const response = await updateCustomerUnstableDebtStatus(customerId, { isCheckUnstableDebt: false });
       if (response.code === 1000) {
@@ -107,19 +112,19 @@ export default function TodayDebtSalesModal({ show, onHide }) {
             <th>Còn nợ</th>
             <th>Thời gian</th>
             <th>Người bán</th>
-            <th>Hành động</th>
+            {isManager && <th>Hành động</th>}
           </tr>
         </thead>
         <tbody>
           {isLoading ? (
             <tr>
-              <td colSpan={8} className="text-center p-5">
+              <td colSpan={isManager ? 9 : 8} className="text-center p-5">
                 <Spinner animation="border" />
               </td>
             </tr>
           ) : !data || data.length === 0 ? (
             <tr>
-              <td colSpan="9" className="text-center text-muted p-4">
+              <td colSpan={isManager ? 9 : 8} className="text-center text-muted p-4">
                 Không có đơn ghi nợ nào phát sinh trong hôm nay.
               </td>
             </tr>
@@ -150,7 +155,7 @@ export default function TodayDebtSalesModal({ show, onHide }) {
                     <td className="text-end fw-bold text-danger">{formatCurrency(item.amountRemaining)}</td>
                     <td>{formatDate(item.orderDate)}</td>
                     <td>{item.createdBy}</td>
-                    {isFirstItemInGroup && (
+                    {isManager && isFirstItemInGroup && (
                       <td style={{ verticalAlign: 'top' }} rowSpan={itemsToShow.length}>
                         {customerGroup.isCheckDebtUnstable && (
                           <Button
@@ -170,7 +175,7 @@ export default function TodayDebtSalesModal({ show, onHide }) {
               if (hasMultipleItems) {
                 rows.push(
                   <tr key={`expand-button-${customerGroup.customerId}`}>
-                    <td colSpan="9" className="text-center p-1" style={{ borderTop: 'none' }}>
+                    <td colSpan={isManager ? 9 : 8} className="text-center p-1" style={{ borderTop: 'none' }}>
                       <Button
                         variant="link"
                         size="sm"
