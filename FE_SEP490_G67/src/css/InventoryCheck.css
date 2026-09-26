@@ -479,6 +479,11 @@
     margin-top: 16px;
 }
 
+/* Trong hàng top panels không cộng margin giữa các thẻ cạnh nhau */
+.inventory-check-top-panels > .inventory-check-side-card + .inventory-check-side-card {
+    margin-top: 0;
+}
+
 .inventory-check-side-card__title {
     margin: 0 0 14px;
     font-size: 15px;
