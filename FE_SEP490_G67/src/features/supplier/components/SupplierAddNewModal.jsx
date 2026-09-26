@@ -83,7 +83,9 @@ export default function SupplierAddNewModal({
     const [createCategoryError, setCreateCategoryError] = useState('');
 
     const dropdownRef = useRef(null);
+    const menuRef = useRef(null);
     const searchInputRef = useRef(null);
+    const [menuStyle, setMenuStyle] = useState(null);
 
     const suggestedCategoryMatch = useMemo(() => {
         if (!isCreateCategoryModalOpen || !newCategoryName.trim()) return null;
@@ -235,15 +237,42 @@ export default function SupplierAddNewModal({
 
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setCategoryDropdown((prev) => ({ ...prev, isOpen: false }));
-            }
+            if (dropdownRef.current?.contains(event.target)) return;
+            if (menuRef.current?.contains(event.target)) return;
+            setCategoryDropdown((prev) => ({ ...prev, isOpen: false }));
         };
 
         if (categoryDropdown.isOpen) {
             document.addEventListener('mousedown', handleClickOutside);
             return () => document.removeEventListener('mousedown', handleClickOutside);
         }
+    }, [categoryDropdown.isOpen]);
+
+    useEffect(() => {
+        if (!categoryDropdown.isOpen) return undefined;
+
+        const placeMenu = () => {
+            const trigger = dropdownRef.current?.querySelector('.supplier-dropdown__trigger');
+            if (!trigger) return;
+            const rect = trigger.getBoundingClientRect();
+            const width = rect.width;
+            const left = Math.min(Math.max(8, rect.left), window.innerWidth - width - 8);
+            const estimatedHeight = 320;
+            const below = rect.bottom + 4;
+            const top =
+                below + estimatedHeight > window.innerHeight - 8
+                    ? Math.max(8, rect.top - estimatedHeight - 4)
+                    : below;
+            setMenuStyle({ top, left, width });
+        };
+
+        placeMenu();
+        window.addEventListener('resize', placeMenu);
+        window.addEventListener('scroll', placeMenu, true);
+        return () => {
+            window.removeEventListener('resize', placeMenu);
+            window.removeEventListener('scroll', placeMenu, true);
+        };
     }, [categoryDropdown.isOpen]);
 
     useEffect(() => {
@@ -457,8 +486,13 @@ export default function SupplierAddNewModal({
                                     </div>
                                 )}
 
-                                {categoryDropdown.isOpen && (
-                                    <div className="supplier-dropdown__menu">
+                                {categoryDropdown.isOpen && menuStyle
+                                    ? createPortal(
+                                    <div
+                                        ref={menuRef}
+                                        className="supplier-dropdown__menu supplier-dropdown__menu--floating"
+                                        style={menuStyle}
+                                    >
                                         <div className="supplier-dropdown__search" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px' }}>
                                             <div style={{ position: 'relative', flex: 1 }}>
                                                 <input
@@ -591,8 +625,10 @@ export default function SupplierAddNewModal({
                                                 </div>
                                             )}
                                         </div>
-                                    </div>
-                                )}
+                                    </div>,
+                                    document.body,
+                                    )
+                                    : null}
                             </div>
                         </label>
 

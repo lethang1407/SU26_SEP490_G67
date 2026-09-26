@@ -128,6 +128,7 @@ public enum ErrorCode {
     TRIAL_BATCH_NOT_RETURNABLE(1093,
             "Hàng bán thử không đổi/trả qua phiếu NCC — hãy quyết toán bán thử trên phiếu nhập.",
             HttpStatus.BAD_REQUEST),
+    INVALID_IMPORT_EXPIRY(1094, "Hạn sử dụng phải từ hôm nay trở đi.", HttpStatus.BAD_REQUEST),
 
     // Product / category errors (11xx)
     PRODUCT_NAME_REQUIRED(1101, "Vui lòng nhập tên sản phẩm", HttpStatus.BAD_REQUEST),

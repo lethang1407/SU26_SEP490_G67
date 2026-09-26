@@ -2577,7 +2577,7 @@ a.supplier-btn {
     position: fixed;
     right: 24px;
     bottom: 24px;
-    z-index: 1100;
+    z-index: 16000;
     display: flex;
     align-items: center;
     gap: 10px;

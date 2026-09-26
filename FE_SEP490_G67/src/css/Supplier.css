@@ -1225,7 +1225,7 @@
     position: fixed;
     right: 24px;
     bottom: 24px;
-    z-index: 1200;
+    z-index: 16000;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -2432,6 +2432,13 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+}
+
+.supplier-dropdown__menu--floating {
+    position: fixed;
+    top: auto;
+    right: auto;
+    z-index: 16000;
 }
 
 /* Search Input Section */

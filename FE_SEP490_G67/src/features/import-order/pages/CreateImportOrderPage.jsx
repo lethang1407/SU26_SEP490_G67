@@ -888,6 +888,19 @@ export default function CreateImportOrderPage() {
             );
             return false;
         }
+        const today = new Date();
+        const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const pastExpiryLine = lines.find((line) => {
+            const expiry = String(line.expiryDate || '').trim();
+            return expiry && expiry < todayIso;
+        });
+        if (pastExpiryLine) {
+            showAlertModal(
+                'Hạn sử dụng không hợp lệ',
+                `Hạn sử dụng của "${pastExpiryLine.productName}" phải từ hôm nay trở đi.`,
+            );
+            return false;
+        }
         if (requirePrice) {
             const missingPriceLine = lines.find(
                 (line) =>
