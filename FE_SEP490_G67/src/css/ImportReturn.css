@@ -714,11 +714,11 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin: 0 -28px;
+    margin: 12px 28px;
     padding: 14px 28px;
     border: none;
     border-top: 1px solid #e2e8f0;
-    border-radius: 0;
+    border-radius: 10px;
     background: #fff;
     box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.06);
 }
