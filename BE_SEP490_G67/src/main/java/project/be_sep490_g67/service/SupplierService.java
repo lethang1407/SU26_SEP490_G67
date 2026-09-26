@@ -13,6 +13,7 @@ import project.be_sep490_g67.dto.response.CategoryResponse;
 import project.be_sep490_g67.dto.response.SupplierDetailResponse;
 import project.be_sep490_g67.dto.response.SupplierListItemResponse;
 import project.be_sep490_g67.dto.response.SupplierListPageResponse;
+import project.be_sep490_g67.entity.Category;
 import project.be_sep490_g67.entity.ImportOrder;
 import project.be_sep490_g67.entity.Supplier;
 import project.be_sep490_g67.entity.User;
@@ -258,16 +259,7 @@ public class SupplierService {
 
         SupplierDebtAmounts debt = calculateDebtPerSupplier().getOrDefault(id, SupplierDebtAmounts.ZERO);
 
-        List<CategoryResponse> categories = supplier.getCategories() == null
-                ? List.of()
-                : supplier.getCategories().stream()
-                        .map(category -> CategoryResponse.builder()
-                                .id(category.getId())
-                                .name(category.getName())
-                                .description(category.getDescription())
-                                .build())
-                        .sorted(Comparator.comparing(CategoryResponse::getName, Comparator.nullsLast(String::compareToIgnoreCase)))
-                        .toList();
+        List<CategoryResponse> categories = toCategoryResponses(supplier.getCategories());
 
         return SupplierDetailResponse.builder()
                 .id(supplier.getId())
@@ -329,6 +321,11 @@ public class SupplierService {
     public AddNewSupplierResponse addNewSupplier(AddNewSupplierRequest request) {
         String name = trimToNull(request.getName());
         String phoneNumber = normalizeOptionalPhone(request.getPhoneNumber());
+        // So trên SĐT đã chuẩn hoá (bỏ khoảng trắng…) để "0912 345 678" và "0912345678" là một.
+        // Để trống SĐT thì không kiểm tra.
+        if (phoneNumber != null && supplierRepository.existsByPhoneNumberAndIsRemovedFalse(phoneNumber)) {
+            throw new AppException(ErrorCode.PHONE_NUMBER_EXISTED);
+        }
         String supplierCode = generateNextSupplierCode();
 
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -349,16 +346,33 @@ public class SupplierService {
         log.info("Created new supplier with code {}", savedSupplier.getSupplierCode());
 
         return AddNewSupplierResponse.builder()
+                .id(savedSupplier.getId())
                 .name(savedSupplier.getName())
                 .contactPerson(savedSupplier.getContactPerson())
                 .supplierCode(savedSupplier.getSupplierCode())
                 .address(savedSupplier.getAddress())
                 .phoneNumber(savedSupplier.getPhoneNumber())
                 .notes(savedSupplier.getNotes())
-                .categories(savedSupplier.getCategories())
+                .categories(toCategoryResponses(savedSupplier.getCategories()))
                 .createdAt(savedSupplier.getCreatedAt())
-                .createdBy(user)
+                .createdById(user.getId())
+                .createdByName(user.getFullName() != null ? user.getFullName() : user.getUsername())
                 .build();
+    }
+
+    /** Nhóm hàng dạng phẳng, sắp theo tên — không trả entity Category (quan hệ hai chiều). */
+    private List<CategoryResponse> toCategoryResponses(Set<Category> categories) {
+        if (categories == null) {
+            return List.of();
+        }
+        return categories.stream()
+                .map(category -> CategoryResponse.builder()
+                        .id(category.getId())
+                        .name(category.getName())
+                        .description(category.getDescription())
+                        .build())
+                .sorted(Comparator.comparing(CategoryResponse::getName, Comparator.nullsLast(String::compareToIgnoreCase)))
+                .toList();
     }
 
     private String generateNextSupplierCode() {

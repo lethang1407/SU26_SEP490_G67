@@ -594,6 +594,13 @@
     margin: 0;
 }
 
+/* Nhãn phụ cạnh tiêu đề thẻ, vd "Hôm nay" ở Hoạt động gần đây */
+.admin-dashboard-page .dashboard-card_subtitle {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 500;
+}
+
 /* Table 1: Sản phẩm cần xem xét nhập hàng */
 .inventory-review-card {
     min-height: 250px;
