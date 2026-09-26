@@ -512,6 +512,11 @@ const POSScreen = () => {
         ? amountDue
         : (parseFloat(cashGivenInput) || 0);
     const changeDue = cashGiven - amountDue;
+    // Tiền mặt: khách đưa thiếu thì không cho thanh toán
+    const cashShort = paymentMethod === 'cash' && changeDue < 0;
+    const cashShortMessage = cashShort
+        ? `Tiền khách đưa chưa đủ, còn thiếu ${formatVnd(Math.abs(changeDue))}. Vui lòng nhập đủ số tiền trước khi thanh toán.`
+        : null;
 
     // Ghi nợ
     const isDebtMode = paymentMethod === 'debt';
@@ -592,6 +597,7 @@ const POSScreen = () => {
     };
 
     const handleCheckout = async () => {
+        if (cashShort) return;
         await runCheckout();
     };
 
@@ -1009,7 +1015,7 @@ const POSScreen = () => {
                                     min={0}
                                     max={isDebtMode ? amountDue : undefined}
                                     step={1000}
-                                    className={`cash-given-input${isDebtMode && prepaidInvalid ? ' input-error' : ''}`}
+                                    className={`cash-given-input${(isDebtMode && prepaidInvalid) || cashShort ? ' input-error' : ''}`}
                                     value={isDebtMode ? prepaidInput : cashGivenInput}
                                     placeholder={isDebtMode ? '0' : amountDue.toLocaleString('vi-VN')}
                                     onChange={(e) => {
@@ -1042,6 +1048,11 @@ const POSScreen = () => {
                                 <span className="change-due-amount">
                                     {formatVnd(Math.abs(changeDue))}
                                 </span>
+                            </div>
+                        )}
+                        {cashShort && (
+                            <div className="debt-form-error">
+                                {cashShortMessage}
                             </div>
                         )}
                         {/* Ghi nợ */}
@@ -1131,8 +1142,8 @@ const POSScreen = () => {
                     <div className="payment-footer">
                         <button
                             className="btn-checkout"
-                            disabled={submitting || cartItems.length === 0 || locationBlocked || debtBlocked}
-                            title={debtBlockedReason ?? undefined}
+                            disabled={submitting || cartItems.length === 0 || locationBlocked || debtBlocked || cashShort}
+                            title={debtBlockedReason ?? cashShortMessage ?? undefined}
                             onClick={handleCheckout}
                         >
                             {debtBlocked && isDebtMode && <Lock size={16} />}

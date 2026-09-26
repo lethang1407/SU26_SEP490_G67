@@ -22,6 +22,12 @@ public class ImportOrderListItemResponse {
     LocalDate receivedDate;
     /** Thời điểm ghi nhận phiếu (dùng hiển thị cột Thời gian trên list). */
     Instant receivedAt;
+    /**
+     * Thời điểm phiếu được hoàn thành (nhập kho) — lúc tạo lô hàng đầu tiên của phiếu. Null nếu
+     * phiếu chưa nhập kho. Khác {@link #receivedAt} (= lúc tạo phiếu) khi phiếu tạm hôm trước
+     * mới được hoàn thành hôm nay.
+     */
+    Instant importedAt;
     String createdByName;
     BigDecimal totalCost;
 

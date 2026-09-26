@@ -13,6 +13,18 @@ import java.util.Optional;
 @Repository
 public interface StockBatchRepository extends JpaRepository<StockBatch, Integer> {
 
+    /**
+     * Thời điểm nhập kho của từng phiếu = lúc tạo lô đầu tiên (lô chỉ được tạo khi phiếu
+     * chuyển sang IMPORTED). Cột: importOrderId, MIN(createdAt).
+     */
+    @Query("""
+            SELECT b.importOrder.id, MIN(b.createdAt)
+            FROM StockBatch b
+            WHERE b.importOrder.id IN :orderIds
+            GROUP BY b.importOrder.id
+            """)
+    List<Object[]> findImportedAtByOrderIds(@Param("orderIds") List<Integer> orderIds);
+
     @Query("""
         SELECT sb FROM StockBatch sb
         WHERE sb.product.id = :productId
