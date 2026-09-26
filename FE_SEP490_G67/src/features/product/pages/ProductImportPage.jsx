@@ -16,6 +16,12 @@ import { importOrderApi } from '../api/importOrderApi';
 import { categoriesApi } from '../../category/api';
 import { suppliersApi } from '../../supplier/api';
 import { PAGE_SIZE } from '../constants';
+import {
+  buildOrderLines,
+  buildSuggestionOverride,
+  toSupplierFallback,
+  validateLines,
+} from '../utils/importPanelUtils';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Product.css';
 
@@ -29,18 +35,6 @@ function buildCoverOverrides(productIds, overrides) {
   return map;
 }
 
-function resolveOrderDate(item, ov) {
-  const timing =
-    ov?.orderTiming ?? (item.orderToday === false ? 'lead' : 'today');
-  if (timing !== 'lead') {
-    return new Date().toISOString().slice(0, 10);
-  }
-  const days = Number(ov?.leadTimeDays ?? item.leadTimeDays ?? 3) || 3;
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 function confirmOpenPoAdd(openEntries) {
   if (!openEntries.length) return true;
   const lines = openEntries.map(
@@ -49,26 +43,6 @@ function confirmOpenPoAdd(openEntries) {
   return window.confirm(
     `Các sản phẩm sau đang có đơn DRAFT mở:\n\n${lines.join('\n')}\n\nBạn có chắc muốn thêm tiếp vào đơn này?`,
   );
-}
-
-function validateLines(panelItems, overrides) {
-  const errors = [];
-  panelItems.forEach((item) => {
-    const ov = overrides[item.productId] || {};
-    const supplierId = ov.supplierId ?? item.supplierId;
-    const qty = Number(ov.quantity ?? item.suggestedQty) || 0;
-    const packQty = ov.quantity ?? item.suggestedQty;
-    const name = item.productName || `SP #${item.productId}`;
-
-    if (!supplierId) {
-      errors.push(`Chưa chọn nhà cung cấp cho “${name}”.`);
-    }
-    if (packQty == null || Number(packQty) <= 0 || qty <= 0) {
-      errors.push(`Số lượng phải > 0 cho “${name}”.`);
-    }
-  });
-
-  return errors;
 }
 
 export default function ProductImportPage() {
@@ -173,18 +147,7 @@ export default function ProductImportPage() {
       .getSuppliers({ page: 0, size: 1000 })
       .then((pageRes) => {
         const list = pageRes?.content || pageRes?.items || [];
-        setSupplierFallback(
-          (Array.isArray(list) ? list : []).map((s) => ({
-            id: s.id,
-            name: s.name,
-            code: s.code,
-            phoneNumber: s.phoneNumber || s.phone,
-            contactPerson: s.contactPerson,
-            leadTimeDays: s.leadTimeDays ?? 3,
-            costPerUnit: null,
-            cheapest: false,
-          })),
-        );
+        setSupplierFallback(toSupplierFallback(list));
       })
       .catch(() => setSupplierFallback([]));
   }, [loadCategories]);
@@ -505,25 +468,7 @@ export default function ProductImportPage() {
           const next = { ...prev };
           (suggestions || []).forEach((s) => {
             if (!selectedIdsRef.current.has(s.productId)) return;
-            const units = Array.isArray(s.units) ? s.units : [];
-            const baseUnit =
-              units.find((u) => u.isBase || Number(u.unitBase) === 1) ||
-              units[0];
-            const unitBase = Number(baseUnit?.unitBase ?? 1) || 1;
-            const existing = next[s.productId] || {};
-            next[s.productId] = {
-              ...existing,
-              supplierId: existing.supplierId ?? s.supplierId,
-              supplierName: existing.supplierName ?? s.supplierName,
-              costPerUnit: existing.costPerUnit ?? s.costPerUnit,
-              leadTimeDays: existing.leadTimeDays ?? s.leadTimeDays,
-              productUnitId: existing.productUnitId ?? baseUnit?.id ?? null,
-              unitName: existing.unitName ?? baseUnit?.name ?? 'sp',
-              unitBase: existing.unitBase ?? unitBase,
-              quantity:
-                existing.quantity ??
-                Math.max(1, Math.ceil(Number(s.suggestedQty || 0) / unitBase)),
-            };
+            next[s.productId] = buildSuggestionOverride(s, next[s.productId]);
           });
           return next;
         });
@@ -683,21 +628,7 @@ export default function ProductImportPage() {
       return;
     }
 
-    const lines = panelItems.map((item) => {
-      const ov = overrides[item.productId] || {};
-      const cost = ov.costPerUnit ?? item.costPerUnit;
-      const unitBase = Number(ov.unitBase ?? 1) || 1;
-      const packQty = Number(ov.quantity ?? item.suggestedQty) || 0;
-      const baseQty = Math.max(1, Math.round(packQty * unitBase));
-      return {
-        productId: item.productId,
-        supplierId: Number(ov.supplierId ?? item.supplierId),
-        quantity: baseQty,
-        coverDays: Number(ov.coverDays ?? item.coverDays ?? 7),
-        orderDate: resolveOrderDate(item, ov),
-        ...(cost != null ? { costPerUnit: Number(cost) } : {}),
-      };
-    });
+    const lines = buildOrderLines(panelItems, overrides);
 
     setCreating(true);
     try {

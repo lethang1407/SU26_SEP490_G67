@@ -8,6 +8,7 @@ import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.response.ApiResponse;
 import project.be_sep490_g67.dto.response.ExpiredBatchResponse;
 import project.be_sep490_g67.dto.response.InventoryAttentionResponse;
+import project.be_sep490_g67.dto.response.OutOfStockProductResponse;
 import project.be_sep490_g67.dto.response.RestockAdviceResponse;
 import project.be_sep490_g67.dto.response.ReturnHoldLineResponse;
 import project.be_sep490_g67.service.InventoryAttentionService;
@@ -43,6 +44,17 @@ public class InventoryAttentionController {
         return ApiResponse.<List<ExpiredBatchResponse>>builder()
                 .result(inventoryAttentionService.getExpiredBatches())
                 .message("Lấy danh sách lô hàng hết hạn thành công")
+                .build();
+    }
+
+    /**
+     * Danh sách hiện ra khi bấm "sản phẩm đã hết hàng" - SP có tồn trên các ô kho bằng 0.
+     */
+    @GetMapping("/out-of-stock-products")
+    public ApiResponse<List<OutOfStockProductResponse>> getOutOfStockProducts() {
+        return ApiResponse.<List<OutOfStockProductResponse>>builder()
+                .result(inventoryAttentionService.getOutOfStockProducts())
+                .message("Lấy danh sách sản phẩm hết hàng thành công")
                 .build();
     }
 

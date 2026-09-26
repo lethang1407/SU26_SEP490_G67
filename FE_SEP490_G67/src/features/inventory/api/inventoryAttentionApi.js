@@ -12,6 +12,12 @@ export async function getExpiredBatches() {
     return response.result ?? [];
 }
 
+/** Danh sách sản phẩm hết hàng (tồn trên các ô kho = 0) đằng sau lằn "sản phẩm đã hết hàng". */
+export async function getOutOfStockProducts() {
+    const response = await api.get('/inventory-attention/out-of-stock-products');
+    return response.result ?? [];
+}
+
 /** Danh sách hàng khách trả đang chờ xử lý đằng sau lằn "sản phẩm đổi trả chờ xử lý". */
 export async function getReturnHoldLines() {
     const response = await api.get('/inventory-attention/return-hold-lines');

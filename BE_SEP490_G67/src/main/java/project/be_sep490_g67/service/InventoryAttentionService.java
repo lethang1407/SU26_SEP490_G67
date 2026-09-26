@@ -9,6 +9,7 @@ import project.be_sep490_g67.dto.response.ExpiredBatchResponse;
 import project.be_sep490_g67.dto.response.InventoryAttentionResponse;
 import project.be_sep490_g67.dto.response.InventoryAttentionResponse.InventoryAttentionGroupResponse;
 import project.be_sep490_g67.dto.response.InventoryAttentionResponse.InventoryAttentionItemResponse;
+import project.be_sep490_g67.dto.response.OutOfStockProductResponse;
 import project.be_sep490_g67.dto.response.ReturnHoldLineResponse;
 import project.be_sep490_g67.entity.AlertThresholdConfig;
 import project.be_sep490_g67.entity.Product;
@@ -17,6 +18,7 @@ import project.be_sep490_g67.entity.StockBatch;
 import project.be_sep490_g67.enums.ItemCondition;
 import project.be_sep490_g67.repository.AlertThresholdConfigRepository;
 import project.be_sep490_g67.repository.BatchLocationRepository;
+import project.be_sep490_g67.repository.ImportOrderDetailRepository;
 import project.be_sep490_g67.repository.ProductRepository;
 import project.be_sep490_g67.repository.ReturnOrderDetailRepository;
 import project.be_sep490_g67.repository.SalesOrderDetailRepository;
@@ -29,6 +31,7 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +62,7 @@ public class InventoryAttentionService {
     SalesOrderDetailRepository salesOrderDetailRepository;
     BatchLocationRepository batchLocationRepository;
     AlertThresholdConfigRepository alertThresholdConfigRepository;
+    ImportOrderDetailRepository importOrderDetailRepository;
 
     @Transactional(readOnly = true)
     public InventoryAttentionResponse getInventoryAttention() {
@@ -154,12 +158,7 @@ public class InventoryAttentionService {
 
         int highVolumeUnits = intOrDefault(config == null ? null : config.getHighVolumeSoldUnits(), 30);
         int windowDays = intOrDefault(config == null ? null : config.getHighVolumeWindowDays(), 30);
-
-        Instant since = Instant.now().minus(Duration.ofDays(windowDays));
-        Map<Integer, Integer> soldByProduct = salesOrderDetailRepository
-                .sumSoldQuantityByProductsSince(products.stream().map(Product::getId).toList(), since)
-                .stream()
-                .collect(Collectors.toMap(row -> toInt(row[0]), row -> toInt(row[1]), (a, b) -> a));
+        Map<Integer, Integer> soldByProduct = soldInWindow(products, windowDays);
 
         Product highVolumeProduct = products.stream()
                 .filter(product -> soldByProduct.getOrDefault(product.getId(), 0) >= highVolumeUnits)
@@ -238,6 +237,65 @@ public class InventoryAttentionService {
                 .severityReason(reason)
                 .items(items)
                 .build();
+    }
+
+    /**
+     * Danh sách đầy đủ đằng sau lằn "sản phẩm đã hết hàng" — cùng câu truy vấn với con số
+     * trên thẻ (tồn trên mọi ô kho kể cả ô nhập hàng = 0, bỏ khu đổi trả) nên luôn khớp.
+     * Hàng bán chạy lên đầu, rồi tới hàng bán nhiều hơn: đó là thứ tự cần nhập lại.
+     */
+    @Transactional(readOnly = true)
+    public List<OutOfStockProductResponse> getOutOfStockProducts() {
+        List<Product> products = productRepository.findOutOfStock().stream()
+                .map(row -> (Product) row[0])
+                .toList();
+        if (products.isEmpty()) {
+            return List.of();
+        }
+
+        AlertThresholdConfig config = alertThresholdConfigRepository.findFirstByOrderByIdAsc().orElse(null);
+        int highVolumeUnits = intOrDefault(config == null ? null : config.getHighVolumeSoldUnits(), 30);
+        int windowDays = intOrDefault(config == null ? null : config.getHighVolumeWindowDays(), 30);
+        Map<Integer, Integer> soldByProduct = soldInWindow(products, windowDays);
+
+        // Đơn nháp mới nhất cho từng SP (truy vấn đã sắp đơn mới nhất trước → giữ dòng đầu).
+        Map<Integer, Object[]> openPoByProduct = new HashMap<>();
+        for (Object[] row : importOrderDetailRepository
+                .findDraftOpenPoRows(products.stream().map(Product::getId).toList())) {
+            openPoByProduct.putIfAbsent((Integer) row[0], row);
+        }
+
+        return products.stream()
+                .map(product -> {
+                    int sold = soldByProduct.getOrDefault(product.getId(), 0);
+                    Object[] openPo = openPoByProduct.get(product.getId());
+                    return OutOfStockProductResponse.builder()
+                            .productId(product.getId())
+                            .productName(product.getName())
+                            .productSku(product.getSku())
+                            .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
+                            .minStock(product.getMinStock())
+                            .soldInWindow(sold)
+                            .windowDays(windowDays)
+                            .highVolume(sold >= highVolumeUnits)
+                            .openPoId(openPo == null ? null : (Integer) openPo[1])
+                            .openPoCode(openPo == null ? null : (String) openPo[2])
+                            .openPoQty(openPo == null || openPo[3] == null ? null : toInt(openPo[3]))
+                            .build();
+                })
+                .sorted(Comparator.comparing(OutOfStockProductResponse::isHighVolume).reversed()
+                        .thenComparing(Comparator.comparingInt(OutOfStockProductResponse::getSoldInWindow).reversed())
+                        .thenComparing(OutOfStockProductResponse::getProductId))
+                .toList();
+    }
+
+    /** Số lượng đã bán của từng SP trong {@code windowDays} ngày gần nhất, key theo productId. */
+    private Map<Integer, Integer> soldInWindow(List<Product> products, int windowDays) {
+        Instant since = Instant.now().minus(Duration.ofDays(windowDays));
+        return salesOrderDetailRepository
+                .sumSoldQuantityByProductsSince(products.stream().map(Product::getId).toList(), since)
+                .stream()
+                .collect(Collectors.toMap(row -> toInt(row[0]), row -> toInt(row[1]), (a, b) -> a));
     }
 
     @Transactional(readOnly = true)
