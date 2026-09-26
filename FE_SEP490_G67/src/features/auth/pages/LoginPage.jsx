@@ -205,16 +205,25 @@ const LoginPage = () => {
               <p className="text-muted  title-divider small mb-2">Hướng dẫn & Hỗ trợ</p>
               <Row className="g-3"> {/* g-3 tạo khoảng cách (gap) giữa 2 cột */}
                 <Col xs={12} sm={6}>
-                  <button className="custom-btn-card w-100">
+                  <a
+                    href="https://docs.google.com/document/d/1VEtRQQLi2RDPdSGH3Zxgk1i9l-9yYP7G/edit?usp=sharing&ouid=108994436441174743418&rtpof=true&sd=true"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="custom-btn-card w-100 text-decoration-none"
+                  >
                     <svg className="custom-btn-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
                     </svg>
                     <span className="custom-btn-text">Hướng dẫn</span>
-                  </button>
+                  </a>
                 </Col>
 
                 <Col xs={12} sm={6}>
-                  <button className="custom-btn-card w-100">
+                  <button
+                    type="button"
+                    className="custom-btn-card w-100"
+                    onClick={() => navigate('/help')}
+                  >
                     <svg className="custom-btn-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 9.75h-4.5m4.5 1.5h-4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9.75-6c.966 0 1.75.784 1.75 1.75v1.5a1.75 1.75 0 01-1.75 1.75h-1.5A1.75 1.75 0 018.25 9.25v-1.5c0-.966.784-1.75 1.75-1.75h1.5z" />
                     </svg>

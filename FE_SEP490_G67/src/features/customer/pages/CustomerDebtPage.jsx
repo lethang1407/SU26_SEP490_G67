@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useContext } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Row,
@@ -26,6 +26,7 @@ import { getOverviewCustomer, getCustomerDebts, getTodayDebtSummary, getCustomer
 import CreateCustomerDebtModal from "../components/CreateCustomerDebtModal";
 import TodayPaymentsModal from "../components/TodayPaymentsModal";
 import TodayDebtSalesModal from "../components/TodayDebtSalesModal";
+import { AuthContext } from "../../../app/providers/AuthProvider";
 import "../../../css/CustomerDebt.css";
 
 const formatCurrency = (value) => {
@@ -92,6 +93,8 @@ const getPriorityInfo = (customer) => {
 
 export default function CustomerDebtPage() {
   const navigate = useNavigate();
+  const { hasRole } = useContext(AuthContext);
+  const isManager = hasRole("MANAGER");
   const [overview, setOverview] = useState(null);
   const [debtCustomers, setDebtCustomers] = useState({
     content: [],
@@ -341,6 +344,8 @@ export default function CustomerDebtPage() {
 
   const handleProcessUnstableDebt = async (e, customerId) => {
     e.stopPropagation(); // Ngăn không cho điều hướng đến trang chi tiết
+    if (!isManager) return;
+
     try {
       const response = await updateCustomerUnstableDebtStatus(customerId, { isCheckUnstableDebt: false });
       if (response.code === 1000) {
@@ -385,19 +390,19 @@ export default function CustomerDebtPage() {
             <th>Điện thoại</th>
             <th>Tổng nợ hiện tại</th>
             <th>Trạng thái</th>
-            <th className="action-col">Hành động</th>
+            {isManager && <th className="action-col">Hành động</th>}
           </tr>
         </thead>
         <tbody>
           {loading ? (
             <tr>
-              <td colSpan="6" className="text-center py-5">
+              <td colSpan={isManager ? 6 : 5} className="text-center py-5">
                 <Spinner animation="border" size="sm" /> Đang tải...
               </td>
             </tr>
           ) : data.content.length === 0 ? (
             <tr>
-              <td colSpan="6" className="text-center py-5 text-muted">
+              <td colSpan={isManager ? 6 : 5} className="text-center py-5 text-muted">
                 Không có khách hàng.
               </td>
             </tr>
@@ -455,18 +460,20 @@ export default function CustomerDebtPage() {
                       </span>
                     )}
                   </td>
-                  <td>
-                    {item.isCheckDebtUnstable && (
-                      <Button
-                        variant="outline-primary"
-                        size="sm"
-                        onClick={(e) => handleProcessUnstableDebt(e, item.id)}
-                        title="Đánh dấu đã xử lý"
-                      >
-                        Đã xử lý
-                      </Button>
-                    )}
-                  </td>
+                  {isManager && (
+                    <td>
+                      {item.isCheckDebtUnstable && (
+                        <Button
+                          variant="outline-primary"
+                          size="sm"
+                          onClick={(e) => handleProcessUnstableDebt(e, item.id)}
+                          title="Đánh dấu đã xử lý"
+                        >
+                          Đã xử lý
+                        </Button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               );
             })

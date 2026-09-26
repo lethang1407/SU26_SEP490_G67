@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useContext } from 'react';
 import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import { getApiErrorMessage } from '../../profile/utils/profileUtils';
 import { createCustomerDebt, updateCustomer } from '../api';
 import { validatePhoneNumber } from '../../auth/utils/validation';
+import { AuthContext } from '../../../app/providers/AuthProvider';
 
 const EMPTY_FORM = { fullName: '', phoneNumber: '', address: '', note: '', allowDebt: true };
 
@@ -19,6 +20,8 @@ function buildInitialForm(customer) {
 
 export default function CreateCustomerDebtModal({ show, onHide, onSuccess, completeProfile = null }) {
     const isCompleting = !!completeProfile;
+    const { hasRole } = useContext(AuthContext);
+    const isManager = hasRole('MANAGER');
     const [formData, setFormData] = useState(() => buildInitialForm(completeProfile));
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [apiError, setApiError] = useState(null);
@@ -67,8 +70,12 @@ export default function CreateCustomerDebtModal({ show, onHide, onSuccess, compl
         try {
             if (isCompleting) {
                 // BE bắt buộc allowDebt khi cập nhật (ErrorCode.ALLOW_DEBT_REQUIRED)
-                const updated = await updateCustomer(completeProfile.id, formData);
-                onSuccess(updated?.result ?? updated ?? formData);
+                const updateData = {
+                    ...formData,
+                    allowDebt: isManager ? formData.allowDebt : (completeProfile.allowDebt ?? true),
+                };
+                const updated = await updateCustomer(completeProfile.id, updateData);
+                onSuccess(updated?.result ?? updated ?? updateData);
             } else {
                 const response = await createCustomerDebt(formData);
                 onSuccess(response.result);
@@ -135,6 +142,8 @@ export default function CreateCustomerDebtModal({ show, onHide, onSuccess, compl
                                 label="Cho phép khách hàng mua nợ"
                                 checked={!!formData.allowDebt}
                                 onChange={(e) => setFormData(prev => ({ ...prev, allowDebt: e.target.checked }))}
+                                disabled={!isManager}
+                                title={isManager ? "Điều chỉnh quyền mua nợ" : "Chỉ quản lý mới có thể điều chỉnh quyền mua nợ"}
                             />
                             <Form.Text muted>
                                 Tắt tùy chọn này thì POS sẽ chặn ghi nợ cho khách (trạng thái đỏ).
