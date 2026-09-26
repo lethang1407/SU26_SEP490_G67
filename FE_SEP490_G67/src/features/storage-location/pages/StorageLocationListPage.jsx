@@ -188,9 +188,13 @@ export default function StorageLocationListPage() {
         [shelfLocations],
     );
 
-    const handleLocationCreated = (createdLocation) => {
+    const handleLocationCreated = () => {
         setReloadKey((prev) => prev + 1);
-        setSelectedLocation(createdLocation ?? null);
+        setSelectedLocation(null);
+    };
+
+    const handleZoneExtended = async () => {
+        setReloadKey((prev) => prev + 1);
     };
 
     const handleAdjustSaved = () => {
@@ -324,7 +328,7 @@ export default function StorageLocationListPage() {
                                 onClick={() => setShowCreateModal(true)}
                             >
                                 <Plus size={18} />
-                                Thêm vị trí
+                                Thêm khu kệ
                             </button>
                         </div>
                     </header>
@@ -407,6 +411,7 @@ export default function StorageLocationListPage() {
                 onHide={() => setSelectedZoneGroup(null)}
                 selectedLocationId={selectedLocation?.id ?? null}
                 onSelectLocation={handleSelectLocationFromZone}
+                onExtended={handleZoneExtended}
             />
 
             <StorageLocationDetailModal

@@ -1779,6 +1779,62 @@
     gap: 18px;
 }
 
+.storage-zone-detail-modal__floor-title {
+    margin: 0 0 8px;
+    padding: 0 16px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+.storage-zone-detail-modal__add-floor {
+    display: flex;
+    justify-content: center;
+    padding: 4px 16px 8px;
+}
+
+.storage-zone-add-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    margin: auto 0;
+    padding: 0;
+    border: 1.5px dashed #cbd5e1;
+    border-radius: 10px;
+    background: #f8fafc;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.storage-zone-add-tile:hover:not(:disabled) {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.storage-zone-add-tile:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.storage-zone-add-tile--floor {
+    width: auto;
+    height: auto;
+    min-height: 36px;
+    padding: 6px 12px;
+    margin: 0;
+    flex-direction: row;
+    gap: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
 .storage-zone-board {
     display: grid;
     grid-template-columns: 1fr 1fr;

@@ -71,4 +71,6 @@ public interface StorageLocationRepository extends JpaRepository<StorageLocation
 
     boolean existsByStorageZone_CodeIgnoreCaseAndShelfAndBinAndIsRemovedFalse(
             String zoneCode, String shelf, String bin);
+
+    List<StorageLocation> findByStorageZone_CodeIgnoreCaseAndIsRemovedFalse(String zoneCode);
 }

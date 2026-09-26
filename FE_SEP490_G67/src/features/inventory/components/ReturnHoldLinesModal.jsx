@@ -12,9 +12,9 @@ const formatDate = (value) => {
 /**
  * Danh sách hiện ra khi bấm "sản phẩm đổi trả chờ xử lý" trên thẻ Kho hàng.
  *
- * <p>Đây là hàng KHÁCH trả lại không bán lại được, đang nằm ở khu đổi trả — cùng nguồn
+ * <p>Đây là hàng KHÁCH trả lại đang nằm ở khu đổi trả (kể cả nguyên vẹn) — cùng nguồn
  * với con số trên thẻ nên số dòng luôn khớp. Không phải phiếu trả hàng nhà cung cấp.
- * Xử lý (về kệ / huỷ / trả NCC) làm ở màn Vị trí kho, nút "Đi tới xử lý" dẫn sang đó.
+ * Xử lý (đẩy vào kho / huỷ / trả NCC) làm ở màn Vị trí kho, nút "Đi tới xử lý" dẫn sang đó.
  */
 export default function ReturnHoldLinesModal({ open, onClose, onGoToProcess }) {
     const [rows, setRows] = useState([]);

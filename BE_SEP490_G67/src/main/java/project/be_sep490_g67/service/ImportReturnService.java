@@ -315,6 +315,7 @@ public class ImportReturnService {
             return;
         }
         List<String> conditions = List.of(
+                ItemCondition.RESELLABLE.name(),
                 ItemCondition.DAMAGED.name(),
                 ItemCondition.EXPIRED.name(),
                 ItemCondition.OPENED.name());
