@@ -74,7 +74,13 @@ export default function CreateCustomerDebtModal({ show, onHide, onSuccess, compl
                 onSuccess(response.result);
             }
         } catch (err) {
-            setApiError(getApiErrorMessage(err, 'Đã có lỗi xảy ra. Vui lòng thử lại.'));
+            const message = getApiErrorMessage(err, 'Đã có lỗi xảy ra. Vui lòng thử lại.');
+            // Mã 4005 là lỗi nghiệp vụ của chính trường tên, hiển thị ngay
+            // dưới ô nhập để người dùng biết cần đổi tên nào.
+            if (err?.response?.data?.code === 4005) {
+                setErrors(prev => ({ ...prev, fullName: message }));
+            }
+            setApiError(message);
         } finally {
             setIsSubmitting(false);
         }
