@@ -817,15 +817,20 @@ public class ProductCommandService {
             if (!keptIds.contains(existing.getId())) {
                 existing.setIsRemoved(true);
                 long ts = System.currentTimeMillis();
+                String suffix = "_del_" + existing.getId() + "_" + ts;
                 if (existing.getSku() != null && !existing.getSku().contains("_del_")) {
                     String base = existing.getSku();
-                    if (base.length() > 30) base = base.substring(0, 30);
-                    existing.setSku(base + "_del_" + ts);
+                    if (base.length() + suffix.length() > 50) {
+                        base = base.substring(0, Math.max(0, 50 - suffix.length()));
+                    }
+                    existing.setSku(base + suffix);
                 }
                 if (existing.getBarcode() != null && !existing.getBarcode().contains("_del_")) {
                     String base = existing.getBarcode();
-                    if (base.length() > 30) base = base.substring(0, 30);
-                    existing.setBarcode(base + "_del_" + ts);
+                    if (base.length() + suffix.length() > 50) {
+                        base = base.substring(0, Math.max(0, 50 - suffix.length()));
+                    }
+                    existing.setBarcode(base + suffix);
                 }
                 productRepository.save(existing);
             }
