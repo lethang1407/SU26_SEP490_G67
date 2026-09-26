@@ -8,7 +8,6 @@ import project.be_sep490_g67.constants.ApiPath;
 import project.be_sep490_g67.dto.request.*;
 import project.be_sep490_g67.dto.response.*;
 import project.be_sep490_g67.service.AccountingService;
-import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -18,8 +17,11 @@ public class RevenueAdjustmentController {
     private final AccountingService accountingService;
 
     @GetMapping
-    public ApiResponse<List<RevenueAdjustmentResponse>> list(@PathVariable Integer year) {
-        return ApiResponse.success(accountingService.getAdjustments(year));
+    public ApiResponse<PageResponse<RevenueAdjustmentResponse>> list(
+            @PathVariable Integer year,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ApiResponse.success(accountingService.getAdjustments(year, page, size));
     }
 
     @GetMapping("/{id}")
