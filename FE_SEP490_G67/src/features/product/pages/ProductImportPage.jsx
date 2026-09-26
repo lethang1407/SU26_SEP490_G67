@@ -15,6 +15,12 @@ import { productsApi } from '../api';
 import { importOrderApi } from '../api/importOrderApi';
 import { categoriesApi } from '../../category/api';
 import { suppliersApi } from '../../supplier/api';
+import {
+  resolveOrderDate,
+  validateLines,
+  buildSuggestionOverride,
+  toSupplierFallback,
+} from '../utils/importPanelUtils';
 import { PAGE_SIZE } from '../constants';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Product.css';
@@ -431,7 +437,7 @@ export default function ProductImportPage() {
           (suggestions || []).forEach((s) => {
             if (selected.has(s.productId) && !byId.has(s.productId)) {
               const prod = products.find(p => p.id === s.productId) ||
-                           products.flatMap(p => p.children || []).find(c => c.id === s.productId);
+                products.flatMap(p => p.children || []).find(c => c.id === s.productId);
               const categoryId = s.categoryId ?? prod?.categoryId ?? null;
               const categoryName = s.categoryName ?? prod?.categoryName ?? prod?.category ?? null;
               byId.set(s.productId, {
@@ -447,7 +453,7 @@ export default function ProductImportPage() {
             (s) => selected.has(s.productId) && !keptIds.has(s.productId),
           ).map((s) => {
             const prod = products.find(p => p.id === s.productId) ||
-                         products.flatMap(p => p.children || []).find(c => c.id === s.productId);
+              products.flatMap(p => p.children || []).find(c => c.id === s.productId);
             const categoryId = s.categoryId ?? prod?.categoryId ?? null;
             const categoryName = s.categoryName ?? prod?.categoryName ?? prod?.category ?? null;
             return {
