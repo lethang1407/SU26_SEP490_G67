@@ -16,6 +16,9 @@ public interface SupplierRepository extends JpaRepository<Supplier, Integer> {
 
     boolean existsBySupplierCodeAndIdNot(String supplierCode, Integer id);
 
+    /** SĐT đã thuộc một NCC đang hoạt động chưa — NCC đã xoá mềm không tính. */
+    boolean existsByPhoneNumberAndIsRemovedFalse(String phoneNumber);
+
     /**
      * Lấy số thứ tự lớn nhất trong các mã dạng NCC + chữ số (ví dụ NCC00042).
      * Dùng để sinh mã nhà cung cấp tiếp theo, tính cả bản ghi đã soft-delete.
