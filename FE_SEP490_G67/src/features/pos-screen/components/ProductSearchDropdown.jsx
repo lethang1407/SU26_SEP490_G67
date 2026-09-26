@@ -64,22 +64,22 @@ export default function ProductSearchDropdown({ results, loading, error, onSelec
                             >
                                 <ProductThumb url={product.imageUrl} alt={product.name} size={40} />
                                 <div className="psd-item-body">
-                                <div className="psd-item-name">
-                                    {product.name}
-                                    {blocked && <Ban size={13} className="psd-blocked-icon" />}
-                                </div>
-                                <div className="psd-item-meta">
-                                    {product.barcode && (
-                                        <span className="psd-barcode">{product.barcode}</span>
-                                    )}
-                                    {/* Tồn bán được, không phải lượng nhập — xem utils/productStock */}
-                                    <span className={`psd-stock${stock <= 0 ? ' psd-stock--empty' : ''}`}>
-                                        Tồn kho: {stock.toLocaleString('vi-VN')}
-                                    </span>
-                                    {blocked && (
-                                        <span className="psd-debt-summary">Chưa xếp vị trí kho</span>
-                                    )}
-                                </div>
+                                    <div className="psd-item-name">
+                                        {product.name}
+                                        {blocked && <Ban size={13} className="psd-blocked-icon" />}
+                                    </div>
+                                    <div className="psd-item-meta">
+                                        {product.barcode && (
+                                            <span className="psd-barcode">{product.barcode}</span>
+                                        )}
+                                        {/* Tồn bán được, không phải lượng nhập — xem utils/productStock */}
+                                        <span className={`psd-stock${stock <= 0 ? ' psd-stock--empty' : ''}`}>
+                                            Tồn kho: {stock.toLocaleString('vi-VN')}
+                                        </span>
+                                        {/* {blocked && (
+                                            <span className="psd-debt-summary">Chưa xếp vị trí kho</span>
+                                        )} */}
+                                    </div>
                                 </div>
                             </li>
                         );

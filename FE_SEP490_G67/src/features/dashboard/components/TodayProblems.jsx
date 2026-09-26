@@ -6,9 +6,9 @@ import { CUSTOMER_ROUTES } from '@/features/customer/constants';
 import { importOrdersApi } from '@/features/import-order/api';
 import { IMPORT_ORDER_ROUTES, ORDER_STATUS_FILTER } from '@/features/import-order/constants';
 import { getInventoryAttention } from '@/features/inventory/api/inventoryAttentionApi';
-import { PRODUCT_ROUTES } from '@/features/product/constants';
 import ExpiredBatchesModal from '@/features/inventory/components/ExpiredBatchesModal';
 import ReturnHoldLinesModal from '@/features/inventory/components/ReturnHoldLinesModal';
+import OutOfStockImportModal from './OutOfStockImportModal';
 import { STORAGE_LOCATION_ROUTES, RETURN_HOLD_ANCHOR } from '@/features/storage-location/constants';
 
 const DRAFT_PREVIEW_LIMIT = 2;
@@ -226,6 +226,7 @@ export default function TodayProblems() {
     const [inventoryAttention, setInventoryAttention] = useState(null);
     const [expiredModalOpen, setExpiredModalOpen] = useState(false);
     const [returnHoldModalOpen, setReturnHoldModalOpen] = useState(false);
+    const [outOfStockModalOpen, setOutOfStockModalOpen] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -293,7 +294,8 @@ export default function TodayProblems() {
 
     const inventoryActions = {
         openExpired: () => setExpiredModalOpen(true),
-        openProducts: () => navigate(PRODUCT_ROUTES.list),
+        // Mở pop-up "Chuẩn bị đơn nhập hàng" (như trang Sản phẩm), điền sẵn các SP hết hàng.
+        openProducts: () => setOutOfStockModalOpen(true),
         // Mở popup ngay trên dashboard, đóng là ở lại dashboard — không chuyển trang.
         openReturnHold: () => setReturnHoldModalOpen(true),
     };
@@ -415,6 +417,12 @@ export default function TodayProblems() {
                 open={expiredModalOpen}
                 onClose={() => setExpiredModalOpen(false)}
             />
+            {outOfStockModalOpen && (
+                <OutOfStockImportModal
+                    open
+                    onClose={() => setOutOfStockModalOpen(false)}
+                />
+            )}
             <ReturnHoldLinesModal
                 open={returnHoldModalOpen}
                 onClose={() => setReturnHoldModalOpen(false)}

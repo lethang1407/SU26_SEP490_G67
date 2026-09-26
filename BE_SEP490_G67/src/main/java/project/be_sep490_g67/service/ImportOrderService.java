@@ -52,6 +52,7 @@ import project.be_sep490_g67.repository.UserRepository;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -666,9 +667,15 @@ public class ImportOrderService {
 
         Map<Integer, String> nameByUserId = resolveCreatedByNames(orders);
         Map<Integer, TrialMoney> trialMoneyByOrder = loadOpenTrialMoney(orders);
+        Map<Integer, Instant> importedAtByOrder = loadImportedAt(orders);
 
         List<ImportOrderListItemResponse> allItems = orders.stream()
-                .map(order -> toListItem(order, paidPerOrder, nameByUserId, trialMoneyByOrder))
+                .map(order -> {
+                    ImportOrderListItemResponse item =
+                            toListItem(order, paidPerOrder, nameByUserId, trialMoneyByOrder);
+                    item.setImportedAt(importedAtByOrder.get(order.getId()));
+                    return item;
+                })
                 .toList();
 
         List<ImportOrderListItemResponse> filtered = filterByPaymentStatus(allItems, paymentStatusFilter);
@@ -751,6 +758,24 @@ public class ImportOrderService {
                 .openTrialAmount(isImported ? trial.agreed() : BigDecimal.ZERO)
                 .hasOpenTrial(hasOpenTrial)
                 .build();
+    }
+
+    /** Thời điểm nhập kho của các phiếu đã IMPORTED — một truy vấn cho cả danh sách. */
+    private Map<Integer, Instant> loadImportedAt(List<ImportOrder> orders) {
+        List<Integer> importedIds = orders.stream()
+                .filter(order -> ImportOrderConstants.ORDER_STATUS_IMPORTED.equals(order.getOrderStatus()))
+                .map(ImportOrder::getId)
+                .toList();
+        if (importedIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Integer, Instant> result = new HashMap<>();
+        for (Object[] row : stockBatchRepository.findImportedAtByOrderIds(importedIds)) {
+            if (row[0] != null && row[1] != null) {
+                result.put((Integer) row[0], (Instant) row[1]);
+            }
+        }
+        return result;
     }
 
     private Map<Integer, TrialMoney> loadOpenTrialMoney(List<ImportOrder> orders) {
@@ -1394,15 +1419,14 @@ public class ImportOrderService {
         movement.setIsRemoved(false);
         stockMovementRepository.save(movement);
 
-        // Cập nhật giá vốn master theo giá base vừa nhập và kích hoạt trạng thái kinh doanh
-        Product product = detail.getProduct();
-        if (product != null) {
-            if ("new".equalsIgnoreCase(product.getStatus())) {
-                product.setStatus("active");
-            }
-            if (costPerUnit != null) {
-                product.setCostPrice(costPerUnit);
-            }
+        // Cập nhật giá vốn master theo giá base vừa nhập.
+        // Nạp lại SP thay vì dùng detail.getProduct(): ở updateImportOrder, SP được nạp TRƯỚC
+        // deleteByImportOrderId (@Modifying clearAutomatically) nên đã bị tách khỏi session;
+        // chạm vào proxy SP cha (lazy) của nó sẽ ném LazyInitializationException "no session".
+        Product product = detail.getProduct() == null ? null
+                : productRepository.findById(detail.getProduct().getId()).orElse(detail.getProduct());
+        if (product != null && costPerUnit != null) {
+            product.setCostPrice(costPerUnit);
             productRepository.save(product);
 
             if (product.getParent() != null) {

@@ -81,6 +81,11 @@ export function useCheckout() {
      *
      * @returns {string|null} câu lỗi tiếng Việt, hoặc null nếu qua hết
      */
+    const cartTotal = useCallback((cartItems) => {
+        const subtotal = cartItems.reduce((acc, it) => acc + ((it.price || 0) * (it.qty || 1)), 0);
+        return Math.max(0, subtotal - (discount > 0 ? discount : 0));
+    }, [discount]);
+
     const validateCheckout = useCallback((cartItems, paymentMethod, debtInfo) => {
         if (!cartItems || cartItems.length === 0) {
             return 'Giỏ hàng trống. Vui lòng thêm sản phẩm.';
@@ -153,9 +158,8 @@ export function useCheckout() {
         setError(null);
 
         const buildOfflineInvoice = (offlineUuid, offlineCode) => {
-            const subtotal = cartItems.reduce((acc, it) => acc + ((it.price || 0) * (it.qty || 1)), 0);
             const discountVal = discount > 0 ? discount : 0;
-            const totalAmount = Math.max(0, subtotal - discountVal);
+            const totalAmount = cartTotal(cartItems);
 
             return {
                 id: offlineUuid,
@@ -223,7 +227,9 @@ export function useCheckout() {
             let invoiceData = null;
             try {
                 invoiceData = await getInvoiceData(invoice.id);
-            } catch {
+            } catch (fetchErr) {
+                // POS.jsx sẽ tự tải lại hóa đơn theo orderId.
+                console.error('[Checkout] Failed to fetch invoice data:', fetchErr);
             }
 
             // Cache newly created order to offline sales_orders store for 7-day exchange/return
@@ -233,7 +239,8 @@ export function useCheckout() {
                     items: invoice.items || [],
                     customer: customer || invoice.customer
                 });
-            } catch {
+            } catch (cacheErr) {
+                console.error('[Checkout] Failed to cache order offline:', cacheErr);
             }
 
             return { ok: true, order: invoice, invoice: invoiceData, customer };
@@ -268,7 +275,7 @@ export function useCheckout() {
         } finally {
             setSubmitting(false);
         }
-    }, [customer, validateCheckout, buildOrderPayload, discount, isOnline]);
+    }, [customer, validateCheckout, buildOrderPayload, cartTotal, discount, isOnline]);
 
     const resetCheckout = useCallback(() => {
         setPhone('');

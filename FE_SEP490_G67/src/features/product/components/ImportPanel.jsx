@@ -21,8 +21,6 @@ export default function ImportPanel({
   onClose,
   creating,
 }) {
-  if (!isOpen) return null;
-
   const authContext = useContext(AuthContext);
   const currentUser = authContext?.user?.fullName || authContext?.user?.name || authContext?.user?.username || 'Quản trị viên';
 
@@ -61,6 +59,9 @@ export default function ImportPanel({
   const totalAmount = useMemo(() => {
     return supplierGroups.reduce((s, g) => s + (g.total || 0), 0);
   }, [supplierGroups]);
+
+  // Đặt sau mọi hook: return sớm trước hook làm số hook đổi mỗi lần bật/tắt pop-up.
+  if (!isOpen) return null;
 
   return (
     <div className="pi-modal-backdrop">
