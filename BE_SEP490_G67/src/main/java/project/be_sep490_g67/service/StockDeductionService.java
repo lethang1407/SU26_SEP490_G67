@@ -82,8 +82,13 @@ public class StockDeductionService {
         int totalAvailable = availableList.stream().mapToInt(BatchLocation::getQuantity).sum();
 
         if (totalAvailable < quantityNeed) {
-            throw new InsufficientStockException(buildShortageMessage(
-                    productId, quantityNeed, totalAvailable, picks, availableList));
+            List<BatchLocation> allSellable = batchLocationRepository.findSellableByProductId(productId);
+            int totalSellable = allSellable.stream().mapToInt(BatchLocation::getQuantity).sum();
+            if (totalSellable < quantityNeed) {
+                throw new InsufficientStockException(buildShortageMessage(
+                        productId, quantityNeed, totalSellable, picks, allSellable));
+            }
+            availableList = allSellable;
         }
         int remaining = quantityNeed;
         Integer firstBatchId = null;
@@ -113,24 +118,56 @@ public class StockDeductionService {
             throw new AppException(ErrorCode.STOCK_PICK_QUANTITY_MISMATCH);
         }
 
+        // 1. Kiểm tra tổng tồn bán được toàn kho trước
+        List<BatchLocation> allSellable = batchLocationRepository.findSellableByProductId(productId);
+        int totalSellable = allSellable.stream().mapToInt(BatchLocation::getQuantity).sum();
+        if (totalSellable < quantityNeed) {
+            throw new InsufficientStockException("Số lượng sản phẩm không đủ, chỉ còn " + totalSellable + " sản phẩm");
+        }
+
         Integer firstBatchId = null;
+        int remainingNeed = quantityNeed;
+        java.util.Set<Integer> processedBatchLocationIds = new java.util.HashSet<>();
+
+        // 2. Ưu tiên trừ đúng các vị trí / lô thu ngân đã chọn
         for (StockPick pick : usable) {
+            if (remainingNeed <= 0) break;
             List<BatchLocation> rows = rowsForPick(productId, pick);
-            int available = rows.stream().mapToInt(BatchLocation::getQuantity).sum();
-            if (available < pick.baseQuantity()) {
-                throw new InsufficientStockException(buildPickShortageMessage(pick, rows, available));
-            }
-            int remaining = pick.baseQuantity();
+            int pickRemaining = Math.min(pick.baseQuantity(), remainingNeed);
+
             for (BatchLocation bl : rows) {
-                if (remaining <= 0) break;
+                if (pickRemaining <= 0) break;
+                if (bl.getQuantity() <= 0) continue;
+
                 if (firstBatchId == null) {
                     firstBatchId = bl.getBatch().getId();
                 }
-                int deduct = Math.min(bl.getQuantity(), remaining);
+                int deduct = Math.min(bl.getQuantity(), pickRemaining);
                 deductRow(productId, bl, deduct, orderId, referenceType);
-                remaining -= deduct;
+                processedBatchLocationIds.add(bl.getId());
+                pickRemaining -= deduct;
+                remainingNeed -= deduct;
             }
         }
+
+        // 3. Nếu vị trí chỉ định không đủ (do đơn offline sync chậm hoặc tồn ô đó bị trừ bởi đơn khác trước),
+        // tự động trừ phần còn thiếu theo FIFO các ô bán được khác của sản phẩm
+        if (remainingNeed > 0) {
+            log.info("Vị trí pick chỉ định của product {} không đủ (còn thiếu {}), tự động trừ FIFO từ các ô khác",
+                    productId, remainingNeed);
+            for (BatchLocation bl : allSellable) {
+                if (remainingNeed <= 0) break;
+                if (bl.getQuantity() <= 0) continue;
+
+                if (firstBatchId == null) {
+                    firstBatchId = bl.getBatch().getId();
+                }
+                int deduct = Math.min(bl.getQuantity(), remainingNeed);
+                deductRow(productId, bl, deduct, orderId, referenceType);
+                remainingNeed -= deduct;
+            }
+        }
+
         return firstBatchId;
     }
 

@@ -15,13 +15,13 @@ import { productsApi } from '../api';
 import { importOrderApi } from '../api/importOrderApi';
 import { categoriesApi } from '../../category/api';
 import { suppliersApi } from '../../supplier/api';
-import { PAGE_SIZE } from '../constants';
 import {
-  buildOrderLines,
+  resolveOrderDate,
+  validateLines,
   buildSuggestionOverride,
   toSupplierFallback,
-  validateLines,
 } from '../utils/importPanelUtils';
+import { PAGE_SIZE } from '../constants';
 import '../../../css/AdminDashboard.css';
 import '../../../css/Product.css';
 
@@ -186,7 +186,7 @@ export default function ProductImportPage() {
               code: p.openPoCode,
               qty: p.openPoQty,
               name: p.name,
-              unitName: p.unitName,
+              unitName: p.openPoUnitName || p.unitName,
             };
           } else {
             delete next[p.id];
@@ -200,7 +200,7 @@ export default function ProductImportPage() {
                   code: c.openPoCode,
                   qty: c.openPoQty,
                   name: c.name,
-                  unitName: c.unitName || p.unitName,
+                  unitName: c.openPoUnitName || c.unitName || p.unitName,
                 };
               } else if (c.id) {
                 delete next[c.id];
@@ -217,7 +217,7 @@ export default function ProductImportPage() {
                     code: sz.openPoCode,
                     qty: sz.openPoQty,
                     name: sz.name,
-                    unitName: sz.unitName || p.unitName,
+                    unitName: sz.openPoUnitName || sz.unitName || p.unitName,
                   };
                 } else if (sz.id) {
                   delete next[sz.id];
@@ -437,7 +437,7 @@ export default function ProductImportPage() {
           (suggestions || []).forEach((s) => {
             if (selected.has(s.productId) && !byId.has(s.productId)) {
               const prod = products.find(p => p.id === s.productId) ||
-                           products.flatMap(p => p.children || []).find(c => c.id === s.productId);
+                products.flatMap(p => p.children || []).find(c => c.id === s.productId);
               const categoryId = s.categoryId ?? prod?.categoryId ?? null;
               const categoryName = s.categoryName ?? prod?.categoryName ?? prod?.category ?? null;
               byId.set(s.productId, {
@@ -453,7 +453,7 @@ export default function ProductImportPage() {
             (s) => selected.has(s.productId) && !keptIds.has(s.productId),
           ).map((s) => {
             const prod = products.find(p => p.id === s.productId) ||
-                         products.flatMap(p => p.children || []).find(c => c.id === s.productId);
+              products.flatMap(p => p.children || []).find(c => c.id === s.productId);
             const categoryId = s.categoryId ?? prod?.categoryId ?? null;
             const categoryName = s.categoryName ?? prod?.categoryName ?? prod?.category ?? null;
             return {
@@ -628,7 +628,22 @@ export default function ProductImportPage() {
       return;
     }
 
-    const lines = buildOrderLines(panelItems, overrides);
+    const lines = panelItems.map((item) => {
+      const ov = overrides[item.productId] || {};
+      const baseCost = ov.costPerUnit ?? item.costPerUnit;
+      const unitBase = Number(ov.unitBase ?? 1) || 1;
+      const packQty = Number(ov.quantity ?? item.suggestedQty) || 0;
+      const unitCost = baseCost != null ? Number(baseCost) * unitBase : null;
+      return {
+        productId: item.productId,
+        productUnitId: ov.productUnitId ?? null,
+        supplierId: Number(ov.supplierId ?? item.supplierId),
+        quantity: Math.max(1, Math.round(packQty)),
+        coverDays: Number(ov.coverDays ?? item.coverDays ?? 7),
+        orderDate: resolveOrderDate(item, ov),
+        ...(unitCost != null ? { costPerUnit: Number(unitCost) } : {}),
+      };
+    });
 
     setCreating(true);
     try {
@@ -744,7 +759,7 @@ export default function ProductImportPage() {
                   <option value="new">Mới tạo</option>
                   <option value="hot">Hết hàng – Bán chạy</option>
                   <option value="warn">Cảnh báo sắp hết hàng</option>
-                  <option value="ok">Đang kinh doanh</option>
+                  <option value="ok">Đang còn hàng</option>
                   <option value="slow">Hết hàng – Ít bán</option>
                   <option value="stop">Ngừng kinh doanh</option>
                 </select>

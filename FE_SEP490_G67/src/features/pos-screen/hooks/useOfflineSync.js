@@ -128,7 +128,7 @@ export function useOfflineSync() {
         syncLockRef.current = false;
     }, [isOnline, refreshQueue]);
 
-    // Initial load and event-driven sync (no continuous 3s polling)
+    // Initial load and event-driven sync
     useEffect(() => {
         refreshQueue();
 
@@ -146,14 +146,40 @@ export function useOfflineSync() {
             }
         };
 
+        const onConnectionChanged = (e) => {
+            if (e.detail?.isOnline) {
+                onOnlineEvent();
+            }
+        };
+
         window.addEventListener('offline-queue-changed', onQueueChanged);
         window.addEventListener('online', onOnlineEvent);
+        window.addEventListener('app-connection-changed', onConnectionChanged);
 
         return () => {
             window.removeEventListener('offline-queue-changed', onQueueChanged);
             window.removeEventListener('online', onOnlineEvent);
+            window.removeEventListener('app-connection-changed', onConnectionChanged);
         };
     }, [refreshQueue, isOnline, syncNow]);
+
+    // Trigger sync immediately whenever connection transitions from offline to online
+    useEffect(() => {
+        if (isOnline && !syncLockRef.current) {
+            syncNow();
+        }
+    }, [isOnline, syncNow]);
+
+    // Periodically retry any pending items every 10s if online
+    useEffect(() => {
+        if (!isOnline) return;
+        const timer = setInterval(() => {
+            if (isOnline && !syncLockRef.current) {
+                syncNow();
+            }
+        }, 10000);
+        return () => clearInterval(timer);
+    }, [isOnline, syncNow]);
 
     const removeQueueItem = useCallback(async (id) => {
         try {

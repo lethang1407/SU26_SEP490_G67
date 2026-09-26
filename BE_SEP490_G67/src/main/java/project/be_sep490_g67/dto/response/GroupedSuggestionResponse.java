@@ -28,6 +28,9 @@ public class GroupedSuggestionResponse {
 
     // Aggregated or standalone metrics
     Integer onHand;
+    Integer minStock;
+    Integer sold14Days;
+    Integer sold30Days;
     BigDecimal avgDailyRate;
     BigDecimal avgWeeklyRate;
     Double coverDaysLeft;
@@ -39,6 +42,7 @@ public class GroupedSuggestionResponse {
     Integer openPoId;
     String openPoCode;
     Integer openPoQty;
+    String openPoUnitName;
 
     List<VariantGroupResponse> variantGroups;
 
@@ -55,6 +59,8 @@ public class GroupedSuggestionResponse {
         BigDecimal sellingPrice;
         BigDecimal costPrice;
         Integer onHand;
+        Integer sold14Days;
+        Integer sold30Days;
         BigDecimal avgDailyRate;
 
         List<VariantItemResponse> sizes;
@@ -74,8 +80,12 @@ public class GroupedSuggestionResponse {
         String barcode;
         String productImg;
         Integer onHand;
+        Integer minStock;
+        String unitName;
         BigDecimal sellingPrice;
         BigDecimal costPrice;
+        Integer sold14Days;
+        Integer sold30Days;
         BigDecimal avgDailyRate;
         BigDecimal avgWeeklyRate;
 
@@ -93,6 +103,7 @@ public class GroupedSuggestionResponse {
         Integer openPoId;
         String openPoCode;
         Integer openPoQty;
+        String openPoUnitName;
 
         String status;
         Instant createdAt;

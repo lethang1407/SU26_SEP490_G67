@@ -42,13 +42,14 @@ public interface ImportOrderDetailRepository extends JpaRepository<ImportOrderDe
 
     /**
      * DRAFT open PO rows for products — newest order first.
-     * Columns: productId, orderId, orderCode, quantity
+     * Columns: productId, orderId, orderCode, quantity, unitName
      */
     @Query("""
-        SELECT p.id, o.id, o.orderCode, d.quantity
+        SELECT p.id, o.id, o.orderCode, d.quantity, COALESCE(u.name, d.unitName)
         FROM ImportOrderDetail d
         JOIN d.importOrder o
         JOIN d.product p
+        LEFT JOIN d.productUnit u
         WHERE p.id IN :productIds
           AND (d.isRemoved = false OR d.isRemoved IS NULL)
           AND (o.isRemoved = false OR o.isRemoved IS NULL)

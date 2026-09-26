@@ -386,7 +386,7 @@ const findMatchingCategory = (inputName, list = []) => {
     const cLower = cName.toLowerCase();
     if (!cNorm || !normInput) return false;
     return cLower.includes(lowerInput) || lowerInput.includes(cLower) ||
-           cNorm.includes(normInput) || normInput.includes(cNorm);
+      cNorm.includes(normInput) || normInput.includes(cNorm);
   });
   if (contained) {
     return { type: 'contain', category: contained };
@@ -454,6 +454,27 @@ export default function ProductEditModal({
   const [minStockInputQty, setMinStockInputQty] = useState(5);
   const [minStockUnit, setMinStockUnit] = useState('');
 
+  const getUnitRatio = (unitName) => {
+    if (!unitName || unitName === formData.baseUnitName) return 1;
+    const conv = conversions.find((c) => c.name === unitName);
+    return conv && Number(conv.unitBase) > 0 ? Number(conv.unitBase) : 1;
+  };
+
+  const handleMinStockUnitChange = (nextUnit) => {
+    markUserTouched();
+    const currentUnit = minStockUnit || formData.baseUnitName || '';
+    const currentRatio = getUnitRatio(currentUnit);
+    const nextRatio = getUnitRatio(nextUnit);
+
+    const currentVal = Number(minStockInputQty);
+    if (!isNaN(currentVal) && minStockInputQty !== '' && minStockInputQty !== null) {
+      const baseQty = currentVal * currentRatio;
+      const nextQty = Math.round((baseQty / nextRatio) * 100) / 100;
+      setMinStockInputQty(nextQty);
+    }
+    setMinStockUnit(nextUnit);
+  };
+
   const computedBaseMinStock = useMemo(() => {
     const qty = Number(minStockInputQty) || 0;
     if (!minStockUnit || minStockUnit === formData.baseUnitName) {
@@ -461,7 +482,7 @@ export default function ProductEditModal({
     }
     const matchedConv = conversions.find((c) => c.name === minStockUnit);
     if (matchedConv && Number(matchedConv.unitBase) > 0) {
-      return Math.round(qty * Number(matchedConv.unitBase));
+      return Math.round(qty * Number(matchedConv.unitBase) * 100) / 100;
     }
     return qty;
   }, [minStockInputQty, minStockUnit, formData.baseUnitName, conversions]);
@@ -1191,6 +1212,13 @@ export default function ProductEditModal({
 
   const handleDeleteConversion = (indexToRemove) => {
     markUserTouched();
+    const removedItem = conversions[indexToRemove];
+    if (removedItem && minStockUnit === removedItem.name) {
+      const ratio = Number(removedItem.unitBase) || 1;
+      const currentQty = Number(minStockInputQty) || 0;
+      setMinStockInputQty(Math.round(currentQty * ratio * 100) / 100);
+      setMinStockUnit('');
+    }
     setConversions((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
@@ -1859,10 +1887,7 @@ export default function ProductEditModal({
                       <select
                         className="pi-edit-input"
                         value={minStockUnit || formData.baseUnitName || ''}
-                        onChange={(e) => {
-                          markUserTouched();
-                          setMinStockUnit(e.target.value);
-                        }}
+                        onChange={(e) => handleMinStockUnitChange(e.target.value)}
                       >
                         <option value={formData.baseUnitName || ''}>
                           {formData.baseUnitName || 'Đơn vị cơ bản'} (Đơn vị tính nhỏ nhất)

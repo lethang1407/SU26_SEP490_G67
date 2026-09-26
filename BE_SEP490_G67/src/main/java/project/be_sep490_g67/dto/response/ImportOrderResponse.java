@@ -28,6 +28,8 @@ public class ImportOrderResponse {
     public static class Line {
         Integer productId;
         String productName;
+        Integer productUnitId;
+        String unitName;
         Integer quantity;
         BigDecimal costPerUnit;
         BigDecimal lineTotal;

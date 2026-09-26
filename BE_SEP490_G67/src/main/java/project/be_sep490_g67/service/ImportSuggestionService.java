@@ -27,16 +27,19 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.text.Normalizer;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -149,13 +152,21 @@ public class ImportSuggestionService {
             Map<Integer, List<Supplier>> suppliersByCategory,
             Map<Integer, Map<Integer, BigDecimal>> lastCosts
     ) {
-        Long sold = salesOrderDetailRepository.sumQtyByProductAndDateRange(p.getId(), from, to);
-        long soldQty = sold == null ? 0L : sold;
+        BigDecimal sold = salesOrderDetailRepository.sumQtyByProductAndDateRange(p.getId(), from, to);
+        long soldQty = sold == null ? 0L : sold.longValue();
         BigDecimal avgDaily = BigDecimal.valueOf(soldQty)
                 .divide(BigDecimal.valueOf(SALES_WINDOW_DAYS), 2, RoundingMode.HALF_UP);
 
-        Long onHandRaw = batchLocationRepository.sumOnHandByProductId(p.getId());
-        int onHand = onHandRaw == null ? 0 : onHandRaw.intValue();
+        Long ledgerRaw = stockBatchRepository.sumStockByProductId(p.getId());
+        int onHand = 0;
+        if (ledgerRaw != null && ledgerRaw > 0) {
+            onHand = ledgerRaw.intValue();
+        } else {
+            Long onHandRaw = batchLocationRepository.sumOnHandByProductId(p.getId());
+            if (onHandRaw != null && onHandRaw > 0) {
+                onHand = onHandRaw.intValue();
+            }
+        }
 
         BigDecimal fallbackCost = p.getCostPrice() != null ? p.getCostPrice() : BigDecimal.ZERO;
         List<ImportSuggestionResponse.SupplierOption> options = buildSupplierOptions(
@@ -245,49 +256,75 @@ public class ImportSuggestionService {
     }
 
     private String resolveUnitName(Product p) {
-        if (p.getProductUnits() == null || p.getProductUnits().isEmpty()) {
+        if (p == null) {
             return "Cái";
         }
-        return p.getProductUnits().stream()
-                .filter(u -> !Boolean.TRUE.equals(u.getIsRemoved()))
-                .filter(u -> u.getUnitBase() != null && u.getUnitBase().compareTo(BigDecimal.ONE) == 0)
-                .map(ProductUnit::getName)
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElseGet(() -> p.getProductUnits().stream()
-                        .filter(u -> !Boolean.TRUE.equals(u.getIsRemoved()))
-                        .map(ProductUnit::getName)
-                        .filter(Objects::nonNull)
-                        .findFirst()
-                        .orElse("Cái"));
+        if (p.getProductUnits() != null && !p.getProductUnits().isEmpty()) {
+            String base = p.getProductUnits().stream()
+                    .filter(u -> !Boolean.TRUE.equals(u.getIsRemoved()))
+                    .filter(u -> u.getUnitBase() != null && u.getUnitBase().compareTo(BigDecimal.ONE) == 0)
+                    .sorted(Comparator.comparing(u -> u.getId() != null ? u.getId() : 0))
+                    .map(ProductUnit::getName)
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElse(null);
+            if (base != null && !base.isBlank()) {
+                return base;
+            }
+            String minUnit = p.getProductUnits().stream()
+                    .filter(u -> !Boolean.TRUE.equals(u.getIsRemoved()))
+                    .sorted(Comparator
+                            .comparing((ProductUnit u) -> u.getUnitBase() != null ? u.getUnitBase() : BigDecimal.valueOf(999999))
+                            .thenComparing(u -> u.getId() != null ? u.getId() : 0))
+                    .map(ProductUnit::getName)
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElse(null);
+            if (minUnit != null && !minUnit.isBlank()) {
+                return minUnit;
+            }
+        }
+        if (p.getParent() != null) {
+            return resolveUnitName(p.getParent());
+        }
+        return "Cái";
     }
 
     List<ImportSuggestionResponse.UnitOption> buildUnitOptions(Product p) {
-        if (p.getProductUnits() == null || p.getProductUnits().isEmpty()) {
+        if (p == null || p.getProductUnits() == null || p.getProductUnits().isEmpty()) {
+            if (p != null && p.getParent() != null) {
+                return buildUnitOptions(p.getParent());
+            }
             return List.of(ImportSuggestionResponse.UnitOption.builder()
                     .id(null)
-                    .name("sp")
+                    .name("Cái")
                     .unitBase(BigDecimal.ONE)
                     .isBase(true)
                     .build());
         }
-        return p.getProductUnits().stream()
+        List<ImportSuggestionResponse.UnitOption> options = p.getProductUnits().stream()
                 .filter(u -> !Boolean.TRUE.equals(u.getIsRemoved()))
                 .sorted(Comparator
                         .comparing((ProductUnit u) ->
                                 u.getUnitBase() == null ? BigDecimal.ONE : u.getUnitBase())
-                        .thenComparing(u -> u.getName() == null ? "" : u.getName()))
+                        .thenComparing(u -> u.getId() != null ? u.getId() : 0))
                 .map(u -> {
                     BigDecimal base = u.getUnitBase() == null ? BigDecimal.ONE : u.getUnitBase();
                     boolean isBase = base.compareTo(BigDecimal.ONE) == 0;
                     return ImportSuggestionResponse.UnitOption.builder()
                             .id(u.getId())
-                            .name(u.getName() != null ? u.getName() : "sp")
+                            .name(u.getName() != null ? u.getName() : "Cái")
                             .unitBase(base)
                             .isBase(isBase)
                             .build();
                 })
                 .toList();
+        if (options.isEmpty() && p.getParent() != null) {
+            return buildUnitOptions(p.getParent());
+        }
+        return options.isEmpty()
+                ? List.of(ImportSuggestionResponse.UnitOption.builder().name("Cái").unitBase(BigDecimal.ONE).isBase(true).build())
+                : options;
     }
 
     List<ImportSuggestionResponse.SupplierOption> buildSupplierOptions(
@@ -415,6 +452,9 @@ public class ImportSuggestionService {
         Instant from = to.minus(SALES_WINDOW_DAYS, ChronoUnit.DAYS);
 
         List<Integer> allProductIds = allActive.stream().map(Product::getId).toList();
+        Set<Integer> importedProductIds = allProductIds.isEmpty()
+                ? Collections.emptySet()
+                : new HashSet<>(importOrderDetailRepository.findImportedProductIds(allProductIds));
         Map<Integer, Map<Integer, BigDecimal>> lastCosts = loadLastCosts(allProductIds);
 
         List<Integer> categoryIds = allActive.stream()
@@ -438,6 +478,7 @@ public class ImportSuggestionService {
         Map<Integer, ImportSuggestionResponse> suggestionMap = new HashMap<>();
         Map<Integer, Double> coverDaysLeftMap = new HashMap<>();
         Map<Integer, String> facetStatusMap = new HashMap<>();
+        Map<Integer, Boolean> isNewMap = new HashMap<>();
 
         for (Product p : allActive) {
             if (p.getParent() != null || !childrenMap.containsKey(p.getId())) {
@@ -445,6 +486,7 @@ public class ImportSuggestionService {
                 suggestionMap.put(p.getId(), sug);
 
                 int onHand = sug.getOnHand() != null ? sug.getOnHand() : 0;
+                int soldQty = sug.getSold30Days() != null ? sug.getSold30Days() : 0;
                 BigDecimal avgDaily = sug.getAvgDailyRate() != null ? sug.getAvgDailyRate() : BigDecimal.ZERO;
                 Double coverDaysLeft = null;
                 if (avgDaily.compareTo(BigDecimal.ZERO) > 0) {
@@ -458,7 +500,29 @@ public class ImportSuggestionService {
                 }
                 coverDaysLeftMap.put(p.getId(), coverDaysLeft);
 
-                String facetStatus = resolveFacet(p, onHand, avgDaily.doubleValue(), coverDaysLeft);
+                boolean isInactive = "inactive".equalsIgnoreCase(p.getStatus());
+                boolean hasEverImported = onHand > 0 || soldQty > 0 || importedProductIds.contains(p.getId());
+                boolean isNew = !isInactive && !hasEverImported;
+                isNewMap.put(p.getId(), isNew);
+            }
+        }
+
+        List<BigDecimal> allDailyRates = suggestionMap.values().stream()
+                .map(ImportSuggestionResponse::getAvgDailyRate)
+                .filter(Objects::nonNull)
+                .toList();
+        double hotThreshold = calculateHotThreshold(allDailyRates);
+
+        for (Product p : allActive) {
+            if (p.getParent() != null || !childrenMap.containsKey(p.getId())) {
+                ImportSuggestionResponse sug = suggestionMap.get(p.getId());
+                if (sug == null) continue;
+                int onHand = sug.getOnHand() != null ? sug.getOnHand() : 0;
+                BigDecimal avgDaily = sug.getAvgDailyRate() != null ? sug.getAvgDailyRate() : BigDecimal.ZERO;
+                Double coverDaysLeft = coverDaysLeftMap.get(p.getId());
+                boolean isNew = Boolean.TRUE.equals(isNewMap.get(p.getId()));
+                int minStock = sug.getMinStock() != null ? sug.getMinStock() : (p.getMinStock() != null ? p.getMinStock() : 0);
+                String facetStatus = resolveFacet(p, onHand, avgDaily.doubleValue(), coverDaysLeft, isNew, minStock, hotThreshold);
                 facetStatusMap.put(p.getId(), facetStatus);
             }
         }
@@ -471,6 +535,10 @@ public class ImportSuggestionService {
                 ImportSuggestionResponse sug = suggestionMap.get(r.getId());
                 if (sug == null) continue;
 
+                boolean isInactive = "inactive".equalsIgnoreCase(r.getStatus());
+                boolean isNew = Boolean.TRUE.equals(isNewMap.get(r.getId()));
+                String resolvedStatus = isInactive ? "inactive" : (isNew ? "new" : "active");
+
                 GroupedSuggestionResponse dto = GroupedSuggestionResponse.builder()
                         .id(r.getId())
                         .name(r.getName())
@@ -478,13 +546,16 @@ public class ImportSuggestionService {
                         .barcode(r.getBarcode())
                         .productImg(resolveImg(r))
                         .categoryName(r.getCategory() != null ? r.getCategory().getName() : "")
-                        .unitName(r.getProductUnits() != null && !r.getProductUnits().isEmpty() ? r.getProductUnits().iterator().next().getName() : "sp")
+                        .unitName(resolveUnitName(r))
                         .supplierName(sug.getSupplierName())
                         .sellingPrice(r.getSellingPrice())
                         .costPrice(r.getCostPrice())
-                        .status(r.getStatus())
+                        .status(resolvedStatus)
                         .createdAt(r.getCreatedAt())
                         .onHand(sug.getOnHand())
+                        .minStock(sug.getMinStock())
+                        .sold14Days(sug.getSold14Days())
+                        .sold30Days(sug.getSold30Days())
                         .avgDailyRate(sug.getAvgDailyRate())
                         .avgWeeklyRate(sug.getAvgDailyRate().multiply(BigDecimal.valueOf(7)).setScale(1, RoundingMode.HALF_UP))
                         .coverDaysLeft(coverDaysLeftMap.get(r.getId()))
@@ -502,6 +573,8 @@ public class ImportSuggestionService {
 
                 List<GroupedSuggestionResponse.VariantGroupResponse> variantGroups = new ArrayList<>();
                 int totalOnHand = 0;
+                int totalSold14 = 0;
+                int totalSold30 = 0;
                 BigDecimal totalAvgDaily = BigDecimal.ZERO;
 
                 for (Map.Entry<String, List<Product>> entry : groupedByPrimary.entrySet()) {
@@ -510,17 +583,27 @@ public class ImportSuggestionService {
 
                     List<GroupedSuggestionResponse.VariantItemResponse> sizes = new ArrayList<>();
                     int groupOnHand = 0;
+                    int groupSold14 = 0;
+                    int groupSold30 = 0;
                     BigDecimal groupAvgDaily = BigDecimal.ZERO;
 
                     for (Product c : colorGroup) {
                         ImportSuggestionResponse sug = suggestionMap.get(c.getId());
                         if (sug == null) continue;
 
+                        int cSold14 = sug.getSold14Days() != null ? sug.getSold14Days() : 0;
+                        int cSold30 = sug.getSold30Days() != null ? sug.getSold30Days() : 0;
                         groupOnHand += sug.getOnHand() != null ? sug.getOnHand() : 0;
+                        groupSold14 += cSold14;
+                        groupSold30 += cSold30;
                         groupAvgDaily = groupAvgDaily.add(sug.getAvgDailyRate() != null ? sug.getAvgDailyRate() : BigDecimal.ZERO);
 
                         BigDecimal childAvgDaily = sug.getAvgDailyRate() != null ? sug.getAvgDailyRate() : BigDecimal.ZERO;
                         String formattedChildName = formatChildName(r, c, primaryVal);
+                        boolean isChildInactive = "inactive".equalsIgnoreCase(c.getStatus());
+                        boolean isChildNew = Boolean.TRUE.equals(isNewMap.get(c.getId()));
+                        String childResolvedStatus = isChildInactive ? "inactive" : (isChildNew ? "new" : "active");
+
                         GroupedSuggestionResponse.VariantItemResponse sizeDto = GroupedSuggestionResponse.VariantItemResponse.builder()
                                 .id(c.getId())
                                 .name(formattedChildName)
@@ -530,9 +613,13 @@ public class ImportSuggestionService {
                                 .barcode(c.getBarcode())
                                 .productImg(resolveImg(c) != null ? resolveImg(c) : resolveImg(r))
                                 .onHand(sug.getOnHand())
+                                .minStock(sug.getMinStock())
+                                .sold14Days(sug.getSold14Days())
+                                .sold30Days(sug.getSold30Days())
+                                .unitName(resolveUnitName(c))
                                 .sellingPrice(c.getSellingPrice())
                                 .costPrice(c.getCostPrice())
-                                .status(c.getStatus())
+                                .status(childResolvedStatus)
                                 .createdAt(c.getCreatedAt())
                                 .facetStatus(facetStatusMap.get(c.getId()))
                                 .avgDailyRate(childAvgDaily)
@@ -553,6 +640,8 @@ public class ImportSuggestionService {
                     }
 
                     totalOnHand += groupOnHand;
+                    totalSold14 += groupSold14;
+                    totalSold30 += groupSold30;
                     totalAvgDaily = totalAvgDaily.add(groupAvgDaily);
 
                     Product representative = colorGroup.get(0);
@@ -564,6 +653,8 @@ public class ImportSuggestionService {
                             .sellingPrice(representative.getSellingPrice())
                             .costPrice(representative.getCostPrice())
                             .onHand(groupOnHand)
+                            .sold14Days(groupSold14)
+                            .sold30Days(groupSold30)
                             .avgDailyRate(groupAvgDaily)
                             .sizes(sizes)
                             .build();
@@ -582,30 +673,39 @@ public class ImportSuggestionService {
                 }
 
                 String groupFacet = "ok";
-                boolean isParentNew = "new".equalsIgnoreCase(r.getStatus())
-                        || (r.getCreatedAt() != null && r.getCreatedAt().isAfter(Instant.now().minus(NEW_PRODUCT_DAYS, ChronoUnit.DAYS))
-                            && totalOnHand <= 0 && totalAvgDaily.doubleValue() <= slowThreshold());
-                boolean hasNew = isParentNew;
                 boolean hasHot = false;
-                boolean hasSlow = false;
                 boolean hasWarn = false;
+                boolean hasNew = false;
+                boolean hasSlow = false;
                 boolean hasSeason = false;
                 boolean hasStop = false;
                 for (Product c : children) {
                     String childFacet = facetStatusMap.get(c.getId());
-                    if ("new".equals(childFacet)) hasNew = true;
-                    else if ("hot".equals(childFacet)) hasHot = true;
-                    else if ("slow".equals(childFacet)) hasSlow = true;
+                    if ("hot".equals(childFacet)) hasHot = true;
                     else if ("warn".equals(childFacet)) hasWarn = true;
+                    else if ("new".equals(childFacet)) hasNew = true;
+                    else if ("slow".equals(childFacet)) hasSlow = true;
                     else if ("season".equals(childFacet)) hasSeason = true;
                     else if ("stop".equals(childFacet)) hasStop = true;
                 }
-                if (hasNew) groupFacet = "new";
-                else if (hasHot) groupFacet = "hot";
-                else if (hasSlow) groupFacet = "slow";
+                if (hasHot) groupFacet = "hot";
                 else if (hasWarn) groupFacet = "warn";
+                else if (hasNew) groupFacet = "new";
+                else if (hasSlow) groupFacet = "slow";
                 else if (hasSeason) groupFacet = "season";
                 else if (hasStop) groupFacet = "stop";
+
+                boolean isParentInactive = "inactive".equalsIgnoreCase(r.getStatus());
+                String parentResolvedStatus = isParentInactive ? "inactive" : ("new".equals(groupFacet) ? "new" : "active");
+
+                int parentMinStock = r.getMinStock() != null && r.getMinStock() > 0
+                        ? r.getMinStock()
+                        : children.stream()
+                                .map(Product::getMinStock)
+                                .filter(Objects::nonNull)
+                                .filter(ms -> ms > 0)
+                                .findFirst()
+                                .orElse(0);
 
                 GroupedSuggestionResponse dto = GroupedSuggestionResponse.builder()
                         .id(r.getId())
@@ -614,13 +714,16 @@ public class ImportSuggestionService {
                         .barcode(r.getBarcode())
                         .productImg(resolveImg(r) != null ? resolveImg(r) : resolveImg(children.get(0)))
                         .categoryName(r.getCategory() != null ? r.getCategory().getName() : "")
-                        .unitName(children.get(0).getProductUnits() != null && !children.get(0).getProductUnits().isEmpty() ? children.get(0).getProductUnits().iterator().next().getName() : "sp")
+                        .unitName(resolveUnitName(r.getProductUnits() != null && !r.getProductUnits().isEmpty() ? r : children.get(0)))
                         .supplierName(variantGroups.isEmpty() ? null : variantGroups.get(0).getSizes().get(0).getCostPerUnit() != null ? children.get(0).getCategory() != null && children.get(0).getCategory().getDefaultSupplier() != null ? children.get(0).getCategory().getDefaultSupplier().getName() : null : null)
                         .sellingPrice(children.get(0).getSellingPrice())
                         .costPrice(children.get(0).getCostPrice())
-                        .status(r.getStatus())
+                        .status(parentResolvedStatus)
                         .createdAt(r.getCreatedAt())
                         .onHand(totalOnHand)
+                        .minStock(parentMinStock)
+                        .sold14Days(totalSold14)
+                        .sold30Days(totalSold30)
                         .avgDailyRate(totalAvgDaily)
                         .avgWeeklyRate(totalAvgDaily.multiply(BigDecimal.valueOf(7)).setScale(1, RoundingMode.HALF_UP))
                         .coverDaysLeft(groupCoverDaysLeft)
@@ -684,38 +787,20 @@ public class ImportSuggestionService {
                 })
                 .filter(g -> {
                     if (facet == null || facet.isBlank() || "all".equalsIgnoreCase(facet)) return true;
-                    if ("new".equalsIgnoreCase(facet)) {
-                        if (Boolean.TRUE.equals(g.getIsGroup())) {
-                            List<Product> children = childrenMap.get(g.getId());
-                            return "new".equalsIgnoreCase(g.getFacetStatus())
-                                    || "new".equalsIgnoreCase(g.getStatus())
-                                    || (children != null && children.stream().anyMatch(c ->
-                                            "new".equalsIgnoreCase(facetStatusMap.get(c.getId()))
-                                            || "new".equalsIgnoreCase(c.getStatus())
-                                    ));
-                        } else {
-                            Product r = allActive.stream().filter(p -> p.getId().equals(g.getId())).findFirst().orElse(null);
-                            return "new".equalsIgnoreCase(g.getFacetStatus())
-                                    || "new".equalsIgnoreCase(g.getStatus())
-                                    || (r != null && "new".equalsIgnoreCase(r.getStatus()));
-                        }
-                    }
                     if (Boolean.TRUE.equals(g.getIsGroup())) {
                         List<Product> children = childrenMap.get(g.getId());
-                        return children != null && children.stream().anyMatch(c -> facet.equalsIgnoreCase(facetStatusMap.get(c.getId())));
+                        if (children != null && children.stream().anyMatch(c -> facet.equalsIgnoreCase(facetStatusMap.get(c.getId())))) {
+                            return true;
+                        }
+                        return facet.equalsIgnoreCase(g.getFacetStatus());
                     } else {
                         return facet.equalsIgnoreCase(g.getFacetStatus());
                     }
                 })
                 .toList();
 
-        // Sort newest products first (createdAt DESC, id DESC)
-        Comparator<GroupedSuggestionResponse> newestFirst = Comparator
-                .comparing(GroupedSuggestionResponse::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
-                .thenComparing(GroupedSuggestionResponse::getId, Comparator.nullsLast(Comparator.reverseOrder()));
-
         List<GroupedSuggestionResponse> sortedList = new ArrayList<>(filteredList);
-        sortedList.sort(newestFirst);
+        sortedList.sort(buildComparator(facet));
 
         int total = sortedList.size();
         int fromIdx = Math.min(page * size, total);
@@ -767,7 +852,8 @@ public class ImportSuggestionService {
             byProduct.put(productId, new OpenPoInfo(
                     (Integer) row[1],
                     (String) row[2],
-                    row[3] == null ? 0 : ((Number) row[3]).intValue()
+                    row[3] == null ? 0 : ((Number) row[3]).intValue(),
+                    (String) row[4]
             ));
         }
 
@@ -777,10 +863,12 @@ public class ImportSuggestionService {
                 g.setOpenPoId(selfInfo.orderId());
                 g.setOpenPoCode(selfInfo.orderCode());
                 g.setOpenPoQty(selfInfo.qty());
+                g.setOpenPoUnitName(selfInfo.unitName());
             }
             if (Boolean.TRUE.equals(g.getIsGroup()) && g.getVariantGroups() != null) {
                 String groupFirstOpenPoCode = null;
                 Integer groupFirstOpenPoId = null;
+                String groupFirstOpenPoUnit = null;
                 int groupTotalOpenPoQty = 0;
                 for (GroupedSuggestionResponse.VariantGroupResponse vg : g.getVariantGroups()) {
                     if (vg.getSizes() != null) {
@@ -790,9 +878,11 @@ public class ImportSuggestionService {
                                 sz.setOpenPoId(szInfo.orderId());
                                 sz.setOpenPoCode(szInfo.orderCode());
                                 sz.setOpenPoQty(szInfo.qty());
+                                sz.setOpenPoUnitName(szInfo.unitName());
                                 if (groupFirstOpenPoCode == null) {
                                     groupFirstOpenPoCode = szInfo.orderCode();
                                     groupFirstOpenPoId = szInfo.orderId();
+                                    groupFirstOpenPoUnit = szInfo.unitName();
                                 }
                                 groupTotalOpenPoQty += szInfo.qty();
                             }
@@ -803,12 +893,71 @@ public class ImportSuggestionService {
                     g.setOpenPoId(groupFirstOpenPoId);
                     g.setOpenPoCode(groupFirstOpenPoCode);
                     g.setOpenPoQty(groupTotalOpenPoQty);
+                    g.setOpenPoUnitName(groupFirstOpenPoUnit);
                 }
             }
         }
     }
 
-    record OpenPoInfo(Integer orderId, String orderCode, int qty) {}
+    record OpenPoInfo(Integer orderId, String orderCode, int qty, String unitName) {}
+
+    private boolean isNewlyCreated(GroupedSuggestionResponse item) {
+        if (item == null) return false;
+        if ("inactive".equalsIgnoreCase(item.getStatus()) || "stop".equalsIgnoreCase(item.getFacetStatus())) {
+            return false;
+        }
+        if ("new".equalsIgnoreCase(item.getFacetStatus()) || "new".equalsIgnoreCase(item.getStatus())) {
+            return true;
+        }
+        if (Boolean.TRUE.equals(item.getIsGroup()) && item.getVariantGroups() != null) {
+            for (var vg : item.getVariantGroups()) {
+                if (vg.getSizes() != null) {
+                    for (var sz : vg.getSizes()) {
+                        if ("new".equalsIgnoreCase(sz.getFacetStatus()) || "new".equalsIgnoreCase(sz.getStatus())) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private Comparator<GroupedSuggestionResponse> buildComparator(String facet) {
+        Comparator<GroupedSuggestionResponse> newestFirst = Comparator
+                .comparing(GroupedSuggestionResponse::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(GroupedSuggestionResponse::getId, Comparator.nullsLast(Comparator.reverseOrder()));
+
+        Comparator<GroupedSuggestionResponse> secondary = Comparator.comparing(
+                GroupedSuggestionResponse::getName, Comparator.nullsLast(String::compareToIgnoreCase));
+
+        // Ưu tiên các sản phẩm mới tạo (chưa từng nhập hàng) luôn được đưa lên trên cùng khi xem danh sách tất cả
+        Comparator<GroupedSuggestionResponse> newProductsFirst = Comparator.comparing(
+                (GroupedSuggestionResponse item) -> isNewlyCreated(item) ? 0 : 1
+        ).thenComparing(newestFirst);
+
+        String facetKey = facet == null || facet.isBlank() ? "all" : facet.toLowerCase(Locale.ROOT);
+        return switch (facetKey) {
+            case "all" -> newProductsFirst.thenComparing(secondary);
+            case "new" -> newestFirst.thenComparing(secondary);
+            case "hot" -> Comparator.comparing(
+                    GroupedSuggestionResponse::getAvgDailyRate,
+                    Comparator.nullsLast(Comparator.reverseOrder()))
+                    .thenComparing(newestFirst);
+            case "warn" -> Comparator.comparing(
+                    GroupedSuggestionResponse::getCoverDaysLeft,
+                    Comparator.nullsLast(Comparator.naturalOrder()))
+                    .thenComparing(GroupedSuggestionResponse::getAvgDailyRate, Comparator.nullsLast(Comparator.reverseOrder()))
+                    .thenComparing(newestFirst);
+            case "ok" -> newestFirst.thenComparing(secondary);
+            case "slow" -> Comparator.comparing(
+                    GroupedSuggestionResponse::getAvgDailyRate,
+                    Comparator.nullsLast(Comparator.naturalOrder()))
+                    .thenComparing(newestFirst);
+            case "stop" -> newestFirst.thenComparing(secondary);
+            default -> newProductsFirst.thenComparing(secondary);
+        };
+    }
 
     private int safeSize(int size) {
         return size <= 0 ? 10 : size;
@@ -848,39 +997,50 @@ public class ImportSuggestionService {
         return vals.size() > 1 ? vals.get(1) : "";
     }
 
-    String resolveFacet(Product p, int onHand, double avgDaily, Double coverDaysLeft) {
+    String resolveFacet(Product p, int onHand, double avgDaily, Double coverDaysLeft, boolean isNew, int minStock, double hotThreshold) {
         String status = p.getStatus() == null ? "active" : p.getStatus();
         if ("inactive".equalsIgnoreCase(status)) {
             return "stop";
         }
-        if ("new".equalsIgnoreCase(status)) {
-            return "new";
-        }
-        Instant newThreshold = Instant.now().minus(NEW_PRODUCT_DAYS, ChronoUnit.DAYS);
-        boolean isNew = p.getCreatedAt() != null && p.getCreatedAt().isAfter(newThreshold);
-        if (isNew && onHand <= 0 && avgDaily <= slowThreshold()) {
+        if (isNew) {
             return "new";
         }
         if (onHand <= 0) {
-            return avgDaily > slowThreshold() ? "hot" : "slow";
+            return avgDaily >= hotThreshold ? "hot" : "slow";
         }
         if (p.getSeasonTag() != null && !p.getSeasonTag().isBlank()) {
             return "season";
         }
         int lead = resolveLeadDays(p);
         int warnHorizon = lead + SAFETY_DAYS;
-        if (coverDaysLeft != null && coverDaysLeft > 0 && coverDaysLeft <= warnHorizon) {
+        int resolvedMinStock = minStock > 0 ? minStock : 5;
+        if (onHand <= resolvedMinStock || (coverDaysLeft != null && coverDaysLeft > 0 && coverDaysLeft <= warnHorizon)) {
             return "warn";
         }
         return "ok";
     }
 
-    double slowThreshold() {
-        return slowThresholdValue();
-    }
+    double calculateHotThreshold(Collection<BigDecimal> avgDailyRates) {
+        if (avgDailyRates == null || avgDailyRates.isEmpty()) {
+            return 0.2;
+        }
+        List<Double> positiveRates = avgDailyRates.stream()
+                .filter(Objects::nonNull)
+                .map(BigDecimal::doubleValue)
+                .filter(rate -> rate > 0.0)
+                .sorted(Comparator.reverseOrder())
+                .toList();
 
-    private double slowThresholdValue() {
-        return 0.1;
+        if (positiveRates.isEmpty()) {
+            return 0.2;
+        }
+
+        // Lấy vị trí ngưỡng Top 25% sản phẩm bán chạy nhất trong số các SP có phát sinh bán
+        int topIndex = (int) Math.ceil(positiveRates.size() * 0.25) - 1;
+        topIndex = Math.max(0, Math.min(topIndex, positiveRates.size() - 1));
+
+        double topRate = positiveRates.get(topIndex);
+        return Math.max(topRate, 0.2);
     }
 
     int resolveLeadDays(Product p) {

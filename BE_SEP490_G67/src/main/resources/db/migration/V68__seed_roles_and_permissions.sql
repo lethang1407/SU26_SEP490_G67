@@ -44,8 +44,8 @@ VALUES
 (28, 'CUSTOMER',     'CUSTOMER:VIEW',             'Xem danh sách khách hàng',          b'0', NOW(), NOW()),
 (29, 'CUSTOMER',     'CUSTOMER:DEBT_VIEW',        'Xem công nợ khách hàng',            b'0', NOW(), NOW()),
 (30, 'CUSTOMER',     'CUSTOMER:DEBT_MANAGE',      'Quản lý thu nợ khách hàng',         b'0', NOW(), NOW()),
-(31, 'AUDIT',        'AUDIT:VIEW',                'Xem bất thường đối soát',           b'0', NOW(), NOW()),
-(32, 'AUDIT',        'AUDIT:RESOLVE',             'Xử lý bất thường đối soát',         b'0', NOW(), NOW())
+(31, 'AUDIT',        'AUDIT:VIEW',                'Báo cáo doanh thu & đối soát ca',   b'0', NOW(), NOW()),
+(32, 'AUDIT',        'AUDIT:RESOLVE',             'Xử lý & chốt đối soát ca',         b'0', NOW(), NOW())
 ON DUPLICATE KEY UPDATE
     `module` = VALUES(`module`),
     `code`   = VALUES(`code`),

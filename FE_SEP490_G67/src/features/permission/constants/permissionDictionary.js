@@ -28,18 +28,6 @@ export const PERMISSION_MODULES = [
     icon: 'Users',
     description: 'Tra cứu khách hàng, theo dõi công nợ và thu tiền nợ khách hàng.',
   },
-  {
-    id: 'staff_store',
-    name: 'Nhân sự & Cửa hàng',
-    icon: 'Briefcase',
-    description: 'Quản lý tài khoản nhân viên, phân quyền và cài đặt thông tin cửa hàng.',
-  },
-  {
-    id: 'audit',
-    name: 'Báo cáo & Đối soát',
-    icon: 'BarChart3',
-    description: 'Theo dõi đối soát doanh thu ca làm việc, xử lý bất thường và lệch quỹ.',
-  },
 ];
 
 export const PERMISSION_DICTIONARY = {
@@ -225,59 +213,6 @@ export const PERMISSION_DICTIONARY = {
     module: 'customer_debt',
     badge: 'Thu chi',
   },
-
-  // ─── 5. NHÂN SỰ & CỬA HÀNG (STAFF & STORE) ───
-  'STAFF:VIEW': {
-    code: 'STAFF:VIEW',
-    title: 'Xem danh sách nhân viên',
-    description: 'Xem danh sách tài khoản, số điện thoại và thông tin liên hệ của nhân viên.',
-    module: 'staff_store',
-    badge: 'Nhân sự',
-  },
-  'STAFF:CREATE': {
-    code: 'STAFF:CREATE',
-    title: 'Tạo tài khoản nhân viên',
-    description: 'Tạo tài khoản đăng nhập mới cho nhân viên vào làm việc tại cửa hàng.',
-    module: 'staff_store',
-    badge: 'Nhân sự',
-  },
-  'STAFF:UPDATE': {
-    code: 'STAFF:UPDATE',
-    title: 'Sửa hồ sơ & Phân quyền',
-    description: 'Cập nhật thông tin nhân viên và tùy chỉnh quyền hạn cho các tài khoản.',
-    module: 'staff_store',
-    badge: 'Nhân sự',
-  },
-  'STORE:VIEW': {
-    code: 'STORE:VIEW',
-    title: 'Xem thông tin cửa hàng',
-    description: 'Xem tên cửa hàng, hotline, tài khoản ngân hàng và chính sách bán hàng.',
-    module: 'staff_store',
-    badge: 'Cửa hàng',
-  },
-  'STORE:UPDATE': {
-    code: 'STORE:UPDATE',
-    title: 'Cài đặt thông tin cửa hàng',
-    description: 'Thay đổi logo, cấu hình máy in, tài khoản nhận tiền QR và thông tin hóa đơn.',
-    module: 'staff_store',
-    badge: 'Cửa hàng',
-  },
-
-  // ─── 6. BÁO CÁO & ĐỐI SOÁT (AUDIT & REPORT) ───
-  'AUDIT:VIEW': {
-    code: 'AUDIT:VIEW',
-    title: 'Xem đối soát doanh thu',
-    description: 'Theo dõi đối soát chốt ca, kiểm tra lệch tiền mặt/chuyển khoản cuối ngày.',
-    module: 'audit',
-    badge: 'Báo cáo',
-  },
-  'AUDIT:RESOLVE': {
-    code: 'AUDIT:RESOLVE',
-    title: 'Xử lý & Chốt đối soát',
-    description: 'Xác nhận giải trình lệch tiền và chốt sổ đối soát ca bán hàng.',
-    module: 'audit',
-    badge: 'Báo cáo',
-  },
 };
 
 /**
@@ -320,7 +255,7 @@ export const ROLE_TEMPLATES = [
   {
     id: 'ACCOUNTANT',
     name: 'Mẫu: Kế toán / Thu chi',
-    description: 'Phù hợp nhân viên phụ trách theo dõi công nợ khách hàng, thanh toán NCC và đối soát doanh thu.',
+    description: 'Phù hợp nhân viên phụ trách theo dõi công nợ khách hàng, thanh toán NCC và quản lý sổ nợ.',
     permissions: [
       'PRODUCT:VIEW',
       'IMPORT:VIEW',
@@ -331,8 +266,6 @@ export const ROLE_TEMPLATES = [
       'CUSTOMER:VIEW',
       'CUSTOMER:DEBT_VIEW',
       'CUSTOMER:DEBT_MANAGE',
-      'AUDIT:VIEW',
-      'AUDIT:RESOLVE',
     ],
   },
   {
@@ -359,7 +292,7 @@ export const ROLE_TEMPLATES = [
   {
     id: 'FULL_ACCESS',
     name: 'Mẫu: Nhân viên Toàn quyền',
-    description: 'Cấp toàn bộ 32 quyền trong hệ thống cho nhân viên cấp phó / quản lý ca tin cậy.',
+    description: 'Cấp toàn bộ quyền thao tác dành cho nhân viên trong hệ thống cho nhân viên cấp phó / quản lý ca tin cậy.',
     permissions: Object.keys(PERMISSION_DICTIONARY),
   },
   {

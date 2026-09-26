@@ -38,6 +38,8 @@ public class CreateDraftFromSuggestRequest {
         @NotNull(message = "productId không được để trống")
         Integer productId;
 
+        Integer productUnitId;
+
         @NotNull(message = "supplierId không được để trống")
         Integer supplierId;
 

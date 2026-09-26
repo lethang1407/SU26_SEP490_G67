@@ -155,7 +155,15 @@ const ForgotPasswordPage = () => {
             {/* Support Link */}
             <div className="text-center">
               <span className="text-muted small">Gặp khó khăn khi khôi phục? </span>
-              <a href="#" className="text-primary text-decoration-none small fw-medium" style={{ color: '#2563eb' }}>
+              <a
+                href="/help"
+                className="text-primary text-decoration-none small fw-medium"
+                style={{ color: '#2563eb' }}
+                onClick={(event) => {
+                  event.preventDefault();
+                  navigate('/help');
+                }}
+              >
                 Liên hệ hỗ trợ
               </a>
             </div>
