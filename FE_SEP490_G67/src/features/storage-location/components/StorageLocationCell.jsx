@@ -81,12 +81,6 @@ export default function StorageLocationCell({ location, isSelected, onSelect }) 
                 )}
             </div>
 
-            {status === LOCATION_STATUS.NEAR_EXPIRY && (
-                <span className="storage-location-cell__badge">
-                    <AlertTriangle size={12} />
-                    Sắp hết HSD
-                </span>
-            )}
             {status === LOCATION_STATUS.FULL ? (
                 <span className="storage-location-cell__badge storage-location-cell__badge--full">
                     Đầy
